@@ -1,0 +1,8 @@
+*.pyc
+*~
+*#
+*.pid
+*.db
+*.log
+run.sh
+restart.sh
