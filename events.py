@@ -5,26 +5,30 @@ import argparse
 import os
 import sys
 import logging
-import signal
 
 from message import MessageReceiver
-from models import init_db_session, RepoUpdateEvent
+from db import init_db_session, RepoUpdateEvent
 
 def parse_args():
     parser = argparse.ArgumentParser(
          description='seafile events recorder')
     
     parser.add_argument(
-        '-l',
-        '--log',
+        '--logfile',
         default=sys.stdout,
         type=argparse.FileType('w'),
         help='log file')
-
+    
     parser.add_argument(
         '-c',
-        '--confdir',
+        '--ccnet-conf-dir',
         default='~/.ccnet',
+        help='ccnet server config directory')
+
+
+    parser.add_argument(
+        '--config_file',
+        default=os.path.join(os.getcwd(), 'events.conf'),
         help='ccnet server config directory')
 
     parser.add_argument(
@@ -41,19 +45,15 @@ def init_logging(args):
         level = logging.DEBUG
     elif level == 'info':
         level = logging.INFO
-    elif level == 'warning':
+    else:
         level = logging.WARNING
         
     logging.basicConfig(
         format= '[%(asctime)s] %(message)s',
         datefmt= '%m/%d/%Y %H:%M:%S',
         level= level,
-        stream= args.log
+        stream= args.logfile
     )
-    
-def sighandler(signum, frame):
-    """Kill itself when Ctrl-C, for development"""
-    os.kill(os.getpid(), signal.SIGKILL)
     
 def do_exit(retcode):
     logging.info("Quit")
@@ -61,12 +61,12 @@ def do_exit(retcode):
 
 def main():
     args = parse_args()
-    ev_receiver = MessageReceiver(args.confdir, "seaf_server.event")
-    session = init_db_session()
+    ev_receiver = MessageReceiver(args.ccnet_conf_dir, "seaf_server.event")
+    session = init_db_session(args)
 
     init_logging(args)
-    signal.signal(signal.SIGINT, sighandler)
 
+    logging.info("Starts to read message") 
     while True:
         msg = ev_receiver.get_message()
         if not msg:
