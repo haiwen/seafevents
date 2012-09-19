@@ -4,6 +4,7 @@ from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import desc
 
 import ConfigParser
 
@@ -27,6 +28,10 @@ class RepoUpdateEvent(Base):
         self.commit_id = commit_id
         self.timestamp = timestamp
 
+    def __str__(self):
+        return "RepoUpdateEvent<repo = %s, commit = %s, time = %s>" % \
+            (self.repo_id, self.commit_id, self.timestamp)
+
 def create_engine_from_conf(config_file):
     config = ConfigParser.ConfigParser()
     config.read(config_file)
@@ -44,20 +49,31 @@ def create_engine_from_conf(config_file):
         db_url = "mysql://%s:%s@%s/%s" % (username, passwd, host, dbname)
     else:
         dbname = config.get('DATABASE', 'name')
-        db_url = "sqlite3:///%s"
+        if not os.path.isabs(dbname):
+            dbname = os.path.join(os.path.dirname(config_file), dbname)
+            
+        db_url = "sqlite3:///%s" % dbname
 
     engine = create_engine(db_url)
     
     return engine
     
-def init_db_session(args):
+def init_db_session(config_file):
+    """Create a sqlite3/mysql database session according to the config file.""" 
     try:
-        engine = create_engine_from_conf(args.config_file)
+        engine = create_engine_from_conf(config_file)
     except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
-        raise RuntimeError("invalid config file %s", args.config_file)
+        raise RuntimeError("invalid config file %s", config_file)
         
+    # Create tables if not exists.
     Base.metadata.create_all(engine) 
 
     Session = sessionmaker(bind=engine)
     session = Session()
+
     return session
+
+def get_repo_update_events(session):
+    """Return repo update events with DESCENDING timestamp"""
+    events = session.query(RepoUpdateEvent).order_by(desc(RepoUpdateEvent.timestamp))
+    return events

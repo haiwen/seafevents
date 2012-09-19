@@ -9,6 +9,8 @@ import logging
 from message import MessageReceiver
 from db import init_db_session, RepoUpdateEvent
 
+__all__ = []
+
 def parse_args():
     parser = argparse.ArgumentParser(
          description='seafile events recorder')
@@ -25,7 +27,6 @@ def parse_args():
         default='~/.ccnet',
         help='ccnet server config directory')
 
-
     parser.add_argument(
         '--config_file',
         default=os.path.join(os.getcwd(), 'events.conf'),
@@ -33,7 +34,7 @@ def parse_args():
 
     parser.add_argument(
         '--loglevel',
-        default='info'
+        default='debug'
     )
 
     return parser.parse_args()
@@ -62,7 +63,7 @@ def do_exit(retcode):
 def main():
     args = parse_args()
     ev_receiver = MessageReceiver(args.ccnet_conf_dir, "seaf_server.event")
-    session = init_db_session(args)
+    session = init_db_session(args.config_file)
 
     init_logging(args)
 
@@ -72,7 +73,7 @@ def main():
         if not msg:
             break
 
-        elements = msg.body.split()
+        elements = msg.body.split('\t')
         if len(elements) != 3:
             logging.warning("bad message: %s", elements)
             continue
