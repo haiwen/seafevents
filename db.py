@@ -54,7 +54,7 @@ def create_engine_from_conf(config_file):
             
         db_url = "sqlite3:///%s" % dbname
 
-    engine = create_engine(db_url)
+    engine = create_engine(db_url, echo=True)
     
     return engine
     
@@ -73,7 +73,10 @@ def init_db_session(config_file):
 
     return session
 
-def get_repo_update_events(session):
-    """Return repo update events with DESCENDING timestamp"""
-    events = session.query(RepoUpdateEvent).order_by(desc(RepoUpdateEvent.timestamp))
+def get_repo_update_events(session, repo_list, limit):
+    """Given a list of repos, return their update events with descending
+    timestamp.
+
+    """
+    events = session.query(RepoUpdateEvent).filter(RepoUpdateEvent.repo_id.in_(repo_list)).order_by(desc(RepoUpdateEvent.timestamp))[:limit]
     return events

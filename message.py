@@ -4,8 +4,13 @@ import ccnet
 import datetime
 
 __all__ = [
-    "MessageReceiver"
+    "MessageReceiver",
+    "NoConnectionError"
 ]
+
+class NoConnectionError(Exception):
+    """Indicates we can't connect to daemon""" 
+    pass
 
 class Message(object):
     """Ccnet message"""
@@ -17,23 +22,28 @@ class Message(object):
 class MessageReceiver(object):
     """A message receiver has a dedicated ccnet client for it."""
     def __init__(self, ccnet_conf_dir, msg_type):
-        self.conf_dir = ccnet_conf_dir 
+        self.ccnet_conf_dir = ccnet_conf_dir 
         self.msg_type = msg_type
-        self.client = ccnet.Client()
+        self.client = self.prepare_ccnet_client()
 
-        if self.client.load_confdir(ccnet_conf_dir) < 0:
+    def prepare_ccnet_client(self):
+        client = ccnet.Client()
+
+        if client.load_confdir(self.ccnet_conf_dir) < 0:
             raise RuntimeError("%s: failed to load config dir" % (self,))
             
-        ret = self.client.connect_daemon(ccnet.CLIENT_SYNC)
+        ret = client.connect_daemon(ccnet.CLIENT_SYNC)
         if ret < 0:
-            raise RuntimeError("%s: can't connect to daemon: %s" % (self, str(ret)))
+            raise NoConnectionError("%s: can't connect to daemon: %s" % (self, str(ret)))
         
-        if self.client.prepare_recv_message(msg_type) < 0:
+        if client.prepare_recv_message(self.msg_type) < 0:
             raise RuntimeError("%s: failed to prepare receive message" % (self,))
+
+        return client
 
     def __str__(self):
         return "<message receiver: conf dir = %s, msg_type = %s>" \
-            % (self.conf_dir, self.msg_type)
+            % (self.ccnet_conf_dir, self.msg_type)
 
     def get_message(self):
         """Block waiting for a message of the type specied when init this
@@ -42,7 +52,14 @@ class MessageReceiver(object):
         """
         msg = self.client.receive_message()
         if msg:
-            # type, body, ctime
+            # <app, body, ctime>
             return Message(msg[0], msg[1], msg[2])
         else:
-            return None
+            if not self.client.is_connected():
+                raise NoConnectionError
+            else:
+                return None
+
+    def reconnect(self):
+        assert not self.client.is_connected()
+        self.client = self.prepare_ccnet_client()

@@ -5,8 +5,9 @@ import argparse
 import os
 import sys
 import logging
+import time
 
-from message import MessageReceiver
+import message
 from db import init_db_session, RepoUpdateEvent
 
 __all__ = []
@@ -60,22 +61,50 @@ def do_exit(retcode):
     logging.info("Quit")
     sys.exit(retcode)
 
+def do_reconnect(receiver):
+    while True:
+        try:
+            logging.info("%s: try to reconnect to daemon", receiver)
+            receiver.reconnect()
+        except message.NoConnectionError:
+            logging.info("%s: failed to reconnect to daemon", receiver)
+            time.sleep(2)
+        else:
+            logging.info("%s: Reconnected to daemon", receiver)
+            break
+
+def create_receiver(args):
+    try:
+        receiver = message.MessageReceiver(args.ccnet_conf_dir, "seaf_server.event")
+    except message.NoConnectionError:
+        logging.warning("Can't connect to ccnet daemon. Now quit")
+        sys.exit(1)
+
+    return receiver
+        
+
 def main():
     args = parse_args()
-    ev_receiver = MessageReceiver(args.ccnet_conf_dir, "seaf_server.event")
-    session = init_db_session(args.config_file)
-
     init_logging(args)
+    ev_receiver = create_receiver(args)
+    session = init_db_session(args.config_file)
 
     logging.info("Starts to read message") 
     while True:
-        msg = ev_receiver.get_message()
+        try:
+            msg = ev_receiver.get_message()
+        except message.NoConnectionError:
+            logging.warning("Connection to daemon is lost")
+            do_reconnect(ev_receiver)
+            continue
+
         if not msg:
-            break
+            logging.warning("failed to read message")
+            continue
 
         elements = msg.body.split('\t')
         if len(elements) != 3:
-            logging.warning("bad message: %s", elements)
+            logging.warning("got bad message: %s", elements)
             continue
 
         repo_id = elements[1]
