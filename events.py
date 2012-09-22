@@ -8,7 +8,8 @@ import logging
 import time
 
 import message
-from db import init_db_session, RepoUpdateEvent
+from db import init_db_session
+from handler import handle_msg
 
 __all__ = []
 
@@ -81,7 +82,6 @@ def create_receiver(args):
         sys.exit(1)
 
     return receiver
-        
 
 def main():
     args = parse_args()
@@ -102,20 +102,7 @@ def main():
             logging.warning("failed to read message")
             continue
 
-        elements = msg.body.split('\t')
-        if len(elements) != 3:
-            logging.warning("got bad message: %s", elements)
-            continue
-
-        repo_id = elements[1]
-        commit_id = elements[2]
-
-        event = RepoUpdateEvent(repo_id, commit_id, msg.ctime)
-
-        logging.debug("get an event: %s", event)
-
-        session.add(event)
-        session.commit()
+        handle_msg(session, msg)
 
     do_exit(0)
 
