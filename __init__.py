@@ -1,16 +1,16 @@
 """
-Event: General event class
-    - uuid
+Event: General user event class, has these attributes:
+    - username
     - timestamp
     - etype
-    - detail: json format (see below for keys)
+    - <other event-specific attributes ...> , see the table below
 
 ----------------------------------
 
 event details:
 
 |-------------+---------------------------+-----------------------------|
-| etype       | detail keys               | more info                   |
+| etype       | type specific attributes  | more info                   |
 |-------------+---------------------------+-----------------------------|
 |-------------+---------------------------+-----------------------------|
 | repo-update | repo_id, commit_id        |                             |

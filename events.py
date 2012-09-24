@@ -8,7 +8,7 @@ import time
 
 import message
 from db import init_db_session
-from handler import handle_msg
+from handler import handle_message
 
 import logging
 
@@ -83,7 +83,6 @@ def create_receiver(args):
         receiver = message.MessageReceiver(args.ccnet_conf_dir, "seaf_server.event")
     except message.NoConnectionError:
         logging.warning("Can't connect to ccnet daemon. Now quit")
-        logging.debug("hello")
         sys.exit(1)
 
     return receiver
@@ -95,7 +94,7 @@ def main():
     Session = init_db_session(args.config_file)
     session = Session()
 
-    logging.info("Starts to read message\n") 
+    logging.info("Starts to read message") 
     while True:
         try:
             msg = ev_receiver.get_message()
@@ -108,7 +107,7 @@ def main():
             logging.warning("failed to read message")
             continue
 
-        handle_msg(session, msg)
+        handle_message(session, msg)
 
     do_exit(0)
 
