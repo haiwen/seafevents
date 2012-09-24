@@ -1,7 +1,7 @@
 import uuid
 import simplejson as json
 
-from sqlalchemy import Column, BigInteger, String, DateTime, Text
+from sqlalchemy import Column, Integer, String, DateTime, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import ForeignKey
 
@@ -40,7 +40,7 @@ class Event(Base):
 class UserEvent(Base):
     __tablename__ = 'UserEvent'
 
-    id = Column(BigInteger, primary_key=True)
+    id = Column(Integer, primary_key=True)
 
     username = Column(String(length=256), nullable=False, index=True)
 
