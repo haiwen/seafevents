@@ -4,12 +4,13 @@
 import argparse
 import os
 import sys
-import logging
 import time
 
 import message
 from db import init_db_session
 from handler import handle_msg
+
+import logging
 
 __all__ = []
 
@@ -36,27 +37,30 @@ def parse_args():
 
     parser.add_argument(
         '--loglevel',
-        default='debug'
+        default='debug',
     )
 
     return parser.parse_args()
 
 def init_logging(args):
+    """Configure logging module"""
     level = args.loglevel
-    
+
     if level == 'debug':
         level = logging.DEBUG
     elif level == 'info':
         level = logging.INFO
     else:
         level = logging.WARNING
-        
-    logging.basicConfig(
-        format= '[%(asctime)s] %(message)s',
-        datefmt= '%m/%d/%Y %H:%M:%S',
-        level= level,
-        stream= args.logfile
-    )
+
+    kw = {
+        "format": '[%(asctime)s] %(message)s',
+        "datefmt": '%m/%d/%Y %H:%M:%S',
+        "level": level,
+        "stream": args.logfile
+    }
+
+    logging.basicConfig(**kw)
     
 def do_exit(retcode):
     logging.info("Quit")
@@ -79,6 +83,7 @@ def create_receiver(args):
         receiver = message.MessageReceiver(args.ccnet_conf_dir, "seaf_server.event")
     except message.NoConnectionError:
         logging.warning("Can't connect to ccnet daemon. Now quit")
+        logging.debug("hello")
         sys.exit(1)
 
     return receiver
@@ -87,9 +92,10 @@ def main():
     args = parse_args()
     init_logging(args)
     ev_receiver = create_receiver(args)
-    session = init_db_session(args.config_file)
+    Session = init_db_session(args.config_file)
+    session = Session()
 
-    logging.info("Starts to read message") 
+    logging.info("Starts to read message\n") 
     while True:
         try:
             msg = ev_receiver.get_message()

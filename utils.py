@@ -1,4 +1,3 @@
-
 from seaserv import seafserv_threaded_rpc
 from seaserv import get_shared_groups_by_repo, get_group_members
 
@@ -25,5 +24,3 @@ def get_related_users_by_repo(repo_id):
                 users.append(repo.shared_email)
 
     return users
-        
-        

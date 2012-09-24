@@ -81,7 +81,7 @@ def create_engine_from_conf(config_file):
             
         db_url = "sqlite3:///%s" % dbname
 
-    engine = create_engine(db_url, echo=True)
+    engine = create_engine(db_url)
     
     return engine
     
@@ -96,9 +96,7 @@ def init_db_session(config_file):
     Base.metadata.create_all(engine) 
 
     Session = sessionmaker(bind=engine)
-    session = Session()
-
-    return session
+    return Session
 
 def get_user_events(session, username, limit):
     """Return events related to username with given limit"""

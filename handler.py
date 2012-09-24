@@ -64,3 +64,28 @@ def RepoUpdateEventHandler(session, msg):
         session.add(user_event)
 
     logging.debug("get an event: %s", event)
+
+@handle('repo-create')
+def RepoCreateEventHandler(session, msg):
+    elements = msg.body.split('\t')
+    if len(elements) != 4:
+        logging.warning("got bad message: %s", elements)
+        return
+
+    creator = elements[0]
+    repo_id = elements[1]
+    repo_name = elements[2]
+
+    dt = {'repo_name': repo_name,
+          'repo_id': repo_id,
+    }
+    
+    detail = json.dumps(dt)
+    event = Event(msg.ctime, 'repo-create', detail)
+    session.add(event)
+    session.commit()
+
+    user_event = UserEvent(creator, event.uuid)
+    session.add(user_event)
+
+    logging.debug("get an event: %s", event)
