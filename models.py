@@ -42,9 +42,9 @@ class UserEvent(Base):
 
     id = Column(BigInteger, primary_key=True)
 
-    username = Column(String(length=256), nullable=False)
+    username = Column(String(length=256), nullable=False, index=True)
 
-    eid = Column(String(length=36), ForeignKey('Event.uuid', ondelete='CASCADE'))
+    eid = Column(String(length=36), ForeignKey('Event.uuid', ondelete='CASCADE'), index=True)
 
     def __init__(self, username, eid):
         self.username = username

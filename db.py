@@ -44,7 +44,7 @@ def init_db_session(config_file):
     return Session
 
 class UserEventDetail(object):
-    """Regular objects which can be used by seaub without worrying about ORM"""
+    """Regular objects which can be used by seahub without worrying about ORM"""
     def __init__(self, user_name, event):
         self.username = user_name
 
@@ -56,7 +56,7 @@ class UserEventDetail(object):
             self.__dict__[key] = dt[key]
 
 def get_user_events(session, username, start, limit):
-    """Return events related to username with given limit"""
+    """Return events related to username with given start and limit"""
     events = session.query(Event).filter(UserEvent.username==username).filter(UserEvent.eid==Event.uuid).order_by(desc(Event.timestamp))[start:limit]
 
     return [ UserEventDetail(username, ev) for ev in events ]
