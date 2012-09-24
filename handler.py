@@ -1,8 +1,10 @@
 # coding: utf-8
 
 import logging
+import simplejson as json
 
-from db import RepoUpdateEvent
+from db import Event, UserEvent
+from utils import get_related_users_by_repo
 
 __all__ = [
     "handle_msg"
@@ -16,6 +18,7 @@ def handle(etype):
         assert not handlers.has_key(etype)
         handlers[etype] = func
         logging.info("add handler for event type %s", etype)
+        return func
     return decorate
 
 def handle_msg(session, msg):
@@ -33,7 +36,7 @@ def handle_msg(session, msg):
     func (session, msg)
 
 @handle('repo-update')
-def RepoUpdateEventHandler(session, msg):    
+def RepoUpdateEventHandler(session, msg):
     elements = msg.body.split('\t')
     if len(elements) != 3:
         logging.warning("got bad message: %s", elements)
@@ -42,9 +45,22 @@ def RepoUpdateEventHandler(session, msg):
     repo_id = elements[1]
     commit_id = elements[2]
 
-    event = RepoUpdateEvent(repo_id, commit_id, msg.ctime)
+    users =  get_related_users_by_repo(repo_id)
 
-    logging.debug("get an event: %s", event)
-
+    if not users:
+        return
+        
+    dt = {'repo_id': repo_id,
+          'commit_id': commit_id,
+    }
+    
+    detail = json.dumps(dt)
+    event = Event(msg.ctime, 'repo-update', detail)
     session.add(event)
     session.commit()
+
+    for user in users:
+        user_event = UserEvent(user, event.uuid)
+        session.add(user_event)
+
+    logging.debug("get an event: %s", event)

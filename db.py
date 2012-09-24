@@ -1,36 +1,63 @@
 import os
 
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, BigInteger, String, DateTime, Text
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+
+from sqlalchemy import ForeignKey
 from sqlalchemy import desc
 
+import uuid
 import ConfigParser
 
 __all__ = [
     "init_db_session",
-    "RepoUpdateEvent",
+    "UserEvent",
 ]
 
 Base = declarative_base()
 
-class RepoUpdateEvent(Base):
-    __tablename__ = 'RepoUpdateEvent'
+class Event(Base):
+    """General class for events. Specific information is stored in json format
+    in Event.detail.
 
-    id = Column(Integer, primary_key=True)
-    repo_id = Column(String(length=36), nullable=False)
-    commit_id = Column(String(length=40), nullable=False)
+    """
+    __tablename__ = 'Event'
+    
+    uuid = Column(String(length=36), primary_key=True)
+    etype = Column(String(length=128), nullable=False)
     timestamp = Column(DateTime, nullable=False)
 
-    def __init__(self, repo_id, commit_id, timestamp):
-        self.repo_id = repo_id
-        self.commit_id = commit_id
+    # Json format detail for this event
+    detail = Column(Text, nullable=False)
+
+    def __init__(self, timestamp, etype, detail):
+        self.uuid = str(uuid.uuid4())
         self.timestamp = timestamp
+        self.etype = etype
+        self.detail = detail
 
     def __str__(self):
-        return "RepoUpdateEvent<repo = %s, commit = %s, time = %s>" % \
-            (self.repo_id, self.commit_id, self.timestamp)
+        return 'Event<uuid: %s, type: %s, detail: %s>' % \
+            (self.uuid, self.etype, self.detail)
+    
+class UserEvent(Base):
+    __tablename__ = 'UserEvent'
+
+    id = Column(BigInteger, primary_key=True)
+
+    username = Column(String(length=256), nullable=False)
+
+    eid = Column(String(length=36), ForeignKey('Event.uuid'))
+
+    def __init__(self, username, eid):
+        self.username = username
+        self.eid = eid
+
+    def __str__(self):
+        return "UserEvent<user = %s, event id = %s>" % \
+            (self.username, self.eid)
 
 def create_engine_from_conf(config_file):
     config = ConfigParser.ConfigParser()
@@ -73,10 +100,7 @@ def init_db_session(config_file):
 
     return session
 
-def get_repo_update_events(session, repo_list, limit):
-    """Given a list of repos, return their update events with descending
-    timestamp.
-
-    """
-    events = session.query(RepoUpdateEvent).filter(RepoUpdateEvent.repo_id.in_(repo_list)).order_by(desc(RepoUpdateEvent.timestamp))[:limit]
+def get_user_events(session, username, limit):
+    """Return events related to username with given limit"""
+    events = session.query(Event).filter(UserEvent.username==username).filter(UserEvent.eid==Event.uuid).order_by(desc(Event.timestamp))[:limit]
     return events
