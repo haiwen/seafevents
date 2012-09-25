@@ -26,4 +26,4 @@ event details:
 """
 
 from db import init_db_session
-from db import get_user_events
+from db import get_user_events, save_user_events

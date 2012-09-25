@@ -2,8 +2,8 @@
 
 import logging
 
-from models import Event, UserEvent
 from utils import get_related_users_by_repo
+from db import save_user_events
 
 __all__ = [
     "handle_message"
@@ -52,17 +52,7 @@ def RepoUpdateEventHandler(session, msg):
           'commit_id': commit_id,
     }
     
-    event = Event(msg.ctime, 'repo-update', detail)
-    session.add(event)
-    session.commit()
-
-    for user in users:
-        user_event = UserEvent(user, event.uuid)
-        session.add(user_event)
-
-    session.commit()
-
-    logging.debug("get an event: %s", event)
+    save_user_events (session, 'repo-update', detail, users, msg.ctime)
 
 @set_handler('repo-create')
 def RepoCreateEventHandler(session, msg):
@@ -80,16 +70,8 @@ def RepoCreateEventHandler(session, msg):
           'repo_name': repo_name,
           'repo_id': repo_id,
     }
-    
-    event = Event(msg.ctime, 'repo-create', detail)
-    session.add(event)
-    session.commit()
 
-    user_event = UserEvent(creator, event.uuid)
-    session.add(user_event)
-    session.commit()
-
-    logging.debug("get an event: %s", event)
+    save_user_events (session, 'repo-create', detail, [creator], msg.ctime)
 
 @set_handler('repo-delete')    
 def RepoDeleteEventHandler(session, msg):
@@ -107,13 +89,5 @@ def RepoDeleteEventHandler(session, msg):
               'repo_id': repo_id,
               'repo_name': repo_name,
     }
-    
-    event = Event(msg.ctime, 'repo-delete', detail)
-    session.add(event)
-    session.commit()
 
-    user_event = UserEvent(owner, event.uuid)
-    session.add(user_event)
-
-    session.commit()
-    logging.debug("get an event: %s", event)
+    save_user_events (session, 'repo-delete', detail, [owner], msg.ctime)

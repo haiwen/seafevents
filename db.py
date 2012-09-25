@@ -4,6 +4,7 @@ from sqlalchemy import desc
 
 import ConfigParser
 import simplejson as json
+import datetime
 
 from models import Base, UserEvent, Event
 
@@ -26,7 +27,7 @@ def create_engine_from_conf(config_file):
     dbname = config.get('DATABASE', 'name')
     db_url = "mysql://%s:%s@%s/%s" % (username, passwd, host, dbname)
 
-    engine = create_engine(db_url)
+    engine = create_engine(db_url, pool_recycle=3600)
     
     return engine
     
@@ -60,3 +61,21 @@ def get_user_events(session, username, start, limit):
     events = session.query(Event).filter(UserEvent.username==username).filter(UserEvent.eid==Event.uuid).order_by(desc(Event.timestamp))[start:limit]
 
     return [ UserEventDetail(username, ev) for ev in events ]
+
+def save_user_events (session, etype, detail, usernames, timestamp):
+    """Save a user event. Detail is a dict which contains all event-speicific
+    information. A UserEvent will be created for every user in 'usernames'.
+
+    """
+    if timestamp is None:
+        timestamp = datetime.datetime.now()
+
+    event = Event(timestamp, etype, detail)
+    session.add(event)
+    session.commit()
+
+    for username in usernames:
+        user_event = UserEvent(username, event.uuid)
+        session.add(user_event)
+
+    session.commit()
