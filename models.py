@@ -5,12 +5,6 @@ from sqlalchemy import Column, Integer, String, DateTime, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import ForeignKey
 
-__all__ = [
-    "Base",
-    "Event",
-    "UserEvent",
-]
-
 Base = declarative_base()
 
 class Event(Base):
@@ -53,3 +47,23 @@ class UserEvent(Base):
     def __str__(self):
         return "UserEvent<user = %s, event id = %s>" % \
             (self.username, self.eid)
+
+class OrgUserEvent(Base):
+    __tablename__ = 'OrgUserEvent'
+
+    id = Column(Integer, primary_key=True)
+
+    org_id = Column(Integer)
+
+    username = Column(String(length=256), nullable=False, index=True)
+
+    eid = Column(String(length=36), ForeignKey('Event.uuid', ondelete='CASCADE'), index=True)
+
+    def __init__(self, org_id, username, eid):
+        self.org_id = org_id
+        self.username = username
+        self.eid = eid
+
+    def __str__(self):
+        return "OrgUserEvent<org = %d, user = %s, event id = %s>" % \
+            (self.org_id, self.username, self.eid)

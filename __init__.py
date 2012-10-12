@@ -9,21 +9,21 @@ Event: General user event class, has these attributes:
 
 event details:
 
-|-------------+---------------------------+-----------------------------|
-| etype       | type specific attributes  | more info                   |
-|-------------+---------------------------+-----------------------------|
-|-------------+---------------------------+-----------------------------|
-| repo-update | repo_id, commit_id        |                             |
-| repo-create | owner, repo_id, repo_name |                             |
-| repo-delete | owner, repo_id, repo_name |                             |
-| repo-share  | type, from, to, repo_id   | type can be 'group', 'user' |
-|-------------+---------------------------+-----------------------------|
-| join-group  | user, group               |                             |
-|-------------+---------------------------+-----------------------------|
-| quit-group  | user, group               |                             |
-|-------------+---------------------------+-----------------------------|
+|-------------+---------------------------+--------------------|
+| etype       | type specific attributes  | more info          |
+|-------------+---------------------------+--------------------|
+|-------------+---------------------------+--------------------|
+| repo-update | repo_id, commit_id        |                    |
+| repo-create | owner, repo_id, repo_name |                    |
+| repo-delete | owner, repo_id, repo_name |                    |
+| repo-share  | type, from, to, repo_id   | not implmented yet |
+|-------------+---------------------------+--------------------|
+| join-group  | user, group               | not implmented yet |
+| quit-group  | user, group               | not implmented yet |
+|-------------+---------------------------+--------------------|
     
 """
 
-from db import init_db_session
-from db import get_user_events, save_user_events
+from db import init_db_session_class
+from db import get_user_events, get_org_user_events
+from db import save_user_events, save_org_user_events

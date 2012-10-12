@@ -3,11 +3,6 @@
 import ccnet
 import datetime
 
-__all__ = [
-    "MessageReceiver",
-    "NoConnectionError"
-]
-
 class NoConnectionError(Exception):
     """Indicates we can't connect to daemon""" 
     pass

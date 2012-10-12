@@ -2,12 +2,8 @@
 
 import logging
 
-from utils import get_related_users_by_repo
-from db import save_user_events
-
-__all__ = [
-    "handle_message"
-]
+from seaserv import get_related_users_by_repo, get_org_id_by_repo_id, get_related_users_by_org_repo
+from db import save_user_events, save_org_user_events
 
 handlers = {}
 
@@ -43,20 +39,25 @@ def RepoUpdateEventHandler(session, msg):
         logging.warning("got bad message: %s", elements)
         return
 
+    etype = 'repo-update'
+
     repo_id = elements[1]
     commit_id = elements[2]
 
-    try:
-        users = get_related_users_by_repo(repo_id)
-    except:
-        logging.exception("error when get_related_users_by_repo")
-        return
-
-    if not users:
-        return
-        
     detail = {'repo_id': repo_id,
           'commit_id': commit_id,
     }
-    
-    save_user_events (session, 'repo-update', detail, users, msg.ctime)
+
+    org_id = get_org_id_by_repo_id(repo_id)
+    if org_id > 0:
+        users = get_related_users_by_org_repo(org_id, repo_id)
+    else:
+        users = get_related_users_by_repo(repo_id)
+
+    if not users:
+        return
+
+    if org_id > 0:
+        save_org_user_events (session, org_id, etype, detail, users, msg.ctime)
+    else:
+        save_user_events (session, etype, detail, users, msg.ctime)

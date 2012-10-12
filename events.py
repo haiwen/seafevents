@@ -7,12 +7,10 @@ import sys
 import time
 
 import message
-from db import init_db_session
+from db import init_db_session_class
 from handler import handle_message
 
 import logging
-
-__all__ = []
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -91,7 +89,7 @@ def main():
     args = parse_args()
     init_logging(args)
     ev_receiver = create_receiver(args)
-    Session = init_db_session(args.config_file)
+    Session = init_db_session_class(args.config_file)
     session = Session()
 
     logging.info("Starts to read message") 
