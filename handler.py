@@ -31,7 +31,10 @@ def handle_message(session, msg):
         return
 
     func = handlers[etype]
-    func (session, msg)
+    try:
+        func (session, msg)
+    except:
+        logging.exception("error when handle msg %s", msg)
 
 @set_handler('repo-update')
 def RepoUpdateEventHandler(session, msg):
@@ -43,7 +46,11 @@ def RepoUpdateEventHandler(session, msg):
     repo_id = elements[1]
     commit_id = elements[2]
 
-    users =  get_related_users_by_repo(repo_id)
+    try:
+        users = get_related_users_by_repo(repo_id)
+    except:
+        logging.exception("error when get_related_users_by_repo")
+        return
 
     if not users:
         return

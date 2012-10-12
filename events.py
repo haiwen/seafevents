@@ -102,6 +102,8 @@ def main():
             logging.warning("Connection to daemon is lost")
             do_reconnect(ev_receiver)
             continue
+        except:
+            logging.exception("error when read message")
 
         if not msg:
             logging.warning("failed to read message")

@@ -19,6 +19,9 @@ class Message(object):
         self.body = body
         self.ctime = datetime.datetime.fromtimestamp(float(ctime))
 
+    def __str__(self):
+        return "<Message(type='%s', body='%s')>" % (self.mtype, self.body)
+
 class MessageReceiver(object):
     """A message receiver has a dedicated ccnet client for it."""
     def __init__(self, ccnet_conf_dir, msg_type):
