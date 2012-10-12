@@ -48,6 +48,12 @@ class MessageReceiver(object):
         return "<message receiver: conf dir = %s, msg_type = %s>" \
             % (self.ccnet_conf_dir, self.msg_type)
 
+    def is_connected(self):
+        if self.client and self.client.is_connected():
+            return True
+
+        return False
+
     def get_message(self):
         """Block waiting for a message of the type specied when init this
         receiver.
@@ -64,5 +70,6 @@ class MessageReceiver(object):
                 return None
 
     def reconnect(self):
-        assert not self.client.is_connected()
+        if self.is_connected():
+            return
         self.client = self.prepare_ccnet_client()

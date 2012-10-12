@@ -104,6 +104,9 @@ def main():
             continue
         except:
             logging.exception("error when read message")
+            if not ev_receiver.is_connected():
+                do_reconnect(ev_receiver)
+            continue
 
         if not msg:
             logging.warning("failed to read message")
