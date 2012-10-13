@@ -36,23 +36,7 @@ class UserEvent(Base):
 
     id = Column(Integer, primary_key=True)
 
-    username = Column(String(length=256), nullable=False, index=True)
-
-    eid = Column(String(length=36), ForeignKey('Event.uuid', ondelete='CASCADE'), index=True)
-
-    def __init__(self, username, eid):
-        self.username = username
-        self.eid = eid
-
-    def __str__(self):
-        return "UserEvent<user = %s, event id = %s>" % \
-            (self.username, self.eid)
-
-class OrgUserEvent(Base):
-    __tablename__ = 'OrgUserEvent'
-
-    id = Column(Integer, primary_key=True)
-
+    # TODO: index on (org_id, username)
     org_id = Column(Integer)
 
     username = Column(String(length=256), nullable=False, index=True)
@@ -65,5 +49,9 @@ class OrgUserEvent(Base):
         self.eid = eid
 
     def __str__(self):
-        return "OrgUserEvent<org = %d, user = %s, event id = %s>" % \
-            (self.org_id, self.username, self.eid)
+        if self.org_id > 0:
+            return "UserEvent<org = %d, user = %s, event id = %s>" % \
+                (self.org_id, self.username, self.eid)
+        else:
+            return "UserEvent<user = %s, event id = %s>" % \
+                (self.username, self.eid)
