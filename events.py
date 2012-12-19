@@ -6,7 +6,7 @@ import os
 import sys
 import time
 
-import message
+from message import MessageReceiver, NoConnectionError
 from db import init_db_session_class
 from handler import handle_message
 
@@ -69,7 +69,7 @@ def do_reconnect(receiver):
         try:
             logging.info("%s: try to reconnect to daemon", receiver)
             receiver.reconnect()
-        except message.NoConnectionError:
+        except NoConnectionError:
             logging.info("%s: failed to reconnect to daemon", receiver)
             time.sleep(2)
         else:
@@ -78,8 +78,8 @@ def do_reconnect(receiver):
 
 def create_receiver(args):
     try:
-        receiver = message.MessageReceiver(args.ccnet_conf_dir, "seaf_server.event")
-    except message.NoConnectionError:
+        receiver = MessageReceiver(args.ccnet_conf_dir, "seaf_server.event")
+    except NoConnectionError:
         logging.warning("Can't connect to ccnet daemon. Now quit")
         sys.exit(1)
 
@@ -96,7 +96,7 @@ def main():
     while True:
         try:
             msg = ev_receiver.get_message()
-        except message.NoConnectionError:
+        except NoConnectionError:
             logging.warning("Connection to daemon is lost")
             do_reconnect(ev_receiver)
             continue
