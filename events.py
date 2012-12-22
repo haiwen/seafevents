@@ -6,7 +6,9 @@ import os
 import sys
 import time
 
-from message import MessageReceiver, NoConnectionError
+from ccnet import NetworkError
+
+from message import MessageReceiver
 from db import init_db_session_class
 from handler import handle_message
 
@@ -52,35 +54,35 @@ def init_logging(args):
         level = logging.WARNING
 
     kw = {
-        "format": '[%(asctime)s] %(message)s',
-        "datefmt": '%m/%d/%Y %H:%M:%S',
-        "level": level,
-        "stream": args.logfile
+        'format': '[%(asctime)s] %(message)s',
+        'datefmt': '%m/%d/%Y %H:%M:%S',
+        'level': level,
+        'stream': args.logfile
     }
 
     logging.basicConfig(**kw)
     
 def do_exit(retcode):
-    logging.info("Quit")
+    logging.info('Quit')
     sys.exit(retcode)
 
 def do_reconnect(receiver):
+    '''Reconnect to ccnet server when server restarts'''
     while True:
         try:
-            logging.info("%s: try to reconnect to daemon", receiver)
+            logging.info('%s: try to reconnect to daemon', receiver)
             receiver.reconnect()
-        except NoConnectionError:
-            logging.info("%s: failed to reconnect to daemon", receiver)
+        except NetworkError:
             time.sleep(2)
         else:
-            logging.info("%s: Reconnected to daemon", receiver)
+            logging.info('%s: Reconnected to daemon', receiver)
             break
 
 def create_receiver(args):
     try:
-        receiver = MessageReceiver(args.ccnet_conf_dir, "seaf_server.event")
-    except NoConnectionError:
-        logging.warning("Can't connect to ccnet daemon. Now quit")
+        receiver = MessageReceiver(args.ccnet_conf_dir, 'seaf_server.event')
+    except NetworkError:
+        logging.warning("can't connect to ccnet daemon. Now quit")
         sys.exit(1)
 
     return receiver
@@ -92,27 +94,18 @@ def main():
     Session = init_db_session_class(args.config_file)
     session = Session()
 
-    logging.info("Starts to read message") 
+    logging.info('starts to read message') 
     while True:
         try:
             msg = ev_receiver.get_message()
-        except NoConnectionError:
-            logging.warning("Connection to daemon is lost")
+        except NetworkError:
+            logging.warning('connection to daemon is lost')
             do_reconnect(ev_receiver)
             continue
-        except:
-            logging.exception("error when read message")
-            if not ev_receiver.is_connected():
-                do_reconnect(ev_receiver)
-            continue
+        else:
+            handle_message(session, msg)
 
-        if not msg:
-            logging.warning("failed to read message")
-            continue
-
-        handle_message(session, msg)
-
-    do_exit(0)
+    do_exit(1)
 
 if __name__ ==  '__main__':
     main()
