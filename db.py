@@ -49,6 +49,7 @@ class UserEventDetail(object):
 
         self.etype = event.etype
         self.timestamp = event.timestamp
+        self.uuid = event.uuid
 
         dt = json.loads(event.detail)
         for key in dt:
@@ -77,6 +78,13 @@ def get_org_user_events(session, org_id, username, start, limit):
 def get_user_all_events(session, username, start, limit):
     """Get all events of a user"""
     return _get_user_events(session, 0, username, start, limit)
+
+def delete_event(session, uuid):
+    '''Delete the event with the given UUID
+    TODO: delete a list of uuid to reduce sql queries
+    '''
+    session.query(Event).filter(Event.uuid==uuid).delete()
+    session.commit()
 
 def _save_user_events(session, org_id, etype, detail, usernames, timestamp):
     if timestamp is None:
