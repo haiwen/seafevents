@@ -5,6 +5,8 @@ import argparse
 import os
 import sys
 import time
+import atexit
+import signal
 
 from ccnet import NetworkError
 
@@ -17,13 +19,13 @@ import logging
 def parse_args():
     parser = argparse.ArgumentParser(
          description='seafile events recorder')
-    
+
     parser.add_argument(
         '--logfile',
         default=sys.stdout,
         type=argparse.FileType('w'),
         help='log file')
-    
+
     parser.add_argument(
         '-c',
         '--ccnet-conf-dir',
@@ -38,6 +40,11 @@ def parse_args():
     parser.add_argument(
         '--loglevel',
         default='debug',
+    )
+
+    parser.add_argument(
+        '-P',
+        '--pidfile',
     )
 
     return parser.parse_args()
@@ -61,7 +68,7 @@ def init_logging(args):
     }
 
     logging.basicConfig(**kw)
-    
+
 def do_exit(retcode):
     logging.info('Quit')
     sys.exit(retcode)
@@ -87,6 +94,26 @@ def create_receiver(args):
 
     return receiver
 
+
+def write_pidfile(pidfile):
+    pid = os.getpid()
+    with open(pidfile, 'w') as fp:
+        fp.write(str(pid))
+
+    def remove_pidfile():
+        '''Remove the pidfile when exit'''
+        logging.info('remove pidfile %s' % pidfile)
+        try:
+            os.remove(pidfile)
+        except:
+            pass
+
+    atexit.register(remove_pidfile)
+
+def sighandler(signum, frame):
+    """Kill itself when Ctrl-C, for development"""
+    os.kill(os.getpid(), signal.SIGKILL)
+
 def main():
     args = parse_args()
     init_logging(args)
@@ -94,7 +121,11 @@ def main():
     Session = init_db_session_class(args.config_file)
     session = Session()
 
-    logging.info('starts to read message') 
+    signal.signal (signal.SIGINT, sighandler)
+
+    if args.pidfile:
+        write_pidfile(args.pidfile)
+    logging.info('starts to read message')
     while True:
         try:
             msg = ev_receiver.get_message()
