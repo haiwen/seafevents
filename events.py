@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument(
         '--logfile',
         default=sys.stdout,
-        type=argparse.FileType('w'),
+        type=argparse.FileType('a'),
         help='log file')
 
     parser.add_argument(
@@ -74,9 +74,21 @@ def init_logging(args):
 
     logging.basicConfig(**kw)
 
-def do_exit(retcode):
-    logging.info('Quit')
-    sys.exit(retcode)
+def parse_interval(interval):
+    unit = 1
+    if interval.endswith('s'):
+        pass
+    elif interval.endswith('m'):
+        unit *= 60
+    elif interval.endswith('h'):
+        unit *= 60 * 60
+    elif interval.endswith('d'):
+        unit *= 60 * 60 * 24
+    else:
+        logging.critical('invalid index interval "%s"' % interval)
+        sys.exit(1)
+
+    return int(interval.rstrip('smhd')) * unit
 
 def write_pidfile(pidfile):
     pid = os.getpid()
@@ -120,17 +132,8 @@ def get_seafes_conf(config):
         return d
 
     interval = config.get(section_name, interval_name).lower()
-    unit = 1
-    if interval.endswith('s'):
-        pass
-    elif interval.endswith('m'):
-        unit *= 60
-    elif interval.endswith('h'):
-        unit *= 60 * 60
-    elif interval.endswith('d'):
-        unit *= 60 * 60 * 24
 
-    val = int(interval.rstrip('smhd')) * unit
+    val = parse_interval(interval)
     seafesdir = config.get(section_name, seafesdir_name)
 
     if val < 0:
@@ -147,7 +150,7 @@ def get_seafes_conf(config):
     if val < 60:
         logging.warning('index interval too short')
 
-    d['interval'] = val * unit
+    d['interval'] = val
     d['seafesdir'] = seafesdir
 
     return d

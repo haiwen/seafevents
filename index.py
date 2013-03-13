@@ -39,6 +39,8 @@ def update_file_index(seafesdir):
     run(cmd, cwd=seafesdir)
 
 def index_files(conf):
+    logging.info('periodic file indexer is started, interval = %s sec, seafesdir = %s',
+                 conf['interval'], conf['seafesdir'])
     if not conf:
         return
     interval = conf['interval']
