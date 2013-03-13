@@ -11,7 +11,6 @@ from models import Base, Event, UserEvent
 def create_engine_from_conf(config_file):
     config = ConfigParser.ConfigParser()
     config.read(config_file)
-
     if config.has_option('DATABASE', 'host'):
         host = config.get('DATABASE', 'host').lower()
     else:
@@ -20,9 +19,9 @@ def create_engine_from_conf(config_file):
     username = config.get('DATABASE', 'username')
     passwd = config.get('DATABASE', 'password')
     dbname = config.get('DATABASE', 'name')
-    db_url = "mysql://%s:%s@%s/%s" % (username, passwd, host, dbname)
+    db_url = "mysql+mysqlconnector://%s:%s@%s/%s" % (username, passwd, host, dbname)
 
-    # Add pool recycle, or mysql connection will be close by mysqld if idle
+    # Add pool recycle, or mysql connection will be closed by mysqld if idle
     # for too long.
     engine = create_engine(db_url, pool_recycle=3600)
 

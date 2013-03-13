@@ -1,18 +1,23 @@
 #!/usr/bin/env python
 #coding: utf-8
 
+import gevent
+from gevent import monkey
+monkey.patch_all()
+
 import argparse
+import ConfigParser
 import os
 import sys
 import time
 import atexit
 import signal
 
-from ccnet import NetworkError
+import ccnet
 
-from message import MessageReceiver
 from db import init_db_session_class
 from handler import handle_message
+from index import index_files
 
 import logging
 
@@ -28,8 +33,8 @@ def parse_args():
 
     parser.add_argument(
         '-c',
-        '--ccnet-conf-dir',
-        default='~/.ccnet',
+        '--ccnet-dir',
+        default=os.path.expanduser('~/.ccnet'),
         help='ccnet server config directory')
 
     parser.add_argument(
@@ -73,28 +78,6 @@ def do_exit(retcode):
     logging.info('Quit')
     sys.exit(retcode)
 
-def do_reconnect(receiver):
-    '''Reconnect to ccnet server when server restarts'''
-    while True:
-        try:
-            logging.info('%s: try to reconnect to daemon', receiver)
-            receiver.reconnect()
-        except NetworkError:
-            time.sleep(2)
-        else:
-            logging.info('%s: Reconnected to daemon', receiver)
-            break
-
-def create_receiver(args):
-    try:
-        receiver = MessageReceiver(args.ccnet_conf_dir, 'seaf_server.event')
-    except NetworkError:
-        logging.warning("can't connect to ccnet daemon. Now quit")
-        sys.exit(1)
-
-    return receiver
-
-
 def write_pidfile(pidfile):
     pid = os.getpid()
     with open(pidfile, 'w') as fp:
@@ -110,33 +93,124 @@ def write_pidfile(pidfile):
 
     atexit.register(remove_pidfile)
 
-def sighandler(signum, frame):
-    """Kill itself when Ctrl-C, for development"""
-    os.kill(os.getpid(), signal.SIGKILL)
+def sigint_handler(*args):
+    dummy = args
+    sys.exit(0)
+
+def sigchild_handler(*args):
+    dummy = args
+    os.wait3(os.WNOHANG)
+
+def start_mq_client(ccnet_session, dbsession):
+    def msg_cb(msg):
+        handle_message(dbsession, msg)
+
+    mq = 'seaf_server.event'
+    mqclient = ccnet_session.create_master_processor('mq-client')
+    mqclient.set_callback(msg_cb)
+    mqclient.start(mq)
+    logging.info('listen to mq: %s', mq)
+
+def get_seafes_conf(config):
+    section_name = 'INDEX FILES'
+    interval_name = 'interval'
+    seafesdir_name = 'seafesdir'
+    d = {}
+    if not config.has_section(section_name):
+        return d
+
+    interval = config.get(section_name, interval_name).lower()
+    unit = 1
+    if interval.endswith('s'):
+        pass
+    elif interval.endswith('m'):
+        unit *= 60
+    elif interval.endswith('h'):
+        unit *= 60 * 60
+    elif interval.endswith('d'):
+        unit *= 60 * 60 * 24
+
+    val = int(interval.rstrip('smhd')) * unit
+    seafesdir = config.get(section_name, seafesdir_name)
+
+    if val < 0:
+        logging.critical('invalid index interval %s' % interval)
+        sys.exit(1)
+
+    if not os.path.exists(seafesdir):
+        logging.critical('seafesdir %s does not exist' % seafesdir)
+        sys.exit(1)
+
+    logging.info('seafes dir: %s', seafesdir)
+    logging.info('seafes index interval: %s', interval)
+
+    if val < 60:
+        logging.warning('index interval too short')
+
+    d['interval'] = val * unit
+    d['seafesdir'] = seafesdir
+
+    return d
+
+def get_config(config_file):
+    config = ConfigParser.ConfigParser()
+    try:
+        config.read(config_file)
+    except Exception, e:
+        logging.critical('failed to read config file %s', e)
+        sys.exit(1)
+
+    return config
+
+def start_ccnet_session(ccnet_dir, dbsession):
+    ccnet_session = ccnet.AsyncClient(ccnet_dir)
+    connect_interval = 2
+    while True:
+        logging.info('connecting to ccnet server')
+        try:
+            ccnet_session.connect_daemon()
+            break
+        except ccnet.NetworkError:
+            time.sleep(connect_interval)
+
+    logging.info('connected to ccnet server')
+
+    start_mq_client(ccnet_session, dbsession)
+    return ccnet_session
+
+def get_db_session(config):
+    DBSessionClass = init_db_session_class(config)
+    dbsession = DBSessionClass()
+    logging.info('connected to database server')
+    return dbsession
 
 def main():
     args = parse_args()
     init_logging(args)
-    ev_receiver = create_receiver(args)
-    Session = init_db_session_class(args.config_file)
-    session = Session()
+    config = get_config(args.config_file)
+    seafes_conf = get_seafes_conf(config)
+    dbsession = get_db_session(args.config_file)
 
-    signal.signal (signal.SIGINT, sighandler)
+    gevent.signal(signal.SIGINT, sigint_handler)
+    gevent.signal(signal.SIGCHLD, sigchild_handler)
 
     if args.pidfile:
         write_pidfile(args.pidfile)
-    logging.info('starts to read message')
+
+    if seafes_conf:
+        gevent.spawn(index_files, seafes_conf)
+
+    ccnet_session = start_ccnet_session(args.ccnet_dir, dbsession)
     while True:
         try:
-            msg = ev_receiver.get_message()
-        except NetworkError:
-            logging.warning('connection to daemon is lost')
-            do_reconnect(ev_receiver)
-            continue
-        else:
-            handle_message(session, msg)
-
-    do_exit(1)
+            ccnet_session.main_loop()
+        except ccnet.NetworkError:
+            # auto reconnect
+            logging.warning('connection to ccnet server is lost')
+            ccnet_session = start_ccnet_session(args.ccnet_dir, dbsession)
+        except Exception, e:
+            logging.exception(str(e))
+            sys.exit(0)
 
 if __name__ ==  '__main__':
     main()

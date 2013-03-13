@@ -20,10 +20,10 @@ def handle_message(session, msg):
     if pos == -1:
         logging.warning("invalid message format: %s", msg)
         return
-        
+
     etype = msg.body[:pos]
     if not handlers.has_key(etype):
-        logging.warning("no handler for event type %s", etype) 
+        logging.warning("no handler for event type %s", etype)
         return
 
     func = handlers[etype]

@@ -13,7 +13,7 @@ class Event(Base):
 
     """
     __tablename__ = 'Event'
-    
+
     uuid = Column(String(length=36), primary_key=True)
     etype = Column(String(length=128), nullable=False)
     timestamp = Column(DateTime, nullable=False)
@@ -30,7 +30,7 @@ class Event(Base):
     def __str__(self):
         return 'Event<uuid: %s, type: %s, detail: %s>' % \
             (self.uuid, self.etype, self.detail)
-    
+
 class UserEvent(Base):
     __tablename__ = 'UserEvent'
 
