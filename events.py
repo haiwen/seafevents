@@ -74,6 +74,10 @@ def init_logging(args):
 
     logging.basicConfig(**kw)
 
+def do_exit(code):
+    logging.info('exit with code %s', code)
+    sys.exit(code)
+
 def parse_interval(interval):
     unit = 1
     if interval.endswith('s'):
@@ -86,7 +90,7 @@ def parse_interval(interval):
         unit *= 60 * 60 * 24
     else:
         logging.critical('invalid index interval "%s"' % interval)
-        sys.exit(1)
+        do_exit(1)
 
     return int(interval.rstrip('smhd')) * unit
 
@@ -107,7 +111,7 @@ def write_pidfile(pidfile):
 
 def sigint_handler(*args):
     dummy = args
-    sys.exit(0)
+    do_exit(0)
 
 def sigchild_handler(*args):
     dummy = args
@@ -138,11 +142,11 @@ def get_seafes_conf(config):
 
     if val < 0:
         logging.critical('invalid index interval %s' % interval)
-        sys.exit(1)
+        do_exit(1)
 
     if not os.path.exists(seafesdir):
         logging.critical('seafesdir %s does not exist' % seafesdir)
-        sys.exit(1)
+        do_exit(1)
 
     logging.info('seafes dir: %s', seafesdir)
     logging.info('seafes index interval: %s', interval)
@@ -161,7 +165,7 @@ def get_config(config_file):
         config.read(config_file)
     except Exception, e:
         logging.critical('failed to read config file %s', e)
-        sys.exit(1)
+        do_exit(1)
 
     return config
 
@@ -213,7 +217,7 @@ def main():
             ccnet_session = start_ccnet_session(args.ccnet_dir, dbsession)
         except Exception, e:
             logging.exception(str(e))
-            sys.exit(0)
+            do_exit(0)
 
 if __name__ ==  '__main__':
     main()
