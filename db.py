@@ -2,12 +2,15 @@ import os
 import ConfigParser
 import simplejson as json
 import datetime
+import logging
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import desc
 
 from models import Base, Event, UserEvent
+
+logger = logging.getLogger('seafevents')
 
 def create_engine_from_conf(config_file):
     config = ConfigParser.ConfigParser()
@@ -19,6 +22,7 @@ def create_engine_from_conf(config_file):
         if not os.path.isabs(path):
             path = os.path.join(os.path.dirname(config_file), path)
         db_url = "sqlite:///%s" % path
+        logger.info('[seafevents] database: sqlite3, path: %s', path)
     elif backend == 'mysql':
         if config.has_option('DATABASE', 'host'):
             host = config.get('DATABASE', 'host').lower()
@@ -28,6 +32,7 @@ def create_engine_from_conf(config_file):
         passwd = config.get('DATABASE', 'password')
         dbname = config.get('DATABASE', 'name')
         db_url = "mysql+mysqlconnector://%s:%s@%s/%s" % (username, passwd, host, dbname)
+        logger.info('[seafevents] database: mysql, name: %s', dbname)
     else:
         raise RuntimeError("Unknown database backend: %s" % backend)
 

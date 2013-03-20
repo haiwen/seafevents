@@ -188,7 +188,7 @@ def start_ccnet_session(ccnet_dir, dbsession):
 def get_db_session(config):
     DBSessionClass = init_db_session_class(config)
     dbsession = DBSessionClass()
-    logging.info('connected to database server')
+    logging.info('connected to database')
     return dbsession
 
 def main():
