@@ -29,12 +29,18 @@ def run(argv, cwd=None, env=None, suppress_stdout=False, suppress_stderr=False):
                          env=env)
 
 def update_file_index(seafesdir):
+    '''Invoking the update_repos.py, log to ./index.log'''
     assert os.path.exists(seafesdir)
     script_name = 'update_repos.py'
     script_path = os.path.join(seafesdir, script_name)
+    loglevel = 'debug'
+    logfile = os.path.join(os.path.dirname(__file__), 'index.log')
+    # python update_repos.py --logfile ./index.log --loglevel debug update
     cmd = [
-        sys.executable,
-        script_path,
+        sys.executable, script_path,
+        '--logfile', logfile,
+        '--loglevel', loglevel,
+        'update',
     ]
     run(cmd, cwd=seafesdir)
 
