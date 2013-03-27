@@ -115,7 +115,10 @@ def sigint_handler(*args):
 
 def sigchild_handler(*args):
     dummy = args
-    os.wait3(os.WNOHANG)
+    try:
+        os.wait3(os.WNOHANG)
+    except:
+        logging.exception('Error in sigchild_handler:')
 
 def start_mq_client(ccnet_session, dbsession):
     def msg_cb(msg):

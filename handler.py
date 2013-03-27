@@ -23,7 +23,8 @@ def handle_message(session, msg):
 
     etype = msg.body[:pos]
     if not handlers.has_key(etype):
-        logging.warning("no handler for event type %s", etype)
+        if etype != 'put-block':
+            logging.warning("no handler for event type %s", etype)
         return
 
     func = handlers[etype]

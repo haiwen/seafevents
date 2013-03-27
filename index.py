@@ -37,7 +37,7 @@ def update_file_index(seafesdir):
     logfile = os.path.join(os.path.dirname(__file__), 'index.log')
     # python update_repos.py --logfile ./index.log --loglevel debug update
     cmd = [
-        sys.executable, script_path,
+        script_path,
         '--logfile', logfile,
         '--loglevel', loglevel,
         'update',
