@@ -39,7 +39,7 @@ class UserEvent(Base):
     # TODO: index on (org_id, username)
     org_id = Column(Integer)
 
-    username = Column(String(length=256), nullable=False, index=True)
+    username = Column(String(length=255), nullable=False, index=True)
 
     eid = Column(String(length=36), ForeignKey('Event.uuid', ondelete='CASCADE'), index=True)
 
