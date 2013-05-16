@@ -28,13 +28,12 @@ def run(argv, cwd=None, env=None, suppress_stdout=False, suppress_stderr=False):
                          stderr=stderr,
                          env=env)
 
-def update_file_index(seafesdir):
+def update_file_index(seafesdir, logfile):
     '''Invoking the update_repos.py, log to ./index.log'''
     assert os.path.exists(seafesdir)
     script_name = 'update_repos.py'
     script_path = os.path.join(seafesdir, script_name)
     loglevel = 'debug'
-    logfile = os.path.join(os.path.dirname(__file__), 'index.log')
     # python update_repos.py --logfile ./index.log --loglevel debug update
     cmd = [
         script_path,
@@ -51,10 +50,11 @@ def index_files(conf):
         return
     interval = conf['interval']
     seafesdir = conf['seafesdir']
+    logfile = conf['logfile']
     while True:
         time.sleep(interval)
         logging.info('starts to index files')
         try:
-            update_file_index(seafesdir)
+            update_file_index(seafesdir, logfile)
         except Exception, e:
             logging.exception('error when index files: %s' % e)

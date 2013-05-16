@@ -32,13 +32,7 @@ def parse_args():
         help='log file')
 
     parser.add_argument(
-        '-c',
-        '--ccnet-dir',
-        default=os.path.expanduser('~/.ccnet'),
-        help='ccnet server config directory')
-
-    parser.add_argument(
-        '--config_file',
+        '--config-file',
         default=os.path.join(os.getcwd(), 'events.conf'),
         help='ccnet server config directory')
 
@@ -134,22 +128,38 @@ def get_seafes_conf(config):
     section_name = 'INDEX FILES'
     interval_name = 'interval'
     seafesdir_name = 'seafesdir'
+    logfile_name = 'logfile'
     d = {}
     if not config.has_section(section_name):
         return d
 
     interval = config.get(section_name, interval_name).lower()
-
     val = parse_interval(interval)
-    seafesdir = config.get(section_name, seafesdir_name)
-
     if val < 0:
         logging.critical('invalid index interval %s' % interval)
         do_exit(1)
 
+    # seafesdir can be either configured in events.conf, or through the
+    # environment variable "SEAFESDIR"
+    try:
+        seafesdir = config.get(section_name, seafesdir_name)
+    except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
+        seafesdir = os.environ.get('SEAFESDIR', None)
+        if not seafesdir:
+            raise RuntimeError('seafesdir is not set')
+
     if not os.path.exists(seafesdir):
         logging.critical('seafesdir %s does not exist' % seafesdir)
         do_exit(1)
+
+
+    try:
+        logfile = config.get(section_name, logfile_name)
+    except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
+        logfile = os.environ.get('SEAFES_LOGFILE', None)
+        if not logfile:
+            logfile = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                   'index.log')
 
     logging.info('seafes dir: %s', seafesdir)
     logging.info('seafes index interval: %s', interval)
@@ -159,6 +169,7 @@ def get_seafes_conf(config):
 
     d['interval'] = val
     d['seafesdir'] = seafesdir
+    d['logfile'] = logfile
 
     return d
 
@@ -194,12 +205,20 @@ def get_db_session(config):
     logging.info('connected to database')
     return dbsession
 
+def get_ccnet_dir():
+    try:
+        return os.environ['CCNET_CONF_DIR']
+    except KeyError:
+        raise RuntimeError('ccnet config dir is not set')
+
 def main():
     args = parse_args()
     init_logging(args)
     config = get_config(args.config_file)
     seafes_conf = get_seafes_conf(config)
     dbsession = get_db_session(args.config_file)
+
+    ccnet_dir = get_ccnet_dir()
 
     gevent.signal(signal.SIGINT, sigint_handler)
     gevent.signal(signal.SIGCHLD, sigchild_handler)
@@ -210,14 +229,14 @@ def main():
     if seafes_conf:
         gevent.spawn(index_files, seafes_conf)
 
-    ccnet_session = start_ccnet_session(args.ccnet_dir, dbsession)
+    ccnet_session = start_ccnet_session(ccnet_dir, dbsession)
     while True:
         try:
             ccnet_session.main_loop()
         except ccnet.NetworkError:
             # auto reconnect
             logging.warning('connection to ccnet server is lost')
-            ccnet_session = start_ccnet_session(args.ccnet_dir, dbsession)
+            ccnet_session = start_ccnet_session(ccnet_dir, dbsession)
         except Exception, e:
             logging.exception(str(e))
             do_exit(0)
