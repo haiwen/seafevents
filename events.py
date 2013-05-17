@@ -44,6 +44,7 @@ def parse_args():
     parser.add_argument(
         '-P',
         '--pidfile',
+        help='the location of the pidfile'
     )
 
     return parser.parse_args()
