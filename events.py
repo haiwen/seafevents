@@ -12,14 +12,13 @@ import sys
 import time
 import atexit
 import signal
+import logging
 
 import ccnet
 
 from db import init_db_session_class
 from handler import handle_message
 from index import index_files
-
-import logging
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -126,51 +125,74 @@ def start_mq_client(ccnet_session, dbsession):
     logging.info('listen to mq: %s', mq)
 
 def get_seafes_conf(config):
+    '''Parse search related options from events.conf'''
     section_name = 'INDEX FILES'
-    interval_name = 'interval'
-    seafesdir_name = 'seafesdir'
-    logfile_name = 'logfile'
+    key_seafesdir = 'seafesdir'
+    key_index_logfile = 'logfile'
+    key_index_interval = 'interval'
+    key_index_office_pdf = 'index_office_pdf'
+
     d = {}
     if not config.has_section(section_name):
         return d
 
-    interval = config.get(section_name, interval_name).lower()
-    val = parse_interval(interval)
-    if val < 0:
-        logging.critical('invalid index interval %s' % interval)
-        do_exit(1)
+    def get_option_from_conf_or_env (key, env_key, default=None):
+        '''Get option value from events.conf. If not specified in events.conf,
+        check the environment variable.
 
-    # seafesdir can be either configured in events.conf, or through the
-    # environment variable "SEAFESDIR"
-    try:
-        seafesdir = config.get(section_name, seafesdir_name)
-    except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
-        seafesdir = os.environ.get('SEAFESDIR', None)
-        if not seafesdir:
-            raise RuntimeError('seafesdir is not set')
+        '''
+        try:
+            value = config.get(section_name, key)
+        except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
+            value = os.environ.get(env_key.upper(), default)
 
+        return value
+
+    # [ seafesdir ]
+    seafesdir = get_option_from_conf_or_env(key_seafesdir, 'SEAFES_DIR', None)
+    if not seafesdir:
+        raise RuntimeError('seafesdir is not set')
     if not os.path.exists(seafesdir):
         logging.critical('seafesdir %s does not exist' % seafesdir)
         do_exit(1)
 
+    # [ index logfile ]
 
+    # default index file is 'index.log' in the seafes dir
+    default_index_logfile = os.path.join(seafesdir, 'index.log')
+    index_logfile = get_option_from_conf_or_env (key_index_logfile,
+                                                 'SEAFES_INDEX_LOGFILE',
+                                                 default=default_index_logfile)
+
+    # [ index interval ]
+    interval = config.get(section_name, key_index_interval).lower()
+    val = parse_interval(interval)
+    if val < 0:
+        logging.critical('invalid index interval %s' % val)
+        do_exit(1)
+    elif val < 60:
+        logging.warning('index interval too short')
+
+    # [ index office/pdf files  ]
+    index_office_pdf = False
     try:
-        logfile = config.get(section_name, logfile_name)
+        index_office_pdf = config.get(section_name, key_index_office_pdf)
     except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
-        logfile = os.environ.get('SEAFES_LOGFILE', None)
-        if not logfile:
-            logfile = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                   'index.log')
+        pass
+    else:
+        index_office_pdf = index_office_pdf.lower()
+        if index_office_pdf == 'true' or index_office_pdf == '1':
+            index_office_pdf = True
 
     logging.info('seafes dir: %s', seafesdir)
+    logging.info('seafes logfile: %s', index_logfile)
     logging.info('seafes index interval: %s', interval)
-
-    if val < 60:
-        logging.warning('index interval too short')
+    logging.info('seafes index office/pdf: %s', index_office_pdf)
 
     d['interval'] = val
     d['seafesdir'] = seafesdir
-    d['logfile'] = logfile
+    d['index_office_pdf'] = index_office_pdf
+    d['logfile'] = index_logfile
 
     return d
 
