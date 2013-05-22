@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Your ccnet conf dir
+export CCNET_CONF_DIR=
+# Your seafile conf dir
+export SEAFILE_CONF_DIR=
+
+# Your extra python path.
+export PYTHONPATH=$PYTHONPATH:
+
+if ! pgrep ccnet-server 2>/dev/null 1>&2; then
+    echo "please start ccnet-server first";
+    exit 1;
+fi
+
+pkill -f "python events.py --loglevel=debug"
+
+python events.py --loglevel=debug --logfile=events.log

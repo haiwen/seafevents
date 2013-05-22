@@ -1,0 +1,15 @@
+[DATABASE]
+type=mysql
+username=seafevents
+password=seafevents
+name=seafevents
+host=localhost
+
+[DATABASE]
+type = sqlite3
+path = seafevents.db
+
+[INDEX FILES]
+interval=5m
+seafesdir=/data/github/seafes/
+
