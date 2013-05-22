@@ -73,13 +73,19 @@ class UserEventDetail(object):
 # org_id < 0 --> get non-org events
 # org_id = 0 --> get all events
 def _get_user_events(session, org_id, username, start, limit):
+    if start < 0:
+        raise RuntimeError('start must be non-negative')
+
+    if limit <= 0:
+        raise RuntimeError('limit must be positive')
+
     q = session.query(Event).filter(UserEvent.username==username).filter(UserEvent.eid==Event.uuid)
     if org_id > 0:
         q = q.filter(UserEvent.org_id==org_id)
     elif org_id < 0:
         q = q.filter(UserEvent.org_id<=0)
 
-    events = q.order_by(desc(Event.timestamp))[start:limit]
+    events = q.order_by(desc(Event.timestamp))[start:start + limit]
     return [ UserEventDetail(org_id, username, ev) for ev in events ]
 
 def get_user_events(session, username, start, limit):
