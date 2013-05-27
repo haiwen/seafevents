@@ -3,22 +3,24 @@
 
 import gevent
 from gevent import monkey
-monkey.patch_all()
+monkey.patch_all(thread=False)
 
 import argparse
 import ConfigParser
 import os
 import sys
 import time
-import atexit
 import signal
 import logging
 
 import ccnet
+from pysearpc import searpc_server
 
-from db import init_db_session_class
-from handler import handle_message
+from events.db import init_db_session_class
+from events.handler import handle_message
+from office_converter import office_converter, OFFICE_RPC_SERVICE_NAME
 from index import index_files
+from utils import do_exit, write_pidfile, get_seafes_conf, get_office_converter_conf
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -60,48 +62,13 @@ def init_logging(args):
         level = logging.WARNING
 
     kw = {
-        'format': '[%(asctime)s] %(message)s',
+        'format': '[%(asctime)s] [%(module)s] %(message)s',
         'datefmt': '%m/%d/%Y %H:%M:%S',
         'level': level,
         'stream': args.logfile
     }
 
     logging.basicConfig(**kw)
-
-def do_exit(code):
-    logging.info('exit with code %s', code)
-    sys.exit(code)
-
-def parse_interval(interval):
-    unit = 1
-    if interval.endswith('s'):
-        pass
-    elif interval.endswith('m'):
-        unit *= 60
-    elif interval.endswith('h'):
-        unit *= 60 * 60
-    elif interval.endswith('d'):
-        unit *= 60 * 60 * 24
-    else:
-        logging.critical('invalid index interval "%s"' % interval)
-        do_exit(1)
-
-    return int(interval.rstrip('smhd')) * unit
-
-def write_pidfile(pidfile):
-    pid = os.getpid()
-    with open(pidfile, 'w') as fp:
-        fp.write(str(pid))
-
-    def remove_pidfile():
-        '''Remove the pidfile when exit'''
-        logging.info('remove pidfile %s' % pidfile)
-        try:
-            os.remove(pidfile)
-        except:
-            pass
-
-    atexit.register(remove_pidfile)
 
 def sigint_handler(*args):
     dummy = args
@@ -112,89 +79,12 @@ def sigchild_handler(*args):
     try:
         os.wait3(os.WNOHANG)
     except:
-        logging.exception('Error in sigchild_handler:')
-
-def start_mq_client(ccnet_session, dbsession):
-    def msg_cb(msg):
-        handle_message(dbsession, msg)
-
-    mq = 'seaf_server.event'
-    mqclient = ccnet_session.create_master_processor('mq-client')
-    mqclient.set_callback(msg_cb)
-    mqclient.start(mq)
-    logging.info('listen to mq: %s', mq)
-
-def get_seafes_conf(config):
-    '''Parse search related options from events.conf'''
-    section_name = 'INDEX FILES'
-    key_seafesdir = 'seafesdir'
-    key_index_logfile = 'logfile'
-    key_index_interval = 'interval'
-    key_index_office_pdf = 'index_office_pdf'
-
-    d = {}
-    if not config.has_section(section_name):
-        return d
-
-    def get_option_from_conf_or_env (key, env_key, default=None):
-        '''Get option value from events.conf. If not specified in events.conf,
-        check the environment variable.
-
-        '''
-        try:
-            value = config.get(section_name, key)
-        except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
-            value = os.environ.get(env_key.upper(), default)
-
-        return value
-
-    # [ seafesdir ]
-    seafesdir = get_option_from_conf_or_env(key_seafesdir, 'SEAFES_DIR', None)
-    if not seafesdir:
-        raise RuntimeError('seafesdir is not set')
-    if not os.path.exists(seafesdir):
-        logging.critical('seafesdir %s does not exist' % seafesdir)
-        do_exit(1)
-
-    # [ index logfile ]
-
-    # default index file is 'index.log' in the seafes dir
-    default_index_logfile = os.path.join(seafesdir, 'index.log')
-    index_logfile = get_option_from_conf_or_env (key_index_logfile,
-                                                 'SEAFES_INDEX_LOGFILE',
-                                                 default=default_index_logfile)
-
-    # [ index interval ]
-    interval = config.get(section_name, key_index_interval).lower()
-    val = parse_interval(interval)
-    if val < 0:
-        logging.critical('invalid index interval %s' % val)
-        do_exit(1)
-    elif val < 60:
-        logging.warning('index interval too short')
-
-    # [ index office/pdf files  ]
-    index_office_pdf = False
-    try:
-        index_office_pdf = config.get(section_name, key_index_office_pdf)
-    except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
         pass
-    else:
-        index_office_pdf = index_office_pdf.lower()
-        if index_office_pdf == 'true' or index_office_pdf == '1':
-            index_office_pdf = True
 
-    logging.info('seafes dir: %s', seafesdir)
-    logging.info('seafes logfile: %s', index_logfile)
-    logging.info('seafes index interval: %s', interval)
-    logging.info('seafes index office/pdf: %s', index_office_pdf)
-
-    d['interval'] = val
-    d['seafesdir'] = seafesdir
-    d['index_office_pdf'] = index_office_pdf
-    d['logfile'] = index_logfile
-
-    return d
+def set_signal_handler():
+    gevent.signal(signal.SIGINT, sigint_handler)
+    gevent.signal(signal.SIGCHLD, sigchild_handler)
+    gevent.signal(signal.SIGQUIT, gevent.shutdown)
 
 def get_config(config_file):
     config = ConfigParser.ConfigParser()
@@ -206,63 +96,136 @@ def get_config(config_file):
 
     return config
 
-def start_ccnet_session(ccnet_dir, dbsession):
-    ccnet_session = ccnet.AsyncClient(ccnet_dir)
-    connect_interval = 2
-    while True:
-        logging.info('connecting to ccnet server')
-        try:
-            ccnet_session.connect_daemon()
-            break
-        except ccnet.NetworkError:
-            time.sleep(connect_interval)
-
-    logging.info('connected to ccnet server')
-
-    start_mq_client(ccnet_session, dbsession)
-    return ccnet_session
-
-def get_db_session(config):
-    DBSessionClass = init_db_session_class(config)
-    dbsession = DBSessionClass()
-    logging.info('connected to database')
-    return dbsession
-
 def get_ccnet_dir():
     try:
         return os.environ['CCNET_CONF_DIR']
     except KeyError:
         raise RuntimeError('ccnet config dir is not set')
 
+class App(object):
+
+    SERVER_EVENTS_MQ = 'seaf_server.event'
+
+    RECONNECT_CCNET_INTERVAL = 2
+
+    def __init__(self, ccnet_dir, args):
+
+        self.ccnet_dir = ccnet_dir
+        self.args = args
+        self.app_config = get_config(args.config_file)
+
+        self.seafes_conf = get_seafes_conf(self.app_config)
+        self.office_converter_conf = get_office_converter_conf(self.app_config)
+
+        self.DBSessionClass = init_db_session_class(args.config_file)
+        self.db_session = self.DBSessionClass()
+
+        self.ccnet_session = None
+        self.mq_client = None
+
+    def ensure_single_instance(self):
+        # TODO: register a dummy service synchronously to ensure only a single
+        # instance is running
+        pass
+
+    def register_office_rpc(self):
+        '''Register office rpc service'''
+
+        searpc_server.create_service(OFFICE_RPC_SERVICE_NAME)
+        self.ccnet_session.register_service(OFFICE_RPC_SERVICE_NAME,
+                                            'basic',
+                                            ccnet.RpcServerProc)
+
+        searpc_server.register_function(OFFICE_RPC_SERVICE_NAME,
+                                        office_converter.query_convert_status)
+
+        searpc_server.register_function(OFFICE_RPC_SERVICE_NAME,
+                                        office_converter.query_file_pages)
+
+        searpc_server.register_function(OFFICE_RPC_SERVICE_NAME,
+                                        office_converter.add_task)
+
+    def start_search_indexer(self):
+        gevent.spawn(index_files, self.seafes_conf)
+
+    def start_office_converter(self):
+        office_converter.start(self.office_converter_conf)
+
+    def msg_cb(self, msg):
+        handle_message(self.db_session, msg)
+        logging.info('listen to mq: %s', self.SERVER_EVENTS_MQ)
+
+    def start_ccnet_session(self):
+        '''Connect to ccnet-server, retry util connection is made'''
+        self.ccnet_session = ccnet.AsyncClient(self.ccnet_dir)
+
+        while True:
+            logging.info('try to connect to ccnet-server...')
+            try:
+                self.ccnet_session.connect_daemon()
+                logging.info('connected to ccnet server')
+                break
+            except ccnet.NetworkError:
+                time.sleep(self.RECONNECT_CCNET_INTERVAL)
+
+
+    def start_mq_client(self):
+        self.mq_client = self.ccnet_session.create_master_processor('mq-client')
+        self.mq_client.set_callback(self.msg_cb)
+        self.mq_client.start(self.SERVER_EVENTS_MQ)
+
+    def connect_ccnet(self):
+        self.start_ccnet_session()
+        self.register_office_rpc()
+        self.start_mq_client()
+
+    def is_office_converter_enabled(self):
+        if self.office_converter_conf and self.office_converter_conf['enabled']:
+            return True
+        else:
+            return False
+
+    def is_search_indexer_enabled(self):
+        if self.seafes_conf and self.seafes_conf['enabled']:
+            return True
+        else:
+            return False
+
+    def _serve(self):
+        try:
+            self.ccnet_session.main_loop()
+        except ccnet.NetworkError:
+            logging.warning('connection to ccnet-server is lost')
+            self.connect_ccnet()
+        except Exception:
+            logging.exception('Error in main_loop:')
+            do_exit(0)
+
+    def serve_forever(self):
+        if self.is_search_indexer_enabled():
+            self.start_search_indexer()
+
+        if self.is_office_converter_enabled():
+            self.start_office_converter()
+
+        self.connect_ccnet()
+        while True:
+            self._serve()
+
+
 def main():
     args = parse_args()
     init_logging(args)
-    config = get_config(args.config_file)
-    seafes_conf = get_seafes_conf(config)
-    dbsession = get_db_session(args.config_file)
-
     ccnet_dir = get_ccnet_dir()
 
-    gevent.signal(signal.SIGINT, sigint_handler)
-    gevent.signal(signal.SIGCHLD, sigchild_handler)
+    app = App(ccnet_dir, args)
+
+    set_signal_handler()
 
     if args.pidfile:
         write_pidfile(args.pidfile)
 
-    if seafes_conf:
-        gevent.spawn(index_files, seafes_conf)
-
-    ccnet_session = start_ccnet_session(ccnet_dir, dbsession)
-    while True:
-        try:
-            ccnet_session.main_loop()
-        except ccnet.NetworkError:
-            # auto reconnect
-            logging.warning('connection to ccnet server is lost')
-            ccnet_session = start_ccnet_session(ccnet_dir, dbsession)
-        except Exception, e:
-            logging.exception(str(e))
-            do_exit(0)
+    app.serve_forever()
 
 if __name__ ==  '__main__':
     main()
