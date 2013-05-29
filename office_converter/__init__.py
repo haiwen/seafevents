@@ -73,4 +73,7 @@ class OfficeConverter(object):
         task_manager.init(num_workers=num_workers, pdf_dir=pdf_dir, html_dir=html_dir)
         task_manager.run()
 
+    def stop(self):
+        task_manager.stop()
+
 office_converter = OfficeConverter()

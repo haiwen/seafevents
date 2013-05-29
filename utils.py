@@ -5,7 +5,9 @@ import atexit
 import tempfile
 import ConfigParser
 
-def do_exit(code):
+def do_exit(code=0):
+    from office_converter import office_converter
+    office_converter.stop()
     logging.info('exit with code %s', code)
     sys.exit(1)
 

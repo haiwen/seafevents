@@ -2,9 +2,9 @@
 
 import os
 import sys
-import time
 import subprocess
 import logging
+import gevent
 
 def find_in_path(prog):
     if 'win32' in sys.platform:
@@ -101,7 +101,7 @@ def index_files(conf):
     seafesdir = conf['seafesdir']
     logfile = conf['logfile']
     while True:
-        time.sleep(interval)
+        gevent.sleep(interval)
         logging.info('starts to index files')
         try:
             update_file_index(seafesdir, logfile)

@@ -30,10 +30,14 @@ from .events.db import init_db_session_class
 from .events.db import get_user_events, get_org_user_events, delete_event
 from .events.db import save_user_events, save_org_user_events
 
-from .utils import get_office_converter_conf
+from .utils import get_office_converter_conf, get_seafes_conf
 
 def is_office_converter_enabled(config):
     conf = get_office_converter_conf(config)
+    return conf['enabled']
+
+def is_search_enabled(config):
+    conf = get_seafes_conf(config)
     return conf['enabled']
 
 def get_office_converter_html_dir(config):

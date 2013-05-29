@@ -74,6 +74,8 @@ class Worker(threading.Thread):
     libreoffice connected to it.
 
     """
+    should_exit = False
+
     def __init__(self, tasks_queue, index, **kwargs):
         threading.Thread.__init__(self, **kwargs)
 
@@ -175,7 +177,16 @@ class Worker(threading.Thread):
     def run(self):
         """Repeatedly get task from tasks queue and process it."""
         while True:
-            task = self._tasks_queue.get()
+            try:
+                task = self._tasks_queue.get(timeout=1)
+            except Queue.Empty:
+                if self.should_exit:
+                    if self._convertor:
+                        self._convertor.stop()
+                    break
+                else:
+                    continue
+
             self._handle_task(task)
 
 
@@ -201,6 +212,7 @@ class TaskManager(object):
 
         # tasks queue
         self._tasks_queue = Queue.Queue()
+        self._workers = []
 
         # Things to be initialized in self.init()
         self.pdf_dir = None
@@ -360,5 +372,14 @@ class TaskManager(object):
         for i in range(self._num_workers):
             t = Worker(self._tasks_queue, i)
             t.start()
+            self._workers.append(t)
+
+    def stop(self):
+        '''Set the flag for the worker threads to exit'''
+        Worker.should_exit = True
+        logging.info('waiting for worker threads to exit...')
+        for t in self._workers:
+            t.join()
+        logging.info('worker threads now exited')
 
 task_manager = TaskManager()

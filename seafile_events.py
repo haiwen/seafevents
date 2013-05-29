@@ -3,7 +3,7 @@
 
 import gevent
 from gevent import monkey
-monkey.patch_all(thread=False)
+monkey.patch_all(thread=False, time=False)
 
 import argparse
 import ConfigParser
@@ -83,8 +83,9 @@ def sigchild_handler(*args):
 
 def set_signal_handler():
     gevent.signal(signal.SIGINT, sigint_handler)
+    gevent.signal(signal.SIGTERM, sigint_handler)
+    gevent.signal(signal.SIGQUIT, sigint_handler)
     gevent.signal(signal.SIGCHLD, sigchild_handler)
-    gevent.signal(signal.SIGQUIT, gevent.shutdown)
 
 def get_config(config_file):
     config = ConfigParser.ConfigParser()
@@ -153,7 +154,6 @@ class App(object):
 
     def msg_cb(self, msg):
         handle_message(self.db_session, msg)
-        logging.info('listen to mq: %s', self.SERVER_EVENTS_MQ)
 
     def start_ccnet_session(self):
         '''Connect to ccnet-server, retry util connection is made'''
@@ -166,13 +166,14 @@ class App(object):
                 logging.info('connected to ccnet server')
                 break
             except ccnet.NetworkError:
-                time.sleep(self.RECONNECT_CCNET_INTERVAL)
+                gevent.sleep(self.RECONNECT_CCNET_INTERVAL)
 
 
     def start_mq_client(self):
         self.mq_client = self.ccnet_session.create_master_processor('mq-client')
         self.mq_client.set_callback(self.msg_cb)
         self.mq_client.start(self.SERVER_EVENTS_MQ)
+        logging.info('listen to mq: %s', self.SERVER_EVENTS_MQ)
 
     def connect_ccnet(self):
         self.start_ccnet_session()

@@ -176,6 +176,9 @@ class Convertor(object):
             except OSError:
                 pass
 
+    def stop(self):
+        self._finalize()
+
     @staticmethod
     def _prepare_doucment(document):
         ### Update document links
