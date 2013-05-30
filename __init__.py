@@ -30,9 +30,12 @@ from .events.db import init_db_session_class
 from .events.db import get_user_events, get_org_user_events, delete_event
 from .events.db import save_user_events, save_org_user_events
 
-from .utils import get_office_converter_conf, get_seafes_conf
+from .utils import has_office_tools, get_office_converter_conf, get_seafes_conf
 
 def is_office_converter_enabled(config):
+    if not has_office_tools():
+        return False
+
     conf = get_office_converter_conf(config)
     return conf['enabled']
 
@@ -41,6 +44,9 @@ def is_search_enabled(config):
     return conf['enabled']
 
 def get_office_converter_html_dir(config):
+    if not has_office_tools():
+        raise RuntimeError('office converter is not enabled')
+
     conf = get_office_converter_conf(config)
     if not conf['enabled']:
         raise RuntimeError('office conveter is not enabled')

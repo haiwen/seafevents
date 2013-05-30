@@ -5,11 +5,73 @@ import atexit
 import tempfile
 import ConfigParser
 
+def find_in_path(prog):
+    '''Test whether prog exists in system path'''
+    dirs = os.environ['PATH'].split(':')
+    for d in dirs:
+        if d == '':
+            continue
+        path = os.path.join(d, prog)
+        if os.path.exists(path):
+            return path
+
+    return None
+
+def check_office_tools():
+    """Check if requried executables can be found in PATH. If not, error
+    and exit.
+
+    """
+    tools = [
+        'soffice',
+        'pdf2htmlEX',
+    ]
+
+    for prog in tools:
+        if find_in_path(prog) is None:
+            logging.debug("Can't find the %s executable in PATH\n" % prog)
+            return False
+
+    return True
+
+def check_python_uno():
+    try:
+        import uno
+    except ImportError:
+        return False
+    else:
+        return True
+
+HAS_OFFICE_TOOLS = None
+def has_office_tools():
+    '''Test whether office converter can be enabled by checking the
+    libreoffice executable and python-uno library.
+
+    python-uno has an known bug about monkey patching the "__import__" builtin
+    function, which can make django fail to start. So we use a function to
+    defer the test of uno import until it is really need (which is after
+    django is started) to avoid the bug.
+
+    See https://code.djangoproject.com/ticket/11098
+
+    '''
+
+    global HAS_OFFICE_TOOLS
+    if HAS_OFFICE_TOOLS is None:
+        if check_python_uno() and check_python_uno():
+            HAS_OFFICE_TOOLS = True
+        else:
+            HAS_OFFICE_TOOLS = False
+
+    return HAS_OFFICE_TOOLS
+
 def do_exit(code=0):
-    from office_converter import office_converter
-    office_converter.stop()
+    if has_office_tools():
+        from office_converter import office_converter
+        office_converter.stop()
+
     logging.info('exit with code %s', code)
-    sys.exit(1)
+    sys.exit(code)
 
 def parse_bool(v):
     if isinstance(v, bool):
@@ -68,6 +130,11 @@ def write_pidfile(pidfile):
 
 def get_office_converter_conf(config):
     '''Parse search related options from events.conf'''
+
+    if not has_office_tools():
+        logging.debug('office converter is not enabled because libreoffice or python-uno is not found')
+        return dict(enabled=False)
+
     section_name = 'OFFICE CONVERTER'
     key_enabled = 'enabled'
     key_outputdir = 'outputdir'

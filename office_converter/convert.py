@@ -274,8 +274,20 @@ def pdf_to_html(pdf, html):
         html_name,                            # output main html file name
     ]
 
+    def get_env():
+        '''Set LD_LIBRARY_PATH for pdf2htmlEX'''
+        env = dict(os.environ)
+        try:
+            env['LD_LIBRARY_PATH'] = env['SEAFILE_LD_LIBRARY_PATH']
+        except KeyError:
+            pass
+
+        return env
+
+    env = get_env()
+
     try:
-        proc = subprocess.Popen(args, stdout=sys.stdout, stderr=sys.stderr)
+        proc = subprocess.Popen(args, stdout=sys.stdout, env=env, stderr=sys.stderr)
         retcode = proc.wait()
     except Exception, e:
         # Error happened when invoking the subprocess. We remove the tmpdir

@@ -58,11 +58,11 @@ class ConvertTask(object):
                 fn = self.document
 
             if fn and os.path.exists(fn):
-                logging.debug("removing temporary document %s", self.document)
+                logging.debug("removing temporary document %s", fn)
                 try:
                     os.remove(fn)
                 except OSError, e:
-                    logging.warning('failed to remove temporary document %s: %s', self.document, e)
+                    logging.warning('failed to remove temporary document %s: %s', fn, e)
 
         self._status = status
 
@@ -376,6 +376,9 @@ class TaskManager(object):
 
     def stop(self):
         '''Set the flag for the worker threads to exit'''
+        if not self._workers:
+            return
+
         Worker.should_exit = True
         logging.info('waiting for worker threads to exit...')
         for t in self._workers:

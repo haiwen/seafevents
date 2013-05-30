@@ -10,35 +10,8 @@ __all__ = [
 ]
 
 class OfficeConverter(object):
-    tools = [
-        'soffice',
-        'pdf2htmlEX',
-    ]
-
     def __init__(self):
         pass
-
-    def check_tools(self):
-        """Check if requried executables can be found in PATH. If not, error
-        and exit.
-
-        """
-        for prog in self.tools:
-            if self.find_in_path(prog) is None:
-                sys.stderr.write("Can't find the %s executable in PATH\n" % prog)
-                sys.exit(1)
-
-    def find_in_path(self, prog):
-        '''Test whether prog exists in system path'''
-        dirs = os.environ['PATH'].split(':')
-        for d in dirs:
-            if d == '':
-                continue
-            path = os.path.join(d, prog)
-            if os.path.exists(path):
-                return path
-
-        return None
 
     def add_task(self, file_id, doctype, url):
         supported_doctypes = ('pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx')

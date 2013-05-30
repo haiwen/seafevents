@@ -9,7 +9,6 @@ import argparse
 import ConfigParser
 import os
 import sys
-import time
 import signal
 import logging
 
@@ -18,9 +17,11 @@ from pysearpc import searpc_server
 
 from events.db import init_db_session_class
 from events.handler import handle_message
-from office_converter import office_converter, OFFICE_RPC_SERVICE_NAME
 from index import index_files
-from utils import do_exit, write_pidfile, get_seafes_conf, get_office_converter_conf
+from utils import do_exit, write_pidfile, get_seafes_conf, get_office_converter_conf, has_office_tools
+
+if has_office_tools():
+    from office_converter import office_converter, OFFICE_RPC_SERVICE_NAME
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -62,7 +63,7 @@ def init_logging(args):
         level = logging.WARNING
 
     kw = {
-        'format': '[%(asctime)s] [%(module)s] %(message)s',
+        'format': '[%(asctime)s] [%(levelname)s] %(message)s',
         'datefmt': '%m/%d/%Y %H:%M:%S',
         'level': level,
         'stream': args.logfile
@@ -177,10 +178,14 @@ class App(object):
 
     def connect_ccnet(self):
         self.start_ccnet_session()
-        self.register_office_rpc()
+        if self.is_office_converter_enabled():
+            self.register_office_rpc()
         self.start_mq_client()
 
     def is_office_converter_enabled(self):
+        if not has_office_tools():
+            return False
+
         if self.office_converter_conf and self.office_converter_conf['enabled']:
             return True
         else:
