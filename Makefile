@@ -1,10 +1,7 @@
 all: seafevents.tar.gz
 
 seafevents.tar.gz:
-	mkdir seafevents
-	cp *.py seafevents/
-	tar czvf seafevents.tar.gz seafevents
-	rm -rf seafevents
+	git archive --prefix=seafevents/ -o $@ HEAD
 
 clean:
-	rm -rf seafevents seafevents.tar.gz
+	rm -f seafevents.tar.gz
