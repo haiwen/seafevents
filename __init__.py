@@ -37,11 +37,11 @@ def is_office_converter_enabled(config):
         return False
 
     conf = get_office_converter_conf(config)
-    return conf['enabled']
+    return conf.get('enabled', False)
 
 def is_search_enabled(config):
     conf = get_seafes_conf(config)
-    return conf['enabled']
+    return conf.get('enabled', False)
 
 def get_office_converter_html_dir(config):
     if not has_office_tools():
