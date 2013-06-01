@@ -13,6 +13,6 @@ if ! pgrep ccnet-server 2>/dev/null 1>&2; then
     exit 1;
 fi
 
-pkill -f "python events.py --loglevel=debug"
+pkill -f "python seafile_events.py --loglevel=debug"
 
-python events.py --loglevel=debug --logfile=events.log
+python seafile_events.py --loglevel=debug --logfile=events.log
