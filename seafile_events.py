@@ -3,6 +3,9 @@
 
 import gevent
 from gevent import monkey
+
+# "thread" can not be patched, since we use worker threads for doc/pdf to html convert
+# "time" can not be patched, since we use thread.Lock, which depends on "time"
 monkey.patch_all(thread=False, time=False)
 
 import argparse
