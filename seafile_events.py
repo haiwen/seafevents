@@ -110,6 +110,9 @@ class App(object):
 
     RECONNECT_CCNET_INTERVAL = 2
 
+    DUMMY_SERVICE = 'seafevents-dummy-service'
+    DUMMY_SERVICE_GROUP = 'rpc-inner'
+
     def __init__(self, ccnet_dir, args):
 
         self.ccnet_dir = ccnet_dir
@@ -124,11 +127,21 @@ class App(object):
 
         self.ccnet_session = None
         self.mq_client = None
+        self.sync_client = None
 
     def ensure_single_instance(self):
-        # TODO: register a dummy service synchronously to ensure only a single
-        # instance is running
-        pass
+        '''Register a dummy service synchronously to ensure only a single
+        instance is running
+
+        '''
+        self.sync_client = ccnet.SyncClient(self.ccnet_dir)
+        self.sync_client.connect_daemon()
+        try:
+            self.sync_client.register_service_sync(self.DUMMY_SERVICE,
+                                                   self.DUMMY_SERVICE_GROUP)
+        except:
+            logging.exception('failed to register dummy rpc')
+            do_exit(1)
 
     def register_office_rpc(self):
         '''Register office rpc service'''
@@ -178,6 +191,8 @@ class App(object):
 
     def connect_ccnet(self):
         self.start_ccnet_session()
+        self.ensure_single_instance()
+
         if self.is_office_converter_enabled():
             self.register_office_rpc()
         self.start_mq_client()
