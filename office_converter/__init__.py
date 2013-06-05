@@ -3,6 +3,7 @@ import sys
 
 from .task_manager import task_manager
 from .rpc import OfficeConverterRpcClient, OFFICE_RPC_SERVICE_NAME
+from .doctypes import DOC_TYPES, PPT_TYPES, EXCEL_TYPES
 
 __all__ = [
     'office_converter',
@@ -10,13 +11,14 @@ __all__ = [
 ]
 
 class OfficeConverter(object):
+    supported_doctypes = DOC_TYPES + PPT_TYPES + EXCEL_TYPES
+
     def __init__(self):
-        pass
+        self.conf = None
 
     def add_task(self, file_id, doctype, url):
-        supported_doctypes = ('pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx')
 
-        if doctype not in supported_doctypes:
+        if doctype not in self.supported_doctypes:
             raise Exception('doctype "%s" is not supported' % doctype)
 
         if len(file_id) != 40:

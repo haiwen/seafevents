@@ -18,6 +18,8 @@ from com.sun.star.script import CannotConvertException
 from com.sun.star.uno import Exception as UnoException
 from com.sun.star.uno import RuntimeException
 
+from .doctypes import DOC_TYPES, PPT_TYPES, EXCEL_TYPES
+
 __all__ = [
     "Convertor",
     "ConvertorInitError",
@@ -60,11 +62,12 @@ class OutputStream(unohelper.Base, XOutputStream):
 
 def get_filter_by_doctype(doctype):
     """Return the libreoffice filter name for the given document type."""
-    if doctype == 'doc' or doctype == 'docx':
+
+    if doctype in DOC_TYPES:
         return 'writer_pdf_Export'
-    elif doctype == 'ppt' or doctype == 'pptx':
+    elif doctype in PPT_TYPES:
         return 'impress_pdf_Export'
-    elif doctype == 'xls' or doctype == 'xlsx':
+    elif doctype in EXCEL_TYPES:
         return 'calc_pdf_Export'
     else:
         logging.warning('invalid doctype %s', doctype)
@@ -234,7 +237,7 @@ class Convertor(object):
         try:
             return self._convert(file_path, doctype, pdf)
         except DisposedException, e:
-            # TODO: Can we reconnect to office here, instead of terminate it?
+            # XXX: Can we reconnect to office here, instead of terminate it?
             self._finalize()
             raise ConvertorFatalError()
         except Exception, e:
