@@ -123,7 +123,7 @@ class Worker(threading.Thread):
 
     def _convert_to_html(self, task):
         """Use pdf2htmlEX to convert pdf to html"""
-        if pdf_to_html(task.pdf, task.html) != 0:
+        if pdf_to_html(task.pdf, task.html, task_manager.max_pages) != 0:
             logging.warning("failed to convert %s to html", task)
             task.status = 'ERROR'
             task.error = 'failed to convert document'
@@ -217,13 +217,16 @@ class TaskManager(object):
         # Things to be initialized in self.init()
         self.pdf_dir = None
         self.html_dir = None
+        self.max_pages = 50
+
         self._num_workers = 2
 
-    def init(self, num_workers=2, pdf_dir='/tmp/seafile-pdf-dir', html_dir='/tmp/seafile-html-dir'):
+    def init(self, num_workers=2, max_pages=50, pdf_dir='/tmp/seafile-pdf-dir', html_dir='/tmp/seafile-html-dir'):
         self._set_pdf_dir(pdf_dir)
         self._set_html_dir(html_dir)
 
         self._num_workers = num_workers
+        self.max_pages = max_pages
 
     def _checkdir_with_mkdir(self, dname):
         if os.path.exists(dname):

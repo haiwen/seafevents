@@ -37,6 +37,7 @@ def check_office_tools():
 def check_python_uno():
     try:
         import uno
+        del uno
     except ImportError:
         return False
     else:
@@ -113,6 +114,25 @@ def parse_interval(interval):
 
     return int(interval.rstrip('smhd')) * unit
 
+def parse_max_size(val, default):
+    try:
+        val = int(val.lower().rstrip('mb')) * 1024 * 1024
+    except:
+        logging.exception('xxx:')
+        val = default
+
+    return val
+
+def parse_max_pages(val, default):
+    try:
+        val = int(val)
+        if val <= 0:
+            val = default
+    except:
+        val = default
+
+    return val
+
 def write_pidfile(pidfile):
     pid = os.getpid()
     with open(pidfile, 'w') as fp:
@@ -137,12 +157,18 @@ def get_office_converter_conf(config):
 
     section_name = 'OFFICE CONVERTER'
     key_enabled = 'enabled'
-    key_outputdir = 'outputdir'
-    key_workers = 'workers'
 
-    default_outputdir = os.path.join(tempfile.gettempdir(),
-                                     'seafile-office-output')
+    key_outputdir = 'outputdir'
+    default_outputdir = os.path.join(tempfile.gettempdir(), 'seafile-office-output')
+
+    key_workers = 'workers'
     default_workers = 2
+
+    key_max_pages = 'max-pages'
+    default_max_pages = 50
+
+    key_max_size = 'max-size'
+    default_max_size = 2 * 1024 * 1024
 
     d = {}
     if not config.has_section(section_name):
@@ -177,6 +203,20 @@ def get_office_converter_conf(config):
 
     d['workers'] = workers
     logging.debug('office convert workers: %s', workers)
+
+    max_size = get_option(key_max_size, default=default_max_size)
+    if max_size != default_max_size:
+        max_size = parse_max_size(max_size, default=default_max_size)
+
+    max_pages = get_option(key_max_pages, default=default_max_pages)
+    if max_pages != default_max_pages:
+        max_pages = parse_max_pages(max_pages, default=default_max_pages)
+
+    logging.debug('office convert max pages: %s', max_pages)
+    logging.debug('office convert max size: %s MB', max_size / 1024 / 1024)
+
+    d['max_pages'] = max_pages
+    d['max_size'] = max_size
 
     return d
 

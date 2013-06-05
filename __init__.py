@@ -52,3 +52,15 @@ def get_office_converter_html_dir(config):
         raise RuntimeError('office conveter is not enabled')
 
     return os.path.join(conf['outputdir'], 'html')
+
+def get_office_converter_limit(config):
+    if not has_office_tools():
+        raise RuntimeError('office converter is not enabled')
+
+    conf = get_office_converter_conf(config)
+    if not conf['enabled']:
+        raise RuntimeError('office conveter is not enabled')
+
+    max_size = conf['max_size']
+    max_pages = conf['max_pages']
+    return max_size, max_pages

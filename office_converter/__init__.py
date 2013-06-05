@@ -11,7 +11,7 @@ __all__ = [
 ]
 
 class OfficeConverter(object):
-    supported_doctypes = DOC_TYPES + PPT_TYPES + EXCEL_TYPES
+    supported_doctypes = DOC_TYPES + PPT_TYPES + EXCEL_TYPES + ('pdf', )
 
     def __init__(self):
         self.conf = None
@@ -42,10 +42,11 @@ class OfficeConverter(object):
         self.conf = conf
 
         num_workers = conf['workers']
+        max_pages = conf['max_pages']
         pdf_dir = os.path.join(conf['outputdir'], 'pdf')
         html_dir = os.path.join(conf['outputdir'], 'html')
 
-        task_manager.init(num_workers=num_workers, pdf_dir=pdf_dir, html_dir=html_dir)
+        task_manager.init(num_workers=num_workers, pdf_dir=pdf_dir, html_dir=html_dir, max_pages=max_pages)
         task_manager.run()
 
     def stop(self):

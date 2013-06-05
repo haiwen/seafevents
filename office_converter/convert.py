@@ -249,7 +249,7 @@ class Convertor(object):
             else:
                 return False
 
-def pdf_to_html(pdf, html):
+def pdf_to_html(pdf, html, pages):
     html_dir = os.path.dirname(html)
     html_name = os.path.basename(html)
 
@@ -273,7 +273,7 @@ def pdf_to_html(pdf, html):
         '--css-filename', 'file.css',      # css file name
         '--outline-filename', 'file.outline', # outline file name
         '--page-filename', '%d.page',         # outline file name
-        '--last-page', '50',                  # max page range
+        '--last-page', str(pages),            # max page range
         '--fit-width', '700',                 # page width
         pdf,                                  # src file
         html_name,                            # output main html file name
