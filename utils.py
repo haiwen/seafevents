@@ -160,7 +160,7 @@ def get_office_converter_conf(config):
     enabled = parse_bool(enabled)
 
     d['enabled'] = enabled
-    logging.info('office enabled: %s', enabled)
+    logging.debug('office enabled: %s', enabled)
 
     if enabled:
         outputdir = get_option(key_outputdir, default=default_outputdir)
@@ -170,13 +170,13 @@ def get_office_converter_conf(config):
 
         d['outputdir'] = outputdir
 
-        logging.info('office outputdir: %s', outputdir)
+        logging.debug('office outputdir: %s', outputdir)
 
     workers = get_option(key_workers, default=default_workers)
     workers = parse_workers(workers, default_workers)
 
     d['workers'] = workers
-    logging.info('office convert workers: %s', workers)
+    logging.debug('office convert workers: %s', workers)
 
     return d
 
@@ -209,7 +209,7 @@ def get_seafes_conf(config):
     # [ enabled ]
     enabled = get_option_from_conf_or_env(key_enabled, default=False)
     enabled = parse_bool(enabled)
-    logging.info('seafes enabled: %s', enabled)
+    logging.debug('seafes enabled: %s', enabled)
 
     d['enabled'] = enabled
     if not enabled:
@@ -251,10 +251,10 @@ def get_seafes_conf(config):
         if index_office_pdf == 'true' or index_office_pdf == '1':
             index_office_pdf = True
 
-    logging.info('seafes dir: %s', seafesdir)
-    logging.info('seafes logfile: %s', index_logfile)
-    logging.info('seafes index interval: %s', interval)
-    logging.info('seafes index office/pdf: %s', index_office_pdf)
+    logging.debug('seafes dir: %s', seafesdir)
+    logging.debug('seafes logfile: %s', index_logfile)
+    logging.debug('seafes index interval: %s', interval)
+    logging.debug('seafes index office/pdf: %s', index_office_pdf)
 
     d['interval'] = val
     d['seafesdir'] = seafesdir
