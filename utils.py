@@ -98,7 +98,10 @@ def parse_workers(workers, default_workers):
 
     return workers
 
-def parse_interval(interval):
+def parse_interval(interval, default):
+    if isinstance(interval, int):
+        return interval
+
     unit = 1
     if interval.endswith('s'):
         pass
@@ -109,10 +112,14 @@ def parse_interval(interval):
     elif interval.endswith('d'):
         unit *= 60 * 60 * 24
     else:
-        logging.critical('invalid index interval "%s"' % interval)
-        do_exit(1)
+        pass
 
-    return int(interval.rstrip('smhd')) * unit
+    val = int(interval.rstrip('smhd')) * unit
+    if val < 30:
+        logging.warning('insane interval %s', val)
+        return default
+    else:
+        return val
 
 def parse_max_size(val, default):
     try:
@@ -229,6 +236,8 @@ def get_seafes_conf(config):
     key_index_interval = 'interval'
     key_index_office_pdf = 'index_office_pdf'
 
+    default_index_interval = 30 * 60 # 30 min
+
     d = {}
     if not config.has_section(section_name):
         return d
@@ -258,6 +267,7 @@ def get_seafes_conf(config):
     # [ seafesdir ]
     seafesdir = get_option_from_conf_or_env(key_seafesdir, 'SEAFES_DIR', None)
     if not seafesdir:
+        logging.critical('seafesdir is not set')
         raise RuntimeError('seafesdir is not set')
     if not os.path.exists(seafesdir):
         logging.critical('seafesdir %s does not exist' % seafesdir)
@@ -272,13 +282,8 @@ def get_seafes_conf(config):
                                                  default=default_index_logfile)
 
     # [ index interval ]
-    interval = config.get(section_name, key_index_interval).lower()
-    val = parse_interval(interval)
-    if val < 0:
-        logging.critical('invalid index interval %s' % val)
-        do_exit(1)
-    elif val < 60:
-        logging.warning('index interval too short')
+    interval = get_option_from_conf_or_env(key_index_interval, default=default_index_interval).lower()
+    val = parse_interval(interval, default_index_interval)
 
     # [ index office/pdf files  ]
     index_office_pdf = False
@@ -293,12 +298,69 @@ def get_seafes_conf(config):
 
     logging.debug('seafes dir: %s', seafesdir)
     logging.debug('seafes logfile: %s', index_logfile)
-    logging.debug('seafes index interval: %s', interval)
+    logging.debug('seafes index interval: %s sec', interval)
     logging.debug('seafes index office/pdf: %s', index_office_pdf)
 
     d['interval'] = val
     d['seafesdir'] = seafesdir
     d['index_office_pdf'] = index_office_pdf
     d['logfile'] = index_logfile
+
+    return d
+
+def get_seahub_email_conf(config):
+    '''Parse send email related options from events.conf'''
+    section_name = 'SEAHUB EMAIL'
+    key_enabled = 'enabled'
+    key_seahubdir = 'seahubdir'
+
+    key_interval = 'interval'
+    default_interval = 30 * 60  # 30min
+
+    d = {}
+    if not config.has_section(section_name):
+        return d
+
+    def get_option_from_conf_or_env(key, env_key=None, default=None):
+        '''Get option value from events.conf. If not specified in events.conf,
+        check the environment variable.
+
+        '''
+        try:
+            return config.get(section_name, key)
+        except ConfigParser.NoOptionError:
+            if env_key is None:
+                return default
+            else:
+                return os.environ.get(env_key.upper(), default)
+
+    # [ enabled ]
+    enabled = get_option_from_conf_or_env(key_enabled, default=False)
+    enabled = parse_bool(enabled)
+    logging.debug('seahub email enabled: %s', enabled)
+
+    d['enabled'] = enabled
+    if not enabled:
+        return d
+
+    # seahubdir
+    seahubdir = get_option_from_conf_or_env(key_seahubdir, 'SEAHUB_DIR')
+    if not seahubdir:
+        logging.critical('seahubdir is not set')
+        raise RuntimeError('seahubdir is not set')
+    if not os.path.exists(seahubdir):
+        logging.critical('seahubdir %s does not exist' % seahubdir)
+        do_exit(1)
+
+    d['seahubdir'] = seahubdir
+    logging.debug('seahub dir: %s', seahubdir)
+
+    # [ send email interval ]
+    interval = get_option_from_conf_or_env(key_interval, default=default_interval).lower()
+    interval = parse_interval(interval, default_interval)
+
+    logging.debug('send seahub email interval: %s sec', interval)
+
+    d['interval'] = interval
 
     return d

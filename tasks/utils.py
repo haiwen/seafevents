@@ -1,10 +1,6 @@
-#coding: UTF-8
-
 import os
 import sys
 import subprocess
-import logging
-import gevent
 
 def find_in_path(prog):
     if 'win32' in sys.platform:
@@ -53,7 +49,6 @@ def get_python_executable():
     pyexec = _get_python_executable()
     return pyexec
 
-
 def run(argv, cwd=None, env=None, suppress_stdout=False, suppress_stderr=False):
     '''Run a program and wait it to finish, and return its exit code. The
     standard output of this program is supressed.
@@ -75,35 +70,3 @@ def run(argv, cwd=None, env=None, suppress_stdout=False, suppress_stderr=False):
                          stdout=stdout,
                          stderr=stderr,
                          env=env)
-
-def update_file_index(seafesdir, logfile):
-    '''Invoking the update_repos.py, log to ./index.log'''
-    assert os.path.exists(seafesdir)
-    script_name = 'update_repos.py'
-    script_path = os.path.join(seafesdir, script_name)
-    loglevel = 'debug'
-    # python update_repos.py --logfile ./index.log --loglevel debug update
-    cmd = [
-        get_python_executable(),
-        script_path,
-        '--logfile', logfile,
-        '--loglevel', loglevel,
-        'update',
-    ]
-    run(cmd, cwd=seafesdir)
-
-def index_files(conf):
-    logging.info('periodic file indexer is started, interval = %s sec, seafesdir = %s',
-                 conf['interval'], conf['seafesdir'])
-    if not conf:
-        return
-    interval = conf['interval']
-    seafesdir = conf['seafesdir']
-    logfile = conf['logfile']
-    while True:
-        gevent.sleep(interval)
-        logging.info('starts to index files')
-        try:
-            update_file_index(seafesdir, logfile)
-        except Exception, e:
-            logging.exception('error when index files: %s' % e)

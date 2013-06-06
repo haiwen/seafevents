@@ -2,4 +2,5 @@
 .gitattributes export-ignore
 *.md export-ignore
 *.template export-ignore
+*.sh export-ignore
 Makefile export-ignore

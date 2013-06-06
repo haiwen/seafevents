@@ -20,8 +20,9 @@ from pysearpc import searpc_server
 
 from events.db import init_db_session_class
 from events.handler import handle_message
-from index import index_files
-from utils import do_exit, write_pidfile, get_seafes_conf, get_office_converter_conf, has_office_tools
+from tasks import send_seahub_email, index_files
+from utils import do_exit, write_pidfile, get_seafes_conf, get_office_converter_conf, has_office_tools, \
+    get_seahub_email_conf
 
 if has_office_tools():
     from office_converter import office_converter, OFFICE_RPC_SERVICE_NAME
@@ -124,9 +125,11 @@ class App(object):
 
         self.seafes_conf = get_seafes_conf(self.app_config)
         self.office_converter_conf = get_office_converter_conf(self.app_config)
+        self.seahub_email_conf = get_seahub_email_conf(self.app_config)
 
         self.DBSessionClass = init_db_session_class(args.config_file)
         self.db_session = self.DBSessionClass()
+
 
         self.ccnet_session = None
         self.mq_client = None
@@ -165,6 +168,9 @@ class App(object):
 
     def start_search_indexer(self):
         gevent.spawn(index_files, self.seafes_conf)
+
+    def start_send_seahub_email(self):
+        gevent.spawn(send_seahub_email, self.seahub_email_conf)
 
     def start_office_converter(self):
         office_converter.start(self.office_converter_conf)
@@ -215,6 +221,12 @@ class App(object):
         else:
             return False
 
+    def is_send_seahub_email_enabled(self):
+        if self.seahub_email_conf and self.seahub_email_conf['enabled']:
+            return True
+        else:
+            return False
+
     def _serve(self):
         try:
             self.ccnet_session.main_loop()
@@ -228,6 +240,9 @@ class App(object):
     def serve_forever(self):
         if self.is_search_indexer_enabled():
             self.start_search_indexer()
+
+        if self.is_send_seahub_email_enabled():
+            self.start_send_seahub_email()
 
         if self.is_office_converter_enabled():
             self.start_office_converter()
