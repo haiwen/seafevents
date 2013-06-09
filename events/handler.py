@@ -1,9 +1,10 @@
 # coding: utf-8
 
 import logging
+import datetime
 
 from seaserv import get_related_users_by_repo, get_org_id_by_repo_id, get_related_users_by_org_repo
-from db import save_user_events, save_org_user_events
+from .db import save_user_events, save_org_user_events
 
 handlers = {}
 
@@ -58,7 +59,8 @@ def RepoUpdateEventHandler(session, msg):
     if not users:
         return
 
+    time = datetime.datetime.utcfromtimestamp(msg.ctime)
     if org_id > 0:
-        save_org_user_events (session, org_id, etype, detail, users, msg.ctime)
+        save_org_user_events (session, org_id, etype, detail, users, time)
     else:
-        save_user_events (session, etype, detail, users, msg.ctime)
+        save_user_events (session, etype, detail, users, time)

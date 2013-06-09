@@ -108,7 +108,7 @@ def delete_event(session, uuid):
 
 def _save_user_events(session, org_id, etype, detail, usernames, timestamp):
     if timestamp is None:
-        timestamp = datetime.datetime.now()
+        timestamp = datetime.datetime.utcnow()
 
     if org_id > 0 and not detail.has_key('org_id'):
         detail['org_id'] = org_id
