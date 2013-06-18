@@ -59,7 +59,7 @@ def has_office_tools():
 
     global HAS_OFFICE_TOOLS
     if HAS_OFFICE_TOOLS is None:
-        if check_python_uno() and check_python_uno():
+        if check_office_tools() and check_python_uno():
             HAS_OFFICE_TOOLS = True
         else:
             HAS_OFFICE_TOOLS = False

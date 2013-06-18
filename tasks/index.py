@@ -6,7 +6,7 @@ import gevent
 
 from .utils import get_python_executable, run
 
-def update_file_index(seafesdir, logfile):
+def update_file_index(seafesdir, index_office_pdf, logfile):
     '''Invoking the update_repos.py, log to ./index.log'''
     assert os.path.exists(seafesdir)
     script_name = 'update_repos.py'
@@ -20,7 +20,16 @@ def update_file_index(seafesdir, logfile):
         '--loglevel', loglevel,
         'update',
     ]
-    run(cmd, cwd=seafesdir)
+
+    def get_env():
+        env = dict(os.environ)
+        if index_office_pdf:
+            env['SEAFES_INDEX_OFFICE_PDF'] = 'true'
+
+        return env
+
+    env = get_env()
+    run(cmd, cwd=seafesdir, env=env)
 
 def index_files(conf):
     logging.info('periodic file indexer is started, interval = %s sec, seafesdir = %s',
@@ -28,10 +37,11 @@ def index_files(conf):
     interval = conf['interval']
     seafesdir = conf['seafesdir']
     logfile = conf['logfile']
+    index_office_pdf = conf['index_office_pdf']
     while True:
         gevent.sleep(interval)
         logging.info('starts to index files')
         try:
-            update_file_index(seafesdir, logfile)
+            update_file_index(seafesdir, index_office_pdf, logfile)
         except Exception:
             logging.exception('error when index files:')
