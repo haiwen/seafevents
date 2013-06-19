@@ -24,7 +24,6 @@ def check_office_tools():
     """
     tools = [
         'soffice',
-        'pdf2htmlEX',
     ]
 
     for prog in tools:
