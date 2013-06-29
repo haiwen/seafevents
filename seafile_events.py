@@ -128,8 +128,6 @@ class App(object):
         self.seahub_email_conf = get_seahub_email_conf(self.app_config)
 
         self.DBSessionClass = init_db_session_class(args.config_file)
-        self.db_session = self.DBSessionClass()
-
 
         self.ccnet_session = None
         self.mq_client = None
@@ -176,7 +174,12 @@ class App(object):
         office_converter.start(self.office_converter_conf)
 
     def msg_cb(self, msg):
-        handle_message(self.db_session, msg)
+        logging.debug(msg.body)
+        session = self.DBSessionClass()
+        try:
+            handle_message(session, msg)
+        finally:
+            session.close()
 
     def start_ccnet_session(self):
         '''Connect to ccnet-server, retry util connection is made'''

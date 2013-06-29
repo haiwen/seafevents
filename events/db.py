@@ -7,10 +7,19 @@ import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import desc
+from sqlalchemy.pool import QueuePool
 
 from models import Base, Event, UserEvent
+from gevent.coros import Semaphore
 
 logger = logging.getLogger('seafevents')
+
+class GreenQueuePool(QueuePool):
+
+    def __init__(self, *args, **kwargs):
+        super(GreenQueuePool, self).__init__(*args, **kwargs)
+        if self._overflow_lock is not None:
+            self._overflow_lock = Semaphore()
 
 def create_engine_from_conf(config_file):
     config = ConfigParser.ConfigParser()
@@ -38,7 +47,7 @@ def create_engine_from_conf(config_file):
 
     # Add pool recycle, or mysql connection will be closed by mysqld if idle
     # for too long.
-    engine = create_engine(db_url, pool_recycle=3600)
+    engine = create_engine(db_url, pool_recycle=3600, poolclass=GreenQueuePool)
 
     return engine
 
