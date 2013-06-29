@@ -75,6 +75,8 @@ def init_logging(args):
 
     logging.basicConfig(**kw)
 
+    logging.getLogger('events.db.GreenQueuePool').setLevel(logging.WARN)
+
 def sigint_handler(*args):
     dummy = args
     do_exit(0)
