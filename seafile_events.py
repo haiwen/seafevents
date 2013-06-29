@@ -176,7 +176,6 @@ class App(object):
         office_converter.start(self.office_converter_conf)
 
     def msg_cb(self, msg):
-        logging.debug(msg.body)
         session = self.DBSessionClass()
         try:
             handle_message(session, msg)
