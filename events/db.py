@@ -47,8 +47,12 @@ def create_engine_from_conf(config_file):
 
     # Add pool recycle, or mysql connection will be closed by mysqld if idle
     # for too long.
-    engine = create_engine(db_url, pool_recycle=3600, poolclass=GreenQueuePool,
-                           echo=False, echo_pool=False, max_overflow=-1)
+    kwargs = dict(pool_recycle=3600, echo=False, echo_pool=False)
+    if backend == 'mysql':
+        kwargs['poolclass'] = GreenQueuePool
+        kwargs['max_overflow'] = -1
+
+    engine = create_engine(db_url, **kwargs)
 
     return engine
 
