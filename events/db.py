@@ -7,10 +7,10 @@ import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import desc
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.pool import QueuePool, NullPool
+from gevent.coros import Semaphore
 
 from models import Base, Event, UserEvent
-from gevent.coros import Semaphore
 
 logger = logging.getLogger('seafevents')
 
@@ -49,8 +49,12 @@ def create_engine_from_conf(config_file):
     # for too long.
     kwargs = dict(pool_recycle=3600, echo=False, echo_pool=False)
     if backend == 'mysql':
-        kwargs['poolclass'] = GreenQueuePool
-        kwargs['max_overflow'] = -1
+        if 'DJANGO_SETTINGS_MODULE' in os.environ:
+            #  enable db pooling for seahub process
+            pass
+        else:
+            # disable db pooling in seafevents process
+            kwargs['poolclass'] = NullPool
 
     engine = create_engine(db_url, **kwargs)
 
