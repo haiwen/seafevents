@@ -7,19 +7,10 @@ import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import desc
-from sqlalchemy.pool import QueuePool, NullPool
-from gevent.coros import Semaphore
 
 from models import Base, Event, UserEvent
 
 logger = logging.getLogger('seafevents')
-
-class GreenQueuePool(QueuePool):
-
-    def __init__(self, *args, **kwargs):
-        super(GreenQueuePool, self).__init__(*args, **kwargs)
-        if self._overflow_lock is not None:
-            self._overflow_lock = Semaphore()
 
 def create_engine_from_conf(config_file):
     config = ConfigParser.ConfigParser()
@@ -48,13 +39,6 @@ def create_engine_from_conf(config_file):
     # Add pool recycle, or mysql connection will be closed by mysqld if idle
     # for too long.
     kwargs = dict(pool_recycle=3600, echo=False, echo_pool=False)
-    if backend == 'mysql':
-        if 'DJANGO_SETTINGS_MODULE' in os.environ:
-            #  enable db pooling for seahub process
-            pass
-        else:
-            # disable db pooling in seafevents process
-            kwargs['poolclass'] = NullPool
 
     engine = create_engine(db_url, **kwargs)
 

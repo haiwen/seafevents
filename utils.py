@@ -114,7 +114,7 @@ def parse_interval(interval, default):
         pass
 
     val = int(interval.rstrip('smhd')) * unit
-    if val < 30:
+    if val < 10:
         logging.warning('insane interval %s', val)
         return default
     else:

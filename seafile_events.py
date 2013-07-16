@@ -1,21 +1,19 @@
 #!/usr/bin/env python
 #coding: utf-8
 
-import gevent
-from gevent import monkey
-
-# "thread" can not be patched, since we use worker threads for doc/pdf to html convert
-# "time" can not be patched, since we use thread.Lock, which depends on "time"
-monkey.patch_all(thread=False, time=False)
-
 import argparse
 import ConfigParser
 import os
 import sys
+import time
 import signal
 import logging
+import libevent
+import threading
+import Queue
 
 import ccnet
+from ccnet.async import AsyncClient, RpcServerProc
 from pysearpc import searpc_server
 
 from events.db import init_db_session_class
@@ -40,7 +38,7 @@ def parse_args():
     parser.add_argument(
         '--config-file',
         default=os.path.join(os.getcwd(), 'events.conf'),
-        help='ccnet server config directory')
+        help='seafevents config file')
 
     parser.add_argument(
         '--loglevel',
@@ -89,10 +87,11 @@ def sigchild_handler(*args):
         pass
 
 def set_signal_handler():
-    gevent.signal(signal.SIGINT, sigint_handler)
-    gevent.signal(signal.SIGTERM, sigint_handler)
-    gevent.signal(signal.SIGQUIT, sigint_handler)
-    gevent.signal(signal.SIGCHLD, sigchild_handler)
+    signal.signal(signal.SIGINT, sigint_handler)
+    signal.signal(signal.SIGTERM, sigint_handler)
+    signal.signal(signal.SIGQUIT, sigint_handler)
+
+    signal.signal(signal.SIGCHLD, sigchild_handler)
 
 def get_config(config_file):
     config = ConfigParser.ConfigParser()
@@ -110,6 +109,24 @@ def get_ccnet_dir():
     except KeyError:
         raise RuntimeError('ccnet config dir is not set')
 
+class SeafEventsThread(threading.Thread):
+    def __init__(self, db_session_class, msg_queue):
+        threading.Thread.__init__(self)
+        self._db_session_class = db_session_class
+        self._msg_queue = msg_queue
+
+    def do_work(self, msg):
+        session = self._db_session_class()
+        try:
+            handle_message(session, msg)
+        finally:
+            session.close()
+
+    def run(self):
+        while True:
+            msg = self._msg_queue.get()
+            self.do_work(msg)
+
 class App(object):
 
     SERVER_EVENTS_MQ = 'seaf_server.event'
@@ -121,41 +138,48 @@ class App(object):
 
     def __init__(self, ccnet_dir, args):
 
-        self.ccnet_dir = ccnet_dir
-        self.args = args
-        self.app_config = get_config(args.config_file)
+        self._ccnet_dir = ccnet_dir
+        self._args = args
+        self._app_config = get_config(args.config_file)
 
-        self.seafes_conf = get_seafes_conf(self.app_config)
-        self.office_converter_conf = get_office_converter_conf(self.app_config)
-        self.seahub_email_conf = get_seahub_email_conf(self.app_config)
+        self._seafes_conf = get_seafes_conf(self._app_config)
+        self._office_converter_conf = get_office_converter_conf(self._app_config)
+        self._seahub_email_conf = get_seahub_email_conf(self._app_config)
 
-        self.DBSessionClass = init_db_session_class(args.config_file)
+        self._db_session_class = init_db_session_class(args.config_file)
 
-        self.ccnet_session = None
-        self.mq_client = None
-        self.sync_client = None
+        self._ccnet_session = None
+        self._mq_client = None
+        self._sync_client = None
+
+        self._evbase = libevent.Base()
+
+        self._events_queue = Queue.Queue()
+        self._seafevents_thread = None
+        self._index_timer = None
+        self._sendmail_timer = None
 
     def ensure_single_instance(self):
         '''Register a dummy service synchronously to ensure only a single
         instance is running
 
         '''
-        self.sync_client = ccnet.SyncClient(self.ccnet_dir)
-        self.sync_client.connect_daemon()
+        self._sync_client = ccnet.SyncClient(self._ccnet_dir)
+        self._sync_client.connect_daemon()
         try:
-            self.sync_client.register_service_sync(self.DUMMY_SERVICE,
+            self._sync_client.register_service_sync(self.DUMMY_SERVICE,
                                                    self.DUMMY_SERVICE_GROUP)
         except:
-            logging.exception('failed to register dummy rpc')
+            logging.exception('Another instance is already running')
             do_exit(1)
 
     def register_office_rpc(self):
         '''Register office rpc service'''
 
         searpc_server.create_service(OFFICE_RPC_SERVICE_NAME)
-        self.ccnet_session.register_service(OFFICE_RPC_SERVICE_NAME,
+        self._ccnet_session.register_service(OFFICE_RPC_SERVICE_NAME,
                                             'basic',
-                                            ccnet.RpcServerProc)
+                                            RpcServerProc)
 
         searpc_server.register_function(OFFICE_RPC_SERVICE_NAME,
                                         office_converter.query_convert_status)
@@ -166,40 +190,79 @@ class App(object):
         searpc_server.register_function(OFFICE_RPC_SERVICE_NAME,
                                         office_converter.add_task)
 
+    def add_timer(self, timeout, callback, userdata=None):
+        timer_ev = libevent.Timer(self._evbase, callback, userdata)
+        timer_ev.add(timeout) # pylint: disable=E1101
+
+        return timer_ev
+
     def start_search_indexer(self):
-        gevent.spawn(index_files, self.seafes_conf)
+        conf = self._seafes_conf
+        logging.info('periodic file indexer is started, interval = %s sec, seafesdir = %s',
+                     conf['interval'], conf['seafesdir'])
+
+        timeout = self._seafes_conf['interval']
+
+        def callback(evtimer, user_data):
+            '''Invoke the search index update script'''
+            dummy = user_data
+            try:
+                index_files(self._seafes_conf)
+            except:
+                logging.exception('error when index files:')
+            # add the timer again
+            evtimer.add(timeout)
+
+        self._index_timer = self.add_timer(timeout, callback, None)
 
     def start_send_seahub_email(self):
-        gevent.spawn(send_seahub_email, self.seahub_email_conf)
+        conf = self._seahub_email_conf
+        logging.info('seahub email sender is started, interval = %s sec', conf['interval'])
+
+        timeout = self._seafes_conf['interval']
+
+        def callback(evtimer, user_data):
+            '''Invoke the sending seahub email script'''
+            dummy = user_data
+            try:
+                send_seahub_email(self._seahub_email_conf)
+            except:
+                logging.exception('error when index files:')
+            # add the timer again
+            evtimer.add(timeout)
+
+        self._sendmail_timer = self.add_timer(timeout, callback, None)
 
     def start_office_converter(self):
-        office_converter.start(self.office_converter_conf)
+        office_converter.start(self._office_converter_conf)
+
+    def start_events_thread(self):
+        '''Starts the worker thread for saving events'''
+        self._seafevents_thread = SeafEventsThread(self._db_session_class,
+                                                   self._events_queue)
+        self._seafevents_thread.setDaemon(True)
+        self._seafevents_thread.start()
 
     def msg_cb(self, msg):
-        session = self.DBSessionClass()
-        try:
-            handle_message(session, msg)
-        finally:
-            session.close()
+        self._events_queue.put(msg)
 
     def start_ccnet_session(self):
         '''Connect to ccnet-server, retry util connection is made'''
-        self.ccnet_session = ccnet.AsyncClient(self.ccnet_dir)
+        self._ccnet_session = AsyncClient(self._ccnet_dir, self._evbase)
 
         while True:
             logging.info('try to connect to ccnet-server...')
             try:
-                self.ccnet_session.connect_daemon()
+                self._ccnet_session.connect_daemon()
                 logging.info('connected to ccnet server')
                 break
             except ccnet.NetworkError:
-                gevent.sleep(self.RECONNECT_CCNET_INTERVAL)
-
+                time.sleep(self.RECONNECT_CCNET_INTERVAL)
 
     def start_mq_client(self):
-        self.mq_client = self.ccnet_session.create_master_processor('mq-client')
-        self.mq_client.set_callback(self.msg_cb)
-        self.mq_client.start(self.SERVER_EVENTS_MQ)
+        self._mq_client = self._ccnet_session.create_master_processor('mq-client')
+        self._mq_client.set_callback(self.msg_cb)
+        self._mq_client.start(self.SERVER_EVENTS_MQ)
         logging.info('listen to mq: %s', self.SERVER_EVENTS_MQ)
 
     def connect_ccnet(self):
@@ -214,26 +277,26 @@ class App(object):
         if not has_office_tools():
             return False
 
-        if self.office_converter_conf and self.office_converter_conf['enabled']:
+        if self._office_converter_conf and self._office_converter_conf['enabled']:
             return True
         else:
             return False
 
     def is_search_indexer_enabled(self):
-        if self.seafes_conf and self.seafes_conf['enabled']:
+        if self._seafes_conf and self._seafes_conf['enabled']:
             return True
         else:
             return False
 
     def is_send_seahub_email_enabled(self):
-        if self.seahub_email_conf and self.seahub_email_conf['enabled']:
+        if self._seahub_email_conf and self._seahub_email_conf['enabled']:
             return True
         else:
             return False
 
     def _serve(self):
         try:
-            self.ccnet_session.main_loop()
+            self._ccnet_session.main_loop()
         except ccnet.NetworkError:
             logging.warning('connection to ccnet-server is lost')
             self.connect_ccnet()
@@ -242,6 +305,8 @@ class App(object):
             do_exit(0)
 
     def serve_forever(self):
+        self.start_events_thread()
+
         if self.is_search_indexer_enabled():
             self.start_search_indexer()
 
@@ -254,7 +319,6 @@ class App(object):
         self.connect_ccnet()
         while True:
             self._serve()
-
 
 def main():
     args = parse_args()

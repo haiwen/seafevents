@@ -8,7 +8,6 @@ import urllib2
 import logging
 import shutil
 import glob
-import gevent
 
 from .convert import Convertor, pdf_to_html
 from .convert import ConvertorInitError, ConvertorFatalError
@@ -153,6 +152,24 @@ class Worker(threading.Thread):
                 task.document = tmpfile
             return True
 
+    def _fetch_document_or_pdf(self, task):
+        """Fetch the document or pdf of a convert task from its url, and write it to
+        a temporary file.
+
+        """
+        logging.debug('start to fetch task %s', task)
+        try:
+            file_response = urllib2.urlopen(task.url)
+            content = file_response.read()
+        except Exception as e:
+            logging.warning('failed to fetch document of task %s: %s', task, e)
+            task.status = 'ERROR'
+            task.error = 'failed to fetch document'
+            return False
+        else:
+            task.content = content
+            return True
+
     def _handle_task(self, task):
         """
                          libreoffice           pdf2htmlEX
@@ -161,6 +178,12 @@ class Worker(threading.Thread):
                 pdf2htmlEX
         PDF   ==============> html
         """
+        task.status = 'PROCESSING'
+
+        success = self._fetch_document_or_pdf(task)
+        if not success:
+            return
+
         success = self.write_content_to_tmp(task)
         if not success:
             return
@@ -285,41 +308,9 @@ class TaskManager(object):
             task = ConvertTask(file_id, doctype, url, self.pdf_dir, self.html_dir)
             self._tasks_map[file_id] = task
 
-        gevent.spawn(self.fetch_document_or_pdf, task)
+        self._tasks_queue.put(task)
 
         return ret
-
-    def fetch_document_or_pdf(self, task):
-        task.status = 'PROCESSING'
-        success = self._fetch_document_or_pdf(task)
-        if not success:
-            return
-        else:
-            self._tasks_queue.put(task)
-
-    def _fetch_document_or_pdf(self, task):
-        """Fetch the document or pdf of a convert task from its url, and write it to
-        a temporary file.
-
-        """
-        logging.debug('start to fetch task %s', task)
-        try:
-            file_response = urllib2.urlopen(task.url)
-            content = file_response.read()
-        except Exception as e:
-            logging.warning('failed to fetch document of task %s: %s', task, e)
-            task.status = 'ERROR'
-            task.error = 'failed to fetch document'
-            return False
-        else:
-            task.content = content
-            return True
-
-    # def del_task(self, task):
-    #     """Delete the task from task map"""
-    #     with self._tasks_map_lock:
-    #         if self._tasks_map.has_key(task.file_id):
-    #             del self._tasks_map[task.file_id]
 
     def query_task_status(self, file_id):
         ret = {}
@@ -340,7 +331,7 @@ class TaskManager(object):
                         task = ConvertTask(task.file_id, task.doctype, task.url,
                                            self.pdf_dir, self.html_dir)
                         self._tasks_map[file_id] = task
-                        gevent.spawn(self.fetch_document_or_pdf, task)
+                        self._tasks_queue.put(task)
 
                 ret['status'] = task.status
 
