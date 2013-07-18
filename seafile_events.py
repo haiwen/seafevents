@@ -309,12 +309,18 @@ class App(object):
 
         if self.is_search_indexer_enabled():
             self.start_search_indexer()
+        else:
+            logging.info('search indexer is disabled')
 
         if self.is_send_seahub_email_enabled():
             self.start_send_seahub_email()
+        else:
+            logging.info('seahub email sending is disabled')
 
         if self.is_office_converter_enabled():
             self.start_office_converter()
+        else:
+            logging.info('office converter is disabled')
 
         self.connect_ccnet()
         while True:

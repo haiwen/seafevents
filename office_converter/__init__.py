@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 
 from .task_manager import task_manager
 from .rpc import OfficeConverterRpcClient, OFFICE_RPC_SERVICE_NAME
@@ -48,6 +49,8 @@ class OfficeConverter(object):
 
         task_manager.init(num_workers=num_workers, pdf_dir=pdf_dir, html_dir=html_dir, max_pages=max_pages)
         task_manager.run()
+
+        logging.info('office converter started')
 
     def stop(self):
         task_manager.stop()
