@@ -18,7 +18,7 @@ from pysearpc import searpc_server
 
 from events.db import init_db_session_class
 from events.handler import handle_message
-from tasks import send_seahub_email, index_files
+from tasks import IndexUpdateTimer, SendSeahubEmailTimer
 from utils import do_exit, write_pidfile, get_seafes_conf, get_office_converter_conf, has_office_tools, \
     get_seahub_email_conf
 
@@ -190,48 +190,18 @@ class App(object):
         searpc_server.register_function(OFFICE_RPC_SERVICE_NAME,
                                         office_converter.add_task)
 
-    def add_timer(self, timeout, callback, userdata=None):
-        timer_ev = libevent.Timer(self._evbase, callback, userdata)
-        timer_ev.add(timeout) # pylint: disable=E1101
-
-        return timer_ev
-
     def start_search_indexer(self):
         conf = self._seafes_conf
-        logging.info('periodic file indexer is started, interval = %s sec, seafesdir = %s',
-                     conf['interval'], conf['seafesdir'])
-
-        timeout = self._seafes_conf['interval']
-
-        def callback(evtimer, user_data):
-            '''Invoke the search index update script'''
-            dummy = user_data
-            try:
-                index_files(self._seafes_conf)
-            except:
-                logging.exception('error when index files:')
-            # add the timer again
-            evtimer.add(timeout)
-
-        self._index_timer = self.add_timer(timeout, callback, None)
+        timeout = conf['interval']
+        logging.info('search indexer is started, interval = %s sec, seafesdir = %s',
+                     timeout, conf['seafesdir'])
+        self._index_timer = IndexUpdateTimer(self._evbase, timeout, conf)
 
     def start_send_seahub_email(self):
         conf = self._seahub_email_conf
-        logging.info('seahub email sender is started, interval = %s sec', conf['interval'])
-
-        timeout = self._seafes_conf['interval']
-
-        def callback(evtimer, user_data):
-            '''Invoke the sending seahub email script'''
-            dummy = user_data
-            try:
-                send_seahub_email(self._seahub_email_conf)
-            except:
-                logging.exception('error when index files:')
-            # add the timer again
-            evtimer.add(timeout)
-
-        self._sendmail_timer = self.add_timer(timeout, callback, None)
+        timeout = conf['interval']
+        logging.info('seahub email sender is started, interval = %s sec', timeout)
+        self._sendmail_timer = SendSeahubEmailTimer(self._evbase, timeout, conf)
 
     def start_office_converter(self):
         office_converter.start(self._office_converter_conf)
