@@ -5,8 +5,9 @@ import simplejson as json
 
 from twisted.web.resource import Resource
 
-from task_manager import task_manager
 from twisted.web.static import File
+
+from seafevents.office_converter.task_manager import task_manager
 
 __all_ = [
     "root",

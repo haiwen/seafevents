@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import desc
 
-from models import Base, Event, UserEvent
+from .models import Base, Event, UserEvent
 
 logger = logging.getLogger('seafevents')
 

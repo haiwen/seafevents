@@ -1,3 +1,3 @@
 
-from .index import IndexUpdateTimer
-from .send_email import SendSeahubEmailTimer
+from .index_updater import IndexUpdater
+from .seahub_email_sender import SeahubEmailSender

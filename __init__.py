@@ -30,17 +30,19 @@ from .events.db import init_db_session_class
 from .events.db import get_user_events, get_org_user_events, delete_event
 from .events.db import save_user_events, save_org_user_events
 
-from .utils import has_office_tools, get_office_converter_conf, get_seafes_conf
+from .utils import has_office_tools
+from .utils.config import get_office_converter_conf
+from .tasks import IndexUpdater
+
+def is_search_enabled(config):
+    index_updater = IndexUpdater(config)
+    return index_updater.is_enabled()
 
 def is_office_converter_enabled(config):
     if not has_office_tools():
         return False
 
     conf = get_office_converter_conf(config)
-    return conf.get('enabled', False)
-
-def is_search_enabled(config):
-    conf = get_seafes_conf(config)
     return conf.get('enabled', False)
 
 def get_office_converter_html_dir(config):
