@@ -5,7 +5,6 @@ import argparse
 import ConfigParser
 import os
 import sys
-import signal
 import logging
 import libevent
 
@@ -16,6 +15,7 @@ from seafevents.tasks import IndexUpdater, SeahubEmailSender
 from seafevents.utils import do_exit, write_pidfile, has_office_tools, ClientConnector
 from seafevents.utils.config import get_office_converter_conf
 from seafevents.mq_listener import EventsMQListener
+from seafevents.signal_handler import SignalHandler
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
@@ -73,23 +73,6 @@ def init_logging(args):
 
     logging.basicConfig(**kw)
 
-def sigint_handler(*args):
-    dummy = args
-    do_exit(0)
-
-def sigchild_handler(*args):
-    dummy = args
-    try:
-        os.wait3(os.WNOHANG)
-    except:
-        pass
-
-def set_signal_handler():
-    signal.signal(signal.SIGINT, sigint_handler)
-    signal.signal(signal.SIGTERM, sigint_handler)
-    signal.signal(signal.SIGQUIT, sigint_handler)
-    signal.signal(signal.SIGCHLD, sigchild_handler)
-
 def get_config(config_file):
     config = ConfigParser.ConfigParser()
     try:
@@ -128,6 +111,7 @@ class App(object):
 
         self._evbase = libevent.Base()
         self._mq_listener = EventsMQListener(self._args.config_file)
+        self._sighandler = SignalHandler(self._evbase)
 
     def ensure_single_instance(self):
         '''Register a dummy service synchronously to ensure only a single
@@ -166,16 +150,7 @@ class App(object):
             logging.exception('Error in main_loop:')
             do_exit(0)
 
-    def handle_signals_in_c(self): 
-        # pylint: disable=E1101
-        libevent.Signal(self._evbase, signal.SIGINT, sigint_handler).add()
-        libevent.Signal(self._evbase, signal.SIGTERM, sigint_handler).add()
-        libevent.Signal(self._evbase, signal.SIGQUIT, sigint_handler).add()
-        libevent.Signal(self._evbase, signal.SIGCHLD, sigchild_handler).add()
-    
     def serve_forever(self):
-        self.handle_signals_in_c()
-
         if self._index_updater.is_enabled():
             self._index_updater.start(self._evbase)
         else:
@@ -202,8 +177,6 @@ def main():
     ccnet_dir = get_ccnet_dir()
 
     app = App(ccnet_dir, args)
-
-    set_signal_handler()
 
     if args.pidfile:
         write_pidfile(args.pidfile)
