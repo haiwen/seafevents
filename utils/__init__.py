@@ -74,10 +74,6 @@ def has_office_tools():
     return HAS_OFFICE_TOOLS
 
 def do_exit(code=0):
-    if has_office_tools():
-        from seafevents.office_converter import task_manager
-        task_manager.stop()
-
     logging.info('exit with code %s', code)
     sys.exit(code)
 

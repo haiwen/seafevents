@@ -8,6 +8,7 @@ import urllib2
 import logging
 import shutil
 import glob
+import atexit
 
 from .convert import Convertor, pdf_to_html
 from .convert import ConvertorInitError, ConvertorFatalError
@@ -363,8 +364,11 @@ class TaskManager(object):
         assert self.pdf_dir is not None
         assert self.html_dir is not None
 
+        atexit.register(self.stop)
+
         for i in range(self._num_workers):
             t = Worker(self._tasks_queue, i)
+            t.setDaemon(True)
             t.start()
             self._workers.append(t)
 

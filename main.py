@@ -12,18 +12,18 @@ import ccnet
 from ccnet.async import AsyncClient
 
 from seafevents.tasks import IndexUpdater, SeahubEmailSender
-from seafevents.utils import do_exit, write_pidfile, has_office_tools, ClientConnector
+from seafevents.utils import do_exit, write_pidfile, ClientConnector
 from seafevents.utils.config import get_office_converter_conf
 from seafevents.mq_listener import EventsMQListener
 from seafevents.signal_handler import SignalHandler
 
-if has_office_tools():
-    from seafevents.office_converter import OfficeConverter
+from seafevents.office_converter import OfficeConverter
+from seafevents.log import LogConfigurator
 
 class AppArgParser(object):
     def __init__(self):
         self._parser = argparse.ArgumentParser(
-            description='seafile events recorder')
+            description='seafevents main program')
 
         self._add_args()
 
@@ -33,8 +33,6 @@ class AppArgParser(object):
     def _add_args(self):
         self._parser.add_argument(
             '--logfile',
-            default=sys.stdout,
-            type=argparse.FileType('a'),
             help='log file')
 
         self._parser.add_argument(
@@ -52,26 +50,6 @@ class AppArgParser(object):
             '--pidfile',
             help='the location of the pidfile'
         )
-
-def init_logging(args):
-    """Configure logging module"""
-    level = args.loglevel
-
-    if level == 'debug':
-        level = logging.DEBUG
-    elif level == 'info':
-        level = logging.INFO
-    else:
-        level = logging.WARNING
-
-    kw = {
-        'format': '[%(asctime)s] [%(levelname)s] %(message)s',
-        'datefmt': '%m/%d/%Y %H:%M:%S',
-        'level': level,
-        'stream': args.logfile
-    }
-
-    logging.basicConfig(**kw)
 
 def get_config(config_file):
     config = ConfigParser.ConfigParser()
@@ -171,12 +149,10 @@ class App(object):
             self._serve()
 
 def main():
-    parser = AppArgParser()
-    args = parser.parse_args()
-    init_logging(args)
-    ccnet_dir = get_ccnet_dir()
+    args = AppArgParser().parse_args()
+    app_logger = LogConfigurator(args.loglevel, args.logfile)
 
-    app = App(ccnet_dir, args)
+    app = App(get_ccnet_dir(), args)
 
     if args.pidfile:
         write_pidfile(args.pidfile)

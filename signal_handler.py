@@ -1,5 +1,4 @@
 import signal
-import logging
 import os
 import libevent
 
@@ -8,7 +7,7 @@ from seafevents.utils import do_exit
 class SignalHandler(object):
     def __init__(self, ev_base):
         self._evbase = ev_base
-        self._sighandlers = []
+        self._sighandlers = {}
         self._register_signal_handlers()
 
     def _register(self, signum, callback):
@@ -32,7 +31,6 @@ class SignalHandler(object):
         self._register(signal.SIGCHLD, sigchild_handler)
 
 def sigint_handler(*args):
-    logging.debug('sigint_handler called, args = %s', args)
     dummy = args
     do_exit(0)
 
