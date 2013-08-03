@@ -31,7 +31,7 @@ def create_engine_from_conf(config_file):
         username = config.get('DATABASE', 'username')
         passwd = config.get('DATABASE', 'password')
         dbname = config.get('DATABASE', 'name')
-        db_url = "mysql+mysqlconnector://%s:%s@%s/%s" % (username, passwd, host, dbname)
+        db_url = "mysql+mysqldb://%s:%s@%s/%s" % (username, passwd, host, dbname)
         logger.info('[seafevents] database: mysql, name: %s', dbname)
     else:
         raise RuntimeError("Unknown database backend: %s" % backend)
@@ -81,13 +81,17 @@ def _get_user_events(session, org_id, username, start, limit):
     if limit <= 0:
         raise RuntimeError('limit must be positive')
 
-    q = session.query(Event).filter(UserEvent.username==username).filter(UserEvent.eid==Event.uuid)
+    q = session.query(Event).filter(UserEvent.username==username)
     if org_id > 0:
         q = q.filter(UserEvent.org_id==org_id)
     elif org_id < 0:
         q = q.filter(UserEvent.org_id<=0)
 
-    events = q.order_by(desc(Event.timestamp))[start:start + limit]
+    q = q.filter(UserEvent.eid==Event.uuid).order_by(desc(UserEvent.id)).slice(start, start + limit)
+
+    # select Event.etype, Event.timestamp, UserEvent.username from UserEvent, Event where UserEvent.username=username and UserEvent.org_id <= 0 and UserEvent.eid = Event.uuid order by UserEvent.id desc limit 0, 15;
+
+    events = q.all()
     return [ UserEventDetail(org_id, username, ev) for ev in events ]
 
 def get_user_events(session, username, start, limit):

@@ -4,6 +4,7 @@
 *.pid
 *.db
 *.log
+events.log.*
 run.sh
 restart.sh
 *.conf
