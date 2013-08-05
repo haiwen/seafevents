@@ -12,12 +12,13 @@ import ccnet
 from ccnet.async import AsyncClient
 
 from seafevents.tasks import IndexUpdater, SeahubEmailSender
-from seafevents.utils import do_exit, write_pidfile, ClientConnector
+from seafevents.utils import do_exit, write_pidfile, ClientConnector, has_office_tools
 from seafevents.utils.config import get_office_converter_conf
 from seafevents.mq_listener import EventsMQListener
 from seafevents.signal_handler import SignalHandler
 
-from seafevents.office_converter import OfficeConverter
+if has_office_tools():
+    from seafevents.office_converter import OfficeConverter
 from seafevents.log import LogConfigurator
 
 class AppArgParser(object):
@@ -82,7 +83,8 @@ class App(object):
         self._seahub_email_sender = SeahubEmailSender(self._app_config)
 
         office_config = get_office_converter_conf(self._app_config)
-        self._office_converter = OfficeConverter(office_config)
+        if has_office_tools():
+            self._office_converter = OfficeConverter(office_config)
 
         self._ccnet_session = None
         self._sync_client = None
@@ -114,7 +116,7 @@ class App(object):
         self.start_ccnet_session()
         self.ensure_single_instance()
 
-        if self._office_converter.is_enabled():
+        if has_office_tools() and self._office_converter.is_enabled():
             self._office_converter.register_rpc(self._ccnet_session)
         self._mq_listener.start(self._ccnet_session)
 
@@ -139,7 +141,7 @@ class App(object):
         else:
             logging.info('seahub email sender is disabled')
 
-        if self._office_converter.is_enabled():
+        if has_office_tools() and self._office_converter.is_enabled():
             self._office_converter.start()
         else:
             logging.info('office converter is disabled')
