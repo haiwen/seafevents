@@ -52,6 +52,13 @@ class AppArgParser(object):
             help='the location of the pidfile'
         )
 
+        self._parser.add_argument(
+            '-R',
+            '--reconnect',
+            action='store_true',
+            help='try to reconnect to daemon when disconnected'
+        )
+
 def get_config(config_file):
     config = ConfigParser.ConfigParser()
     try:
@@ -89,7 +96,7 @@ class App(object):
         self._ccnet_session = None
         self._sync_client = None
 
-        self._evbase = libevent.Base()
+        self._evbase = libevent.Base() #pylint: disable=E1101
         self._mq_listener = EventsMQListener(self._args.config_file)
         self._sighandler = SignalHandler(self._evbase)
 
@@ -125,7 +132,10 @@ class App(object):
             self._ccnet_session.main_loop()
         except ccnet.NetworkError:
             logging.warning('connection to ccnet-server is lost')
-            self.connect_ccnet()
+            if self._args.reconnect:
+                self.connect_ccnet()
+            else:
+                do_exit(0)
         except Exception:
             logging.exception('Error in main_loop:')
             do_exit(0)

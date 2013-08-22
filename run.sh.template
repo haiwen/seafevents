@@ -15,4 +15,4 @@ fi
 
 pkill -f "python seafile_events.py --loglevel=debug"
 
-python seafile_events.py --loglevel=debug --logfile=events.log
+python seafile_events.py --loglevel=debug --logfile=events.log --reconnect
