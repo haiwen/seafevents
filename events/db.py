@@ -28,10 +28,15 @@ def create_engine_from_conf(config_file):
             host = config.get('DATABASE', 'host').lower()
         else:
             host = 'localhost'
+
+        if config.has_option('DATABASE', 'port'):
+            port = config.getint('DATABASE', 'port')
+        else:
+            port = 3306
         username = config.get('DATABASE', 'username')
         passwd = config.get('DATABASE', 'password')
         dbname = config.get('DATABASE', 'name')
-        db_url = "mysql+mysqldb://%s:%s@%s/%s" % (username, passwd, host, dbname)
+        db_url = "mysql+mysqldb://%s:%s@%s:%s/%s" % (username, passwd, host, port, dbname)
         logger.info('[seafevents] database: mysql, name: %s', dbname)
     else:
         raise RuntimeError("Unknown database backend: %s" % backend)
