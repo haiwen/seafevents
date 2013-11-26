@@ -14,7 +14,7 @@ class LogConfigurator(object):
 
     def _rotating_config(self):
         '''Rotating log'''
-        handler = logging.handlers.TimedRotatingFileHandler(self._logfile, when='D', interval=1)
+        handler = logging.handlers.TimedRotatingFileHandler(self._logfile, when='W0', interval=1)
         handler.setLevel(self._level)
         formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s')
         handler.setFormatter(formatter)
