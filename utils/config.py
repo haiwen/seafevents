@@ -106,7 +106,7 @@ def get_office_converter_conf(config):
     key_max_size = 'max-size'
     default_max_size = 2 * 1024 * 1024
 
-    d = {}
+    d = { 'enabled': False }
     if not config.has_section(section_name):
         return d
 
