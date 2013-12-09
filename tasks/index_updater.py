@@ -5,7 +5,7 @@ import logging
 import ConfigParser
 
 from ccnet.async import Timer
-from seafevents.utils import get_python_executable, run 
+from seafevents.utils import get_python_executable, run
 from seafevents.utils.config import parse_bool, parse_interval, get_opt_from_conf_or_env
 
 __all__ = [
@@ -20,6 +20,8 @@ class IndexUpdater(object):
         self._interval = None
         self._index_office_pdf = None
         self._logfile = None
+        self._es_host = None
+        self._es_port = None
 
         self._timer = None
 
@@ -33,6 +35,8 @@ class IndexUpdater(object):
         key_logfile = 'logfile'
         key_index_interval = 'interval'
         key_index_office_pdf = 'index_office_pdf'
+        key_es_host = 'es_host'
+        key_es_port = 'es_port'
 
         default_index_interval = 30 * 60 # 30 min
 
@@ -83,15 +87,35 @@ class IndexUpdater(object):
             if index_office_pdf == 'true' or index_office_pdf == '1':
                 index_office_pdf = True
 
+        # [ es host/port  ]
+        es_host = None
+        es_port = None
+        if config.has_option(section_name, key_es_host) and config.has_option(section_name, key_es_port):
+            host = config.get(section_name, key_es_host).lower()
+            port = config.get(section_name, key_es_port).lower()
+            try:
+                port = int(port.lower())
+            except ValueError:
+                logging.warning('invalid es_port "%s"' % port)
+            else:
+                es_host = host
+                es_port = port
+
         logging.debug('seafes dir: %s', seafesdir)
         logging.debug('seafes logfile: %s', logfile)
         logging.debug('seafes index interval: %s sec', interval)
         logging.debug('seafes index office/pdf: %s', index_office_pdf)
 
+        if es_host:
+            logging.debug('elasticsearch host: %s', es_host)
+            logging.debug('elasticsearch port: %s', es_port)
+
         self._seafesdir = seafesdir
         self._interval = val
         self._index_office_pdf = index_office_pdf
         self._logfile = logfile
+        self._es_host = es_host
+        self._es_port = es_port
 
     def start(self, ev_base):
         if not self.is_enabled():
@@ -100,19 +124,22 @@ class IndexUpdater(object):
 
         logging.info('search indexer is started, interval = %s sec', self._interval)
         self._timer = IndexUpdateTimer(ev_base, self._interval,
-                                       self._seafesdir, self._index_office_pdf, self._logfile)
+                                       self._seafesdir, self._index_office_pdf, self._logfile,
+                                       self._es_host, self._es_port)
 
     def is_enabled(self):
         return self._enabled
 
 class IndexUpdateTimer(Timer):
     _script_name = 'update_repos.py'
-    def __init__(self, ev_base, timeout, seafesdir, index_office_pdf, logfile):
+    def __init__(self, ev_base, timeout, seafesdir, index_office_pdf, logfile, es_host, es_port):
         Timer.__init__(self, ev_base, timeout)
         self._seafesdir = seafesdir
         self._index_office_pdf = index_office_pdf
         self._logfile = logfile
         self._loglevel = 'debug'
+        self._es_host = es_host
+        self._es_port = es_port
 
     def callback(self):
         self.index_files()
@@ -140,5 +167,9 @@ class IndexUpdateTimer(Timer):
         env = dict(os.environ)
         if self._index_office_pdf:
             env['SEAFES_INDEX_OFFICE_PDF'] = 'true'
+
+        if self._es_host:
+            env['SEAFES_ES_HOST'] = self._es_host
+            env['SEAFES_ES_PORT'] = str(self._es_port)
 
         run(cmd, cwd=self._seafesdir, env=env)
