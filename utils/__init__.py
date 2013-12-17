@@ -26,6 +26,7 @@ def find_in_path(prog):
     return None
 
 def check_office_tools():
+    return True
     """Check if requried executables can be found in PATH. If not, error
     and exit.
 
@@ -66,7 +67,8 @@ def has_office_tools():
 
     global HAS_OFFICE_TOOLS
     if HAS_OFFICE_TOOLS is None:
-        if check_office_tools() and check_python_uno():
+        # if check_office_tools() and check_python_uno():
+        if check_office_tools():
             HAS_OFFICE_TOOLS = True
         else:
             HAS_OFFICE_TOOLS = False
@@ -138,11 +140,30 @@ def run(argv, cwd=None, env=None, suppress_stdout=False, suppress_stderr=False):
         else:
             stderr = sys.stderr
 
-        subprocess.Popen(argv,
-                         cwd=cwd,
-                         stdout=stdout,
-                         stderr=stderr,
-                         env=env)
+        return subprocess.Popen(argv,
+                                cwd=cwd,
+                                stdout=stdout,
+                                stderr=stderr,
+                                env=env)
+
+def run_and_wait(argv, cwd=None, env=None, suppress_stdout=False, suppress_stderr=False):
+    with open(os.devnull, 'w') as devnull:
+        if suppress_stdout:
+            stdout = devnull
+        else:
+            stdout = sys.stdout
+
+        if suppress_stderr:
+            stderr = devnull
+        else:
+            stderr = sys.stderr
+
+        proc = subprocess.Popen(argv,
+                                cwd=cwd,
+                                stdout=stdout,
+                                stderr=stderr,
+                                env=env)
+        return proc.wait()
 
 class ClientConnector(object):
     RECONNECT_CCNET_INTERVAL = 2

@@ -10,8 +10,7 @@ import shutil
 import glob
 import atexit
 
-from .convert import Convertor, pdf_to_html
-from .convert import ConvertorInitError, ConvertorFatalError
+from .convert import Convertor, ConvertorFatalError
 
 __all__ = ["task_manager"]
 
@@ -81,38 +80,19 @@ class Worker(threading.Thread):
 
         self._tasks_queue = tasks_queue
 
-        # Used to generate the unique pipe name for libreoffice process to
-        # listen on.
         self._index = index
-
-        self._convertor = None
-        self._create_convertor()
-
-    def _create_convertor(self):
-        """Create a convertor at start or when the current one is dead."""
-        pipe = "pipe%d" % self._index
-        try:
-            self._convertor = Convertor(pipe)
-        except ConvertorInitError:
-            logging.critical("failed to start convertor %s", pipe)
 
     def _convert_to_pdf(self, task):
         """Use libreoffice API to convert document to pdf"""
-        if self._convertor is None:
-            self._create_convertor()
-            if self._convertor is None:
-                # create convertor failed
-                task.status = 'ERROR'
-                task.error = 'internal server error'
-                return False
+        convertor = task_manager.convertor
 
         logging.debug('start to convert task %s', task)
 
         success = False
         try:
-            success = self._convertor.do_convert(task.document, task.doctype, task.pdf)
+            success = convertor.convert_to_pdf(task.document, task.pdf)
         except ConvertorFatalError:
-            self._convertor = None
+            return False
 
         if success:
             logging.debug("succefully converted %s to pdf", task)
@@ -123,7 +103,7 @@ class Worker(threading.Thread):
 
     def _convert_to_html(self, task):
         """Use pdf2htmlEX to convert pdf to html"""
-        if pdf_to_html(task.pdf, task.html, task_manager.max_pages) != 0:
+        if task_manager.convertor.pdf_to_html(task.pdf, task.html, task_manager.max_pages) != 0:
             logging.warning("failed to convert %s to html", task)
             task.status = 'ERROR'
             task.error = 'failed to convert document'
@@ -204,12 +184,7 @@ class Worker(threading.Thread):
             try:
                 task = self._tasks_queue.get(timeout=1)
             except Queue.Empty:
-                if self.should_exit:
-                    if self._convertor:
-                        self._convertor.stop()
-                    break
-                else:
-                    continue
+                continue
 
             self._handle_task(task)
 
@@ -244,6 +219,8 @@ class TaskManager(object):
         self.max_pages = 50
 
         self._num_workers = 2
+
+        self.convertor = Convertor()
 
     def init(self, num_workers=2, max_pages=50, pdf_dir='/tmp/seafile-pdf-dir', html_dir='/tmp/seafile-html-dir'):
         self._set_pdf_dir(pdf_dir)
@@ -366,6 +343,8 @@ class TaskManager(object):
 
         atexit.register(self.stop)
 
+        self.convertor.start()
+
         for i in range(self._num_workers):
             t = Worker(self._tasks_queue, i)
             t.setDaemon(True)
@@ -373,14 +352,7 @@ class TaskManager(object):
             self._workers.append(t)
 
     def stop(self):
-        '''Set the flag for the worker threads to exit'''
-        if not self._workers:
-            return
-
-        Worker.should_exit = True
-        logging.info('waiting for worker threads to exit...')
-        for t in self._workers:
-            t.join()
-        logging.info('worker threads now exited')
+        logging.info('stop libreoffice...')
+        self.convertor.stop()
 
 task_manager = TaskManager()
