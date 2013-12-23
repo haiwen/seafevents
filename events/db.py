@@ -73,8 +73,16 @@ class UserEventDetail(object):
         self.uuid = event.uuid
 
         dt = json.loads(event.detail)
+        self.fix_trailing_zero_bug(dt)
         for key in dt:
             self.__dict__[key] = dt[key]
+
+    def fix_trailing_zero_bug(self, dt):
+        '''Fix the errornous trailing zero byte in ccnet 9d99718d77e93fce77561c5437c67dc21724dd9a'''
+        if 'commit_id' in dt:
+            commit_id = dt['commit_id']
+            if commit_id[-1] == u'\x00':
+                dt['commit_id'] = commit_id[:-1]
 
 # org_id > 0 --> get org events
 # org_id < 0 --> get non-org events

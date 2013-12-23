@@ -129,10 +129,11 @@ class Convertor(object):
         ]
 
         def get_env():
-            '''Set LD_LIBRARY_PATH for pdf2htmlEX'''
+            '''Setup env for pdf2htmlEX'''
             env = dict(os.environ)
             try:
                 env['LD_LIBRARY_PATH'] = env['SEAFILE_LD_LIBRARY_PATH']
+                env['FONTCONFIG_PATH'] = '/etc/fonts'
             except KeyError:
                 pass
 
