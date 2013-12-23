@@ -88,7 +88,7 @@ class SendSeahubEmailTimer(Timer):
         cmd = [
             get_python_executable(),
             manage_py,
-            'send_user_messages',
+            'send_notices',
         ]
         run(cmd, cwd=self._seahubdir)
 
