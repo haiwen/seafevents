@@ -25,6 +25,7 @@ event details:
 """
 
 import os
+import ConfigParser
 
 from .events.db import init_db_session_class
 from .events.db import get_user_events, get_org_user_events, delete_event
@@ -42,7 +43,24 @@ def is_office_converter_enabled(config):
     if not has_office_tools():
         return False
 
+    # TODO: office converter is disabled currently in cluster mode
+    def is_cluster_enabled():
+        cp = ConfigParser.ConfigParser()
+        seafile_conf = os.path.join(os.environ['SEAFILE_CONF_DIR'], 'seafile.conf')
+        cp.read(seafile_conf)
+        section = 'cluster'
+        if not cp.has_section(section):
+            return False
+        try:
+            return cp.getboolean(section, 'enabled')
+        except ConfigParser.NoOptionError:
+            return False
+
+    if is_cluster_enabled:
+        return False
+
     conf = get_office_converter_conf(config)
+
     return conf.get('enabled', False)
 
 def get_office_converter_html_dir(config):

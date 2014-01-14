@@ -86,12 +86,12 @@ class App(object):
         self._args = args
         self._app_config = get_config(args.config_file)
 
-        self._index_updater = IndexUpdater(self._app_config)
-        self._seahub_email_sender = SeahubEmailSender(self._app_config)
-
-        office_config = get_office_converter_conf(self._app_config)
-        if has_office_tools():
-            self._office_converter = OfficeConverter(office_config)
+        self._background_tasks = None
+        self._office_converter = None
+        if BackgroundTasks.is_enabled():
+            self._background_tasks = BackgroundTasks(args)
+            if has_office_tools():
+                self._office_converter = OfficeConverter(get_office_converter_conf(self._app_config))
 
         self._ccnet_session = None
         self._sync_client = None
@@ -123,7 +123,7 @@ class App(object):
         self.start_ccnet_session()
         self.ensure_single_instance()
 
-        if has_office_tools() and self._office_converter.is_enabled():
+        if self._office_converter and self._office_converter.is_enabled():
             self._office_converter.register_rpc(self._ccnet_session)
         self._mq_listener.start(self._ccnet_session)
 
@@ -141,17 +141,12 @@ class App(object):
             do_exit(0)
 
     def serve_forever(self):
-        if self._index_updater.is_enabled():
-            self._index_updater.start(self._evbase)
+        if self._background_tasks:
+            self._background_tasks.start(self._evbase)
         else:
-            logging.info('search indexer is disabled')
+            logging.info('background tasks is disabled')
 
-        if self._seahub_email_sender.is_enabled():
-            self._seahub_email_sender.start(self._evbase)
-        else:
-            logging.info('seahub email sender is disabled')
-
-        if has_office_tools() and self._office_converter.is_enabled():
+        if self._office_converter and self._office_converter.is_enabled():
             self._office_converter.start()
         else:
             logging.info('office converter is disabled')
@@ -160,16 +155,70 @@ class App(object):
         while True:
             self._serve()
 
-def main():
-    args = AppArgParser().parse_args()
-    app_logger = LogConfigurator(args.loglevel, args.logfile)
+class BackgroundTasks(object):
 
-    app = App(get_ccnet_dir(), args)
+    def __init__(self, args):
+
+        self._args = args
+        self._app_config = get_config(args.config_file)
+
+        self._index_updater = IndexUpdater(self._app_config)
+        self._seahub_email_sender = SeahubEmailSender(self._app_config)
+
+    def serve_forever(self):
+        evbase = libevent.Base() #pylint: disable=E1101
+        sighandler = SignalHandler(evbase) # pylint: disable=W0612
+
+        self.start(evbase)
+        evbase.loop()
+
+    def start(self, base):
+        logging.info('staring background tasks')
+        if self._index_updater.is_enabled():
+            self._index_updater.start(base)
+        else:
+            logging.info('search indexer is disabled')
+
+        if self._seahub_email_sender.is_enabled():
+            self._seahub_email_sender.start(base)
+        else:
+            logging.info('seahub email sender is disabled')
+
+    @staticmethod
+    def is_enabled():
+        '''In single sever mode, the background tasks always enabled; In cluster
+        mode, the background tasks run on a single server through
+        seafevents.background_tasks
+
+        '''
+        def is_cluster_enabled():
+            cp = ConfigParser.ConfigParser()
+            seafile_conf = os.path.join(os.environ['SEAFILE_CONF_DIR'], 'seafile.conf')
+            cp.read(seafile_conf)
+            section = 'cluster'
+            if not cp.has_section(section):
+                return False
+            try:
+                return cp.getboolean(section, 'enabled')
+            except ConfigParser.NoOptionError:
+                return False
+
+        return not is_cluster_enabled()
+
+def main(background_tasks_only=False):
+    args = AppArgParser().parse_args()
+    app_logger = LogConfigurator(args.loglevel, args.logfile) # pylint: disable=W0612
 
     if args.pidfile:
         write_pidfile(args.pidfile)
 
-    app.serve_forever()
+    if background_tasks_only:
+        BackgroundTasks(args).serve_forever()
+    else:
+        App(get_ccnet_dir(), args).serve_forever()
+
+def run_background_tasks():
+    main(background_tasks_only=True)
 
 if __name__ ==  '__main__':
     main()
