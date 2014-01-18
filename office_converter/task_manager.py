@@ -11,6 +11,7 @@ import glob
 import atexit
 
 from .convert import Convertor, ConvertorFatalError
+from .doctypes import EXCEL_TYPES
 
 __all__ = ["task_manager"]
 
@@ -101,7 +102,7 @@ class Worker(threading.Thread):
 
         return success
 
-    def _convert_to_html(self, task):
+    def _convert_pdf_to_html(self, task):
         """Use pdf2htmlEX to convert pdf to html"""
         if task_manager.convertor.pdf_to_html(task.pdf, task.html, task_manager.max_pages) != 0:
             logging.warning("failed to convert %s to html", task)
@@ -110,6 +111,18 @@ class Worker(threading.Thread):
         else:
             logging.debug("successfully convert %s to html", task)
             task.status = 'DONE'
+
+    def _convert_excel_to_html(self, task):
+        '''Use libreoffice to convert excel to html'''
+        if not task_manager.convertor.excel_to_html(task.document, task.html):
+            logging.warning("failed to convert %s from excel to html", task)
+            task.status = 'ERROR'
+            task.error = 'failed to convert excel to html'
+            return False
+        else:
+            logging.debug("successfully convert excel %s to html", task)
+            task.status = 'DONE'
+            return True
 
     def write_content_to_tmp(self, task):
         '''write the document/pdf content to a temporary file'''
@@ -153,6 +166,8 @@ class Worker(threading.Thread):
 
     def _handle_task(self, task):
         """
+                    libreoffice
+        Excel  ===============>  html
                          libreoffice           pdf2htmlEX
         Document file  ===============>  pdf ==============> html
 
@@ -169,6 +184,13 @@ class Worker(threading.Thread):
         if not success:
             return
 
+        if task.doctype in EXCEL_TYPES:
+            success = self._convert_excel_to_html(task)
+            if not success:
+                task.status = 'ERROR'
+                task.error = 'failed to convert excel to document'
+            return
+
         if task.doctype != 'pdf':
             success = self._convert_to_pdf(task)
             if not success:
@@ -176,7 +198,7 @@ class Worker(threading.Thread):
                 task.error = 'failed to convert document'
                 return
 
-        self._convert_to_html(task)
+        self._convert_pdf_to_html(task)
 
     def run(self):
         """Repeatedly get task from tasks queue and process it."""

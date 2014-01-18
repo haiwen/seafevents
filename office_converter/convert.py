@@ -16,7 +16,6 @@ from ..utils import get_python_executable, run, run_and_wait
 __all__ = [
     "Convertor",
     "ConvertorFatalError",
-    "pdf_to_html",
 ]
 
 class ConvertorFatalError(Exception):
@@ -70,6 +69,45 @@ class Convertor(object):
             self.pipe,
             '-o',
             pdf_path,
+            doc_path,
+        ]
+
+        if run_and_wait(args, cwd=self.cwd) != 0:
+            return False
+        else:
+            return True
+
+    def excel_to_html(self, doc_path, html_path):
+        if self.proc.poll() != None:
+            return self.excel_to_html_fallback(doc_path, html_path)
+
+        args = [
+            get_python_executable(),
+            self.unoconv_py,
+            '-vvv',
+            '-d', 'spreadsheet',
+            '-f', 'html',
+            '--pipe',
+            self.pipe,
+            '-o',
+            html_path,
+            doc_path,
+        ]
+
+        if run_and_wait(args, cwd=self.cwd) != 0:
+            return False
+        else:
+            return True
+
+    def excel_to_html_fallback(self, doc_path, html_path):
+        args = [
+            get_python_executable(),
+            self.unoconv_py,
+            '-vvv',
+            '-d', 'spreadsheet',
+            '-f', 'html',
+            '-o',
+            html_path,
             doc_path,
         ]
 
