@@ -158,7 +158,7 @@ class IndexUpdateTimer(Timer):
         # python update_repos.py --logfile ./index.log --loglevel debug update
         cmd = [
             get_python_executable(),
-            script_path,
+            '-m', 'seafes.update_repos',
             '--logfile', self._logfile,
             '--loglevel', self._loglevel,
             'update',

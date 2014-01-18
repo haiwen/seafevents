@@ -209,6 +209,8 @@ def main(background_tasks_only=False):
     args = AppArgParser().parse_args()
     app_logger = LogConfigurator(args.loglevel, args.logfile) # pylint: disable=W0612
 
+    os.environ['EVENTS_CONFIG_FILE'] = os.path.expanduser(args.config_file)
+
     if args.pidfile:
         write_pidfile(args.pidfile)
 
