@@ -56,7 +56,7 @@ def is_office_converter_enabled(config):
         except ConfigParser.NoOptionError:
             return False
 
-    if is_cluster_enabled:
+    if is_cluster_enabled():
         return False
 
     conf = get_office_converter_conf(config)
