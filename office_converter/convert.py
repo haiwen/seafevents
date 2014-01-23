@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import shutil
 import threading
+import re
 import logging
 
 from .doctypes import DOC_TYPES, PPT_TYPES, EXCEL_TYPES
@@ -97,6 +98,7 @@ class Convertor(object):
         if run_and_wait(args, cwd=self.cwd) != 0:
             return False
         else:
+            improve_table_border(html_path)
             return True
 
     def excel_to_html_fallback(self, doc_path, html_path):
@@ -114,6 +116,7 @@ class Convertor(object):
         if run_and_wait(args, cwd=self.cwd) != 0:
             return False
         else:
+            improve_table_border(html_path)
             return True
 
     def convert_to_pdf_fallback(self, doc_path, pdf_path):
@@ -198,3 +201,11 @@ class Convertor(object):
                 logging.warning("pdf2htmlEX failed with code %d", retcode)
                 shutil.rmtree(tmpdir)
                 return -1
+
+pattern = re.compile('<TABLE(.*)BORDER="0">')
+def improve_table_border(path):
+    with open(path, 'r') as fp:
+        content = fp.read()
+    content = re.sub(pattern, r'<TABLE\1BORDER="1" style="border-collapse: collapse;">', content)
+    with open(path, 'w') as fp:
+        fp.write(content)
