@@ -28,7 +28,8 @@ class SignalHandler(object):
         '''
         self._register(signal.SIGINT, sigint_handler)
         self._register(signal.SIGTERM, sigint_handler)
-        self._register(signal.SIGCHLD, sigchild_handler)
+        if hasattr(signal, 'SIGCHLD'):
+            self._register(signal.SIGCHLD, sigchild_handler)
 
 def sigint_handler(*args):
     dummy = args
