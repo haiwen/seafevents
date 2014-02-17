@@ -10,7 +10,11 @@ __all__ = [
 ]
 
 class EventsMQListener(object):
-    SERVER_EVENTS_MQ = 'seaf_server.event'
+    SERVER_EVENTS_MQS = [
+        'seaf_server.event',
+        'seahub.stats',
+    ]
+
 
     def __init__(self, events_conf):
         self._events_queue = Queue.Queue()
@@ -25,8 +29,8 @@ class EventsMQListener(object):
 
         self._mq_client = async_client.create_master_processor('mq-client')
         self._mq_client.set_callback(self.message_cb)
-        self._mq_client.start(self.SERVER_EVENTS_MQ)
-        logging.info('listen to mq: %s', self.SERVER_EVENTS_MQ)
+        self._mq_client.start(*self.SERVER_EVENTS_MQS)
+        logging.info('listen to mq: %s', self.SERVER_EVENTS_MQS)
 
     def message_cb(self, message):
         self._events_queue.put(message)

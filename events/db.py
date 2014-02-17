@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import desc
 
-from .models import Base, Event, UserEvent
+from .models import Base, Event, UserEvent, UserTrafficStat
 
 logger = logging.getLogger('seafevents')
 
@@ -152,3 +152,46 @@ def save_user_events(session, etype, detail, usernames, timestamp):
 def save_org_user_events(session, org_id, etype, detail, usernames, timestamp):
     """Org version of save_user_events"""
     return _save_user_events(session, org_id, etype, detail, usernames, timestamp)
+
+def update_block_download_traffic(session, email, size):
+    update_traffic_common(session, email, size, UserTrafficStat.block_download, 'block_download')
+
+def update_file_view_traffic(session, email, size):
+    update_traffic_common(session, email, size, UserTrafficStat.file_view, 'file_view')
+
+def update_file_download_traffic(session, email, size):
+    update_traffic_common(session, email, size, UserTrafficStat.file_download, 'file_download')
+
+def update_dir_download_traffic(session, email, size):
+    update_traffic_common(session, email, size, UserTrafficStat.dir_download, 'dir_download')
+
+def update_traffic_common(session, email, size, type, name):
+    '''common code to update different types of traffic stat'''
+    if not isinstance(size, (int, long)) or size <= 0:
+        logging.warning('invalid %s update: size = %s', type, size)
+        return
+
+    month = datetime.datetime.now().strftime('%Y%m')
+
+    q = session.query(UserTrafficStat).filter_by(email=email, month=month)
+    n = q.update({ type: type + size })
+    if n != 1:
+        stat = UserTrafficStat(email, month, **{name:size})
+        session.add(stat)
+
+    session.commit()
+
+def get_user_traffic_stat(session, email, month=None):
+    '''Return the total traffic of a user in the given month. If month is not
+    supplied, defaults to the current month
+
+    '''
+    if month == None:
+        month = datetime.datetime.now().strftime('%Y%m')
+
+    rows = session.query(UserTrafficStat).filter_by(email=email, month=month).all()
+    if not rows:
+        return None
+    else:
+        stat = rows[0]
+        return stat.as_dict()
