@@ -195,3 +195,20 @@ def get_user_traffic_stat(session, email, month=None):
     else:
         stat = rows[0]
         return stat.as_dict()
+
+class UserTrafficDetail(object):
+    def __init__(self, username, traffic):
+        self.username = username
+        self.traffic = traffic
+
+def get_user_traffic_list(session, month, start, limit):
+    q = session.query(UserTrafficStat).filter(UserTrafficStat.month==month)
+    q = q.order_by(desc(UserTrafficStat.file_download + UserTrafficStat.dir_download + UserTrafficStat.file_view))
+    q = q.slice(start, start + limit)
+    rows = q.all()
+
+    if not rows:
+        return []
+    else:
+        ret = [ row.as_dict() for row in rows ]
+        return ret
