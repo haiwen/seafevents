@@ -195,12 +195,26 @@ class Convertor(object):
             if retcode == 0:
                 # Successful
                 shutil.move(tmpdir, html_dir)
-                return 0
+                if change_html_dir_perms(html_dir) != 0:
+                    return -1
+                else:
+                    return 0
             else:
                 # Unsuccessful
                 logging.warning("pdf2htmlEX failed with code %d", retcode)
                 shutil.rmtree(tmpdir)
                 return -1
+
+
+def change_html_dir_perms(path):
+    '''The default permission set by pdf2htmlEX is 700, we need to set it to 770'''
+    args = [
+        'chmod',
+        '-R',
+        '770',
+        path,
+    ]
+    return run_and_wait(args)
 
 pattern = re.compile('<TABLE(.*)BORDER="0">')
 def improve_table_border(path):
