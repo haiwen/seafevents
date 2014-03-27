@@ -27,10 +27,11 @@ event details:
 import os
 import ConfigParser
 
-from .events.db import init_db_session_class
+from .db import init_db_session_class
+
 from .events.db import get_user_events, get_org_user_events, delete_event
 from .events.db import save_user_events, save_org_user_events
-from .events.db import get_user_traffic_stat, get_user_traffic_list
+from .stats.db import get_user_traffic_stat, get_user_traffic_list
 
 from .utils import has_office_tools
 from .utils.config import get_office_converter_conf

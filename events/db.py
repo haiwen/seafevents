@@ -1,66 +1,12 @@
-import os
-import ConfigParser
 import simplejson as json
 import datetime
 import logging
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy import desc
 
-from .models import Base, Event, UserEvent, UserTrafficStat
+from .models import Event, UserEvent
 
 logger = logging.getLogger('seafevents')
-
-def create_engine_from_conf(config_file):
-    config = ConfigParser.ConfigParser()
-    config.read(config_file)
-
-    backend = config.get('DATABASE', 'type')
-    if backend == 'sqlite' or backend == 'sqlite3':
-        path = config.get('DATABASE', 'path')
-        if not os.path.isabs(path):
-            path = os.path.join(os.path.dirname(config_file), path)
-        db_url = "sqlite:///%s" % path
-        logger.info('[seafevents] database: sqlite3, path: %s', path)
-    elif backend == 'mysql':
-        if config.has_option('DATABASE', 'host'):
-            host = config.get('DATABASE', 'host').lower()
-        else:
-            host = 'localhost'
-
-        if config.has_option('DATABASE', 'port'):
-            port = config.getint('DATABASE', 'port')
-        else:
-            port = 3306
-        username = config.get('DATABASE', 'username')
-        passwd = config.get('DATABASE', 'password')
-        dbname = config.get('DATABASE', 'name')
-        db_url = "mysql+mysqldb://%s:%s@%s:%s/%s" % (username, passwd, host, port, dbname)
-        logger.info('[seafevents] database: mysql, name: %s', dbname)
-    else:
-        raise RuntimeError("Unknown database backend: %s" % backend)
-
-    # Add pool recycle, or mysql connection will be closed by mysqld if idle
-    # for too long.
-    kwargs = dict(pool_recycle=3600, echo=False, echo_pool=False)
-
-    engine = create_engine(db_url, **kwargs)
-
-    return engine
-
-def init_db_session_class(config_file):
-    """Configure Session class for mysql according to the config file."""
-    try:
-        engine = create_engine_from_conf(config_file)
-    except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
-        raise RuntimeError("invalid config file %s", config_file)
-
-    # Create tables if not exists.
-    Base.metadata.create_all(engine)
-
-    Session = sessionmaker(bind=engine)
-    return Session
 
 class UserEventDetail(object):
     """Regular objects which can be used by seahub without worrying about ORM"""
@@ -152,63 +98,3 @@ def save_user_events(session, etype, detail, usernames, timestamp):
 def save_org_user_events(session, org_id, etype, detail, usernames, timestamp):
     """Org version of save_user_events"""
     return _save_user_events(session, org_id, etype, detail, usernames, timestamp)
-
-def update_block_download_traffic(session, email, size):
-    update_traffic_common(session, email, size, UserTrafficStat.block_download, 'block_download')
-
-def update_file_view_traffic(session, email, size):
-    update_traffic_common(session, email, size, UserTrafficStat.file_view, 'file_view')
-
-def update_file_download_traffic(session, email, size):
-    update_traffic_common(session, email, size, UserTrafficStat.file_download, 'file_download')
-
-def update_dir_download_traffic(session, email, size):
-    update_traffic_common(session, email, size, UserTrafficStat.dir_download, 'dir_download')
-
-def update_traffic_common(session, email, size, type, name):
-    '''common code to update different types of traffic stat'''
-    if not isinstance(size, (int, long)) or size <= 0:
-        logging.warning('invalid %s update: size = %s', type, size)
-        return
-
-    month = datetime.datetime.now().strftime('%Y%m')
-
-    q = session.query(UserTrafficStat).filter_by(email=email, month=month)
-    n = q.update({ type: type + size })
-    if n != 1:
-        stat = UserTrafficStat(email, month, **{name:size})
-        session.add(stat)
-
-    session.commit()
-
-def get_user_traffic_stat(session, email, month=None):
-    '''Return the total traffic of a user in the given month. If month is not
-    supplied, defaults to the current month
-
-    '''
-    if month == None:
-        month = datetime.datetime.now().strftime('%Y%m')
-
-    rows = session.query(UserTrafficStat).filter_by(email=email, month=month).all()
-    if not rows:
-        return None
-    else:
-        stat = rows[0]
-        return stat.as_dict()
-
-class UserTrafficDetail(object):
-    def __init__(self, username, traffic):
-        self.username = username
-        self.traffic = traffic
-
-def get_user_traffic_list(session, month, start, limit):
-    q = session.query(UserTrafficStat).filter(UserTrafficStat.month==month)
-    q = q.order_by(desc(UserTrafficStat.file_download + UserTrafficStat.dir_download + UserTrafficStat.file_view))
-    q = q.slice(start, start + limit)
-    rows = q.all()
-
-    if not rows:
-        return []
-    else:
-        ret = [ row.as_dict() for row in rows ]
-        return ret

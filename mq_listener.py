@@ -2,24 +2,22 @@ import threading
 import Queue
 import logging
 
-from seafevents.events.db import init_db_session_class
-from seafevents.events.handler import handle_message
+from seafevents.db import init_db_session_class
+from seafevents.message_handler import message_handler
 
 __all__ = [
     'EventsMQListener',
 ]
 
 class EventsMQListener(object):
-    SERVER_EVENTS_MQS = [
-        'seaf_server.event',
-        'seahub.stats',
-    ]
-
+    # SERVER_EVENTS_MQS = [
+    #     'seaf_server.event',
+    #     'seahub.stats',
+    # ]
 
     def __init__(self, events_conf):
         self._events_queue = Queue.Queue()
         self._db_session_class = init_db_session_class(events_conf)
-
         self._seafevents_thread = None
         self._mq_client = None
 
@@ -29,8 +27,9 @@ class EventsMQListener(object):
 
         self._mq_client = async_client.create_master_processor('mq-client')
         self._mq_client.set_callback(self.message_cb)
-        self._mq_client.start(*self.SERVER_EVENTS_MQS)
-        logging.info('listen to mq: %s', self.SERVER_EVENTS_MQS)
+        mqs = message_handler.get_mqs()
+        self._mq_client.start(*mqs)
+        logging.info('listen to mq: %s', mqs)
 
     def message_cb(self, message):
         self._events_queue.put(message)
@@ -52,7 +51,7 @@ class SeafEventsThread(threading.Thread):
     def do_work(self, msg):
         session = self._db_session_class()
         try:
-            handle_message(session, msg)
+            message_handler.handle_message(session, msg)
         finally:
             session.close()
 
