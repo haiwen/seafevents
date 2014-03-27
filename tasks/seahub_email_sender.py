@@ -2,7 +2,7 @@ import os
 import logging
 
 from ccnet.async import Timer
-from seafevents.utils import get_python_executable, run 
+from seafevents.utils import get_python_executable, run
 from seafevents.utils.config import parse_bool, parse_interval, get_opt_from_conf_or_env
 
 __all__ = [
@@ -15,10 +15,16 @@ class SeahubEmailSender(object):
 
         self._interval = None
         self._seahubdir = None
+        self._logfile = None
 
         self._timer = None
 
         self._parse_config(config)
+        self._prepare_logdir()
+
+    def _prepare_logdir(self):
+        logdir = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''))
+        self._logfile = os.path.join(logdir, 'seahub_email_sender.log')
 
     def _parse_config(self, config):
         '''Parse send email related options from events.conf'''
@@ -70,15 +76,16 @@ class SeahubEmailSender(object):
 
         logging.info('seahub email sender is started, interval = %s sec', self._interval)
         self._timer = SendSeahubEmailTimer(ev_base, self._interval,
-                                           self._seahubdir)
+                                           self._seahubdir, self._logfile)
 
     def is_enabled(self):
         return self._enabled
 
 class SendSeahubEmailTimer(Timer):
-    def __init__(self, ev_base, timeout, seahubdir):
+    def __init__(self, ev_base, timeout, seahubdir, logfile):
         Timer.__init__(self, ev_base, timeout)
         self._seahubdir = seahubdir
+        self._logfile = logfile
 
     def callback(self):
         self.send_seahub_email()
@@ -90,7 +97,8 @@ class SendSeahubEmailTimer(Timer):
             manage_py,
             'send_notices',
         ]
-        run(cmd, cwd=self._seahubdir)
+        with open(self._logfile, 'a') as fp:
+            run(cmd, cwd=self._seahubdir, output=fp)
 
     def send_seahub_email(self):
         '''Send seahub user notification emails'''

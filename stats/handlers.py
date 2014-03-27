@@ -15,7 +15,7 @@ def get_logger(name, logfile):
     if name in _cached_loggers:
         return _cached_loggers[name]
 
-    logdir = os.path.join(os.environ.get('SEAFSTAT_LOG_DIR', 'logs'), 'stats-logs')
+    logdir = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'stats-logs')
     if not os.path.exists(logdir):
         os.makedirs(logdir)
     logfile = os.path.join(logdir, logfile)

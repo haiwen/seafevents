@@ -64,8 +64,8 @@ class IndexUpdater(object):
 
         # [ index logfile ]
 
-        # default index file is 'index.log' in the seafes dir
-        default_logfile = os.path.join(seafesdir, 'index.log')
+        # default index file is 'index.log' in SEAFEVENTS_LOG_DIR
+        default_logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'index.log')
         logfile = get_opt_from_conf_or_env (config, section_name,
                                             key_logfile,
                                             'SEAFES_LOGFILE',
@@ -113,7 +113,7 @@ class IndexUpdater(object):
         self._seafesdir = seafesdir
         self._interval = val
         self._index_office_pdf = index_office_pdf
-        self._logfile = logfile
+        self._logfile = os.path.abspath(logfile)
         self._es_host = es_host
         self._es_port = es_port
 

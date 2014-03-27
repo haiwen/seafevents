@@ -8,6 +8,8 @@ import ccnet
 import time
 import subprocess
 
+logger = logging.getLogger(__name__)
+
 def find_in_path(prog):
     if 'win32' in sys.platform:
         sep = ';'
@@ -124,46 +126,33 @@ def get_python_executable():
     pyexec = _get_python_executable()
     return pyexec
 
-def run(argv, cwd=None, env=None, suppress_stdout=False, suppress_stderr=False):
-    '''Run a program and wait it to finish, and return its exit code. The
-    standard output of this program is supressed.
+def run(argv, cwd=None, env=None, suppress_stdout=False, suppress_stderr=False, output=None):
+    def quote(args):
+        return ' '.join([ '"%s"' % arg for arg in args])
 
-    '''
+    cmdline = quote(argv)
+    if cwd:
+        logger.debug('Running command: %s, cwd = %s', cmdline, cwd)
+    else:
+        logger.debug('Running command: %s', cmdline)
+
     with open(os.devnull, 'w') as devnull:
+        kwargs = dict(cwd=cwd, env=env, shell=True)
+
         if suppress_stdout:
-            stdout = devnull
-        else:
-            stdout = sys.stdout
-
+            kwargs['stdout'] = devnull
         if suppress_stderr:
-            stderr = devnull
-        else:
-            stderr = sys.stderr
+            kwargs['stderr'] = devnull
 
-        return subprocess.Popen(argv,
-                                cwd=cwd,
-                                stdout=stdout,
-                                stderr=stderr,
-                                env=env)
+        if output:
+            kwargs['stdout'] = output
+            kwargs['stderr'] = output
 
-def run_and_wait(argv, cwd=None, env=None, suppress_stdout=False, suppress_stderr=False):
-    with open(os.devnull, 'w') as devnull:
-        if suppress_stdout:
-            stdout = devnull
-        else:
-            stdout = sys.stdout
+        return subprocess.Popen(cmdline, **kwargs)
 
-        if suppress_stderr:
-            stderr = devnull
-        else:
-            stderr = sys.stderr
-
-        proc = subprocess.Popen(argv,
-                                cwd=cwd,
-                                stdout=stdout,
-                                stderr=stderr,
-                                env=env)
-        return proc.wait()
+def run_and_wait(argv, cwd=None, env=None, suppress_stdout=False, suppress_stderr=False, output=None):
+    proc = run(argv, cwd, env, suppress_stdout, suppress_stderr, output)
+    return proc.wait()
 
 class ClientConnector(object):
     RECONNECT_CCNET_INTERVAL = 2

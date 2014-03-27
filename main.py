@@ -209,8 +209,8 @@ def main(background_tasks_only=False):
     args = AppArgParser().parse_args()
     app_logger = LogConfigurator(args.loglevel, args.logfile) # pylint: disable=W0612
     if args.logfile:
-        os.environ['SEAFSTAT_LOG_DIR'] = os.path.dirname(os.path.realpath(args.logfile))
-        print 'SEAFSTAT_LOG_DIR is ', os.environ['SEAFSTAT_LOG_DIR']
+        logdir = os.path.dirname(os.path.realpath(args.logfile))
+        os.environ['SEAFEVENTS_LOG_DIR'] = logdir
 
     os.environ['EVENTS_CONFIG_FILE'] = os.path.expanduser(args.config_file)
 
