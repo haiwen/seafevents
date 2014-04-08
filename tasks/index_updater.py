@@ -137,7 +137,6 @@ class IndexUpdateTimer(Timer):
         self._seafesdir = seafesdir
         self._index_office_pdf = index_office_pdf
         self._logfile = logfile
-        self._loglevel = 'debug'
         self._es_host = es_host
         self._es_port = es_port
 
@@ -155,12 +154,10 @@ class IndexUpdateTimer(Timer):
         '''Invoking the update_repos.py, log to ./index.log'''
         assert os.path.exists(self._seafesdir)
         script_path = os.path.join(self._seafesdir, self._script_name)
-        # python update_repos.py --logfile ./index.log --loglevel debug update
         cmd = [
             get_python_executable(),
             '-m', 'seafes.update_repos',
             '--logfile', self._logfile,
-            '--loglevel', self._loglevel,
             'update',
         ]
 
