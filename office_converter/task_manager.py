@@ -300,7 +300,7 @@ class TaskManager(object):
         with self._tasks_map_lock:
             if self._tasks_map.has_key(file_id):
                 task = self._tasks_map[file_id]
-                if task.status != 'ERROR':
+                if task.status != 'ERROR' and task.status != 'DONE':
                     # If there is already a convert task in progress, don't create a
                     # new one.
                     return ret

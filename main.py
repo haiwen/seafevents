@@ -4,7 +4,6 @@
 import argparse
 import ConfigParser
 import os
-import sys
 import logging
 import libevent
 
@@ -76,22 +75,19 @@ def get_ccnet_dir():
         raise RuntimeError('ccnet config dir is not set')
 
 class App(object):
-
-    DUMMY_SERVICE = 'seafevents-dummy-service'
-    DUMMY_SERVICE_GROUP = 'rpc-inner'
-
-    def __init__(self, ccnet_dir, args):
-
+    def __init__(self, ccnet_dir, args, events_listener_enabled=True, background_tasks_enabled=True):
         self._ccnet_dir = ccnet_dir
         self._args = args
-        self._app_config = get_config(args.config_file)
+        self._events_listener_enabled = events_listener_enabled
+        self._bg_tasks_enabled = background_tasks_enabled
 
-        self._background_tasks = None
-        self._office_converter = None
-        if BackgroundTasks.is_enabled():
-            self._background_tasks = BackgroundTasks(args)
-            if has_office_tools():
-                self._office_converter = OfficeConverter(get_office_converter_conf(self._app_config))
+        self._events_listener = None
+        if self._events_listener_enabled:
+            self._events_listener = EventsListener(args.config_file)
+
+        self._bg_tasks = None
+        if self._bg_tasks_enabled:
+            self._bg_tasks = BackgroundTasks(args.config_file)
 
         self._ccnet_session = None
         self._sync_client = None
@@ -100,32 +96,22 @@ class App(object):
         self._mq_listener = EventsMQListener(self._args.config_file)
         self._sighandler = SignalHandler(self._evbase)
 
-    def ensure_single_instance(self):
-        '''Register a dummy service synchronously to ensure only a single
-        instance is running
-
-        '''
-        self._sync_client = ccnet.SyncClient(self._ccnet_dir)
-        self._sync_client.connect_daemon()
-        try:
-            self._sync_client.register_service_sync(self.DUMMY_SERVICE, self.DUMMY_SERVICE_GROUP)
-        except:
-            logging.exception('Another instance is already running')
-            do_exit(1)
-
     def start_ccnet_session(self):
         '''Connect to ccnet-server, retry util connection is made'''
         self._ccnet_session = AsyncClient(self._ccnet_dir, self._evbase)
         connector = ClientConnector(self._ccnet_session)
         connector.connect_daemon_with_retry()
 
+        self._sync_client = ccnet.SyncClient(self._ccnet_dir)
+        self._sync_client.connect_daemon()
+
     def connect_ccnet(self):
         self.start_ccnet_session()
-        self.ensure_single_instance()
 
-        if self._office_converter and self._office_converter.is_enabled():
-            self._office_converter.register_rpc(self._ccnet_session)
-        self._mq_listener.start(self._ccnet_session)
+        if self._events_listener:
+            self._events_listener.on_ccnet_connected(self._ccnet_session, self._sync_client)
+        if self._bg_tasks:
+            self._bg_tasks.on_ccnet_connected(self._ccnet_session, self._sync_client)
 
     def _serve(self):
         try:
@@ -136,41 +122,68 @@ class App(object):
                 self.connect_ccnet()
             else:
                 do_exit(0)
-        except Exception:
+
             logging.exception('Error in main_loop:')
             do_exit(0)
 
     def serve_forever(self):
-        if self._background_tasks:
-            self._background_tasks.start(self._evbase)
-        else:
-            logging.info('background tasks is disabled')
-
-        if self._office_converter and self._office_converter.is_enabled():
-            self._office_converter.start()
-        else:
-            logging.info('office converter is disabled')
-
         self.connect_ccnet()
+
+        if self._bg_tasks:
+            self._bg_tasks.start(self._evbase)
+
+        if self._events_listener:
+            self._events_listener.start(self._evbase)
+
         while True:
             self._serve()
 
+class EventsListener(object):
+    DUMMY_SERVICE = 'seafevents-events-dummy-service'
+    DUMMY_SERVICE_GROUP = 'rpc-inner'
+
+    def __init__(self, config_file):
+        self._mq_listener = EventsMQListener(config_file)
+
+    def _ensure_single_instance(self, sync_client):
+        try:
+            sync_client.register_service_sync(self.DUMMY_SERVICE, self.DUMMY_SERVICE_GROUP)
+        except:
+            logging.exception('Another instance is already running')
+            do_exit(1)
+
+    def on_ccnet_connected(self, async_client, sync_client):
+        self._ensure_single_instance(sync_client)
+        self._mq_listener.start(async_client)
+
+    def start(self, base):
+        pass
+
 class BackgroundTasks(object):
+    DUMMY_SERVICE = 'seafevents-background-tasks-dummy-service'
+    DUMMY_SERVICE_GROUP = 'rpc-inner'
+    def __init__(self, config_file):
 
-    def __init__(self, args):
-
-        self._args = args
-        self._app_config = get_config(args.config_file)
+        self._app_config = get_config(config_file)
 
         self._index_updater = IndexUpdater(self._app_config)
         self._seahub_email_sender = SeahubEmailSender(self._app_config)
 
-    def serve_forever(self):
-        evbase = libevent.Base() #pylint: disable=E1101
-        sighandler = SignalHandler(evbase) # pylint: disable=W0612
+        self._office_converter = None
+        if has_office_tools():
+            self._office_converter = OfficeConverter(get_office_converter_conf(self._app_config))
 
-        self.start(evbase)
-        evbase.loop()
+    def _ensure_single_instance(self, sync_client):
+        try:
+            sync_client.register_service_sync(self.DUMMY_SERVICE, self.DUMMY_SERVICE_GROUP)
+        except:
+            logging.exception('Another instance is already running')
+            do_exit(1)
+
+    def on_ccnet_connected(self, async_client, sync_client):
+        self._ensure_single_instance(sync_client)
+        if self._office_converter and self._office_converter.is_enabled():
+            self._office_converter.register_rpc(async_client)
 
     def start(self, base):
         logging.info('staring background tasks')
@@ -183,27 +196,18 @@ class BackgroundTasks(object):
             self._seahub_email_sender.start(base)
         else:
             logging.info('seahub email sender is disabled')
+            
+        if self._office_converter and self._office_converter.is_enabled():
+            self._office_converter.start()
 
-    @staticmethod
-    def is_enabled():
-        '''In single sever mode, the background tasks always enabled; In cluster
-        mode, the background tasks run on a single server through
-        seafevents.background_tasks
-
-        '''
-        def is_cluster_enabled():
-            cp = ConfigParser.ConfigParser()
-            seafile_conf = os.path.join(os.environ['SEAFILE_CONF_DIR'], 'seafile.conf')
-            cp.read(seafile_conf)
-            section = 'cluster'
-            if not cp.has_section(section):
-                return False
-            try:
-                return cp.getboolean(section, 'enabled')
-            except ConfigParser.NoOptionError:
-                return False
-
-        return not is_cluster_enabled()
+def is_cluster_enabled():
+    cfg = ConfigParser.ConfigParser()
+    conf = os.path.join(os.environ['SEAFILE_CONF_DIR'], 'seafile.conf')
+    cfg.read(conf)
+    if cfg.has_option('cluster', 'enabled'):
+        return cfg.getboolean('cluster', 'enabled')
+    else:
+        return False
 
 def main(background_tasks_only=False):
     args = AppArgParser().parse_args()
@@ -217,10 +221,20 @@ def main(background_tasks_only=False):
     if args.pidfile:
         write_pidfile(args.pidfile)
 
+    events_listener_enabled = True
+    background_tasks_enabled = True
+
     if background_tasks_only:
-        BackgroundTasks(args).serve_forever()
-    else:
-        App(get_ccnet_dir(), args).serve_forever()
+        events_listener_enabled = False
+        background_tasks_enabled = True
+    elif is_cluster_enabled():
+        events_listener_enabled = True
+        background_tasks_enabled = False
+
+    app = App(get_ccnet_dir(), args, events_listener_enabled=events_listener_enabled,
+              background_tasks_enabled=background_tasks_enabled)
+
+    app.serve_forever()
 
 def run_background_tasks():
     main(background_tasks_only=True)
