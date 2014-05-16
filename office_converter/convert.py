@@ -164,7 +164,7 @@ class Convertor(object):
             '--outline-filename', 'file.outline', # outline file name
             '--page-filename', '%d.page',         # outline file name
             '--last-page', str(pages),            # max page range
-            '--fit-width', '700',                 # page width
+            '--fit-width', '850',                 # page width
             pdf,                                  # src file
             html_name,                            # output main html file name
         ]
