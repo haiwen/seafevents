@@ -154,6 +154,7 @@ class Convertor(object):
                                            'pdf2htmlEX')
         args = [
             'pdf2htmlEX',
+            '--tounicode', '1',
             '--data-dir', pdf2htmlEX_data_dir, # split pages for dynamic loading
             '--dest-dir', tmpdir,              # out put dir
             '--no-drm', '1',                   # ignore DRM protect
