@@ -122,7 +122,7 @@ class App(object):
                 self.connect_ccnet()
             else:
                 do_exit(0)
-
+        except Exception:
             logging.exception('Error in main_loop:')
             do_exit(0)
 
@@ -196,7 +196,7 @@ class BackgroundTasks(object):
             self._seahub_email_sender.start(base)
         else:
             logging.info('seahub email sender is disabled')
-            
+
         if self._office_converter and self._office_converter.is_enabled():
             self._office_converter.start()
 
