@@ -12,7 +12,7 @@ import logging
 
 from .doctypes import DOC_TYPES, PPT_TYPES, EXCEL_TYPES
 
-from ..utils import get_python_executable, run, run_and_wait
+from ..utils import get_python_executable, run, run_and_wait, find_in_path
 
 __all__ = [
     "Convertor",
@@ -26,17 +26,48 @@ class ConvertorFatalError(Exception):
     """
     pass
 
+def is_python3():
+    libreoffice_exe = find_in_path('libreoffice')
+    if not libreoffice_exe:
+        return False
+    try:
+        output = subprocess.check_output('libreoffice --version', shell=True)
+    except subprocess.CalledProcessError:
+        return False
+    else:
+        m = re.match(r'LibreOffice (\d)\.(\d)', output)
+        if not m:
+            return False
+        major, minor = map(int, m.groups())
+        if major == 4 and minor >= 2:
+            return True
+
+    return False
+
 class Convertor(object):
     def __init__(self):
-        self.unoconv_py = 'unoconv.py'
+        self.unoconv_py = os.path.join(os.path.dirname(__file__), 'unoconv.py')
         self.cwd = os.path.dirname(__file__)
         self.pipe = 'seafilepipe'
         self.proc = None
         self.lock = threading.Lock()
+        self._python = None
+
+    def get_uno_python(self):
+        if not self._python:
+            if is_python3():
+                py3 = find_in_path('python3')
+                if py3:
+                    logging.info('unoconv process will use python 3')
+                    self._python = py3
+
+            self._python = self._python or get_python_executable()
+
+        return self._python
 
     def start(self):
         args = [
-            get_python_executable(),
+            self.get_uno_python(),
             self.unoconv_py,
             '-vvv',
             '--pipe',
@@ -63,7 +94,7 @@ class Convertor(object):
             return self.convert_to_pdf_fallback(doc_path, pdf_path)
 
         args = [
-            get_python_executable(),
+            self.get_uno_python(),
             self.unoconv_py,
             '-vvv',
             '--pipe',
@@ -83,7 +114,7 @@ class Convertor(object):
             return self.excel_to_html_fallback(doc_path, html_path)
 
         args = [
-            get_python_executable(),
+            self.get_uno_python(),
             self.unoconv_py,
             '-vvv',
             '-d', 'spreadsheet',
@@ -103,7 +134,7 @@ class Convertor(object):
 
     def excel_to_html_fallback(self, doc_path, html_path):
         args = [
-            get_python_executable(),
+            self.get_uno_python(),
             self.unoconv_py,
             '-vvv',
             '-d', 'spreadsheet',
@@ -126,7 +157,7 @@ class Convertor(object):
 
         '''
         args = [
-            get_python_executable(),
+            self.get_uno_python(),
             self.unoconv_py,
             '-vvv',
             '-o',
