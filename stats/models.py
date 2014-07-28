@@ -1,5 +1,4 @@
 import uuid
-import simplejson as json
 
 from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Text
 from sqlalchemy import ForeignKey

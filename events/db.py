@@ -1,4 +1,3 @@
-import simplejson as json
 import datetime
 import logging
 
