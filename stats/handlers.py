@@ -123,28 +123,31 @@ def RepoUpdateLogHanlder(session, msg):
     repoupdate_logger = get_logger('repo.update', 'repo_update.log')
     repoupdate_logger.info("%s %s" % (repo_id, owner))
 
-def FileDownloadWebEventHandler(session, msg):
+def FileAccessEventHandler(session, msg):
+    if not LOG_ACCESS_INFO:
+        return
+
     elements = msg.body.split('\t\\')
     if len(elements) != 6:
         logging.warning("got bad message: %s", elements)
         return
 
+    msg_type = elements[0]
     user_name = elements[1]
     ip = elements[2]
     user_agent = elements[3]
     repo_id = elements[4]
     file_path = elements[5]
 
-    if LOG_ACCESS_INFO:
-        filedownload_web_logger = get_logger('file.download.web', 'file_download_web.log')
-        filedownload_web_logger.info('%s %s %s %s %s' %
-                                     (user_name, ip, user_agent, repo_id, file_path))
-
+    fileaccess_logger = get_logger('file.access', 'access.log')
+    fileaccess_logger.info('%s %s %s %s %s %s' %
+                           (msg_type, user_name, ip, user_agent, repo_id, file_path))
 
 def register_handlers(handlers):
     handlers.add_handler('seaf_server.event:put-block', PutBlockEventHandler)
     handlers.add_handler('seahub.stats:file-view', FileViewEventHandler)
     handlers.add_handler('seahub.stats:file-download', FileDownloadEventHandler)
     handlers.add_handler('seahub.stats:dir-download', DirDownloadEventHandler)
-    handlers.add_handler('seahub.stats:file-download-web', FileDownloadWebEventHandler)
+    handlers.add_handler('seahub.stats:file-download-web', FileAccessEventHandler)
+    handlers.add_handler('seahub.stats:file-download-api', FileAccessEventHandler)
     handlers.add_handler('seaf_server.event:repo-update', RepoUpdateLogHanlder)
