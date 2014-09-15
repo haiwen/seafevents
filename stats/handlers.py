@@ -127,8 +127,8 @@ def FileAccessEventHandler(session, msg):
     if not LOG_ACCESS_INFO:
         return
 
-    elements = msg.body.split('\t\\')
-    if len(elements) != 6:
+    elements = msg.body.split('\t')
+    if len(elements) != 7:
         logging.warning("got bad message: %s", elements)
         return
 
@@ -137,11 +137,13 @@ def FileAccessEventHandler(session, msg):
     ip = elements[2]
     user_agent = elements[3]
     repo_id = elements[4]
-    file_path = elements[5]
+    repo_name = elements[5]
+    file_path = elements[6]
 
     fileaccess_logger = get_logger('file.access', 'access.log')
-    fileaccess_logger.info('%s %s %s %s %s %s' %
-                           (msg_type, user_name, ip, user_agent, repo_id, file_path))
+    fileaccess_logger.info('%s %s %s "%s" %s "%s" "%s"' %
+                           (msg_type, user_name, ip, user_agent,
+                            repo_id, repo_name, file_path))
 
 def register_handlers(handlers):
     handlers.add_handler('seaf_server.event:put-block', PutBlockEventHandler)
