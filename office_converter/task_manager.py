@@ -98,7 +98,7 @@ class Worker(threading.Thread):
         if success:
             logging.debug("succefully converted %s to pdf", task)
         else:
-            logging.warning("failed to converted %s to pdf", task)
+            logging.warning("failed to convert %s to pdf", task)
 
         return success
 
