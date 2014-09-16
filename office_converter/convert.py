@@ -104,7 +104,10 @@ class Convertor(object):
             doc_path,
         ]
 
-        if run_and_wait(args, cwd=self.cwd) != 0:
+        try:
+            subprocess.check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError, e:
+            logging.warning('error when invoking libreoffice: %s', e.output)
             return False
         else:
             return True
@@ -126,7 +129,10 @@ class Convertor(object):
             doc_path,
         ]
 
-        if run_and_wait(args, cwd=self.cwd) != 0:
+        try:
+            subprocess.check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError, e:
+            logging.warning('error when invoking libreoffice: %s', e.output)
             return False
         else:
             improve_table_border(html_path)
@@ -144,7 +150,10 @@ class Convertor(object):
             doc_path,
         ]
 
-        if run_and_wait(args, cwd=self.cwd) != 0:
+        try:
+            subprocess.check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError, e:
+            logging.warning('error when invoking libreoffice: %s', e.output)
             return False
         else:
             improve_table_border(html_path)
@@ -166,7 +175,10 @@ class Convertor(object):
         ]
 
         with self.lock:
-            if run_and_wait(args, cwd=self.cwd) != 0:
+            try:
+                subprocess.check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError, e:
+                logging.warning('error when invoking libreoffice: %s', e.output)
                 return False
             else:
                 return True
