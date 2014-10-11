@@ -19,6 +19,26 @@ __all__ = [
     "ConvertorFatalError",
 ]
 
+def _check_output(*popenargs, **kwargs):
+    r"""Run command with arguments and return its output as a byte string.
+
+    Backported from Python 2.7 as it's implemented as pure python on stdlib.
+
+    >>> check_output(['/usr/bin/python', '--version'])
+    Python 2.6.2
+    """
+    process = subprocess.Popen(stdout=subprocess.PIPE, *popenargs, **kwargs)
+    output, _ = process.communicate()
+    retcode = process.poll()
+    if retcode:
+        cmd = kwargs.get("args")
+        if cmd is None:
+            cmd = popenargs[0]
+        error = subprocess.CalledProcessError(retcode, cmd)
+        error.output = output
+        raise error
+    return output
+
 class ConvertorFatalError(Exception):
     """Fatal error when converting. Typically it means the libreoffice process
     is dead.
@@ -31,7 +51,7 @@ def is_python3():
     if not libreoffice_exe:
         return False
     try:
-        output = subprocess.check_output('libreoffice --version', shell=True)
+        output = _check_output('libreoffice --version', shell=True)
     except subprocess.CalledProcessError:
         return False
     else:
@@ -105,7 +125,7 @@ class Convertor(object):
         ]
 
         try:
-            subprocess.check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
+            _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError, e:
             logging.warning('error when invoking libreoffice: %s', e.output)
             return False
@@ -130,7 +150,7 @@ class Convertor(object):
         ]
 
         try:
-            subprocess.check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
+            _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError, e:
             logging.warning('error when invoking libreoffice: %s', e.output)
             return False
@@ -151,7 +171,7 @@ class Convertor(object):
         ]
 
         try:
-            subprocess.check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
+            _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError, e:
             logging.warning('error when invoking libreoffice: %s', e.output)
             return False
@@ -176,7 +196,7 @@ class Convertor(object):
 
         with self.lock:
             try:
-                subprocess.check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
+                _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError, e:
                 logging.warning('error when invoking libreoffice: %s', e.output)
                 return False
