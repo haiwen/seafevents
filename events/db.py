@@ -4,7 +4,7 @@ import logging
 
 from sqlalchemy import desc
 
-from .models import Event, UserEvent
+from .models import Event, UserEvent, FileAudit
 
 logger = logging.getLogger('seafevents')
 
@@ -98,3 +98,40 @@ def save_user_events(session, etype, detail, usernames, timestamp):
 def save_org_user_events(session, org_id, etype, detail, usernames, timestamp):
     """Org version of save_user_events"""
     return _save_user_events(session, org_id, etype, detail, usernames, timestamp)
+
+def get_file_audit_events(session, user, org_id, repo_id, start, limit):
+    if start < 0:
+        raise RuntimeError('start must be non-negative')
+
+    if limit <= 0:
+        raise RuntimeError('limit must be positive')
+
+    q = session.query(FileAudit)
+
+    if user is not None:
+        q = q.filter(FileAudit.user==user)
+
+    if org_id > 0:
+        q = q.filter(FileAudit.org_id==org_id)
+    elif org_id < 0:
+        q = q.filter(FileAudit.org_id<=0)
+
+    if repo_id is not None:
+        q = q.filter(FileAudit.repo_id==repo_id)
+
+    q = q.order_by(desc(FileAudit.timestamp)).slice(start, start + limit);
+
+    events = q.all()
+
+    return events
+
+def save_file_audit_events(session, timestamp, etype, user, ip, device, \
+                           org_id, repo_id, file_path):
+    if timestamp is None:
+        timestamp = datetime.datetime.utcnow()
+
+    file_audit = FileAudit(timestamp, etype, user, ip, device, \
+                           org_id, repo_id, file_path)
+
+    session.add(file_audit)
+    session.commit()

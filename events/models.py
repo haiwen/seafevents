@@ -2,7 +2,7 @@ import json
 import uuid
 
 from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Text
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Sequence
 
 from seafevents.db import Base
 
@@ -53,3 +53,39 @@ class UserEvent(Base):
         else:
             return "UserEvent<user = %s, event id = %s>" % \
                 (self.username, self.eid)
+
+class FileAudit(Base):
+    __tablename__ = 'FileAudit'
+
+    eid = Column(Integer, Sequence('file_audit_eid_seq'), primary_key=True)
+    timestamp = Column(DateTime, nullable=False)
+    etype = Column(String(length=128), nullable=False)
+    user = Column(String(length=255), nullable=False, index=True)
+    ip = Column(String(length=45), nullable=False)
+    device = Column(Text, nullable=False)
+    org_id = Column(Integer, nullable=False, index=True)
+    repo_id = Column(String(length=36), nullable=False, index=True)
+    file_path = Column(Text, nullable=False)
+
+    def __init__(self, timestamp, etype, user, ip, device, \
+                 org_id, repo_id, file_path):
+        self.timestamp = timestamp
+        self.etype = etype
+        self.user = user
+        self.ip = ip
+        self.device = device
+        self.org_id = org_id
+        self.repo_id = repo_id
+        self.file_path = file_path
+
+    def __str__(self):
+        if self.org_id > 0:
+           return "FileAudit<EventType = %s, User = %s, IP = %s, Device = %s, \
+                    OrgID = %s, RepoID = %s, FilePath = %s>" % \
+                    (self.etype, self.user, self.ip, self.device, \
+                     self.org_id, self.repo_id, self.file_path)
+        else:
+            return "FileAudit<EventType = %s, User = %s, IP = %s, Device = %s, \
+                    RepoID = %s, FilePath = %s>" % \
+                    (self.etype, self.user, self.ip, self.device, \
+                     self.repo_id, self.file_path)

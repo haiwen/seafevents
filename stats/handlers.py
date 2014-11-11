@@ -152,4 +152,5 @@ def register_handlers(handlers):
     handlers.add_handler('seahub.stats:dir-download', DirDownloadEventHandler)
     handlers.add_handler('seahub.stats:file-download-web', FileAccessEventHandler)
     handlers.add_handler('seahub.stats:file-download-api', FileAccessEventHandler)
+    handlers.add_handler('seahub.stats:file-download-share-link', FileAccessEventHandler)
     handlers.add_handler('seaf_server.event:repo-update', RepoUpdateLogHanlder)

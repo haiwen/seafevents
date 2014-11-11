@@ -29,7 +29,8 @@ import ConfigParser
 
 from .db import init_db_session_class
 
-from .events.db import get_user_events, get_org_user_events, delete_event
+from .events.db import get_user_events, get_org_user_events, delete_event, \
+        get_file_audit_events
 from .events.db import save_user_events, save_org_user_events
 from .stats.db import get_user_traffic_stat, get_user_traffic_list
 
