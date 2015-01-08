@@ -4,7 +4,7 @@ import logging
 
 from sqlalchemy import desc
 
-from .models import Event, UserEvent, FileAudit
+from .models import Event, UserEvent, FileAudit, FileUpdate, PermAudit
 
 logger = logging.getLogger('seafevents')
 
@@ -99,33 +99,51 @@ def save_org_user_events(session, org_id, etype, detail, usernames, timestamp):
     """Org version of save_user_events"""
     return _save_user_events(session, org_id, etype, detail, usernames, timestamp)
 
-def get_file_audit_events(session, user, org_id, repo_id, start, limit):
+def save_file_update_event(session, timestamp, user, org_id, repo_id, \
+                           commit_id, file_oper):
+    if timestamp is None:
+        timestamp = datetime.datetime.utcnow()
+
+    event = FileUpdate(timestamp, user, org_id, repo_id, commit_id, file_oper)
+    session.add(event)
+    session.commit()
+
+def get_events(session, obj, username, org_id, repo_id, start, limit):
     if start < 0:
         raise RuntimeError('start must be non-negative')
 
     if limit <= 0:
         raise RuntimeError('limit must be positive')
 
-    q = session.query(FileAudit)
+    q = session.query(obj)
 
-    if user is not None:
-        q = q.filter(FileAudit.user==user)
+    if username is not None:
+        try:
+            q = q.filter(obj.user==username)
+        except AttributeError:
+            q = q.filter(obj.from_user==username)
 
     if org_id > 0:
-        q = q.filter(FileAudit.org_id==org_id)
+        q = q.filter(obj.org_id==org_id)
     elif org_id < 0:
-        q = q.filter(FileAudit.org_id<=0)
+        q = q.filter(obj.org_id<=0)
 
     if repo_id is not None:
-        q = q.filter(FileAudit.repo_id==repo_id)
+        q = q.filter(obj.repo_id==repo_id)
 
-    q = q.order_by(desc(FileAudit.timestamp)).slice(start, start + limit);
+    q = q.order_by(desc(obj.timestamp)).slice(start, start + limit);
 
     events = q.all()
 
     return events
 
-def save_file_audit_events(session, timestamp, etype, user, ip, device, \
+def get_file_update_events(session, user, org_id, repo_id, start, limit):
+    return get_events(session, FileUpdate, user, org_id, repo_id, start, limit)
+
+def get_file_audit_events(session, user, org_id, repo_id, start, limit):
+    return get_events(session, FileAudit, user, org_id, repo_id, start, limit)
+
+def save_file_audit_event(session, timestamp, etype, user, ip, device, \
                            org_id, repo_id, file_path):
     if timestamp is None:
         timestamp = datetime.datetime.utcnow()
@@ -135,3 +153,17 @@ def save_file_audit_events(session, timestamp, etype, user, ip, device, \
 
     session.add(file_audit)
     session.commit()
+
+def save_perm_audit_event(session, timestamp, etype, from_user, to, \
+                          org_id, repo_id, file_path, perm):
+    if timestamp is None:
+        timestamp = datetime.datetime.utcnow()
+
+    perm_audit = PermAudit(timestamp, etype, from_user, to, org_id, \
+                           repo_id, file_path, perm)
+
+    session.add(perm_audit)
+    session.commit()
+
+def get_perm_audit_events(session, from_user, org_id, repo_id, start, limit):
+    return get_events(session, PermAudit, from_user, org_id, repo_id, start, limit)

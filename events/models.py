@@ -89,3 +89,68 @@ class FileAudit(Base):
                     RepoID = %s, FilePath = %s>" % \
                     (self.etype, self.user, self.ip, self.device, \
                      self.repo_id, self.file_path)
+
+class FileUpdate(Base):
+    __tablename__ = 'FileUpdate'
+
+    eid = Column(Integer, Sequence('file_update_eid_seq'), primary_key=True)
+    timestamp = Column(DateTime, nullable=False)
+    user = Column(String(length=255), nullable=False, index=True)
+    org_id = Column(Integer, nullable=False, index=True)
+    repo_id = Column(String(length=36), nullable=False, index=True)
+    commit_id = Column(String(length=40), nullable=False)
+    file_oper = Column(Text, nullable=False)
+
+    def __init__(self, timestamp, user, org_id, repo_id, commit_id, file_oper):
+        self.timestamp = timestamp
+        self.user = user
+        self.org_id = org_id
+        self.repo_id = repo_id
+        self.commit_id = commit_id
+        self.file_oper = file_oper
+
+    def __str__(self):
+        if self.org_id > 0:
+           return "FileUpdate<User = %s, OrgID = %s, RepoID = %s, CommitID = %s \
+                   FileOper = %s>" % (self.user, self.org_id, self.repo_id, \
+                                      self.commit_id, self.file_oper)
+        else:
+            return "FileUpdate<User = %s, RepoID = %s, CommitID = %s, \
+                    FileOper = %s>" % (self.user, self.repo_id, \
+                                       self.commit_id, self.file_oper)
+
+class PermAudit(Base):
+    __tablename__ = 'PermAudit'
+
+    eid = Column(Integer, Sequence('user_perm_audit_eid_seq'), primary_key=True)
+    timestamp = Column(DateTime, nullable=False)
+    etype = Column(String(length=128), nullable=False)
+    from_user = Column(String(length=255), nullable=False, index=True)
+    to = Column(String(length=255), nullable=False)
+    org_id = Column(Integer, nullable=False, index=True)
+    repo_id = Column(String(length=36), nullable=False, index=True)
+    file_path = Column(Text, nullable=False)
+    permission = Column(String(length=15), nullable=False)
+
+    def __init__(self, timestamp, etype, from_user, to, org_id, repo_id, \
+                 file_path, permission):
+        self.timestamp = timestamp
+        self.etype = etype
+        self.from_user = from_user
+        self.to = to
+        self.org_id = org_id
+        self.repo_id = repo_id
+        self.file_path = file_path
+        self.permission = permission
+
+    def __str__(self):
+        if self.org_id > 0:
+           return "PermAudit<EventType = %s, FromUser = %s, To = %s, \
+                   OrgID = %s, RepoID = %s, FilePath = %s, Permission = %s>" % \
+                    (self.etype, self.from_user, self.to, self.org_id, \
+                     self.repo_id, self.file_path, self.permission)
+        else:
+            return "PermAudit<EventType = %s, FromUser = %s, To = %s, \
+                   RepoID = %s, FilePath = %s, Permission = %s>" % \
+                    (self.etype, self.from_user, self.to, \
+                     self.repo_id, self.file_path, self.permission)
