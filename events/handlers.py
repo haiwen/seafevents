@@ -50,7 +50,7 @@ def RepoUpdateEventHandler(session, msg):
 
 def FileAuditEventHandler(session, msg):
     elements = msg.body.split('\t')
-    if len(elements) != 7:
+    if len(elements) != 6:
         logging.warning("got bad message: %s", elements)
         return
 
@@ -60,7 +60,7 @@ def FileAuditEventHandler(session, msg):
     ip = elements[2]
     user_agent = elements[3]
     repo_id = elements[4]
-    file_path = elements[6].decode('utf-8')
+    file_path = elements[5].decode('utf-8')
 
     org_id = get_org_id_by_repo_id(repo_id)
 
@@ -92,3 +92,5 @@ def register_handlers(handlers):
     handlers.add_handler('seahub.stats:file-download-api', FileAuditEventHandler)
     handlers.add_handler('seahub.stats:file-download-share-link', FileAuditEventHandler)
     handlers.add_handler('seahub.stats:perm-update', PermAuditEventHandler)
+    handlers.add_handler('seaf_server.event:repo-download-sync', FileAuditEventHandler)
+    handlers.add_handler('seaf_server.event:repo-upload-sync', FileAuditEventHandler)
