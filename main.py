@@ -55,6 +55,7 @@ class AppArgParser(object):
             '-R',
             '--reconnect',
             action='store_true',
+            default=True,
             help='try to reconnect to daemon when disconnected'
         )
 
