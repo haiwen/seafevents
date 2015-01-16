@@ -15,6 +15,7 @@ from seafevents.utils import do_exit, write_pidfile, ClientConnector, has_office
 from seafevents.utils.config import get_office_converter_conf
 from seafevents.mq_listener import EventsMQListener
 from seafevents.signal_handler import SignalHandler
+from seafevents.message_handler import init_message_handlers
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
@@ -220,6 +221,12 @@ def main(background_tasks_only=False):
 
     if args.pidfile:
         write_pidfile(args.pidfile)
+
+    enable_audit = True
+    config = get_config(args.config_file)
+    if config.has_option('Audit', 'enable'):
+        enable_audit = config.getboolean('Audit', 'enable')
+    init_message_handlers(enable_audit)
 
     events_listener_enabled = True
     background_tasks_enabled = True

@@ -8,6 +8,12 @@
 
 	enabled=true
 
+### Audit
+    Audit monitor is enabled default, if you want to disable this function, add follow option in events.conf.
+    ```
+    [Audit]
+    enable = False
+    ```
 
 ##运行
 

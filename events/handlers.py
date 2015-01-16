@@ -33,6 +33,23 @@ def RepoUpdateEventHandler(session, msg):
     if not users:
         return
 
+    time = datetime.datetime.utcfromtimestamp(msg.ctime)
+    if org_id > 0:
+        save_org_user_events (session, org_id, etype, detail, users, time)
+    else:
+        save_user_events (session, etype, detail, users, time)
+
+def FileUpdateEventHandler(session, msg):
+    elements = msg.body.split('\t')
+    if len(elements) != 3:
+        logging.warning("got bad message: %s", elements)
+        return
+
+    repo_id = elements[1]
+    commit_id = elements[2]
+
+    org_id = get_org_id_by_repo_id(repo_id)
+
     commit = get_commit(repo_id, 1, commit_id)
     if commit is None:
         commit = get_commit(repo_id, 0, commit_id)
@@ -40,10 +57,6 @@ def RepoUpdateEventHandler(session, msg):
             return
 
     time = datetime.datetime.utcfromtimestamp(msg.ctime)
-    if org_id > 0:
-        save_org_user_events (session, org_id, etype, detail, users, time)
-    else:
-        save_user_events (session, etype, detail, users, time)
 
     save_file_update_event(session, time, commit.creator_name, org_id, \
                            repo_id, commit_id, commit.desc)
@@ -86,11 +99,13 @@ def PermAuditEventHandler(session, msg):
     save_perm_audit_event(session, timestamp, etype, from_user, to, \
                           org_id, repo_id, file_path, perm)
 
-def register_handlers(handlers):
+def register_handlers(handlers, enable_audit):
     handlers.add_handler('seaf_server.event:repo-update', RepoUpdateEventHandler)
-    handlers.add_handler('seahub.stats:file-download-web', FileAuditEventHandler)
-    handlers.add_handler('seahub.stats:file-download-api', FileAuditEventHandler)
-    handlers.add_handler('seahub.stats:file-download-share-link', FileAuditEventHandler)
-    handlers.add_handler('seahub.stats:perm-update', PermAuditEventHandler)
-    handlers.add_handler('seaf_server.event:repo-download-sync', FileAuditEventHandler)
-    handlers.add_handler('seaf_server.event:repo-upload-sync', FileAuditEventHandler)
+    if enable_audit:
+        handlers.add_handler('seaf_server.event:repo-update', FileUpdateEventHandler)
+        handlers.add_handler('seahub.stats:file-download-web', FileAuditEventHandler)
+        handlers.add_handler('seahub.stats:file-download-api', FileAuditEventHandler)
+        handlers.add_handler('seahub.stats:file-download-share-link', FileAuditEventHandler)
+        handlers.add_handler('seahub.stats:perm-update', PermAuditEventHandler)
+        handlers.add_handler('seaf_server.event:repo-download-sync', FileAuditEventHandler)
+        handlers.add_handler('seaf_server.event:repo-upload-sync', FileAuditEventHandler)

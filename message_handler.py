@@ -51,9 +51,8 @@ class MessageHandler(object):
 
         return types
 
-def init_handlers():
-    events_handlers.register_handlers(message_handler)
+def init_message_handlers(enable_audit):
+    events_handlers.register_handlers(message_handler, enable_audit)
     stats_handlers.register_handlers(message_handler)
 
 message_handler = MessageHandler()
-init_handlers()

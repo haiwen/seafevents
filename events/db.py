@@ -118,9 +118,9 @@ def get_events(session, obj, username, org_id, repo_id, start, limit):
     q = session.query(obj)
 
     if username is not None:
-        try:
+        if hasattr(obj, 'user'):
             q = q.filter(obj.user==username)
-        except AttributeError:
+        else:
             q = q.filter(obj.from_user==username)
 
     if org_id > 0:
@@ -131,7 +131,7 @@ def get_events(session, obj, username, org_id, repo_id, start, limit):
     if repo_id is not None:
         q = q.filter(obj.repo_id==repo_id)
 
-    q = q.order_by(desc(obj.timestamp)).slice(start, start + limit);
+    q = q.order_by(desc(obj.timestamp)).slice(start, start + limit)
 
     events = q.all()
 
@@ -148,8 +148,8 @@ def save_file_audit_event(session, timestamp, etype, user, ip, device, \
     if timestamp is None:
         timestamp = datetime.datetime.utcnow()
 
-    file_audit = FileAudit(timestamp, etype, user, ip, device, \
-                           org_id, repo_id, file_path)
+    file_audit = FileAudit(timestamp, etype, user, ip, device, org_id, \
+                           repo_id, file_path)
 
     session.add(file_audit)
     session.commit()
