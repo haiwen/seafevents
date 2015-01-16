@@ -123,15 +123,15 @@ def get_events(session, obj, username, org_id, repo_id, start, limit):
         else:
             q = q.filter(obj.from_user==username)
 
+    if repo_id is not None:
+        q = q.filter(obj.repo_id==repo_id)
+
     if org_id > 0:
         q = q.filter(obj.org_id==org_id)
     elif org_id < 0:
         q = q.filter(obj.org_id<=0)
 
-    if repo_id is not None:
-        q = q.filter(obj.repo_id==repo_id)
-
-    q = q.order_by(desc(obj.timestamp)).slice(start, start + limit)
+    q = q.order_by(desc(obj.eid)).slice(start, start + limit)
 
     events = q.all()
 
