@@ -10,7 +10,7 @@ import libevent
 import ccnet
 from ccnet.async import AsyncClient
 
-from seafevents.tasks import IndexUpdater, SeahubEmailSender
+from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer
 from seafevents.utils import do_exit, write_pidfile, ClientConnector, has_office_tools
 from seafevents.utils.config import get_office_converter_conf
 from seafevents.mq_listener import EventsMQListener
@@ -169,6 +169,7 @@ class BackgroundTasks(object):
 
         self._index_updater = IndexUpdater(self._app_config)
         self._seahub_email_sender = SeahubEmailSender(self._app_config)
+        self._ldap_syncer = LdapSyncer()
 
         self._office_converter = None
         if has_office_tools():
@@ -197,6 +198,11 @@ class BackgroundTasks(object):
             self._seahub_email_sender.start(base)
         else:
             logging.info('seahub email sender is disabled')
+
+        if self._ldap_syncer.enable_sync():
+            self._ldap_syncer.start()
+        else:
+            logging.info('ldap sync is disabled')
 
         if self._office_converter and self._office_converter.is_enabled():
             self._office_converter.start()
