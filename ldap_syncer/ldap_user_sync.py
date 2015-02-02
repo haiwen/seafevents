@@ -47,10 +47,16 @@ class LdapUserSync(LdapSync):
         else:
             search_filter = '(objectClass=%s)' % self.settings.user_object_class
 
-        users = self.ldap_conn.search(self.settings.base_dn, SCOPE_SUBTREE,
-                                      search_filter,
-                                      [self.settings.login_attr,
-                                       self.settings.pwd_change_attr])
+        if self.settings.use_page_result:
+            users = self.ldap_conn.paged_search(self.settings.base_dn, SCOPE_SUBTREE,
+                                                search_filter,
+                                                [self.settings.login_attr,
+                                                 self.settings.pwd_change_attr])
+        else:
+            users = self.ldap_conn.search(self.settings.base_dn, SCOPE_SUBTREE,
+                                          search_filter,
+                                          [self.settings.login_attr,
+                                           self.settings.pwd_change_attr])
         if not users:
             return user_data_ldap
 

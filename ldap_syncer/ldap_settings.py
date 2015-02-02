@@ -11,6 +11,7 @@ class Settings(object):
         self.passwd = None
         self.base_dn = None
         self.login_attr = None
+        self.use_page_result = False
 
         self.sync_interval = 0
         self.enable_group_sync = False
@@ -59,6 +60,7 @@ class Settings(object):
         self.passwd = self.get_option('LDAP', 'PASSWORD')
         self.base_dn = self.get_option('LDAP', 'BASE')
         self.login_attr = self.get_option('LDAP', 'LOGIN_ATTR', dval='mail')
+        self.use_page_result = self.get_option('LDAP', 'USE_PAGED_RESULT', bool, False)
 
         self.sync_interval = self.get_option('LDAP_SYNC', 'SYNC_INTERVAL', int, 30*60)
         self.group_object_class = self.get_option('LDAP_SYNC', 'GROUP_OBJECT_CLASS',

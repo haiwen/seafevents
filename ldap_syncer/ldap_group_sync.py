@@ -64,9 +64,14 @@ class LdapGroupSync(LdapSync):
         else:
             search_filter = '(objectClass=%s)' % self.settings.group_object_class
 
-        groups = self.ldap_conn.search(self.settings.base_dn, SCOPE_SUBTREE,
-                                       search_filter,
-                                       [self.settings.group_member_attr, 'cn'])
+        if self.settings.use_page_result:
+            groups = self.ldap_conn.paged_search(self.settings.base_dn, SCOPE_SUBTREE,
+                                                 search_filter,
+                                                 [self.settings.group_member_attr, 'cn'])
+        else:
+            groups = self.ldap_conn.search(self.settings.base_dn, SCOPE_SUBTREE,
+                                           search_filter,
+                                           [self.settings.group_member_attr, 'cn'])
         if not groups:
             return grp_data_ldap
 
