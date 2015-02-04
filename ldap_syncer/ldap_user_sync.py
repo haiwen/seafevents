@@ -47,18 +47,32 @@ class LdapUserSync(LdapSync):
         else:
             search_filter = '(objectClass=%s)' % self.settings.user_object_class
 
+        base_dns = self.settings.base_dn.split(';')
+        for base_dn in base_dns:
+            if base_dn == '':
+                continue
+            data = self.get_data_by_base_dn(base_dn, search_filter)
+            if data is None:
+                return None
+            user_data_ldap.update(data)
+
+        return user_data_ldap
+
+    def get_data_by_base_dn(self, base_dn, search_filter):
+        user_data_ldap = {}
+
         if self.settings.use_page_result:
-            users = self.ldap_conn.paged_search(self.settings.base_dn, SCOPE_SUBTREE,
+            users = self.ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
                                                 search_filter,
                                                 [self.settings.login_attr,
                                                  self.settings.pwd_change_attr])
         else:
-            users = self.ldap_conn.search(self.settings.base_dn, SCOPE_SUBTREE,
+            users = self.ldap_conn.search(base_dn, SCOPE_SUBTREE,
                                           search_filter,
                                           [self.settings.login_attr,
                                            self.settings.pwd_change_attr])
-        if not users:
-            return user_data_ldap
+        if users is None:
+            return None
 
         for pair in users:
             user_dn, attrs = pair

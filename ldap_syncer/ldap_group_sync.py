@@ -42,14 +42,12 @@ class LdapGroupSync(LdapSync):
                 break
 
             nor_members = []
-            creator = None
             for member in members:
-                if member.is_staff == 0:
+                # for creator not add to cache
+                if member.user_name != group.creator_name:
                     nor_members.append(member.user_name)
-                elif member.is_staff == 1:
-                    creator = member.user_name
 
-            grp_data_db[group.id] = LdapGroup(None, creator, sorted(nor_members))
+            grp_data_db[group.id] = LdapGroup(None, group.creator_name, sorted(nor_members))
 
         return grp_data_db
 
@@ -64,16 +62,30 @@ class LdapGroupSync(LdapSync):
         else:
             search_filter = '(objectClass=%s)' % self.settings.group_object_class
 
+        base_dns = self.settings.base_dn.split(';')
+        for base_dn in base_dns:
+            if base_dn == '':
+                continue
+            data = self.get_data_by_base_dn(base_dn, search_filter)
+            if data is None:
+                return None
+            grp_data_ldap.update(data)
+
+        return grp_data_ldap
+
+    def get_data_by_base_dn(self, base_dn, search_filter):
+        grp_data_ldap = {}
+
         if self.settings.use_page_result:
-            groups = self.ldap_conn.paged_search(self.settings.base_dn, SCOPE_SUBTREE,
+            groups = self.ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
                                                  search_filter,
                                                  [self.settings.group_member_attr, 'cn'])
         else:
-            groups = self.ldap_conn.search(self.settings.base_dn, SCOPE_SUBTREE,
+            groups = self.ldap_conn.search(base_dn, SCOPE_SUBTREE,
                                            search_filter,
                                            [self.settings.group_member_attr, 'cn'])
-        if not groups:
-            return grp_data_ldap
+        if groups is None:
+            return None
 
         for pair in groups:
             group_dn, attrs = pair
@@ -87,6 +99,8 @@ class LdapGroupSync(LdapSync):
             all_mails = []
             for member in attrs[self.settings.group_member_attr]:
                 mails = self.get_group_member_from_ldap(member, grp_data_ldap)
+                if mails is None:
+                    return None
                 for mail in mails:
                     all_mails.append(mail)
             grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None,
@@ -102,7 +116,9 @@ class LdapGroupSync(LdapSync):
         result = self.ldap_conn.search(base_dn, SCOPE_BASE, search_filter,
                                        [self.settings.group_member_attr,
                                        self.settings.login_attr, 'cn'])
-        if not result:
+        if result is None:
+            return None
+        elif not result:
             return all_mails
 
         dn, attrs = result[0]
@@ -116,6 +132,8 @@ class LdapGroupSync(LdapSync):
                     continue
             for member in attrs[self.settings.group_member_attr]:
                 mails = self.get_group_member_from_ldap(member, grp_data)
+                if mails is None:
+                    return None
                 for mail in mails:
                     all_mails.append(mail.lower())
             grp_data[dn] = LdapGroup(attrs['cn'][0], None, sorted(set(all_mails)))
@@ -179,7 +197,7 @@ class LdapGroupSync(LdapSync):
                 # add ldap group to db
                 if super_user is None:
                     super_user = LdapGroupSync.get_super_user()
-                group_id = create_group(v.cn, super_user, 'ldap')
+                group_id = create_group(v.cn, super_user, 'LDAP')
                 if group_id < 0:
                     logging.warning('create ldap group [%s] failed.' % v.cn)
                     return

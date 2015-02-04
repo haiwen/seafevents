@@ -73,7 +73,7 @@ class Settings(object):
 
         self.user_object_class = self.get_option('LDAP_SYNC', 'USER_OBJECT_CLASS',
                                                  dval='person')
-        self.user_filter = self.get_option('LDAP_SYNC', 'USER_FILTER')
+        self.user_filter = self.get_option('LDAP', 'FILTER')
         self.pwd_change_attr = self.get_option('LDAP_SYNC', 'PWD_CHANGE_ATTR',
                                                dval='pwdLastSet')
 

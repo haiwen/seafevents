@@ -19,20 +19,22 @@ class LdapConn(object):
         try:
             self.conn.simple_bind_s(self.user_dn, self.passwd)
         except ldap.INVALID_CREDENTIALS:
+            self.conn = None
             logging.warning('Invalid user or password for connect ldap')
         except ldap.LDAPError as e:
+            self.conn = None
             logging.warning('Connect ldap failed, error: %s' % e.message)
 
     def search(self, base_dn, scope, search_filter, attr_list):
-        result = None
         if not self.conn:
-            return result
+            return None
 
+        result = None
         try:
             result = self.conn.search_s(base_dn, scope, search_filter, attr_list)
         except ldap.LDAPError as e:
             if type(e.message) == dict and e.message['desc'] == 'No such object':
-                pass
+                result = []
             else:
                 logging.warning('search failed error: %s' % e.message)
 
