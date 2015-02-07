@@ -222,9 +222,9 @@ def main(background_tasks_only=False):
     if args.pidfile:
         write_pidfile(args.pidfile)
 
-    enable_audit = True
+    enable_audit = False
     config = get_config(args.config_file)
-    if config.has_option('Audit', 'enable'):
+    if config.has_section('Audit') and config.has_option('Audit', 'enable'):
         enable_audit = config.getboolean('Audit', 'enable')
     init_message_handlers(enable_audit)
 
