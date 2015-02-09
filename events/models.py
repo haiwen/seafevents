@@ -1,7 +1,7 @@
 import json
 import uuid
 
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Text
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Text, Index
 from sqlalchemy import ForeignKey, Sequence
 
 from seafevents.db import Base
@@ -60,12 +60,18 @@ class FileAudit(Base):
     eid = Column(Integer, Sequence('file_audit_eid_seq'), primary_key=True)
     timestamp = Column(DateTime, nullable=False)
     etype = Column(String(length=128), nullable=False)
-    user = Column(String(length=255), nullable=False, index=True)
+    user = Column(String(length=255), nullable=False)
     ip = Column(String(length=45), nullable=False)
     device = Column(Text, nullable=False)
-    org_id = Column(Integer, nullable=False, index=True)
-    repo_id = Column(String(length=36), nullable=False, index=True)
+    org_id = Column(Integer, nullable=False)
+    repo_id = Column(String(length=36), nullable=False)
     file_path = Column(Text, nullable=False)
+    __table_args__ = (Index('idx_file_audit_orgid_eid',
+                            'org_id', 'eid'),
+                      Index('idx_file_audit_user_orgid_eid',
+                            'user', 'org_id', 'eid'),
+                      Index('idx_file_audit_repoid_orgid_eid',
+                            'repo_id', 'org_id', 'eid'))
 
     def __init__(self, timestamp, etype, user, ip, device, \
                  org_id, repo_id, file_path):
@@ -95,11 +101,17 @@ class FileUpdate(Base):
 
     eid = Column(Integer, Sequence('file_update_eid_seq'), primary_key=True)
     timestamp = Column(DateTime, nullable=False)
-    user = Column(String(length=255), nullable=False, index=True)
-    org_id = Column(Integer, nullable=False, index=True)
-    repo_id = Column(String(length=36), nullable=False, index=True)
+    user = Column(String(length=255), nullable=False)
+    org_id = Column(Integer, nullable=False)
+    repo_id = Column(String(length=36), nullable=False)
     commit_id = Column(String(length=40), nullable=False)
     file_oper = Column(Text, nullable=False)
+    __table_args__ = (Index('idx_file_update_orgid_eid',
+                            'org_id', 'eid'),
+                      Index('idx_file_update_user_orgid_eid',
+                            'user', 'org_id', 'eid'),
+                      Index('idx_file_update_repoid_orgid_eid',
+                            'repo_id', 'org_id', 'eid'))
 
     def __init__(self, timestamp, user, org_id, repo_id, commit_id, file_oper):
         self.timestamp = timestamp
@@ -125,12 +137,18 @@ class PermAudit(Base):
     eid = Column(Integer, Sequence('user_perm_audit_eid_seq'), primary_key=True)
     timestamp = Column(DateTime, nullable=False)
     etype = Column(String(length=128), nullable=False)
-    from_user = Column(String(length=255), nullable=False, index=True)
+    from_user = Column(String(length=255), nullable=False)
     to = Column(String(length=255), nullable=False)
-    org_id = Column(Integer, nullable=False, index=True)
-    repo_id = Column(String(length=36), nullable=False, index=True)
+    org_id = Column(Integer, nullable=False)
+    repo_id = Column(String(length=36), nullable=False)
     file_path = Column(Text, nullable=False)
     permission = Column(String(length=15), nullable=False)
+    __table_args__ = (Index('idx_perm_audit_orgid_eid',
+                            'org_id', 'eid'),
+                      Index('idx_perm_audit_user_orgid_eid',
+                            'from_user', 'org_id', 'eid'),
+                      Index('idx_perm_audit_repoid_orgid_eid',
+                            'repo_id', 'org_id', 'eid'))
 
     def __init__(self, timestamp, etype, from_user, to, org_id, repo_id, \
                  file_path, permission):

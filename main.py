@@ -225,7 +225,10 @@ def main(background_tasks_only=False):
     enable_audit = False
     config = get_config(args.config_file)
     if config.has_section('Audit') and config.has_option('Audit', 'enable'):
-        enable_audit = config.getboolean('Audit', 'enable')
+        try:
+            enable_audit = config.getboolean('Audit', 'enable')
+        except ValueError:
+            pass
     init_message_handlers(enable_audit)
 
     events_listener_enabled = True
