@@ -84,7 +84,8 @@ class Settings(object):
         try:
             val = self.parser.get(section, key)
             if dtype:
-                val = dtype(val)
+                val = self.parser.getboolean(section, key) \
+                        if dtype == bool else dtype(val)
                 return val
         except ConfigParser.NoOptionError:
             return dval
