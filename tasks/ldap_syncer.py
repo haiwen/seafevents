@@ -2,7 +2,7 @@
 
 import logging
 from threading import Thread, Event
-from seafevents.ldap_syncer import Settings, run_ldap_sync
+from seafevents.ldap_syncer import Settings
 
 class LdapSyncer(object):
     def __init__(self):
@@ -21,6 +21,7 @@ class LdapSyncTimer(Thread):
         self.fininsh = Event()
 
     def run(self):
+        from seafevents.ldap_syncer.run_ldap_sync import run_ldap_sync
         while not self.fininsh.is_set():
             self.fininsh.wait(self.settings.sync_interval)
             if not self.fininsh.is_set():
