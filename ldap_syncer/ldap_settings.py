@@ -62,7 +62,7 @@ class Settings(object):
         self.login_attr = self.get_option('LDAP', 'LOGIN_ATTR', dval='mail')
         self.use_page_result = self.get_option('LDAP', 'USE_PAGED_RESULT', bool, False)
 
-        self.sync_interval = self.get_option('LDAP_SYNC', 'SYNC_INTERVAL', int, 30*60)
+        self.sync_interval = self.get_option('LDAP_SYNC', 'SYNC_INTERVAL', int, 60)
         self.group_object_class = self.get_option('LDAP_SYNC', 'GROUP_OBJECT_CLASS',
                                                   dval='group')
         self.group_filter = self.get_option('LDAP_SYNC',
