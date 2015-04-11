@@ -29,7 +29,6 @@ class MessageHandler(object):
 
         etype = msg.app + ':' + msg.body[:pos]
         if etype not in self._handlers:
-            logger.warning("no handler for event type %s", etype)
             return
 
         funcs = self._handlers.get(etype)
