@@ -43,7 +43,7 @@ def create_engine_from_conf(config_file):
 
     # Add pool recycle, or mysql connection will be closed by mysqld if idle
     # for too long.
-    kwargs = dict(pool_recycle=3600, echo=False, echo_pool=False)
+    kwargs = dict(pool_recycle=300, echo=False, echo_pool=False)
 
     engine = create_engine(db_url, **kwargs)
 
