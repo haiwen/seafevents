@@ -171,14 +171,15 @@ class Convertor(object):
             doc_path,
         ]
 
-        try:
-            _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError, e:
-            logging.warning('error when invoking libreoffice: %s', e.output)
-            return False
-        else:
-            improve_table_border(html_path)
-            return True
+        with self.lock:
+            try:
+                _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError, e:
+                logging.warning('error when invoking libreoffice: %s', e.output)
+                return False
+            else:
+                improve_table_border(html_path)
+                return True
 
     def convert_to_pdf_fallback(self, doc_path, pdf_path):
         '''When the unoconv listener is dead for some reason, we fallback to
