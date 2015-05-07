@@ -35,7 +35,7 @@ class LdapGroupSync(LdapSync):
         grp_data_db = {}
         for group in groups:
             members = get_group_members(group.id)
-            if len(members) == 0:
+            if members is None:
                 logging.warning('get members of group %d from db failed.' %
                                 group.id)
                 grp_data_db = None
@@ -43,9 +43,7 @@ class LdapGroupSync(LdapSync):
 
             nor_members = []
             for member in members:
-                # for creator not add to cache
-                if member.user_name != group.creator_name:
-                    nor_members.append(member.user_name)
+                nor_members.append(member.user_name)
 
             grp_data_db[group.id] = LdapGroup(None, group.creator_name, sorted(nor_members))
 
@@ -159,7 +157,7 @@ class LdapGroupSync(LdapSync):
                 ret = remove_group(grp_dn_pairs[k], '')
                 if ret < 0:
                     logging.warning('remove group %d failed.' % grp_dn_pairs[k])
-                    return
+                    continue
                 logging.debug('remove group %d success.' % grp_dn_pairs[k])
                 self.dgroup += 1
 
@@ -181,7 +179,7 @@ class LdapGroupSync(LdapSync):
                     if ret < 0:
                         logging.warning('remove member %s from group %d failed.' %
                                         (member, group_id))
-                        return
+                        continue
                     logging.debug('remove member %s from group %d success.' %
                                   (member, group_id))
 
@@ -190,7 +188,7 @@ class LdapGroupSync(LdapSync):
                     if ret < 0:
                         logging.warning('add member %s to group %d failed.' %
                                         (member, group_id))
-                        return
+                        continue
                     logging.debug('add member %s to group %d success.' %
                                   (member, group_id))
             else:
@@ -200,13 +198,13 @@ class LdapGroupSync(LdapSync):
                 group_id = create_group(v.cn, super_user, 'LDAP')
                 if group_id < 0:
                     logging.warning('create ldap group [%s] failed.' % v.cn)
-                    return
+                    continue
 
                 ret = add_group_dn_pair(group_id, k)
                 if ret < 0:
                     logging.warning('add group dn pair %d<->%s failed.' % (group_id, k))
                     # admin should remove created group manually in web
-                    return
+                    continue
                 logging.debug('create group %d, and add dn pair %s<->%d success.' %
                               (group_id, k, group_id))
                 self.agroup += 1
@@ -216,7 +214,7 @@ class LdapGroupSync(LdapSync):
                     if ret < 0:
                         logging.warning('add member %s to group %d failed.' %
                                         (member, group_id))
-                        return
+                        continue
                     logging.debug('add member %s to group %d success.' %
                                   (member, group_id))
 

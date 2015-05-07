@@ -95,7 +95,7 @@ class LdapUserSync(LdapSync):
                 ret = del_ldap_user(data_db[k].user_id)
                 if ret < 0:
                     logging.warning('delete user [%s] failed.' % k)
-                    return
+                    continue
                 logging.debug('delete user [%s] success.' % k)
                 self.duser += 1
 
@@ -106,7 +106,7 @@ class LdapUserSync(LdapSync):
                     rc = update_ldap_user(data_db[k].user_id, k, v, 0, 1)
                     if rc < 0:
                         logging.warning('update user [%s] failed.' % k)
-                        return
+                        continue
                     logging.debug('update user [%s] success.' % k)
                     self.uuser += 1
             else:
@@ -114,6 +114,6 @@ class LdapUserSync(LdapSync):
                 user_id = add_ldap_user(k, v, 0, 1)
                 if user_id <= 0:
                     logging.warning('add user [%s] failed.' % k)
-                    return
+                    continue
                 self.auser += 1
                 logging.debug('add user [%s] success.' % k)
