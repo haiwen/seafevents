@@ -21,6 +21,10 @@ class Settings(object):
 
         self.user_filter = None
         self.pwd_change_attr = None
+        self.enable_nickname_sync = True
+        self.first_name_attr = None
+        self.last_name_attr = None
+        self.name_reverse = False
 
         self.parser = None
 
@@ -76,6 +80,14 @@ class Settings(object):
         self.user_filter = self.get_option('LDAP', 'FILTER')
         self.pwd_change_attr = self.get_option('LDAP_SYNC', 'PWD_CHANGE_ATTR',
                                                dval='pwdLastSet')
+        self.enable_nickname_sync = self.get_option('LDAP_SYNC', 'ENABLE_NICKNAME_SYNC',
+                                                    bool, True)
+        self.first_name_attr = self.get_option('LDAP_SYNC', 'FIRST_NAME_ATTR',
+                                               dval='givenName')
+        self.last_name_attr = self.get_option('LDAP_SYNC', 'LAST_NAME_ATTR',
+                                              dval='sn')
+        self.name_reverse = self.get_option('LDAP_SYNC', 'USER_NAME_REVERSE',
+                                            bool, False)
 
     def enable_sync(self):
         return self.enable_user_sync or self.enable_group_sync
