@@ -8,10 +8,10 @@ from ldap_sync import LdapSync
 from ldap import SCOPE_SUBTREE
 
 class LdapUser(object):
-    def __init__(self, user_id, password, nickname, dept):
+    def __init__(self, user_id, password, name, dept):
         self.user_id = user_id
         self.password = password
-        self.nickname = nickname
+        self.name = name
         self.dept = dept
 
 class LdapUserSync(LdapSync):
@@ -21,15 +21,15 @@ class LdapUserSync(LdapSync):
         self.uuser = 0
         self.duser = 0
 
-        self.anickname = 0
-        self.unickname = 0
-        self.dnickname = 0
+        self.aname = 0
+        self.uname = 0
+        self.dname = 0
 
         self.adept = 0
         self.udept = 0
         self.ddept = 0
 
-        if self.settings.enable_nickname_sync or self.settings.enable_dept_sync:
+        if self.settings.enable_extra_user_info_sync:
             self.init_seahub_db()
 
     def init_seahub_db(self):
@@ -38,40 +38,35 @@ class LdapUserSync(LdapSync):
             import seahub_settings
         except ImportError as e:
             logging.info('Failed to import MySQLdb or seahub_settings module: %s, '
-                         'disable nickname/department sync.' % e)
-            self.settings.enable_nickname_sync = False
-            self.settings.enable_dept_sync = False
+                         'disable name/department sync.' % e)
+            self.settings.enable_extra_user_info_sync = False
             return
 
         try:
             db_infos = seahub_settings.DATABASES['default']
         except KeyError as e:
             logging.info('Can not find db info in seahub settings, '
-                         'disable nickname/department sync.')
-            self.settings.enable_nickname_sync = False
-            self.settings.enable_dept_sync = False
+                         'disable name/department sync.')
+            self.settings.enable_extra_user_info_sync = False
             return
 
         if db_infos.get('ENGINE') != 'django.db.backends.mysql':
-            logging.info('Nickname/Department sync feature only mysql db supported, '
-                         'disable nickname/department sync.')
-            self.settings.enable_nickname_sync = False
-            self.settings.enable_dept_sync = False
+            logging.info('Name/Department sync feature only mysql db supported, '
+                         'disable name/department sync.')
+            self.settings.enable_extra_user_info_sync = False
             return
 
         db_host = db_infos.get('HOST', '127.0.0.1')
-        db_port = db_infos.get('PORT', 3306)
+        db_port = int(db_infos.get('PORT', '3306'))
         db_name = db_infos.get('NAME')
         if not db_name:
-            logging.info('DB name is not setted, disable nickname/department sync.')
-            self.settings.enable_nickname_sync = False
-            self.settings.enable_dept_sync = False
+            logging.info('DB name is not setted, disable name/department sync.')
+            self.settings.enable_extra_user_info_sync = False
             return
         db_user = db_infos.get('USER')
         if not db_user:
-            logging.info('DB user is not setted, disable nickname/department sync.')
-            self.settings.enable_nickname_sync = False
-            self.settings.enable_dept_sync = False
+            logging.info('DB user is not setted, disable name/department sync.')
+            self.settings.enable_extra_user_info_sync = False
             return
         db_passwd = db_infos.get('PASSWORD')
 
@@ -82,12 +77,11 @@ class LdapUserSync(LdapSync):
             self.db_conn.autocommit(True)
             self.cursor = self.db_conn.cursor()
         except Exception as e:
-            logging.info('Failed to connect mysql: %s, disable nickname/department sync.' %  e)
-            self.settings.enable_nickname_sync = False
-            self.settings.enable_dept_sync = False
+            logging.info('Failed to connect mysql: %s, disable name/department sync.' %  e)
+            self.settings.enable_extra_user_info_sync = False
 
     def close_seahub_db(self):
-        if self.settings.enable_nickname_sync or self.settings.enable_dept_sync:
+        if self.settings.enable_extra_user_info_sync:
             self.cursor.close()
             self.db_conn.close()
 
@@ -95,11 +89,9 @@ class LdapUserSync(LdapSync):
         logging.info('LDAP user sync result: add [%d]user, update [%d]user, delete [%d]user' %
                      (self.auser, self.uuser, self.duser))
 
-        if self.settings.enable_nickname_sync:
-            logging.info('LDAP nickname sync result: add [%d]nickname, update [%d]nickname, '
-                         'delete [%d]nickname' % (self.anickname, self.unickname, self.dnickname))
-
-        if self.settings.enable_dept_sync:
+        if self.settings.enable_extra_user_info_sync:
+            logging.info('LDAP name sync result: add [%d]name, update [%d]name, '
+                         'delete [%d]name' % (self.aname, self.uname, self.dname))
             logging.info('LDAP dept sync result: add [%d]dept, update [%d]dept, '
                          'delete [%d]dept' % (self.adept, self.udept, self.ddept))
 
@@ -116,17 +108,17 @@ class LdapUserSync(LdapSync):
             val = ''
         return val
 
-    def add_nickname(self, email, nickname):
+    def add_name(self, email, name):
         try:
             self.cursor.execute('insert into profile_profile (user,nickname,intro) values '
-                                '(%s,%s,%s)', (email, nickname, ''))
+                                '(%s,%s,%s)', (email, name, ''))
             if self.cursor.rowcount == 1:
-                logging.debug('Add nickname %s to user %s successs.' %
-                              (nickname, email))
-                self.anickname += 1
+                logging.debug('Add name %s to user %s successs.' %
+                              (name, email))
+                self.aname += 1
         except Exception as e:
-            logging.warning('Failed to add nickname %s to user %s: %s.' %
-                            (nickname, email, e))
+            logging.warning('Failed to add name %s to user %s: %s.' %
+                            (name, email, e))
 
     def add_dept(self, email, dept):
         try:
@@ -140,22 +132,22 @@ class LdapUserSync(LdapSync):
             logging.warning('Failed to add dept %s to user %s: %s.' %
                             (dept, email, e))
 
-    def update_nickname(self, email, nickname):
+    def update_name(self, email, name):
         try:
             self.cursor.execute('select 1 from profile_profile where user=%s', email)
             if self.cursor.rowcount == 0:
                 self.cursor.execute('insert into profile_profile (user,nickname,intro) '
-                                    'values (%s,%s,%s)', (email, nickname, ''))
+                                    'values (%s,%s,%s)', (email, name, ''))
             else:
                 self.cursor.execute('update profile_profile set nickname=%s where user=%s',
-                                    (nickname, email))
+                                    (name, email))
             if self.cursor.rowcount == 1:
-                logging.debug('Update user %s nickname to %s success.' %
-                              (email, nickname))
-                self.unickname += 1
+                logging.debug('Update user %s name to %s success.' %
+                              (email, name))
+                self.uname += 1
         except Exception as e:
-            logging.warning('Failed to update user %s nickname to %s: %s.' %
-                            (email, nickname, e))
+            logging.warning('Failed to update user %s name to %s: %s.' %
+                            (email, name, e))
 
     def update_dept(self, email, dept):
         try:
@@ -174,12 +166,12 @@ class LdapUserSync(LdapSync):
             logging.warning('Failed to update user %s dept to %s: %s.' %
                             (email, dept, e))
 
-    def del_nickname(self, email):
+    def del_name(self, email):
         try:
             self.cursor.execute('delete from profile_profile where user=%s', email)
             if self.cursor.rowcount == 1:
                 logging.debug('Delete profile info for user %s success.' % email)
-                self.dnickname += 1
+                self.dname += 1
         except Exception as e:
             logging.warning('Failed to delete profile info for user %s: %s.' %
                             (email, e))
@@ -203,14 +195,13 @@ class LdapUserSync(LdapSync):
             return user_data_db
 
         user_data_db = {}
-        nickname = None
+        name = None
         dept = None
         for user in users:
-            if self.settings.enable_nickname_sync:
-                nickname = self.get_attr_val('profile_profile', 'nickname', user.email)
-            if self.settings.enable_dept_sync:
+            if self.settings.enable_extra_user_info_sync:
+                name = self.get_attr_val('profile_profile', 'nickname', user.email)
                 dept = self.get_attr_val('profile_detailedprofile', 'department', user.email)
-            user_data_db[user.email] = LdapUser(user.id, user.password, nickname, dept)
+            user_data_db[user.email] = LdapUser(user.id, user.password, name, dept)
 
         return user_data_db
 
@@ -302,10 +293,8 @@ class LdapUserSync(LdapSync):
         self.auser += 1
         logging.debug('Add user [%s] success.' % email)
 
-        if self.settings.enable_nickname_sync:
-            self.add_nickname(email, ldap_user.nickname)
-
-        if self.settings.enable_dept_sync:
+        if self.settings.enable_extra_user_info_sync:
+            self.add_name(email, ldap_user.name)
             self.add_dept(email, ldap_user.dept)
 
     def sync_update_user(self, ldap_user, db_user, email):
@@ -317,11 +306,9 @@ class LdapUserSync(LdapSync):
                 logging.debug('Update user [%s] success.' % email)
                 self.uuser += 1
 
-        if self.settings.enable_nickname_sync:
-            if ldap_user.nickname != db_user.nickname:
-                self.update_nickname(email, ldap_user.nickname)
-
-        if self.settings.enable_dept_sync:
+        if self.settings.enable_extra_user_info_sync:
+            if ldap_user.name != db_user.name:
+                self.update_name(email, ldap_user.name)
             if ldap_user.dept != db_user.dept:
                 self.update_dept(email, ldap_user.dept)
 
@@ -333,10 +320,8 @@ class LdapUserSync(LdapSync):
         logging.debug('Delete user [%s] success.' % email)
         self.duser += 1
 
-        if self.settings.enable_nickname_sync:
-            self.del_nickname(email)
-
-        if self.settings.enable_dept_sync:
+        if self.settings.enable_extra_user_info_sync:
+            self.del_name(email)
             self.del_dept(email)
 
     def sync_data(self, data_db, data_ldap):
