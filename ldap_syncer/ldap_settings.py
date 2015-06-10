@@ -25,6 +25,8 @@ class Settings(object):
         self.first_name_attr = None
         self.last_name_attr = None
         self.name_reverse = False
+        self.enable_dept_sync = True
+        self.dept_attr = None
 
         self.parser = None
 
@@ -88,6 +90,10 @@ class Settings(object):
                                               dval='sn')
         self.name_reverse = self.get_option('LDAP_SYNC', 'USER_NAME_REVERSE',
                                             bool, False)
+        self.enable_dept_sync = self.get_option('LDAP_SYNC', 'ENABLE_DEPT_SYNC',
+                                                bool, True)
+        self.dept_attr = self.get_option('LDAP_SYNC', 'DEPT_ATTR',
+                                         dval='department')
 
     def enable_sync(self):
         return self.enable_user_sync or self.enable_group_sync
