@@ -22,6 +22,12 @@ class Settings(object):
         self.user_filter = None
         self.pwd_change_attr = None
 
+        self.enable_extra_user_info_sync = False
+        self.first_name_attr = None
+        self.last_name_attr = None
+        self.name_reverse = False
+        self.dept_attr = None
+
         self.parser = None
 
         self.read_config()
@@ -76,6 +82,17 @@ class Settings(object):
         self.user_filter = self.get_option('LDAP', 'FILTER')
         self.pwd_change_attr = self.get_option('LDAP_SYNC', 'PWD_CHANGE_ATTR',
                                                dval='pwdLastSet')
+
+        self.enable_extra_user_info_sync = self.get_option('LDAP_SYNC', 'ENABLE_EXTRA_USER_INFO_SYNC',
+                                                           bool, False)
+        self.first_name_attr = self.get_option('LDAP_SYNC', 'FIRST_NAME_ATTR',
+                                               dval='givenName')
+        self.last_name_attr = self.get_option('LDAP_SYNC', 'LAST_NAME_ATTR',
+                                              dval='sn')
+        self.name_reverse = self.get_option('LDAP_SYNC', 'USER_NAME_REVERSE',
+                                            bool, False)
+        self.dept_attr = self.get_option('LDAP_SYNC', 'DEPT_ATTR',
+                                         dval='department')
 
     def enable_sync(self):
         return self.enable_user_sync or self.enable_group_sync

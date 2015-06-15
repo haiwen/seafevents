@@ -8,9 +8,11 @@ from ldap_sync import LdapSync
 from ldap import SCOPE_SUBTREE
 
 class LdapUser(object):
-    def __init__(self, user_id, password):
+    def __init__(self, user_id, password, name, dept):
         self.user_id = user_id
         self.password = password
+        self.name = name
+        self.dept = dept
 
 class LdapUserSync(LdapSync):
     def __init__(self, settings):
@@ -19,9 +21,170 @@ class LdapUserSync(LdapSync):
         self.uuser = 0
         self.duser = 0
 
+        self.aname = 0
+        self.uname = 0
+        self.dname = 0
+
+        self.adept = 0
+        self.udept = 0
+        self.ddept = 0
+
+        if self.settings.enable_extra_user_info_sync:
+            self.init_seahub_db()
+
+    def init_seahub_db(self):
+        try:
+            import MySQLdb
+            import seahub_settings
+        except ImportError as e:
+            logging.info('Failed to import MySQLdb or seahub_settings module: %s, '
+                         'disable name/department sync.' % e)
+            self.settings.enable_extra_user_info_sync = False
+            return
+
+        try:
+            db_infos = seahub_settings.DATABASES['default']
+        except KeyError as e:
+            logging.info('Can not find db info in seahub settings, '
+                         'disable name/department sync.')
+            self.settings.enable_extra_user_info_sync = False
+            return
+
+        if db_infos.get('ENGINE') != 'django.db.backends.mysql':
+            logging.info('Name/Department sync feature only mysql db supported, '
+                         'disable name/department sync.')
+            self.settings.enable_extra_user_info_sync = False
+            return
+
+        db_host = db_infos.get('HOST', '127.0.0.1')
+        db_port = int(db_infos.get('PORT', '3306'))
+        db_name = db_infos.get('NAME')
+        if not db_name:
+            logging.info('DB name is not setted, disable name/department sync.')
+            self.settings.enable_extra_user_info_sync = False
+            return
+        db_user = db_infos.get('USER')
+        if not db_user:
+            logging.info('DB user is not setted, disable name/department sync.')
+            self.settings.enable_extra_user_info_sync = False
+            return
+        db_passwd = db_infos.get('PASSWORD')
+
+        try:
+            self.db_conn = MySQLdb.connect(host=db_host, port=db_port,
+                                           user=db_user, passwd=db_passwd,
+                                           db=db_name, charset='utf8')
+            self.db_conn.autocommit(True)
+            self.cursor = self.db_conn.cursor()
+        except Exception as e:
+            logging.info('Failed to connect mysql: %s, disable name/department sync.' %  e)
+            self.settings.enable_extra_user_info_sync = False
+
+    def close_seahub_db(self):
+        if self.settings.enable_extra_user_info_sync:
+            self.cursor.close()
+            self.db_conn.close()
+
     def show_sync_result(self):
         logging.info('LDAP user sync result: add [%d]user, update [%d]user, delete [%d]user' %
                      (self.auser, self.uuser, self.duser))
+
+        if self.settings.enable_extra_user_info_sync:
+            logging.info('LDAP name sync result: add [%d]name, update [%d]name, '
+                         'delete [%d]name' % (self.aname, self.uname, self.dname))
+            logging.info('LDAP dept sync result: add [%d]dept, update [%d]dept, '
+                         'delete [%d]dept' % (self.adept, self.udept, self.ddept))
+
+    def get_attr_val(self, tab, attr, email):
+        try:
+            sql = 'select {0} from {1} where user = %s'.format(attr, tab)
+            self.cursor.execute(sql, email)
+            r = self.cursor.fetchone()
+            if r:
+                val = r[0]
+            else:
+                val = ''
+        except Exception as e:
+            val = ''
+        return val
+
+    def add_name(self, email, name):
+        try:
+            self.cursor.execute('insert into profile_profile (user,nickname,intro) values '
+                                '(%s,%s,%s)', (email, name, ''))
+            if self.cursor.rowcount == 1:
+                logging.debug('Add name %s to user %s successs.' %
+                              (name, email))
+                self.aname += 1
+        except Exception as e:
+            logging.warning('Failed to add name %s to user %s: %s.' %
+                            (name, email, e))
+
+    def add_dept(self, email, dept):
+        try:
+            self.cursor.execute('insert into profile_detailedprofile (user,department,telephone) '
+                                'values (%s,%s,%s)', (email, dept,''))
+            if self.cursor.rowcount == 1:
+                logging.debug('Add dept %s to user %s successs.' %
+                              (dept, email))
+                self.adept += 1
+        except Exception as e:
+            logging.warning('Failed to add dept %s to user %s: %s.' %
+                            (dept, email, e))
+
+    def update_name(self, email, name):
+        try:
+            self.cursor.execute('select 1 from profile_profile where user=%s', email)
+            if self.cursor.rowcount == 0:
+                self.cursor.execute('insert into profile_profile (user,nickname,intro) '
+                                    'values (%s,%s,%s)', (email, name, ''))
+            else:
+                self.cursor.execute('update profile_profile set nickname=%s where user=%s',
+                                    (name, email))
+            if self.cursor.rowcount == 1:
+                logging.debug('Update user %s name to %s success.' %
+                              (email, name))
+                self.uname += 1
+        except Exception as e:
+            logging.warning('Failed to update user %s name to %s: %s.' %
+                            (email, name, e))
+
+    def update_dept(self, email, dept):
+        try:
+            self.cursor.execute('select 1 from profile_detailedprofile where user=%s', email)
+            if self.cursor.rowcount == 0:
+                self.cursor.execute('insert into profile_detailedprofile (user,department,telephone) '
+                                    'values (%s,%s,%s)', (email, dept, ''))
+            else:
+                self.cursor.execute('update profile_detailedprofile set department=%s where user=%s',
+                                    (dept, email))
+            if self.cursor.rowcount == 1:
+                logging.debug('Update user %s dept to %s success.' %
+                              (email, dept))
+                self.udept += 1
+        except Exception as e:
+            logging.warning('Failed to update user %s dept to %s: %s.' %
+                            (email, dept, e))
+
+    def del_name(self, email):
+        try:
+            self.cursor.execute('delete from profile_profile where user=%s', email)
+            if self.cursor.rowcount == 1:
+                logging.debug('Delete profile info for user %s success.' % email)
+                self.dname += 1
+        except Exception as e:
+            logging.warning('Failed to delete profile info for user %s: %s.' %
+                            (email, e))
+
+    def del_dept(self, email):
+        try:
+            self.cursor.execute('delete from profile_detailedprofile where user=%s', email)
+            if self.cursor.rowcount == 1:
+                logging.debug('Delete dept info for user %s success.' % email)
+                self.ddept += 1
+        except Exception as e:
+            logging.warning('Failed to delete dept info for user %s: %s.' %
+                            (email, e))
 
     def get_data_from_db(self):
         # user_id <-> LdapUser
@@ -32,8 +195,14 @@ class LdapUserSync(LdapSync):
             return user_data_db
 
         user_data_db = {}
+        name = None
+        dept = None
         for user in users:
-            user_data_db[user.email] = LdapUser(user.id, user.password)
+            if self.settings.enable_extra_user_info_sync:
+                name = self.get_attr_val('profile_profile', 'nickname', user.email)
+                dept = self.get_attr_val('profile_detailedprofile', 'department', user.email)
+            user_data_db[user.email] = LdapUser(user.id, user.password, name, dept)
+
         return user_data_db
 
     def get_data_from_ldap(self):
@@ -65,12 +234,18 @@ class LdapUserSync(LdapSync):
             users = self.ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
                                                 search_filter,
                                                 [self.settings.login_attr,
-                                                 self.settings.pwd_change_attr])
+                                                 self.settings.pwd_change_attr,
+                                                 self.settings.first_name_attr,
+                                                 self.settings.last_name_attr,
+                                                 self.settings.dept_attr])
         else:
             users = self.ldap_conn.search(base_dn, SCOPE_SUBTREE,
                                           search_filter,
                                           [self.settings.login_attr,
-                                           self.settings.pwd_change_attr])
+                                           self.settings.pwd_change_attr,
+                                           self.settings.first_name_attr,
+                                           self.settings.last_name_attr,
+                                           self.settings.dept_attr])
         if users is None:
             return None
 
@@ -84,36 +259,83 @@ class LdapUserSync(LdapSync):
                 password = ''
             else:
                 password = attrs[self.settings.pwd_change_attr][0]
-            user_data_ldap[attrs[self.settings.login_attr][0].lower()] = password
+
+            if not attrs.has_key(self.settings.first_name_attr):
+                first_name = ''
+            else:
+                first_name = attrs[self.settings.first_name_attr][0]
+
+            if not attrs.has_key(self.settings.last_name_attr):
+                last_name = ''
+            else:
+                last_name = attrs[self.settings.last_name_attr][0]
+
+            if self.settings.name_reverse:
+                user_name = last_name + ' ' + first_name
+            else:
+                user_name = first_name + ' ' + last_name
+
+            if not attrs.has_key(self.settings.dept_attr):
+                dept = ''
+            else:
+                dept = attrs[self.settings.dept_attr][0]
+
+            email = attrs[self.settings.login_attr][0].lower()
+            user_data_ldap[email] = LdapUser(None, password, user_name.strip(), dept)
 
         return user_data_ldap
+
+    def sync_add_user(self, ldap_user, email):
+        user_id = add_ldap_user(email, ldap_user.password, 0, 1)
+        if user_id <= 0:
+            logging.warning('Add user [%s] failed.' % email)
+            return
+        self.auser += 1
+        logging.debug('Add user [%s] success.' % email)
+
+        if self.settings.enable_extra_user_info_sync:
+            self.add_name(email, ldap_user.name)
+            self.add_dept(email, ldap_user.dept)
+
+    def sync_update_user(self, ldap_user, db_user, email):
+        if ldap_user.password != db_user.password:
+            rc = update_ldap_user(db_user.user_id, email, ldap_user.password, 0, 1)
+            if rc < 0:
+                logging.warning('Update user [%s] failed.' % email)
+            else:
+                logging.debug('Update user [%s] success.' % email)
+                self.uuser += 1
+
+        if self.settings.enable_extra_user_info_sync:
+            if ldap_user.name != db_user.name:
+                self.update_name(email, ldap_user.name)
+            if ldap_user.dept != db_user.dept:
+                self.update_dept(email, ldap_user.dept)
+
+    def sync_del_user(self, db_user, email):
+        ret = del_ldap_user(db_user.user_id)
+        if ret < 0:
+            logging.warning('Delete user [%s] failed.' % email)
+            return
+        logging.debug('Delete user [%s] success.' % email)
+        self.duser += 1
+
+        if self.settings.enable_extra_user_info_sync:
+            self.del_name(email)
+            self.del_dept(email)
 
     def sync_data(self, data_db, data_ldap):
         # sync deleted user in ldap to db
         for k in data_db.iterkeys():
             if not data_ldap.has_key(k):
-                ret = del_ldap_user(data_db[k].user_id)
-                if ret < 0:
-                    logging.warning('delete user [%s] failed.' % k)
-                    continue
-                logging.debug('delete user [%s] success.' % k)
-                self.duser += 1
+                self.sync_del_user(data_db[k], k)
 
         # sync undeleted user in ldap to db
         for k, v in data_ldap.iteritems():
             if data_db.has_key(k):
-                if v != data_db[k].password:
-                    rc = update_ldap_user(data_db[k].user_id, k, v, 0, 1)
-                    if rc < 0:
-                        logging.warning('update user [%s] failed.' % k)
-                        continue
-                    logging.debug('update user [%s] success.' % k)
-                    self.uuser += 1
+                self.sync_update_user(v, data_db[k], k)
             else:
                 # add user to db
-                user_id = add_ldap_user(k, v, 0, 1)
-                if user_id <= 0:
-                    logging.warning('add user [%s] failed.' % k)
-                    continue
-                self.auser += 1
-                logging.debug('add user [%s] success.' % k)
+                self.sync_add_user(v, k)
+
+        self.close_seahub_db()
