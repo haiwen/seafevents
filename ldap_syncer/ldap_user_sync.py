@@ -3,16 +3,18 @@
 import logging
 
 from seaserv import get_ldap_users, add_ldap_user, update_ldap_user, \
-        del_ldap_user
+        seafile_api
 from ldap_sync import LdapSync
 from ldap import SCOPE_SUBTREE
 
 class LdapUser(object):
-    def __init__(self, user_id, password, name, dept):
+    def __init__(self, user_id, password, name, dept, is_staff=0, is_active=1):
         self.user_id = user_id
         self.password = password
         self.name = name
         self.dept = dept
+        self.is_staff = is_staff
+        self.is_active = is_active
 
 class LdapUserSync(LdapSync):
     def __init__(self, settings):
@@ -86,7 +88,7 @@ class LdapUserSync(LdapSync):
             self.db_conn.close()
 
     def show_sync_result(self):
-        logging.info('LDAP user sync result: add [%d]user, update [%d]user, delete [%d]user' %
+        logging.info('LDAP user sync result: add [%d]user, update [%d]user, deactive [%d]user' %
                      (self.auser, self.uuser, self.duser))
 
         if self.settings.enable_extra_user_info_sync:
@@ -186,6 +188,17 @@ class LdapUserSync(LdapSync):
             logging.warning('Failed to delete dept info for user %s: %s.' %
                             (email, e))
 
+    def del_token(self, tab, email):
+        try:
+            sql = 'delete from {0} where user = %s'.format(tab)
+            self.cursor.execute(sql, email)
+            if self.cursor.rowcount > 0:
+                logging.debug('Delete token from %s for user %s success.' %
+                              (tab, email))
+        except Exception as e:
+            logging.warning('Failed to delete token from %s for user %s: %s.' %
+                            (tab, email, e))
+
     def get_data_from_db(self):
         # user_id <-> LdapUser
         user_data_db = None
@@ -201,7 +214,9 @@ class LdapUserSync(LdapSync):
             if self.settings.enable_extra_user_info_sync:
                 name = self.get_attr_val('profile_profile', 'nickname', user.email)
                 dept = self.get_attr_val('profile_detailedprofile', 'department', user.email)
-            user_data_db[user.email] = LdapUser(user.id, user.password, name, dept)
+            user_data_db[user.email] = LdapUser(user.id, user.password, name, dept,
+                                                1 if user.is_staff else 0,
+                                                1 if user.is_active else 0)
 
         return user_data_db
 
@@ -299,7 +314,8 @@ class LdapUserSync(LdapSync):
 
     def sync_update_user(self, ldap_user, db_user, email):
         if ldap_user.password != db_user.password:
-            rc = update_ldap_user(db_user.user_id, email, ldap_user.password, 0, 1)
+            rc = update_ldap_user(db_user.user_id, email, ldap_user.password,
+                                  db_user.is_staff, db_user.is_active)
             if rc < 0:
                 logging.warning('Update user [%s] failed.' % email)
             else:
@@ -313,12 +329,22 @@ class LdapUserSync(LdapSync):
                 self.update_dept(email, ldap_user.dept)
 
     def sync_del_user(self, db_user, email):
-        ret = del_ldap_user(db_user.user_id)
+        ret = update_ldap_user(db_user.user_id, email, db_user.password,
+                               db_user.is_staff, 0)
         if ret < 0:
-            logging.warning('Delete user [%s] failed.' % email)
+            logging.warning('Deactive user [%s] failed.' % email)
             return
-        logging.debug('Delete user [%s] success.' % email)
+        logging.debug('Deactive user [%s] success.' % email)
         self.duser += 1
+
+        self.del_token('api2_token', email)
+        self.del_token('api2_tokenv2', email)
+        try:
+            seafile_api.delete_repo_tokens_by_email(email)
+            logging.debug('Delete repo tokens for user %s success.', email)
+        except Exception as e:
+            logging.warning("Failed to delete repo tokens for user %s: %s.",
+                           (email, e))
 
         if self.settings.enable_extra_user_info_sync:
             self.del_name(email)
@@ -327,7 +353,7 @@ class LdapUserSync(LdapSync):
     def sync_data(self, data_db, data_ldap):
         # sync deleted user in ldap to db
         for k in data_db.iterkeys():
-            if not data_ldap.has_key(k):
+            if not data_ldap.has_key(k) and data_db[k].is_active == 1:
                 self.sync_del_user(data_db[k], k)
 
         # sync undeleted user in ldap to db
