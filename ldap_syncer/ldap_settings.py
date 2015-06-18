@@ -27,6 +27,8 @@ class Settings(object):
         self.last_name_attr = None
         self.name_reverse = False
         self.dept_attr = None
+        self.mail_attr = None
+        self.is_login_mail_same = False
 
         self.parser = None
 
@@ -93,6 +95,9 @@ class Settings(object):
                                             bool, False)
         self.dept_attr = self.get_option('LDAP_SYNC', 'DEPT_ATTR',
                                          dval='department')
+        self.mail_attr = self.get_option('LDAP_SYNC', 'MAIL_ATTR',
+                                         dval='mail')
+        self.is_login_mail_same = self.login_attr == self.mail_attr
 
     def enable_sync(self):
         return self.enable_user_sync or self.enable_group_sync
