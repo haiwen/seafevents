@@ -100,7 +100,7 @@ class LdapUserSync(LdapSync):
     def get_attr_val(self, tab, attr, email):
         try:
             sql = 'select {0} from {1} where user = %s'.format(attr, tab)
-            self.cursor.execute(sql, email)
+            self.cursor.execute(sql, [email])
             r = self.cursor.fetchone()
             if r:
                 val = r[0]
@@ -108,7 +108,7 @@ class LdapUserSync(LdapSync):
                 val = ''
         except Exception as e:
             val = ''
-        return val
+        return val.encode('utf8')
 
     def add_name(self, email, name):
         try:
@@ -136,7 +136,7 @@ class LdapUserSync(LdapSync):
 
     def update_name(self, email, name):
         try:
-            self.cursor.execute('select 1 from profile_profile where user=%s', email)
+            self.cursor.execute('select 1 from profile_profile where user=%s', [email])
             if self.cursor.rowcount == 0:
                 self.cursor.execute('insert into profile_profile (user,nickname,intro) '
                                     'values (%s,%s,%s)', (email, name, ''))
@@ -153,7 +153,7 @@ class LdapUserSync(LdapSync):
 
     def update_dept(self, email, dept):
         try:
-            self.cursor.execute('select 1 from profile_detailedprofile where user=%s', email)
+            self.cursor.execute('select 1 from profile_detailedprofile where user=%s', [email])
             if self.cursor.rowcount == 0:
                 self.cursor.execute('insert into profile_detailedprofile (user,department,telephone) '
                                     'values (%s,%s,%s)', (email, dept, ''))
@@ -170,7 +170,7 @@ class LdapUserSync(LdapSync):
 
     def del_name(self, email):
         try:
-            self.cursor.execute('delete from profile_profile where user=%s', email)
+            self.cursor.execute('delete from profile_profile where user=%s', [email])
             if self.cursor.rowcount == 1:
                 logging.debug('Delete profile info for user %s success.' % email)
                 self.dname += 1
@@ -180,7 +180,7 @@ class LdapUserSync(LdapSync):
 
     def del_dept(self, email):
         try:
-            self.cursor.execute('delete from profile_detailedprofile where user=%s', email)
+            self.cursor.execute('delete from profile_detailedprofile where user=%s', [email])
             if self.cursor.rowcount == 1:
                 logging.debug('Delete dept info for user %s success.' % email)
                 self.ddept += 1
@@ -191,7 +191,7 @@ class LdapUserSync(LdapSync):
     def del_token(self, tab, email):
         try:
             sql = 'delete from {0} where user = %s'.format(tab)
-            self.cursor.execute(sql, email)
+            self.cursor.execute(sql, [email])
             if self.cursor.rowcount > 0:
                 logging.debug('Delete token from %s for user %s success.' %
                               (tab, email))
@@ -343,8 +343,7 @@ class LdapUserSync(LdapSync):
             seafile_api.delete_repo_tokens_by_email(email)
             logging.debug('Delete repo tokens for user %s success.', email)
         except Exception as e:
-            logging.warning("Failed to delete repo tokens for user %s: %s.",
-                           (email, e))
+            logging.warning("Failed to delete repo tokens for user %s: %s." % (email, e))
 
         if self.settings.enable_extra_user_info_sync:
             self.del_name(email)
