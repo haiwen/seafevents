@@ -207,7 +207,6 @@ class Convertor(object):
             else:
                 return True
 
-
     def _run_pdf2htmlEX(self, args):
         def get_env():
             '''Setup env for pdf2htmlEX'''
@@ -243,7 +242,7 @@ class Convertor(object):
             'pdf2htmlEX',
             '--tounicode', '1',
             '--data-dir', pdf2htmlEX_data_dir,
-            '--dest-dir',  tmpdir,
+            '--dest-dir', tmpdir,
             '--no-drm', '1',
             '--split-pages', '0',
             '--embed-outline', '0',
@@ -276,20 +275,30 @@ class Convertor(object):
         """
         output = _check_output(['pdfinfo', pdf])
         info = {}
+        rotated = False
         for line in output.splitlines():
             line = line.strip()
             m = _PAGES_LINE_RE.match(line)
             if m:
                 pages = int(m.group(1))
                 info['pages'] = pages
+                continue
+            m = _PAGES_ROTATION_RE.match(line)
+            if m:
+                rotation = int(m.group(1))
+                rotated = rotation in (90, 270)
+                continue
             m = _PAGES_SIZE_RE.match(line)
             if m:
                 w, h = map(float, m.groups())
                 info['page_width'] = w
                 info['page_height'] = h
-            if 'pages' in info and 'page_width' in info:
-                return info
-        raise Exception('failed to parse pdf information')
+        if 'pages' in info and 'page_width' in info:
+            if rotated:
+                info['page_width'], info['page_height'] = info['page_height'], info['page_width']
+            return info
+        else:
+            raise Exception('failed to parse pdf information')
 
     def pdf_to_html2(self, pdf, htmldir, pages, progress_callback):
         if not os.path.exists(htmldir):
@@ -399,3 +408,4 @@ def improve_table_border(path):
 
 _PAGES_LINE_RE = re.compile(r'^Pages:\s+(\d+)$')
 _PAGES_SIZE_RE = re.compile(r'^Page size:\s+([\d\.]+)[\sx]+([\d\.]+)\s+pts.*$')
+_PAGES_ROTATION_RE = re.compile(r'^Page rot:\s+(\d+)$')
