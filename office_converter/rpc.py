@@ -13,10 +13,6 @@ class OfficeConverterRpcClient(ccnet.RpcClientBase):
     def add_task(self, file_id, doctype, url):
         pass
 
-    @searpc_func("object", ["string"])
-    def query_convert_status(self, file_id):
-        pass
-
-    @searpc_func("object", ["string"])
-    def query_file_pages(self, file_id):
+    @searpc_func("object", ["string", "int"])
+    def query_convert_status(self, file_id, page):
         pass

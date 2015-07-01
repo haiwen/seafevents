@@ -6,9 +6,8 @@ import tempfile
 import threading
 import urllib2
 import logging
-import shutil
-import glob
 import atexit
+import json
 
 from .convert import Convertor, ConvertorFatalError
 from .doctypes import EXCEL_TYPES
@@ -37,17 +36,28 @@ class ConvertTask(object):
         self.document = None
         # pdf output
         self.pdf = os.path.join(pdf_dir, file_id)
-        # html output
-        self.html = os.path.join(html_dir, file_id, 'index.html')
+        # html output, each page of the document is converted to a separate
+        # html file, and displayed in iframes on seahub
+        self.htmldir = os.path.join(html_dir, file_id)
+
+        self.pdf_info = {}
+        self.last_processed_page = 0
 
     def __str__(self):
         return "<type: %s, id: %s>" % (self.doctype, self.file_id)
+
+    def page_status(self, page_number):
+        if self.status == 'ERROR':
+            return 'ERROR'
+        else:
+            return 'DONE' if page_number <= self.last_processed_page \
+                else 'PROCESSING'
 
     def get_status(self):
         return self._status
 
     def set_status(self, status):
-        assert (status in ('QUEUED', 'PROCESSING', 'DONE', 'ERROR'))
+        assert status in ('QUEUED', 'PROCESSING', 'DONE', 'ERROR')
 
         # Remove temporary file when done or error
         if status == 'ERROR' or status == 'DONE':
@@ -104,23 +114,30 @@ class Worker(threading.Thread):
 
     def _convert_pdf_to_html(self, task):
         """Use pdf2htmlEX to convert pdf to html"""
-        if task_manager.convertor.pdf_to_html(task.pdf, task.html, task_manager.max_pages) != 0:
-            logging.warning("failed to convert %s to html", task)
+        def progress_callback(page, pdf_info):
+            task.last_processed_page = page
+            task.pdf_info = pdf_info
+        try:
+            task_manager.convertor.pdf_to_html2(
+                task.pdf, task.htmldir, task_manager.max_pages, progress_callback)
+        except Exception, e:
+            logging.exception('failed to convert %s to html', task)
             task.status = 'ERROR'
             task.error = 'failed to convert document'
         else:
-            logging.debug("successfully convert %s to html", task)
+            logging.debug('successfully convert %s to html', task)
             task.status = 'DONE'
 
     def _convert_excel_to_html(self, task):
         '''Use libreoffice to convert excel to html'''
-        if not task_manager.convertor.excel_to_html(task.document, task.html):
-            logging.warning("failed to convert %s from excel to html", task)
+        if not task_manager.convertor.excel_to_html(
+                task.document, os.path.join(task.htmldir, 'index.html')):
+            logging.warning('failed to convert %s from excel to html', task)
             task.status = 'ERROR'
             task.error = 'failed to convert excel to html'
             return False
         else:
-            logging.debug("successfully convert excel %s to html", task)
+            logging.debug('successfully convert excel %s to html', task)
             task.status = 'DONE'
             return True
 
@@ -156,7 +173,7 @@ class Worker(threading.Thread):
             file_response = urllib2.urlopen(task.url)
             content = file_response.read()
         except Exception as e:
-            logging.warning('failed to fetch document of task %s: %s', task, e)
+            logging.warning('failed to fetch document of task %s (%s): %s', task, task.url, e)
             task.status = 'ERROR'
             task.error = 'failed to fetch document'
             return False
@@ -270,90 +287,80 @@ class TaskManager(object):
         self._checkdir_with_mkdir(html_dir)
         self.html_dir = html_dir
 
-    def _task_file_exists(self, file_id):
+    def _task_file_exists(self, file_id, doctype=None):
         '''Test whether the file has already been converted'''
         file_html_dir = os.path.join(self.html_dir, file_id)
-        index_html = os.path.join(file_html_dir, 'index.html')
-
-        if os.path.exists(file_html_dir):
-            if os.path.exists(index_html):
-                return True
-            else:
-                # The dir <html_dir>/<file_id>/ exists, but
-                # <html_dir>/<file_id>/index.html does not exist. Something
-                # wrong must have happened. In this case, we remove the
-                # file_html_dir to return to a clean state
-                shutil.rmtree(file_html_dir)
-                return False
+        if doctype not in EXCEL_TYPES:
+            done_file = os.path.join(file_html_dir, 'done')
         else:
-            return False
+            done_file = os.path.join(file_html_dir, 'index.html')
+
+        return os.path.exists(done_file)
 
     def add_task(self, file_id, doctype, url):
         """Create a convert task and dipatch it to worker threads"""
-        ret = {}
-        if self._task_file_exists(file_id):
-            ret['exists'] = True
-            return ret
-        else:
-            ret['exists'] = False
-
         with self._tasks_map_lock:
-            if self._tasks_map.has_key(file_id):
+            if file_id in self._tasks_map:
                 task = self._tasks_map[file_id]
                 if task.status != 'ERROR' and task.status != 'DONE':
                     # If there is already a convert task in progress, don't create a
                     # new one.
-                    return ret
+                    return
 
-            task = ConvertTask(file_id, doctype, url, self.pdf_dir, self.html_dir)
-            self._tasks_map[file_id] = task
+            if not self._task_file_exists(file_id, doctype):
+                task = ConvertTask(file_id, doctype, url, self.pdf_dir, self.html_dir)
+                self._tasks_map[file_id] = task
+                self._tasks_queue.put(task)
 
-        self._tasks_queue.put(task)
+    def _get_pdf_info(self, file_id):
+        info_file = os.path.join(self.html_dir, file_id, 'info.json')
+        if not os.path.exists(info_file):
+            return None
 
-        return ret
+        with open(info_file, 'r') as fp:
+            return json.load(fp)
 
-    def query_task_status(self, file_id):
+    def query_task_status_excel(self, file_id):
         ret = {}
         with self._tasks_map_lock:
-            if not self._tasks_map.has_key(file_id):
-                ret['error'] = 'invalid file id'
-            else:
+            if file_id in self._tasks_map:
                 task = self._tasks_map[file_id]
-
                 if task.status == 'ERROR':
+                    ret['status'] = 'ERROR'
                     ret['error'] = task.error
-
-                elif task.status == 'DONE':
-                    if not self._task_file_exists(file_id):
-                        # The file has been converted, but the converted files
-                        # has been deleted for some reason. In this case we
-                        # restart the task
-                        task = ConvertTask(task.file_id, task.doctype, task.url,
-                                           self.pdf_dir, self.html_dir)
-                        self._tasks_map[file_id] = task
-                        self._tasks_queue.put(task)
-
-                ret['status'] = task.status
-
+                elif task.status in ('QUEUED', 'PROCESSING'):
+                    ret['status'] = task.status
+                else:
+                    if self._task_file_exists(file_id, 'xls'):
+                        ret['status'] = 'DONE'
+                    else:
+                        ret['status'] = 'ERROR'
+                        ret['error'] = 'invalid file id'
         return ret
 
-    def query_file_pages(self, file_id):
-        '''Query how many pages a file has'''
+    def query_task_status(self, file_id, page):
+        if page == 0:
+            return self.query_task_status_excel(file_id)
         ret = {}
-        file_html_dir = os.path.join(self.html_dir, file_id)
-        if not os.path.exists(file_html_dir):
-            ret['error'] = 'the file is not converted yet'
-            return ret
-
-        page_pattern = os.path.join(self.html_dir, file_id, '*.page')
-        try:
-            pages = glob.glob(page_pattern)
-        except Exception, e:
-            ret['error'] = str(e)
-            return ret
-
-        ret['count'] = len(pages)
-
+        with self._tasks_map_lock:
+            if file_id in self._tasks_map:
+                task = self._tasks_map[file_id]
+                if task.status == 'ERROR':
+                    ret['status'] = 'ERROR'
+                    ret['error'] = task.error
+                else:
+                    ret['status'] = task.page_status(page)
+                    ret['info'] = task.pdf_info
+                    ret['info']['processed_pages'] = task.last_processed_page
+            else:
+                if self._task_file_exists(file_id):
+                    ret['status'] = 'DONE'
+                    ret['info'] = self._get_pdf_info(file_id)
+                    ret['info']['processed_pages'] = ret['info']['final_pages']
+                    return ret
+                else:
+                    ret['status'] = 'ERROR'
+                    ret['error'] = 'invalid file id'
         return ret
 
     def run(self):

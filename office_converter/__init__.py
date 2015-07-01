@@ -38,17 +38,11 @@ class OfficeConverter(object):
 
         return task_manager.add_task(file_id, doctype, url)
 
-    def query_convert_status(self, file_id):
+    def query_convert_status(self, file_id, page):
         if len(file_id) != 40:
             raise Exception('invalid file id')
 
-        return task_manager.query_task_status(file_id)
-
-    def query_file_pages(self, file_id):
-        if len(file_id) != 40:
-            raise Exception('invalid file id')
-
-        return task_manager.query_file_pages(file_id)
+        return task_manager.query_task_status(file_id, page)
 
     def register_rpc(self, ccnet_client):
         '''Register office rpc service'''
@@ -59,9 +53,6 @@ class OfficeConverter(object):
 
         searpc_server.register_function(OFFICE_RPC_SERVICE_NAME,
                                         self.query_convert_status)
-
-        searpc_server.register_function(OFFICE_RPC_SERVICE_NAME,
-                                        self.query_file_pages)
 
         searpc_server.register_function(OFFICE_RPC_SERVICE_NAME,
                                         self.add_task)

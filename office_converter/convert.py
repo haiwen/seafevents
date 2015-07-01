@@ -9,6 +9,7 @@ import shutil
 import threading
 import re
 import logging
+import json
 
 from .doctypes import DOC_TYPES, PPT_TYPES, EXCEL_TYPES
 
@@ -206,6 +207,120 @@ class Convertor(object):
             else:
                 return True
 
+    def _run_pdf2htmlEX(self, args):
+        def get_env():
+            '''Setup env for pdf2htmlEX'''
+            env = dict(os.environ)
+            try:
+                env['LD_LIBRARY_PATH'] = env['SEAFILE_LD_LIBRARY_PATH']
+                env['FONTCONFIG_PATH'] = '/etc/fonts'
+            except KeyError:
+                pass
+
+            return env
+        env = get_env()
+        subprocess.check_call(args, stdout=sys.stdout, env=env, stderr=sys.stderr)
+
+    def _convert_one_pdf_page(self, pdf, htmldir, page_number):
+        page_file_name = '%s.page' % page_number
+        dst_page = os.path.join(htmldir, page_file_name)
+
+        if os.path.exists(dst_page):
+            return
+
+        try:
+            tmpdir = tempfile.mkdtemp()
+        except Exception, e:
+            logging.warning('failed to create temp dir: %s' % e)
+            return -1
+        src_page = os.path.join(tmpdir, page_file_name)
+
+        pdf2htmlEX_data_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), 'pdf2htmlEX')
+
+        args = [
+            'pdf2htmlEX',
+            '--tounicode', '1',
+            '--data-dir', pdf2htmlEX_data_dir,
+            '--dest-dir', tmpdir,
+            '--no-drm', '1',
+            '--split-pages', '0',
+            '--embed-outline', '0',
+            '--process-outline', '0',
+            '--first-page', str(page_number),
+            '--last-page', str(page_number),
+            '--fit-width', '850',
+            pdf, page_file_name,
+        ]
+
+        try:
+            self._run_pdf2htmlEX(args)
+            shutil.move(src_page, dst_page)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def _get_pdf_info_json(self, pdf):
+        """
+        The output of pdfinfo is like:
+        vagrant@seafile-dev:/vagrant/src/seafevents$ pdfinfo /vagrant/tmp/devops.pdf
+        Tagged:         no
+        Form:           none
+        Pages:          3
+        Encrypted:      no
+        Page size:      612 x 792 pts (letter)
+        Page rot:       0
+        File size:      292995 bytes
+        Optimized:      yes
+        PDF version:    1.4
+        """
+        output = _check_output(['pdfinfo', pdf])
+        info = {}
+        rotated = False
+        for line in output.splitlines():
+            line = line.strip()
+            m = _PAGES_LINE_RE.match(line)
+            if m:
+                pages = int(m.group(1))
+                info['pages'] = pages
+                continue
+            m = _PAGES_ROTATION_RE.match(line)
+            if m:
+                rotation = int(m.group(1))
+                rotated = rotation in (90, 270)
+                continue
+            m = _PAGES_SIZE_RE.match(line)
+            if m:
+                w, h = map(float, m.groups())
+                info['page_width'] = w
+                info['page_height'] = h
+        if 'pages' in info and 'page_width' in info:
+            if rotated:
+                info['page_width'], info['page_height'] = info['page_height'], info['page_width']
+            return info
+        else:
+            raise Exception('failed to parse pdf information')
+
+    def pdf_to_html2(self, pdf, htmldir, pages, progress_callback):
+        if not os.path.exists(htmldir):
+            os.mkdir(htmldir)
+        info_json_file = os.path.join(htmldir, 'info.json')
+        done_file = os.path.join(htmldir, 'done')
+
+        pdf_info = self._get_pdf_info_json(pdf)
+        pages = min(pages, pdf_info['pages'])
+        pdf_info['final_pages'] = pages
+        with open(info_json_file, 'w') as fp:
+            json.dump(pdf_info, fp)
+        progress_callback(0, pdf_info)
+
+        for page in xrange(1, pages + 1):
+            self._convert_one_pdf_page(pdf, htmldir, page)
+            progress_callback(page, pdf_info)
+
+        with open(done_file, 'w') as fp:
+            # touch the done file
+            pass
+
     def pdf_to_html(self, pdf, html, pages):
         html_dir = os.path.dirname(html)
         html_name = os.path.basename(html)
@@ -290,3 +405,7 @@ def improve_table_border(path):
     content = re.sub(pattern, r'<TABLE\1BORDER="1" style="border-collapse: collapse;">', content)
     with open(path, 'w') as fp:
         fp.write(content)
+
+_PAGES_LINE_RE = re.compile(r'^Pages:\s+(\d+)$')
+_PAGES_SIZE_RE = re.compile(r'^Page size:\s+([\d\.]+)[\sx]+([\d\.]+)\s+pts.*$')
+_PAGES_ROTATION_RE = re.compile(r'^Page rot:\s+(\d+)$')
