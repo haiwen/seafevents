@@ -1,7 +1,8 @@
 import os
 import ConfigParser
-import datetime
 import logging
+
+from urllib import quote_plus
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -36,7 +37,7 @@ def create_engine_from_conf(config_file):
         username = config.get('DATABASE', 'username')
         passwd = config.get('DATABASE', 'password')
         dbname = config.get('DATABASE', 'name')
-        db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, passwd, host, port, dbname)
+        db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
         logger.info('[seafevents] database: mysql, name: %s', dbname)
     else:
         raise RuntimeError("Unknown database backend: %s" % backend)
