@@ -3,21 +3,17 @@
 import os
 import logging
 from ConfigParser import ConfigParser
+from seafevents.db import init_db_session_class
+from sqlalchemy.ext.declarative import declarative_base
 
 class Settings(object):
-    def __init__(self, config):
+    def __init__(self, config_file):
         self.enable_scan = False
         self.scan_cmd = None
         self.vir_codes = None
         self.nonvir_codes = None
         self.scan_interval = 60
-        # seafevent db config
-        self.edb_host = None
-        self.edb_port = 3306
-        self.edb_user = None
-        self.edb_passwd = None
-        self.edb_name = None
-        self.edb_charset = 'utf8'
+
         # seafile db config
         self.sdb_host = None
         self.sdb_port = 3306
@@ -25,9 +21,12 @@ class Settings(object):
         self.sdb_passwd = None
         self.sdb_name = None
         self.sdb_charset = 'utf8'
-        self.parse_config(config)
 
-    def parse_config(self, config):
+        self.session_cls = None
+
+        self.parse_config(config_file)
+
+    def parse_config(self, config_file):
         try:
             cfg = ConfigParser()
             seaf_conf = os.path.join(os.environ['SEAFILE_CONF_DIR'], 'seafile.conf')
@@ -42,7 +41,10 @@ class Settings(object):
         if not self.parse_sdb_config(cfg):
             return
 
-        if not self.parse_edb_config(config):
+        try:
+            self.session_cls = init_db_session_class(config_file)
+        except Exception as e:
+            logging.warning('Failed to init db session class: %s', e)
             return
 
         self.enable_scan = True
@@ -130,47 +132,6 @@ class Settings(object):
             self.sdb_charset = cfg.get('database', 'CONNECTION_CHARSET')
         if not self.sdb_charset:
             self.sdb_charset = 'utf8'
-
-        return True
-
-    def parse_edb_config(self, cfg):
-        # seafevent db config
-        db_type = None
-        if cfg.has_option('DATABASE', 'type'):
-            db_type = cfg.get('DATABASE', 'type')
-        if db_type != 'mysql':
-            logging.info('seafevent does not use mysql db, disable virus scan.')
-            return False
-
-        if cfg.has_option('DATABASE', 'host'):
-            self.edb_host = cfg.get('DATABASE', 'host')
-        if not self.edb_host:
-            logging.info('mysql db host is not set in seafevent conf, disable virus scan.')
-            return False
-
-        if cfg.has_option('DATABASE', 'port'):
-            try:
-                self.edb_port = cfg.getint('DATABASE', 'port')
-            except ValueError:
-                pass
-
-        if cfg.has_option('DATABASE', 'username'):
-            self.edb_user = cfg.get('DATABASE', 'username')
-        if not self.edb_user:
-            logging.info('mysql db user is not set in seafevent conf, disable virus scan.')
-            return False
-
-        if cfg.has_option('DATABASE', 'password'):
-            self.edb_passwd = cfg.get('DATABASE', 'password')
-        if not self.edb_passwd:
-            logging.info('mysql db password is not set in seafevent conf, disable virus scan.')
-            return False
-
-        if cfg.has_option('DATABASE', 'name'):
-            self.edb_name = cfg.get('DATABASE', 'name')
-        if not self.edb_name:
-            logging.info('mysql db name is not set in seafevent conf, disable virus scan.')
-            return False
 
         return True
 

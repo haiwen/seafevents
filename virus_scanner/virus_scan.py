@@ -57,6 +57,7 @@ class VirusScan(object):
             vnum = 0
             nvnum = 0
             nfailed = 0
+            vrecords = []
 
             for scan_file in scan_files:
                 fpath, fid = scan_file
@@ -70,13 +71,18 @@ class VirusScan(object):
                     logging.info('File %s virus scan by %s: Found virus.',
                                  fpath, self.settings.scan_cmd)
                     vnum += 1
+                    vrecords.append((repo_id, head_commit_id, fpath))
                 else:
                     logging.debug('File %s virus scan by %s: Failed.',
                                   fpath, self.settings.scan_cmd)
                     nfailed += 1
 
             if nfailed == 0:
-                self.db_oper.update_vscan_record(repo_id, head_commit_id)
+                ret = 0
+                if len(vrecords) > 0:
+                    ret = self.db_oper.add_virus_record(vrecords)
+                if ret == 0:
+                    self.db_oper.update_vscan_record(repo_id, head_commit_id)
 
             logging.info('Virus scan for repo %.8s finished: %d virus, %d non virus, %d failed.',
                          repo_id, vnum, nvnum, nfailed)

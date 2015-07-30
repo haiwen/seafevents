@@ -24,10 +24,7 @@ if __name__ == "__main__":
                         help='seafevents config file')
     args = parser.parse_args()
 
-    config = ConfigParser()
-    config.read(args.config_file)
-
-    setting = Settings(config)
+    setting = Settings(args.config_file)
     if setting.is_enabled():
         VirusScan(setting).start()
     else:

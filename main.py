@@ -170,7 +170,7 @@ class BackgroundTasks(object):
         self._index_updater = IndexUpdater(self._app_config)
         self._seahub_email_sender = SeahubEmailSender(self._app_config)
         self._ldap_syncer = LdapSyncer()
-        self._virus_scanner = VirusScanner(self._app_config)
+        self._virus_scanner = VirusScanner(os.environ['EVENTS_CONFIG_FILE'])
 
         self._office_converter = None
         if has_office_tools():

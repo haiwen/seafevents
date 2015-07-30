@@ -5,8 +5,8 @@ from seafevents.virus_scanner import Settings
 from seafevents.virus_scanner import VirusScan
 
 class VirusScanner(object):
-    def __init__(self, config):
-        self.settings = Settings(config)
+    def __init__(self, config_file):
+        self.settings = Settings(config_file)
 
     def is_enabled(self):
         return self.settings.is_enabled()

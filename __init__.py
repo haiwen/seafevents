@@ -33,6 +33,8 @@ from .events.db import get_user_events, get_org_user_events, delete_event, \
         get_file_audit_events, get_file_update_events, get_perm_audit_events
 from .events.db import save_user_events, save_org_user_events
 from .stats.db import get_user_traffic_stat, get_user_traffic_list
+from .virus_scanner import get_virus_record, handle_virus_record, \
+        get_virus_record_by_id
 
 from .utils import has_office_tools
 from .utils.config import get_office_converter_conf
