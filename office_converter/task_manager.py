@@ -14,6 +14,17 @@ from .doctypes import EXCEL_TYPES
 
 __all__ = ["task_manager"]
 
+def _checkdir_with_mkdir(dname):
+    if os.path.exists(dname):
+        if not os.path.isdir(dname):
+            raise RuntimeError("%s exists, but not a directory" % dname)
+
+        if not os.access(dname, os.R_OK | os.W_OK):
+            raise RuntimeError("Access to %s denied" % dname)
+    else:
+        os.makedirs(dname)
+
+
 class ConvertTask(object):
     """A convert task is the representation of a convert request. A task is in
     one of these status:
@@ -100,6 +111,7 @@ class Worker(threading.Thread):
         logging.debug('start to convert task %s', task)
 
         success = False
+        _checkdir_with_mkdir(os.path.dirname(task.pdf))
         try:
             success = convertor.convert_to_pdf(task.document, task.pdf)
         except ConvertorFatalError:
@@ -114,13 +126,14 @@ class Worker(threading.Thread):
 
     def _convert_pdf_to_html(self, task):
         """Use pdf2htmlEX to convert pdf to html"""
+        _checkdir_with_mkdir(task.htmldir)
         def progress_callback(page, pdf_info):
             task.last_processed_page = page
             task.pdf_info = pdf_info
         try:
             task_manager.convertor.pdf_to_html2(
                 task.pdf, task.htmldir, task_manager.max_pages, progress_callback)
-        except Exception, e:
+        except Exception:
             logging.exception('failed to convert %s to html', task)
             task.status = 'ERROR'
             task.error = 'failed to convert document'
@@ -130,6 +143,7 @@ class Worker(threading.Thread):
 
     def _convert_excel_to_html(self, task):
         '''Use libreoffice to convert excel to html'''
+        _checkdir_with_mkdir(task.htmldir)
         if not task_manager.convertor.excel_to_html(
                 task.document, os.path.join(task.htmldir, 'index.html')):
             logging.warning('failed to convert %s from excel to html', task)
@@ -268,23 +282,13 @@ class TaskManager(object):
         self._num_workers = num_workers
         self.max_pages = max_pages
 
-    def _checkdir_with_mkdir(self, dname):
-        if os.path.exists(dname):
-            if not os.path.isdir(dname):
-                raise RuntimeError("%s exists, but not a directory" % dname)
-
-            if not os.access(dname, os.R_OK | os.W_OK):
-                raise RuntimeError("Access to %s denied" % dname)
-        else:
-            os.mkdir(dname)
-
     def _set_pdf_dir(self, pdf_dir):
         """Init the directory to store converted pdf"""
-        self._checkdir_with_mkdir(pdf_dir)
+        _checkdir_with_mkdir(pdf_dir)
         self.pdf_dir = pdf_dir
 
     def _set_html_dir(self, html_dir):
-        self._checkdir_with_mkdir(html_dir)
+        _checkdir_with_mkdir(html_dir)
         self.html_dir = html_dir
 
     def _task_file_exists(self, file_id, doctype=None):
