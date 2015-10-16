@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import logging
 import tempfile
 import ConfigParser
@@ -17,6 +18,12 @@ __all__ = [
     'OfficeConverterRpcClient',
 ]
 
+FILE_ID_PATTERN = re.compile(r'^[0-9a-z]{40}$')
+def _valid_file_id(file_id):
+    if not isinstance(file_id, basestring):
+        return False
+    return FILE_ID_PATTERN.match(str(file_id)) is not None
+
 class OfficeConverter(object):
     supported_doctypes = DOC_TYPES + PPT_TYPES + EXCEL_TYPES + ('pdf', )
 
@@ -33,13 +40,13 @@ class OfficeConverter(object):
         if doctype not in self.supported_doctypes:
             raise Exception('doctype "%s" is not supported' % doctype)
 
-        if len(file_id) != 40:
+        if not _valid_file_id(file_id):
             raise Exception('invalid file id')
 
         return task_manager.add_task(file_id, doctype, url)
 
     def query_convert_status(self, file_id, page):
-        if len(file_id) != 40:
+        if not _valid_file_id(file_id):
             raise Exception('invalid file id')
 
         return task_manager.query_task_status(file_id, page)
@@ -75,4 +82,3 @@ class OfficeConverter(object):
         if not has_office_tools():
             return False
         return self._enabled
-
