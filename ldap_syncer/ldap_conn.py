@@ -33,10 +33,7 @@ class LdapConn(object):
         try:
             result = self.conn.search_s(base_dn, scope, search_filter, attr_list)
         except ldap.LDAPError as e:
-            if type(e.message) == dict and e.message['desc'] == 'No such object':
-                result = []
-            else:
-                logging.warning('search failed error: %s' % e.message)
+            logging.warning('search failed error: %s' % e.message)
 
         return result
 
