@@ -18,7 +18,7 @@ __all__ = [
     'OfficeConverterRpcClient',
 ]
 
-FILE_ID_PATTERN = re.compile(r'^[0-9a-z]{40}$')
+FILE_ID_PATTERN = re.compile(r'^[0-9a-f]{40}$')
 def _valid_file_id(file_id):
     if not isinstance(file_id, basestring):
         return False
