@@ -167,3 +167,22 @@ def save_perm_audit_event(session, timestamp, etype, from_user, to, \
 
 def get_perm_audit_events(session, from_user, org_id, repo_id, start, limit):
     return get_events(session, PermAudit, from_user, org_id, repo_id, start, limit)
+
+def get_event_log_by_time(session, log_type, tstart, tend):
+    if not log_type in ('file_update', 'file_audit', 'perm_audit'):
+        raise RuntimeError('Invalid log_type parameter')
+
+    if not isinstance(tstart, (long, float)) or not isinstance(tend, (long, float)):
+        raise RuntimeError('Invalid time range parameter')
+
+    if log_type == 'file_update':
+        obj = FileUpdate
+    elif log_type == 'file_audit':
+        obj = FileAudit
+    elif log_type == 'perm_audit':
+        obj = PermAudit
+
+    q = session.query(obj)
+    q = q.filter(obj.timestamp.between(datetime.datetime.utcfromtimestamp(tstart),
+                                       datetime.datetime.utcfromtimestamp(tend)))
+    return q.all()
