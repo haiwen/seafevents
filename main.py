@@ -78,6 +78,7 @@ def get_ccnet_dir():
 class App(object):
     def __init__(self, ccnet_dir, args, events_listener_enabled=True, background_tasks_enabled=True):
         self._ccnet_dir = ccnet_dir
+        self._central_config_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR')
         self._args = args
         self._events_listener_enabled = events_listener_enabled
         self._bg_tasks_enabled = background_tasks_enabled
@@ -99,11 +100,14 @@ class App(object):
 
     def start_ccnet_session(self):
         '''Connect to ccnet-server, retry util connection is made'''
-        self._ccnet_session = AsyncClient(self._ccnet_dir, self._evbase)
+        self._ccnet_session = AsyncClient(self._ccnet_dir,
+                                          self._evbase,
+                                          central_config_dir=self._central_config_dir)
         connector = ClientConnector(self._ccnet_session)
         connector.connect_daemon_with_retry()
 
-        self._sync_client = ccnet.SyncClient(self._ccnet_dir)
+        self._sync_client = ccnet.SyncClient(self._ccnet_dir,
+                                             central_config_dir=self._central_config_dir)
         self._sync_client.connect_daemon()
 
     def connect_ccnet(self):
@@ -215,7 +219,11 @@ class BackgroundTasks(object):
 
 def is_cluster_enabled():
     cfg = ConfigParser.ConfigParser()
-    conf = os.path.join(os.environ['SEAFILE_CONF_DIR'], 'seafile.conf')
+    if 'SEAFILE_CENTRAL_CONF_DIR' in os.environ:
+        confdir = os.environ['SEAFILE_CENTRAL_CONF_DIR']
+    else:
+        confdir = os.environ['SEAFILE_CONF_DIR']
+    conf = os.path.join(confdir, 'seafile.conf')
     cfg.read(conf)
     if cfg.has_option('cluster', 'enabled'):
         return cfg.getboolean('cluster', 'enabled')
@@ -269,5 +277,5 @@ def main(background_tasks_only=False):
 def run_background_tasks():
     main(background_tasks_only=True)
 
-if __name__ ==  '__main__':
+if __name__ == '__main__':
     main()
