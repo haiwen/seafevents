@@ -361,6 +361,7 @@ class LdapUserSync(LdapSync):
                 self.sync_update_user(v, data_db[k], k)
             else:
                 # add user to db
-                self.sync_add_user(v, k)
+                if self.settings.import_new_user:
+                    self.sync_add_user(v, k)
 
         self.close_seahub_db()

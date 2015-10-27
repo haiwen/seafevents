@@ -16,6 +16,7 @@ class Settings(object):
         self.sync_interval = 0
         self.enable_group_sync = False
         self.enable_user_sync = False
+        self.import_new_user = True
         self.group_object_class = None
         self.user_object_class = None
 
@@ -77,6 +78,7 @@ class Settings(object):
                                                  'GROUP_MEMBER_ATTR',
                                                  dval='member')
 
+        self.import_new_user = self.get_option('LDAP_SYNC', 'IMPORT_NEW_USER', bool, True)
         self.user_object_class = self.get_option('LDAP_SYNC', 'USER_OBJECT_CLASS',
                                                  dval='person')
         self.user_filter = self.get_option('LDAP', 'FILTER')
