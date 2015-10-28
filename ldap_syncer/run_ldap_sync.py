@@ -115,7 +115,9 @@ if __name__ == '__main__':
     }
     logging.basicConfig(**kw)
 
-    if arg.test:
-        test_ldap(Settings())
-    else:
-        run_ldap_sync(Settings())
+    setting = Settings()
+    if setting.has_base_info:
+        if arg.test:
+            test_ldap(setting)
+        else:
+            run_ldap_sync(setting)

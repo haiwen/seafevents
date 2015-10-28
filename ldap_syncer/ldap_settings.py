@@ -30,6 +30,7 @@ class Settings(object):
         self.dept_attr = None
 
         self.parser = None
+        self.has_base_info = True
 
         self.read_config()
 
@@ -47,6 +48,18 @@ class Settings(object):
         if not self.parser.has_section('LDAP'):
             logging.info('LDAP section is not set, disable ldap sync')
             return
+
+        self.host = self.get_option('LDAP', 'HOST')
+        self.user_dn = self.get_option('LDAP', 'USER_DN')
+        self.passwd = self.get_option('LDAP', 'PASSWORD')
+        self.base_dn = self.get_option('LDAP', 'BASE')
+        if self.host == '' or self.user_dn == '' or self.passwd == '' or self.base_dn == '':
+            logging.info('ldap option is not set completely, disable ldap related operation')
+            self.has_base_info = False
+            return
+        self.login_attr = self.get_option('LDAP', 'LOGIN_ATTR', dval='mail')
+        self.use_page_result = self.get_option('LDAP', 'USE_PAGED_RESULT', bool, False)
+
         if not self.parser.has_section('LDAP_SYNC'):
             logging.info('LDAP_SYNC section is not set, disable ldap sync')
             return
@@ -57,17 +70,6 @@ class Settings(object):
                                                 bool, False)
         if not self.enable_user_sync and not self.enable_group_sync:
             return
-
-        self.host = self.get_option('LDAP', 'HOST')
-        if self.host == '':
-            logging.info('ldap host option is not set, disable ldap sync')
-            return
-
-        self.user_dn = self.get_option('LDAP', 'USER_DN')
-        self.passwd = self.get_option('LDAP', 'PASSWORD')
-        self.base_dn = self.get_option('LDAP', 'BASE')
-        self.login_attr = self.get_option('LDAP', 'LOGIN_ATTR', dval='mail')
-        self.use_page_result = self.get_option('LDAP', 'USE_PAGED_RESULT', bool, False)
 
         self.sync_interval = self.get_option('LDAP_SYNC', 'SYNC_INTERVAL', int, 60)
         self.group_object_class = self.get_option('LDAP_SYNC', 'GROUP_OBJECT_CLASS',
