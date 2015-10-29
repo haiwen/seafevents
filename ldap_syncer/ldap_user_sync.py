@@ -31,44 +31,42 @@ class LdapUserSync(LdapSync):
         self.udept = 0
         self.ddept = 0
 
-        if self.settings.enable_extra_user_info_sync:
-            self.init_seahub_db()
+        self.db_conn = None
+        self.cursor = None
+
+        self.init_seahub_db()
+
+        if self.cursor is None and self.settings.enable_extra_user_info_sync:
+            logging.debug('Failed to init seahub db, disable sync user extra info.')
+            self.settings.enable_extra_user_info_sync = False
 
     def init_seahub_db(self):
         try:
             import MySQLdb
             import seahub_settings
         except ImportError as e:
-            logging.info('Failed to import MySQLdb or seahub_settings module: %s, '
-                         'disable name/department sync.' % e)
-            self.settings.enable_extra_user_info_sync = False
+            logging.warning('Failed to init seahub db: %s.' %  e)
             return
 
         try:
             db_infos = seahub_settings.DATABASES['default']
         except KeyError as e:
-            logging.info('Can not find db info in seahub settings, '
-                         'disable name/department sync.')
-            self.settings.enable_extra_user_info_sync = False
+            logging.warning('Failed to init seahub db, can not find db info in seahub settings.')
             return
 
         if db_infos.get('ENGINE') != 'django.db.backends.mysql':
-            logging.info('Name/Department sync feature only mysql db supported, '
-                         'disable name/department sync.')
-            self.settings.enable_extra_user_info_sync = False
+            logging.warning('Failed to init seahub db, only mysql db supported.')
             return
 
         db_host = db_infos.get('HOST', '127.0.0.1')
         db_port = int(db_infos.get('PORT', '3306'))
         db_name = db_infos.get('NAME')
         if not db_name:
-            logging.info('DB name is not setted, disable name/department sync.')
-            self.settings.enable_extra_user_info_sync = False
+            logging.warning('Failed to init seahub db, db name is not setted.')
             return
         db_user = db_infos.get('USER')
         if not db_user:
-            logging.info('DB user is not setted, disable name/department sync.')
-            self.settings.enable_extra_user_info_sync = False
+            logging.warning('Failed to init seahub db, db user is not setted.')
             return
         db_passwd = db_infos.get('PASSWORD')
 
@@ -79,12 +77,12 @@ class LdapUserSync(LdapSync):
             self.db_conn.autocommit(True)
             self.cursor = self.db_conn.cursor()
         except Exception as e:
-            logging.info('Failed to connect mysql: %s, disable name/department sync.' %  e)
-            self.settings.enable_extra_user_info_sync = False
+            logging.warning('Failed to init seahub db: %s.' %  e)
 
     def close_seahub_db(self):
-        if self.settings.enable_extra_user_info_sync:
+        if self.cursor:
             self.cursor.close()
+        if self.db_conn:
             self.db_conn.close()
 
     def show_sync_result(self):
@@ -337,8 +335,12 @@ class LdapUserSync(LdapSync):
         logging.debug('Deactive user [%s] success.' % email)
         self.duser += 1
 
-        self.del_token('api2_token', email)
-        self.del_token('api2_tokenv2', email)
+        if self.cursor:
+            self.del_token('api2_token', email)
+            self.del_token('api2_tokenv2', email)
+        else:
+            logging.debug('Failed to connect seahub db, omit delete api token for user [%s].' %
+                          email)
         try:
             seafile_api.delete_repo_tokens_by_email(email)
             logging.debug('Delete repo tokens for user %s success.', email)
