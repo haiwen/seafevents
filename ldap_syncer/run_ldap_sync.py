@@ -11,6 +11,18 @@ from ldap_conn import LdapConn
 from ldap_group_sync import LdapGroupSync
 from ldap_user_sync import LdapUserSync
 
+def print_search_result(records):
+    if len(records) > 0:
+        n = 0
+        for record in records:
+            dn, attrs = record
+            logging.debug('%s: %s' % (dn, attrs))
+            n += 1
+            if n == 10:
+                break
+    else:
+        logging.debug('No record found.')
+
 def search_user(settings, ldap_conn):
     logging.debug('User sync is enabled, try to search users with object class [%s].' %
                   settings.user_object_class)
@@ -39,13 +51,7 @@ def search_user(settings, ldap_conn):
             logging.debug('Search failed, please check whether dn [%s] is valid.' % base_dn)
             continue
 
-        n = 0
-        for pair in users:
-            user_dn, attrs = pair
-            logging.debug('%s: %s' % (user_dn, attrs))
-            n += 1
-            if n == 10:
-                break
+        print_search_result(users)
 
 def search_group(settings, ldap_conn):
     logging.debug('Group sync is enabled, try to search groups with object class [%s].' %
@@ -71,13 +77,7 @@ def search_group(settings, ldap_conn):
             logging.debug('Search failed, please check whether dn [%s] is valid.' % base_dn)
             continue
 
-        n = 0
-        for pair in groups:
-            group_dn, attrs = pair
-            logging.debug('%s: %s' % (group_dn, attrs))
-            n += 1
-            if n == 10:
-                break
+        print_search_result(groups)
 
 def test_ldap(settings):
     logging.debug('Try to connect ldap server.')
@@ -115,9 +115,11 @@ if __name__ == '__main__':
     }
     logging.basicConfig(**kw)
 
-    setting = Settings()
-    if setting.has_base_info:
-        if arg.test:
-            test_ldap(setting)
-        else:
-            run_ldap_sync(setting)
+    setting = Settings(True if arg.test else False)
+    if not setting.has_base_info:
+        sys.exit()
+
+    if arg.test:
+        test_ldap(setting)
+    else:
+        run_ldap_sync(setting)

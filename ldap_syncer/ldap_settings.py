@@ -5,7 +5,7 @@ import logging
 import ConfigParser
 
 class Settings(object):
-    def __init__(self):
+    def __init__(self, is_test=False):
         self.host = None
         self.user_dn = None
         self.passwd = None
@@ -30,6 +30,7 @@ class Settings(object):
         self.dept_attr = None
 
         self.parser = None
+        self.is_test = is_test
         self.has_base_info = True
 
         self.read_config()
@@ -39,14 +40,20 @@ class Settings(object):
             ccnet_conf_path = os.path.join(os.environ['CCNET_CONF_DIR'],
                                            'ccnet.conf')
         except KeyError as e:
-            logging.warning('environment variable CCNET_CONF_DIR is not define')
+            if self.is_test:
+                logging.warning('Environment variable CCNET_CONF_DIR is not define, stop ldap test.')
+            else:
+                logging.warning('Environment variable CCNET_CONF_DIR is not define, disable ldap sync.')
             return
 
         self.parser = ConfigParser.ConfigParser()
         self.parser.read(ccnet_conf_path)
 
         if not self.parser.has_section('LDAP'):
-            logging.info('LDAP section is not set, disable ldap sync')
+            if self.is_test:
+                logging.info('LDAP section is not set, stop ldap test.')
+            else:
+                logging.info('LDAP section is not set, disable ldap sync.')
             return
 
         self.host = self.get_option('LDAP', 'HOST')
@@ -54,14 +61,18 @@ class Settings(object):
         self.passwd = self.get_option('LDAP', 'PASSWORD')
         self.base_dn = self.get_option('LDAP', 'BASE')
         if self.host == '' or self.user_dn == '' or self.passwd == '' or self.base_dn == '':
-            logging.info('ldap option is not set completely, disable ldap related operation')
+            if self.is_test:
+                logging.info('Ldap option is not set completely, stop ldap test.')
+            else:
+                logging.info('Ldap option is not set completely, disable ldap sync.')
             self.has_base_info = False
             return
         self.login_attr = self.get_option('LDAP', 'LOGIN_ATTR', dval='mail')
         self.use_page_result = self.get_option('LDAP', 'USE_PAGED_RESULT', bool, False)
 
         if not self.parser.has_section('LDAP_SYNC'):
-            logging.info('LDAP_SYNC section is not set, disable ldap sync')
+            if not self.is_test:
+                logging.info('LDAP_SYNC section is not set, disable ldap sync.')
             return
 
         self.enable_group_sync = self.get_option('LDAP_SYNC', 'ENABLE_GROUP_SYNC',
