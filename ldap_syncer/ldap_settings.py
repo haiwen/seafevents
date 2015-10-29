@@ -31,7 +31,7 @@ class Settings(object):
 
         self.parser = None
         self.is_test = is_test
-        self.has_base_info = True
+        self.has_base_info = False
 
         self.read_config()
 
@@ -65,14 +65,17 @@ class Settings(object):
                 logging.info('Ldap option is not set completely, stop ldap test.')
             else:
                 logging.info('Ldap option is not set completely, disable ldap sync.')
-            self.has_base_info = False
             return
         self.login_attr = self.get_option('LDAP', 'LOGIN_ATTR', dval='mail')
+        self.user_filter = self.get_option('LDAP', 'FILTER')
         self.use_page_result = self.get_option('LDAP', 'USE_PAGED_RESULT', bool, False)
+        self.has_base_info = True
+
+        if self.is_test:
+            return
 
         if not self.parser.has_section('LDAP_SYNC'):
-            if not self.is_test:
-                logging.info('LDAP_SYNC section is not set, disable ldap sync.')
+            logging.info('LDAP_SYNC section is not set, disable ldap sync.')
             return
 
         self.enable_group_sync = self.get_option('LDAP_SYNC', 'ENABLE_GROUP_SYNC',
@@ -94,7 +97,6 @@ class Settings(object):
         self.import_new_user = self.get_option('LDAP_SYNC', 'IMPORT_NEW_USER', bool, True)
         self.user_object_class = self.get_option('LDAP_SYNC', 'USER_OBJECT_CLASS',
                                                  dval='person')
-        self.user_filter = self.get_option('LDAP', 'FILTER')
         self.pwd_change_attr = self.get_option('LDAP_SYNC', 'PWD_CHANGE_ATTR',
                                                dval='pwdLastSet')
 

@@ -23,61 +23,33 @@ def print_search_result(records):
     else:
         logging.debug('No record found.')
 
-def search_user(settings, ldap_conn):
-    logging.debug('User sync is enabled, try to search users with object class [%s].' %
-                  settings.user_object_class)
-
+def search_login_attr(settings, ldap_conn):
+    logging.debug('Try to search login attribute [%s].' % settings.login_attr)
     if settings.user_filter != '':
         logging.debug('Using filter [%s].' % settings.user_filter)
-        search_filter = '(&(objectClass=%s)(%s))' % \
-                         (settings.user_object_class,
-                          settings.user_filter)
+        search_filter = '(&(%s=*)(%s))' % (settings.login_attr, settings.user_filter)
     else:
-        search_filter = '(objectClass=%s)' % settings.user_object_class
+        search_filter = '(%s=*)' % settings.login_attr
 
     base_dns = settings.base_dn.split(';')
     for base_dn in base_dns:
         if base_dn == '':
             continue
-        logging.debug('Search result from dn [%s], and try to print ten records:' %  base_dn)
-        users = ldap_conn.search(base_dn, SCOPE_SUBTREE,
-                                 search_filter,
-                                 [settings.login_attr,
-                                  settings.pwd_change_attr,
-                                  settings.first_name_attr,
-                                  settings.last_name_attr,
-                                  settings.dept_attr])
+        if settings.use_page_result:
+            logging.debug('Search paged result from dn [%s], and try to print ten records:' %  base_dn)
+            users = ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
+                                           search_filter,
+                                           [settings.login_attr])
+        else:
+            logging.debug('Search result from dn [%s], and try to print ten records:' %  base_dn)
+            users = ldap_conn.search(base_dn, SCOPE_SUBTREE,
+                                     search_filter,
+                                     [settings.login_attr])
         if users is None:
             logging.debug('Search failed, please check whether dn [%s] is valid.' % base_dn)
             continue
 
         print_search_result(users)
-
-def search_group(settings, ldap_conn):
-    logging.debug('Group sync is enabled, try to search groups with object class [%s].' %
-                  settings.group_object_class)
-
-    if settings.group_filter != '':
-        logging.debug('Using filter [%s].', settings.group_filter)
-        search_filter = '(&(objectClass=%s)(%s))' % \
-                         (settings.group_object_class,
-                          settings.group_filter)
-    else:
-        search_filter = '(objectClass=%s)' % settings.group_object_class
-
-    base_dns = settings.base_dn.split(';')
-    for base_dn in base_dns:
-        if base_dn == '':
-            continue
-        logging.debug('Search result from dn [%s], and try to print ten records:' % base_dn)
-        groups = ldap_conn.search(base_dn, SCOPE_SUBTREE,
-                                  search_filter,
-                                  [settings.group_member_attr, 'cn'])
-        if groups is None:
-            logging.debug('Search failed, please check whether dn [%s] is valid.' % base_dn)
-            continue
-
-        print_search_result(groups)
 
 def test_ldap(settings):
     logging.debug('Try to connect ldap server.')
@@ -88,15 +60,15 @@ def test_ldap(settings):
     logging.debug('Connect ldap server [%s] success with user_dn [%s] password [%s].' %
                   (settings.host, settings.user_dn, settings.passwd))
 
-    if settings.enable_user_sync:
-        search_user(settings, ldap_conn)
-
-    if settings.enable_group_sync:
-        search_group(settings, ldap_conn)
+    search_login_attr(settings, ldap_conn)
 
     ldap_conn.unbind_conn()
 
 def run_ldap_sync(settings):
+    if not settings.enable_sync():
+        logging.debug('Both user and group sync are disabled, stop ldap sync.')
+        return
+
     if settings.enable_group_sync:
         LdapGroupSync(settings).start()
 
