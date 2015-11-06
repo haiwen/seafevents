@@ -29,7 +29,11 @@ class Settings(object):
     def parse_config(self, config_file):
         try:
             cfg = ConfigParser()
-            seaf_conf = os.path.join(os.environ['SEAFILE_CONF_DIR'], 'seafile.conf')
+            if 'SEAFILE_CENTRAL_CONF_DIR' in os.environ:
+                confdir = os.environ['SEAFILE_CENTRAL_CONF_DIR']
+            else:
+                confdir = os.environ['SEAFILE_CONF_DIR']
+            seaf_conf = os.path.join(confdir, 'seafile.conf')
             cfg.read(seaf_conf)
         except Exception as e:
             logging.warning('Failed to read seafile config, disable virus scan.')

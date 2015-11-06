@@ -36,15 +36,17 @@ class Settings(object):
         self.read_config()
 
     def read_config(self):
-        try:
-            ccnet_conf_path = os.path.join(os.environ['CCNET_CONF_DIR'],
-                                           'ccnet.conf')
-        except KeyError as e:
+        if 'SEAFILE_CENTRAL_CONF_DIR' in os.environ:
+            confdir = os.environ['SEAFILE_CENTRAL_CONF_DIR']
+        elif 'CCNET_CONF_DIR' in os.environ:
+            confdir = os.environ['CCNET_CONF_DIR']
+        else:
             if self.is_test:
-                logging.warning('Environment variable CCNET_CONF_DIR is not define, stop ldap test.')
+                logging.warning('Environment variable CCNET_CONF_DIR and SEAFILE_CENTRAL_CONF_DIR is not define, stop ldap test.')
             else:
-                logging.warning('Environment variable CCNET_CONF_DIR is not define, disable ldap sync.')
+                logging.warning('Environment variable CCNET_CONF_DIR and SEAFILE_CENTRAL_CONF_DIR is not define, disable ldap sync.')
             return
+        ccnet_conf_path = os.path.join(confdir, 'ccnet.conf')
 
         self.parser = ConfigParser.ConfigParser()
         self.parser.read(ccnet_conf_path)
