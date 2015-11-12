@@ -8,11 +8,14 @@ from ldap_sync import LdapSync
 from ldap import SCOPE_SUBTREE
 
 class LdapUser(object):
-    def __init__(self, user_id, password, name, dept, is_staff=0, is_active=1):
+    def __init__(self, user_id, password, name, dept, uid, cemail,
+                 is_staff=0, is_active=1):
         self.user_id = user_id
         self.password = password
         self.name = name
         self.dept = dept
+        self.uid = uid
+        self.cemail = cemail
         self.is_staff = is_staff
         self.is_active = is_active
 
@@ -23,9 +26,9 @@ class LdapUserSync(LdapSync):
         self.uuser = 0
         self.duser = 0
 
-        self.aname = 0
-        self.uname = 0
-        self.dname = 0
+        self.aprofile = 0
+        self.uprofile = 0
+        self.dprofile = 0
 
         self.adept = 0
         self.udept = 0
@@ -90,8 +93,8 @@ class LdapUserSync(LdapSync):
                      (self.auser, self.uuser, self.duser))
 
         if self.settings.enable_extra_user_info_sync:
-            logging.info('LDAP name sync result: add [%d]name, update [%d]name, '
-                         'delete [%d]name' % (self.aname, self.uname, self.dname))
+            logging.info('LDAP profile sync result: add [%d]profile, update [%d]profile, '
+                         'delete [%d]profile' % (self.aprofile, self.uprofile, self.dprofile))
             logging.info('LDAP dept sync result: add [%d]dept, update [%d]dept, '
                          'delete [%d]dept' % (self.adept, self.udept, self.ddept))
 
@@ -106,19 +109,30 @@ class LdapUserSync(LdapSync):
                 val = ''
         except Exception as e:
             val = ''
-        return val.encode('utf8')
+        return '' if not val else val.encode('utf8')
 
-    def add_name(self, email, name):
+    def add_profile(self, email, ldap_user):
+        field = 'user, nickname, intro'
+        qmark = '%s, %s, %s'
+        val = [email, ldap_user.name, '']
+        if ldap_user.uid is not None:
+            field += ', login_id'
+            qmark += ', %s'
+            val.append(ldap_user.uid)
+        if ldap_user.cemail is not None:
+            field += ', contact_email'
+            qmark += ', %s'
+            val.append(ldap_user.cemail)
+        sql = 'insert into profile_profile (%s) values (%s)' % (field, qmark)
         try:
-            self.cursor.execute('insert into profile_profile (user,nickname,intro) values '
-                                '(%s,%s,%s)', (email, name, ''))
+            self.cursor.execute(sql, val)
             if self.cursor.rowcount == 1:
-                logging.debug('Add name %s to user %s successs.' %
-                              (name, email))
-                self.aname += 1
+                logging.debug('Add profile %s to user %s successs.' %
+                              (val, email))
+                self.aprofile += 1
         except Exception as e:
-            logging.warning('Failed to add name %s to user %s: %s.' %
-                            (name, email, e))
+            logging.warning('Failed to add profile %s to user %s: %s.' %
+                            (val, email, e))
 
     def add_dept(self, email, dept):
         try:
@@ -132,29 +146,50 @@ class LdapUserSync(LdapSync):
             logging.warning('Failed to add dept %s to user %s: %s.' %
                             (dept, email, e))
 
-    def update_name(self, email, name):
+    def update_profile(self, email, db_user, ldap_user):
         try:
             self.cursor.execute('select 1 from profile_profile where user=%s', [email])
             if self.cursor.rowcount == 0:
-                self.cursor.execute('insert into profile_profile (user,nickname,intro) '
-                                    'values (%s,%s,%s)', (email, name, ''))
+                self.add_profile(email, ldap_user)
+                return
             else:
-                self.cursor.execute('update profile_profile set nickname=%s where user=%s',
-                                    (name, email))
-            if self.cursor.rowcount == 1:
-                logging.debug('Update user %s name to %s success.' %
-                              (email, name))
-                self.uname += 1
+                field = ''
+                val = []
+                if db_user.name != ldap_user.name:
+                    field += 'nickname=%s'
+                    val.append(ldap_user.name)
+                if ldap_user.uid is not None and db_user.uid != ldap_user.uid:
+                    if field == '':
+                        field += 'login_id=%s'
+                    else:
+                        field += ', login_id=%s'
+                    val.append(ldap_user.uid)
+                if ldap_user.cemail is not None and db_user.cemail != ldap_user.cemail:
+                    if field == '':
+                        field += 'contact_email=%s'
+                    else:
+                        field += ', contact_email=%s'
+                    val.append(ldap_user.cemail)
+                if field == '':
+                    # no change
+                    return
+                val.append(email)
+                sql = 'update profile_profile set %s where user=%%s' % field
+                self.cursor.execute(sql, val)
+                if self.cursor.rowcount == 1:
+                    logging.debug('Update user %s profile to %s success.' %
+                                  (email, val))
+                    self.uprofile += 1
         except Exception as e:
-            logging.warning('Failed to update user %s name to %s: %s.' %
-                            (email, name, e))
+            logging.warning('Failed to update user %s profile: %s.' %
+                            (email, e))
 
     def update_dept(self, email, dept):
         try:
             self.cursor.execute('select 1 from profile_detailedprofile where user=%s', [email])
             if self.cursor.rowcount == 0:
-                self.cursor.execute('insert into profile_detailedprofile (user,department,telephone) '
-                                    'values (%s,%s,%s)', (email, dept, ''))
+                self.add_dept(email, dept)
+                return
             else:
                 self.cursor.execute('update profile_detailedprofile set department=%s where user=%s',
                                     (dept, email))
@@ -166,12 +201,12 @@ class LdapUserSync(LdapSync):
             logging.warning('Failed to update user %s dept to %s: %s.' %
                             (email, dept, e))
 
-    def del_name(self, email):
+    def del_profile(self, email):
         try:
             self.cursor.execute('delete from profile_profile where user=%s', [email])
             if self.cursor.rowcount == 1:
                 logging.debug('Delete profile info for user %s success.' % email)
-                self.dname += 1
+                self.dprofile += 1
         except Exception as e:
             logging.warning('Failed to delete profile info for user %s: %s.' %
                             (email, e))
@@ -208,11 +243,19 @@ class LdapUserSync(LdapSync):
         user_data_db = {}
         name = None
         dept = None
+        uid = None
+        cemail = None
         for user in users:
             if self.settings.enable_extra_user_info_sync:
                 name = self.get_attr_val('profile_profile', 'nickname', user.email)
                 dept = self.get_attr_val('profile_detailedprofile', 'department', user.email)
+                if self.settings.uid_attr != '':
+                    uid = self.get_attr_val('profile_profile', 'login_id', user.email)
+                if self.settings.cemail_attr != '':
+                    cemail = self.get_attr_val('profile_profile', 'contact_email', user.email)
+
             user_data_db[user.email] = LdapUser(user.id, user.password, name, dept,
+                                                uid, cemail,
                                                 1 if user.is_staff else 0,
                                                 1 if user.is_active else 0)
 
@@ -242,23 +285,24 @@ class LdapUserSync(LdapSync):
 
     def get_data_by_base_dn(self, base_dn, search_filter):
         user_data_ldap = {}
+        search_attr = [self.settings.login_attr, self.settings.pwd_change_attr]
+
+        if self.settings.enable_extra_user_info_sync:
+            search_attr.append(self.settings.first_name_attr)
+            search_attr.append(self.settings.last_name_attr)
+            search_attr.append(self.settings.dept_attr)
+
+            if self.settings.uid_attr != '':
+                search_attr.append(self.settings.uid_attr)
+            if self.settings.cemail_attr != '':
+                search_attr.append(self.settings.cemail_attr)
 
         if self.settings.use_page_result:
             users = self.ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
-                                                search_filter,
-                                                [self.settings.login_attr,
-                                                 self.settings.pwd_change_attr,
-                                                 self.settings.first_name_attr,
-                                                 self.settings.last_name_attr,
-                                                 self.settings.dept_attr])
+                                                search_filter, search_attr)
         else:
             users = self.ldap_conn.search(base_dn, SCOPE_SUBTREE,
-                                          search_filter,
-                                          [self.settings.login_attr,
-                                           self.settings.pwd_change_attr,
-                                           self.settings.first_name_attr,
-                                           self.settings.last_name_attr,
-                                           self.settings.dept_attr])
+                                          search_filter, search_attr)
         if users is None:
             return None
 
@@ -273,28 +317,48 @@ class LdapUserSync(LdapSync):
             else:
                 password = attrs[self.settings.pwd_change_attr][0]
 
-            if not attrs.has_key(self.settings.first_name_attr):
-                first_name = ''
-            else:
-                first_name = attrs[self.settings.first_name_attr][0]
+            user_name = None
+            dept = None
+            uid = None
+            cemail = None
 
-            if not attrs.has_key(self.settings.last_name_attr):
-                last_name = ''
-            else:
-                last_name = attrs[self.settings.last_name_attr][0]
+            if self.settings.enable_extra_user_info_sync:
+                if not attrs.has_key(self.settings.first_name_attr):
+                    first_name = ''
+                else:
+                    first_name = attrs[self.settings.first_name_attr][0]
 
-            if self.settings.name_reverse:
-                user_name = last_name + ' ' + first_name
-            else:
-                user_name = first_name + ' ' + last_name
+                if not attrs.has_key(self.settings.last_name_attr):
+                    last_name = ''
+                else:
+                    last_name = attrs[self.settings.last_name_attr][0]
 
-            if not attrs.has_key(self.settings.dept_attr):
-                dept = ''
-            else:
-                dept = attrs[self.settings.dept_attr][0]
+                if self.settings.name_reverse:
+                    user_name = last_name + ' ' + first_name
+                else:
+                    user_name = first_name + ' ' + last_name
+
+                if not attrs.has_key(self.settings.dept_attr):
+                    dept = ''
+                else:
+                    dept = attrs[self.settings.dept_attr][0]
+
+                if self.settings.uid_attr != '':
+                   if not attrs.has_key(self.settings.uid_attr):
+                       uid = ''
+                   else:
+                        uid = attrs[self.settings.uid_attr][0]
+
+                if self.settings.cemail_attr != '':
+                   if not attrs.has_key(self.settings.cemail_attr):
+                       cemail = ''
+                   else:
+                       cemail = attrs[self.settings.cemail_attr][0]
 
             email = attrs[self.settings.login_attr][0].lower()
-            user_data_ldap[email] = LdapUser(None, password, user_name.strip(), dept)
+            user_name = None if user_name is None else user_name.strip()
+            user_data_ldap[email] = LdapUser(None, password, user_name, dept,
+                                             uid, cemail)
 
         return user_data_ldap
 
@@ -307,7 +371,7 @@ class LdapUserSync(LdapSync):
         logging.debug('Add user [%s] success.' % email)
 
         if self.settings.enable_extra_user_info_sync:
-            self.add_name(email, ldap_user.name)
+            self.add_profile(email, ldap_user)
             self.add_dept(email, ldap_user.dept)
 
     def sync_update_user(self, ldap_user, db_user, email):
@@ -321,8 +385,7 @@ class LdapUserSync(LdapSync):
                 self.uuser += 1
 
         if self.settings.enable_extra_user_info_sync:
-            if ldap_user.name != db_user.name:
-                self.update_name(email, ldap_user.name)
+            self.update_profile(email, db_user, ldap_user)
             if ldap_user.dept != db_user.dept:
                 self.update_dept(email, ldap_user.dept)
 
@@ -348,7 +411,7 @@ class LdapUserSync(LdapSync):
             logging.warning("Failed to delete repo tokens for user %s: %s." % (email, e))
 
         if self.settings.enable_extra_user_info_sync:
-            self.del_name(email)
+            self.del_profile(email)
             self.del_dept(email)
 
     def sync_data(self, data_db, data_ldap):
