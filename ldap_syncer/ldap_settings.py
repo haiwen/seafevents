@@ -28,6 +28,8 @@ class Settings(object):
         self.last_name_attr = None
         self.name_reverse = False
         self.dept_attr = None
+        self.uid_attr = None
+        self.cemail_attr = None
 
         self.parser = None
         self.is_test = is_test
@@ -112,6 +114,8 @@ class Settings(object):
                                             bool, False)
         self.dept_attr = self.get_option('LDAP_SYNC', 'DEPT_ATTR',
                                          dval='department')
+        self.uid_attr = self.get_option('LDAP_SYNC', 'UID_ATTR')
+        self.cemail_attr = self.get_option('LDAP_SYNC', 'CONTACT_EMAIL_ATTR')
 
     def enable_sync(self):
         return self.enable_user_sync or self.enable_group_sync
