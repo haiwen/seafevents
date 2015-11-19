@@ -35,7 +35,7 @@ class Settings(object):
             logging.warning('Failed to read seafile config, disable virus scan.')
             return
 
-        if not self.parse_scan_config(cfg):
+        if not self.parse_scan_config(cfg, seaf_conf):
             return
 
         if not self.parse_sdb_config(cfg):
@@ -49,10 +49,12 @@ class Settings(object):
 
         self.enable_scan = True
 
-    def parse_scan_config(self, cfg):
+    def parse_scan_config(self, cfg, seaf_conf):
         if cfg.has_option('virus_scan', 'scan_command'):
             self.scan_cmd = cfg.get('virus_scan', 'scan_command')
         if not self.scan_cmd:
+            logging.info('[virus_scan] scan_command option is not found in %s, disable virus scan.' %
+                         seaf_conf)
             return False
 
         vcode = None

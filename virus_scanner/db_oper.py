@@ -49,9 +49,9 @@ class DBOper(object):
     def get_repo_list(self):
         repo_list = []
         try:
-            self.sdb_cursor.execute('select repo_id, commit_id from Branch '
-                                    'where name="master" and repo_id not in '
-                                    '(select repo_id from VirtualRepo)')
+            self.sdb_cursor.execute('select r.repo_id, b.commit_id from Repo r, Branch b '
+                                    'where r.repo_id = b.repo_id and b.name = "master" and '
+                                    'r.repo_id not in (select repo_id from VirtualRepo)')
             rows = self.sdb_cursor.fetchall()
             for row in rows:
                 repo_id, commit_id = row
