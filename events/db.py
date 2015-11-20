@@ -108,7 +108,7 @@ def save_file_update_event(session, timestamp, user, org_id, repo_id, \
     session.add(event)
     session.commit()
 
-def get_events(session, obj, username, org_id, repo_id, start, limit):
+def get_events(session, obj, username, org_id, repo_id, file_path, start, limit):
     if start < 0:
         raise RuntimeError('start must be non-negative')
 
@@ -126,6 +126,9 @@ def get_events(session, obj, username, org_id, repo_id, start, limit):
     if repo_id is not None:
         q = q.filter(obj.repo_id==repo_id)
 
+    if file_path is not None and hasattr(obj, 'file_path'):
+        q = q.filter(obj.file_path==file_path)
+
     if org_id > 0:
         q = q.filter(obj.org_id==org_id)
     elif org_id < 0:
@@ -138,10 +141,13 @@ def get_events(session, obj, username, org_id, repo_id, start, limit):
     return events
 
 def get_file_update_events(session, user, org_id, repo_id, start, limit):
-    return get_events(session, FileUpdate, user, org_id, repo_id, start, limit)
+    return get_events(session, FileUpdate, user, org_id, repo_id, None, start, limit)
 
 def get_file_audit_events(session, user, org_id, repo_id, start, limit):
-    return get_events(session, FileAudit, user, org_id, repo_id, start, limit)
+    return get_events(session, FileAudit, user, org_id, repo_id, None, start, limit)
+
+def get_file_audit_events_by_path(session, user, org_id, repo_id, file_path, start, limit):
+    return get_events(session, FileAudit, user, org_id, repo_id, file_path, start, limit)
 
 def save_file_audit_event(session, timestamp, etype, user, ip, device, \
                            org_id, repo_id, file_path):
@@ -166,7 +172,7 @@ def save_perm_audit_event(session, timestamp, etype, from_user, to, \
     session.commit()
 
 def get_perm_audit_events(session, from_user, org_id, repo_id, start, limit):
-    return get_events(session, PermAudit, from_user, org_id, repo_id, start, limit)
+    return get_events(session, PermAudit, from_user, org_id, repo_id, None, start, limit)
 
 def get_event_log_by_time(session, log_type, tstart, tend):
     if not log_type in ('file_update', 'file_audit', 'perm_audit'):
