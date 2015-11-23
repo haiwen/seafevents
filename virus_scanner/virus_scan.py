@@ -110,6 +110,7 @@ class VirusScan(object):
             return -1
         finally:
             if tfd > 0:
+                os.close(tfd)
                 os.unlink(tpath)
 
     def parse_scan_result(self, ret_code):
