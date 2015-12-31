@@ -8,7 +8,7 @@ from seaserv import get_repo_owner
 from .db import update_block_download_traffic, update_file_view_traffic, \
     update_file_download_traffic, update_dir_download_traffic
 
-LOG_ACCESS_INFO = True
+LOG_ACCESS_INFO = False
 
 _cached_loggers = {}
 def get_logger(name, logfile):
@@ -108,24 +108,8 @@ def DirDownloadEventHandler(session, msg):
     if dir_size > 0:
         update_dir_download_traffic(session, shared_by, dir_size)
 
-def RepoUpdateLogHanlder(session, msg):
-    if not LOG_ACCESS_INFO:
-        return
-
-    elements = msg.body.split('\t')
-    if len(elements) != 3:
-        logging.warning("got bad message: %s", elements)
-        return
-
-    repo_id = elements[1]
-    owner = get_repo_owner(repo_id)
-
-    repoupdate_logger = get_logger('repo.update', 'repo_update.log')
-    repoupdate_logger.info("%s %s" % (repo_id, owner))
-
 def register_handlers(handlers):
     handlers.add_handler('seaf_server.event:put-block', PutBlockEventHandler)
     handlers.add_handler('seahub.stats:file-view', FileViewEventHandler)
     handlers.add_handler('seahub.stats:file-download', FileDownloadEventHandler)
     handlers.add_handler('seahub.stats:dir-download', DirDownloadEventHandler)
-    handlers.add_handler('seaf_server.event:repo-update', RepoUpdateLogHanlder)
