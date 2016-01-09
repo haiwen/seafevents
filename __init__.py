@@ -74,3 +74,22 @@ def get_office_converter_limit(config):
     max_size = conf['max_size']
     max_pages = conf['max_pages']
     return max_size, max_pages
+
+def is_audit_enabled(config):
+
+    enable_audit = False
+    if config.has_section('Audit'):
+        if config.has_option('Audit', 'enable'):
+            enable_param = 'enable'
+        elif config.has_option('Audit', 'enabled'):
+            enable_param = 'enabled'
+        else:
+            enable_param = None
+
+        if enable_param:
+            try:
+                enable_audit = config.getboolean('Audit', enable_param)
+            except ValueError:
+                pass
+
+    return enable_audit
