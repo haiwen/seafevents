@@ -10,6 +10,7 @@ import libevent
 import ccnet
 from ccnet.async import AsyncClient
 
+from seafevents import is_audit_enabled
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer, VirusScanner
 from seafevents.utils import do_exit, write_pidfile, ClientConnector, has_office_tools
 from seafevents.utils.config import get_office_converter_conf
@@ -242,21 +243,8 @@ def main(background_tasks_only=False):
     if args.pidfile:
         write_pidfile(args.pidfile)
 
-    enable_audit = False
     config = get_config(args.config_file)
-    if config.has_section('Audit'):
-        if config.has_option('Audit', 'enable'):
-            enable_param = 'enable'
-        elif config.has_option('Audit', 'enabled'):
-            enable_param = 'enabled'
-        else:
-            enable_param = None
-
-        if enable_param:
-            try:
-                enable_audit = config.getboolean('Audit', enable_param)
-            except ValueError:
-                pass
+    enable_audit = is_audit_enabled(config)
     init_message_handlers(enable_audit)
 
     events_listener_enabled = True
