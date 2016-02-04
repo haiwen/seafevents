@@ -91,11 +91,20 @@ class SendSeahubEmailTimer(Timer):
         self.send_seahub_email()
 
     def _send_seahub_email(self):
+        python_exec = get_python_executable()
         manage_py = os.path.join(self._seahubdir, 'manage.py')
         cmd = [
-            get_python_executable(),
+            python_exec,
             manage_py,
             'send_notices',
+        ]
+        with open(self._logfile, 'a') as fp:
+            run(cmd, cwd=self._seahubdir, output=fp)
+
+        cmd = [
+            python_exec,
+            manage_py,
+            'send_queued_mail',
         ]
         with open(self._logfile, 'a') as fp:
             run(cmd, cwd=self._seahubdir, output=fp)
