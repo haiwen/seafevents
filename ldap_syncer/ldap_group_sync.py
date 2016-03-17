@@ -149,7 +149,7 @@ class LdapGroupSync(LdapSync):
             return
         grp_dn_pairs = {}
         for grp_dn in dn_pairs:
-            grp_dn_pairs[grp_dn.dn] = grp_dn.group_id
+            grp_dn_pairs[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
 
         # sync deleted group in ldap to db
         for k in grp_dn_pairs.iterkeys():
