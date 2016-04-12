@@ -23,15 +23,15 @@ def print_search_result(records):
     else:
         logging.debug('No record found.')
 
-def search_login_attr(settings, ldap_conn):
+def search_login_attr(settings, config, ldap_conn):
     logging.debug('Try to search login attribute [%s].' % settings.login_attr)
-    if settings.user_filter != '':
-        logging.debug('Using filter [%s].' % settings.user_filter)
-        search_filter = '(&(%s=*)(%s))' % (settings.login_attr, settings.user_filter)
+    if config.user_filter != '':
+        logging.debug('Using filter [%s].' % config.user_filter)
+        search_filter = '(&(%s=*)(%s))' % (settings.login_attr, config.user_filter)
     else:
         search_filter = '(%s=*)' % settings.login_attr
 
-    base_dns = settings.base_dn.split(';')
+    base_dns = config.base_dn.split(';')
     for base_dn in base_dns:
         if base_dn == '':
             continue
@@ -52,17 +52,18 @@ def search_login_attr(settings, ldap_conn):
         print_search_result(users)
 
 def test_ldap(settings):
-    logging.debug('Try to connect ldap server.')
-    ldap_conn = LdapConn(settings.host, settings.user_dn, settings.passwd)
-    ldap_conn.create_conn()
-    if ldap_conn.conn is None:
-        return
-    logging.debug('Connect ldap server [%s] success with user_dn [%s] password [%s].' %
-                  (settings.host, settings.user_dn, settings.passwd))
+    for config in settings.ldap_configs:
+        logging.debug('Try to connect ldap server %s.', config.host)
+        ldap_conn = LdapConn(config.host, config.user_dn, config.passwd)
+        ldap_conn.create_conn()
+        if ldap_conn.conn is None:
+            continue
+        logging.debug('Connect ldap server [%s] success with user_dn [%s] password [*****].' %
+                      (config.host, config.user_dn))
 
-    search_login_attr(settings, ldap_conn)
+        search_login_attr(settings, config, ldap_conn)
 
-    ldap_conn.unbind_conn()
+        ldap_conn.unbind_conn()
 
 def run_ldap_sync(settings):
     if not settings.enable_sync():

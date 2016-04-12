@@ -6,6 +6,7 @@ from seaserv import get_ldap_groups, get_group_members, add_group_dn_pair, \
         get_group_dn_pairs, create_group, group_add_member, group_remove_member, \
         remove_group, get_super_users
 from ldap import SCOPE_SUBTREE, SCOPE_BASE
+from ldap_conn import LdapConn
 from ldap_sync import LdapSync
 
 class LdapGroup(object):
@@ -49,39 +50,47 @@ class LdapGroupSync(LdapSync):
 
         return grp_data_db
 
-    def get_data_from_ldap(self):
+    def get_data_from_ldap_by_server(self, config):
+        ldap_conn = LdapConn(config.host, config.user_dn, config.passwd)
+        ldap_conn.create_conn()
+        if not ldap_conn.conn:
+            return None
+
         # group dn <-> LdapGroup
         grp_data_ldap = {}
         # search all groups on base dn
-        if self.settings.group_filter != '':
+        if config.group_filter != '':
             search_filter = '(&(objectClass=%s)(%s))' % \
                              (self.settings.group_object_class,
-                              self.settings.group_filter)
+                              config.group_filter)
         else:
             search_filter = '(objectClass=%s)' % self.settings.group_object_class
 
-        base_dns = self.settings.base_dn.split(';')
+        base_dns = config.base_dn.split(';')
         for base_dn in base_dns:
             if base_dn == '':
                 continue
-            data = self.get_data_by_base_dn(base_dn, search_filter)
+            data = self.get_data_by_base_dn(ldap_conn, base_dn, search_filter)
             if data is None:
+                ldap_conn.unbind_conn()
                 return None
             grp_data_ldap.update(data)
 
+        ldap_conn.unbind_conn()
+
         return grp_data_ldap
 
-    def get_data_by_base_dn(self, base_dn, search_filter):
+    def get_data_by_base_dn(self, ldap_conn, base_dn, search_filter):
         grp_data_ldap = {}
 
         if self.settings.use_page_result:
-            groups = self.ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
-                                                 search_filter,
-                                                 [self.settings.group_member_attr, 'cn'])
+            groups = ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
+                                            search_filter,
+                                            [self.settings.group_member_attr, 'cn'])
         else:
-            groups = self.ldap_conn.search(base_dn, SCOPE_SUBTREE,
-                                           search_filter,
-                                           [self.settings.group_member_attr, 'cn'])
+            groups = ldap_conn.search(base_dn, SCOPE_SUBTREE,
+                                      search_filter,
+                                      [self.settings.group_member_attr, 'cn'])
         if groups is None:
             return None
 
@@ -96,7 +105,7 @@ class LdapGroupSync(LdapSync):
                 continue
             all_mails = []
             for member in attrs[self.settings.group_member_attr]:
-                mails = self.get_group_member_from_ldap(member, grp_data_ldap)
+                mails = self.get_group_member_from_ldap(ldap_conn, member, grp_data_ldap)
                 if mails is None:
                     return None
                 for mail in mails:
@@ -106,14 +115,14 @@ class LdapGroupSync(LdapSync):
 
         return grp_data_ldap
 
-    def get_group_member_from_ldap(self, base_dn, grp_data):
+    def get_group_member_from_ldap(self, ldap_conn, base_dn, grp_data):
         all_mails = []
         search_filter = '(|(objectClass=%s)(objectClass=%s))' % \
                          (self.settings.group_object_class,
                           self.settings.user_object_class)
-        result = self.ldap_conn.search(base_dn, SCOPE_BASE, search_filter,
-                                       [self.settings.group_member_attr,
-                                       self.settings.login_attr, 'cn'])
+        result = ldap_conn.search(base_dn, SCOPE_BASE, search_filter,
+                                  [self.settings.group_member_attr,
+                                   self.settings.login_attr, 'cn'])
         if result is None:
             return None
         elif not result:
@@ -129,7 +138,7 @@ class LdapGroupSync(LdapSync):
                     all_mails.append(mail)
                     continue
             for member in attrs[self.settings.group_member_attr]:
-                mails = self.get_group_member_from_ldap(member, grp_data)
+                mails = self.get_group_member_from_ldap(ldap_conn, member, grp_data)
                 if mails is None:
                     return None
                 for mail in mails:
