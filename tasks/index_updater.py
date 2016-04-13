@@ -73,8 +73,8 @@ class IndexUpdater(object):
 
         # [ index interval ]
         interval = get_opt_from_conf_or_env(config, section_name, key_index_interval,
-                                               default=default_index_interval).lower()
-        val = parse_interval(interval, default_index_interval)
+                                            default=default_index_interval)
+        interval = parse_interval(interval, default_index_interval)
 
         # [ index office/pdf files  ]
         index_office_pdf = False
@@ -111,7 +111,7 @@ class IndexUpdater(object):
             logging.debug('elasticsearch port: %s', es_port)
 
         self._seafesdir = seafesdir
-        self._interval = val
+        self._interval = interval
         self._index_office_pdf = index_office_pdf
         self._logfile = os.path.abspath(logfile)
         self._es_host = es_host
