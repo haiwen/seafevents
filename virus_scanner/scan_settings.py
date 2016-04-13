@@ -5,6 +5,7 @@ import logging
 from ConfigParser import ConfigParser
 from seafevents.db import init_db_session_class
 from sqlalchemy.ext.declarative import declarative_base
+from seafevents.utils.config import get_opt_from_conf_or_env, parse_bool
 
 class Settings(object):
     def __init__(self, config_file):
@@ -21,6 +22,9 @@ class Settings(object):
         self.sdb_passwd = None
         self.sdb_name = None
         self.sdb_charset = 'utf8'
+
+        self.seahub_dir = None
+        self.enable_send_mail = False
 
         self.session_cls = None
 
@@ -52,6 +56,8 @@ class Settings(object):
             return
 
         self.enable_scan = True
+
+        self.parse_send_mail_config(config_file)
 
     def parse_scan_config(self, cfg, seaf_conf):
         if cfg.has_option('virus_scan', 'scan_command'):
@@ -140,6 +146,28 @@ class Settings(object):
             self.sdb_charset = 'utf8'
 
         return True
+
+    def parse_send_mail_config(self, config_file):
+        cfg = ConfigParser()
+        cfg.read(config_file)
+
+        section_name = 'SEAHUB EMAIL'
+        key_enabled = 'enabled'
+        key_seahubdir = 'seahubdir'
+
+        if not cfg.has_section(section_name):
+            return
+
+        enabled = get_opt_from_conf_or_env(cfg, section_name, key_enabled, default=False)
+        enabled = parse_bool(enabled)
+        if not enabled:
+            return
+
+        self.seahub_dir = get_opt_from_conf_or_env(cfg, section_name, key_seahubdir, 'SEAHUB_DIR')
+        if not self.seahub_dir or not os.path.exists(self.seahub_dir):
+            logging.info("SEAHUB_DIR is not set or doesn't exist, disable send email when find virus.")
+        else:
+            self.enable_send_mail = True
 
     def is_enabled(self):
         return self.enable_scan

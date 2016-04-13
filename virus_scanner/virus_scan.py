@@ -7,6 +7,7 @@ import subprocess
 from seafobj import commit_mgr, fs_mgr, block_mgr
 from db_oper import DBOper
 from commit_differ import CommitDiffer
+from seafevents.utils import get_python_executable
 
 class VirusScan(object):
     def __init__(self, settings):
@@ -81,6 +82,8 @@ class VirusScan(object):
                 ret = 0
                 if len(vrecords) > 0:
                     ret = self.db_oper.add_virus_record(vrecords)
+                    if ret == 0 and self.settings.enable_send_mail:
+                        self.send_email()
                 if ret == 0:
                     self.db_oper.update_vscan_record(repo_id, head_commit_id)
 
@@ -112,6 +115,14 @@ class VirusScan(object):
             if tfd > 0:
                 os.close(tfd)
                 os.unlink(tpath)
+
+    def send_email(self):
+        cmd = [
+            get_python_executable(),
+            os.path.join(self.settings.seahub_dir, 'manage.py'),
+            'notify_admins_on_virus',
+        ]
+        subprocess.Popen(cmd, cwd=self.settings.seahub_dir)
 
     def parse_scan_result(self, ret_code):
         rcode_str = str(ret_code)
