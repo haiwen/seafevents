@@ -4,6 +4,7 @@ import logging
 
 from seaserv import get_ldap_users, add_ldap_user, update_ldap_user, \
         seafile_api
+from ldap_conn import LdapConn
 from ldap_sync import LdapSync
 from ldap import SCOPE_SUBTREE
 
@@ -261,29 +262,37 @@ class LdapUserSync(LdapSync):
 
         return user_data_db
 
-    def get_data_from_ldap(self):
+    def get_data_from_ldap_by_server(self, config):
+        ldap_conn = LdapConn(config.host, config.user_dn, config.passwd)
+        ldap_conn.create_conn()
+        if not ldap_conn.conn:
+            return None
+
         #  dn <-> LdapUser
         user_data_ldap = {}
         # search all users on base dn
-        if self.settings.user_filter != '':
+        if config.user_filter != '':
             search_filter = '(&(objectClass=%s)(%s))' % \
                              (self.settings.user_object_class,
-                              self.settings.user_filter)
+                              config.user_filter)
         else:
             search_filter = '(objectClass=%s)' % self.settings.user_object_class
 
-        base_dns = self.settings.base_dn.split(';')
+        base_dns = config.base_dn.split(';')
         for base_dn in base_dns:
             if base_dn == '':
                 continue
-            data = self.get_data_by_base_dn(base_dn, search_filter)
+            data = self.get_data_by_base_dn(ldap_conn, base_dn, search_filter)
             if data is None:
+                ldap_conn.unbind_conn()
                 return None
             user_data_ldap.update(data)
 
+        ldap_conn.unbind_conn()
+
         return user_data_ldap
 
-    def get_data_by_base_dn(self, base_dn, search_filter):
+    def get_data_by_base_dn(self, ldap_conn, base_dn, search_filter):
         user_data_ldap = {}
         search_attr = [self.settings.login_attr, self.settings.pwd_change_attr]
 
@@ -298,11 +307,11 @@ class LdapUserSync(LdapSync):
                 search_attr.append(self.settings.cemail_attr)
 
         if self.settings.use_page_result:
-            users = self.ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
-                                                search_filter, search_attr)
+            users = ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
+                                           search_filter, search_attr)
         else:
-            users = self.ldap_conn.search(base_dn, SCOPE_SUBTREE,
-                                          search_filter, search_attr)
+            users = ldap_conn.search(base_dn, SCOPE_SUBTREE,
+                                     search_filter, search_attr)
         if users is None:
             return None
 

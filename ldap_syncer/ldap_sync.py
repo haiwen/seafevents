@@ -9,12 +9,8 @@ class LdapSync(Thread):
     def __init__(self, settings):
         Thread.__init__(self)
         self.settings = settings
-        self.ldap_conn = LdapConn(settings.host, settings.user_dn, settings.passwd)
 
     def run(self):
-        self.ldap_conn.create_conn()
-        if not self.ldap_conn.conn:
-            return
         self.start_sync()
         self.show_sync_result()
 
@@ -23,7 +19,6 @@ class LdapSync(Thread):
 
     def start_sync(self):
         data_ldap = self.get_data_from_ldap()
-        self.ldap_conn.unbind_conn()
         if data_ldap is None:
             return
 
@@ -36,8 +31,21 @@ class LdapSync(Thread):
     def get_data_from_db(self):
         return None
 
-    def get_grp_data_from_ldap(self):
-        return {}
+    def get_data_from_ldap(self):
+        ret = {}
+
+        for config in self.settings.ldap_configs:
+            cur_ret = self.get_data_from_ldap_by_server(config)
+            if not cur_ret:
+                continue
+            for key in cur_ret.iterkeys():
+                if not ret.has_key(key):
+                    ret[key] = cur_ret[key]
+
+        return ret
+
+    def get_data_from_ldap_by_server(self, config):
+        return None
 
     def sync_data(self, data_db, data_ldap):
         pass

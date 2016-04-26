@@ -4,12 +4,23 @@ import os
 import logging
 import ConfigParser
 
+class LDAPConfig(object):
+
+    def __init__(self, host, base_dn, user_dn, passwd,
+                 user_filter, group_filter):
+        self.host = host
+        self.base_dn = base_dn
+        self.user_dn = user_dn
+        self.passwd = passwd
+        self.user_filter = user_filter
+        self.group_filter = group_filter
+
 class Settings(object):
+
+    MAX_LDAP_NUM = 10
+
     def __init__(self, is_test=False):
-        self.host = None
-        self.user_dn = None
-        self.passwd = None
-        self.base_dn = None
+        self.ldap_configs = []
         self.login_attr = None
         self.use_page_result = False
 
@@ -20,7 +31,6 @@ class Settings(object):
         self.group_object_class = None
         self.user_object_class = None
 
-        self.user_filter = None
         self.pwd_change_attr = None
 
         self.enable_extra_user_info_sync = False
@@ -60,18 +70,20 @@ class Settings(object):
                 logging.info('LDAP section is not set, disable ldap sync.')
             return
 
-        self.host = self.get_option('LDAP', 'HOST')
-        self.user_dn = self.get_option('LDAP', 'USER_DN')
-        self.passwd = self.get_option('LDAP', 'PASSWORD')
-        self.base_dn = self.get_option('LDAP', 'BASE')
-        if self.host == '' or self.user_dn == '' or self.passwd == '' or self.base_dn == '':
+        self.read_base_config('LDAP')
+        if len(self.ldap_configs) == 0:
+            # Base ldap config is incomplete
             if self.is_test:
                 logging.info('Ldap option is not set completely, stop ldap test.')
             else:
                 logging.info('Ldap option is not set completely, disable ldap sync.')
             return
+
+        # Load config of other ldap servers
+        for i in range(1, Settings.MAX_LDAP_NUM):
+            self.read_base_config('LDAP_MULTI_%d' % i)
+
         self.login_attr = self.get_option('LDAP', 'LOGIN_ATTR', dval='mail')
-        self.user_filter = self.get_option('LDAP', 'FILTER')
         self.use_page_result = self.get_option('LDAP', 'USE_PAGED_RESULT', bool, False)
         self.has_base_info = True
 
@@ -92,8 +104,15 @@ class Settings(object):
         self.sync_interval = self.get_option('LDAP_SYNC', 'SYNC_INTERVAL', int, 60)
         self.group_object_class = self.get_option('LDAP_SYNC', 'GROUP_OBJECT_CLASS',
                                                   dval='group')
-        self.group_filter = self.get_option('LDAP_SYNC',
-                                            'GROUP_FILTER')
+
+        # If GROUP_FILTER is not set in server level, using value of LDAP_SYNC section,
+        # in order to compatible with previous
+        group_filter = self.get_option('LDAP_SYNC', 'GROUP_FILTER')
+        if group_filter:
+            for config in self.ldap_configs:
+                if not config.group_filter:
+                    config.group_filter = group_filter
+
         self.group_member_attr = self.get_option('LDAP_SYNC',
                                                  'GROUP_MEMBER_ATTR',
                                                  dval='member')
@@ -116,6 +135,23 @@ class Settings(object):
                                          dval='department')
         self.uid_attr = self.get_option('LDAP_SYNC', 'UID_ATTR')
         self.cemail_attr = self.get_option('LDAP_SYNC', 'CONTACT_EMAIL_ATTR')
+
+    def read_base_config(self, section):
+        if not self.parser.has_section(section):
+            return
+
+        host = self.get_option(section, 'HOST')
+        base_dn = self.get_option(section, 'BASE')
+        user_dn = self.get_option(section, 'USER_DN')
+        passwd = self.get_option(section, 'PASSWORD')
+        user_filter = self.get_option(section, 'FILTER')
+        group_filter = self.get_option(section, 'GROUP_FILTER')
+
+        if host == '' or user_dn == '' or passwd == '' or base_dn == '':
+            return
+
+        self.ldap_configs.append(LDAPConfig(host, base_dn, user_dn, passwd,
+                                            user_filter, group_filter))
 
     def enable_sync(self):
         return self.enable_user_sync or self.enable_group_sync
