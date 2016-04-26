@@ -231,6 +231,14 @@ def is_cluster_enabled():
     else:
         return False
 
+def is_syslog_enabled(config):
+    if config.has_option('Syslog', 'enabled'):
+        try:
+            return config.getboolean('Syslog', 'enabled')
+        except ValueError:
+            return False
+    return False
+
 def main(background_tasks_only=False):
     args = AppArgParser().parse_args()
     app_logger = LogConfigurator(args.loglevel, args.logfile) # pylint: disable=W0612
@@ -246,6 +254,9 @@ def main(background_tasks_only=False):
     config = get_config(args.config_file)
     enable_audit = is_audit_enabled(config)
     init_message_handlers(enable_audit)
+
+    if is_syslog_enabled(config):
+        app_logger.add_syslog_handler()
 
     events_listener_enabled = True
     background_tasks_enabled = True
