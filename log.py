@@ -33,6 +33,13 @@ class LogConfigurator(object):
 
         logging.basicConfig(**kw)
 
+    def add_syslog_handler(self):
+        handler = logging.handlers.SysLogHandler(address='/dev/log')
+        handler.setLevel(self._level)
+        formatter = logging.Formatter('seafevents[%(process)d]: %(message)s')
+        handler.setFormatter(formatter)
+        logging.root.addHandler(handler)
+
     def _get_log_level(self, level):
         if level == 'debug':
             return logging.DEBUG
