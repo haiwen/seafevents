@@ -384,7 +384,13 @@ class LdapUserSync(LdapSync):
             self.add_dept(email, ldap_user.dept)
 
     def sync_update_user(self, ldap_user, db_user, email):
-        if ldap_user.password != db_user.password:
+        # if user deleted from ldap then rejoin, should reset the user to active status
+        set_status = False
+        if db_user.is_active == 0:
+            db_user.is_active = 1
+            set_status = True
+
+        if ldap_user.password != db_user.password or set_status:
             rc = update_ldap_user(db_user.user_id, email, ldap_user.password,
                                   db_user.is_staff, db_user.is_active)
             if rc < 0:
