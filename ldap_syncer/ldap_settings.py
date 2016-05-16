@@ -87,11 +87,9 @@ class Settings(object):
         self.use_page_result = self.get_option('LDAP', 'USE_PAGED_RESULT', bool, False)
         self.has_base_info = True
 
-        if self.is_test:
-            return
-
         if not self.parser.has_section('LDAP_SYNC'):
-            logging.info('LDAP_SYNC section is not set, disable ldap sync.')
+            if not self.is_test:
+                logging.info('LDAP_SYNC section is not set, disable ldap sync.')
             return
 
         self.enable_group_sync = self.get_option('LDAP_SYNC', 'ENABLE_GROUP_SYNC',

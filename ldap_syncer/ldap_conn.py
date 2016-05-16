@@ -35,8 +35,9 @@ class LdapConn(object):
         try:
             result = self.conn.search_s(base_dn, scope, search_filter, attr_list)
         except ldap.LDAPError as e:
-            logging.warning('search failed on server %s error: %s' %
-                            (self.host, e.message))
+            logging.warning('Search failed for base dn(%s), filter(%s) '
+                            'on server %s error: %s' % (base_dn, search_filter,
+                                                        self.host, e.message))
 
         return result
 
@@ -56,8 +57,9 @@ class LdapConn(object):
                 if type(e.message) == dict and e.message['desc'] == 'No such object':
                     pass
                 else:
-                    logging.warning('search failed on server %s error: %s' %
-                                    (self.host, e.message))
+                    logging.warning('Search failed for base dn(%s), filter(%s) '
+                                    'on server %s error: %s' % (base_dn, search_filter,
+                                                                self.host, e.message))
                 return None
 
             total_result.extend(rdata)
