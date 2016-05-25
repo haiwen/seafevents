@@ -88,6 +88,7 @@
   /* We don't want Firefox/Safari to recognize ligatures */
   -moz-font-feature-settings:"liga" 0;
   -webkit-font-variant-ligatures: no-common-ligatures;
+  font-variant-ligatures: no-common-ligatures;
 }
 .pc.opened { /* used by pdf2htmlEX.js, to show/hide pages */
   display:block;
