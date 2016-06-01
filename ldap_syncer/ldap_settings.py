@@ -34,6 +34,7 @@ class Settings(object):
         self.pwd_change_attr = None
 
         self.enable_extra_user_info_sync = False
+        self.enable_deactive_user = False
         self.first_name_attr = None
         self.last_name_attr = None
         self.name_reverse = False
@@ -123,6 +124,8 @@ class Settings(object):
 
         self.enable_extra_user_info_sync = self.get_option('LDAP_SYNC', 'ENABLE_EXTRA_USER_INFO_SYNC',
                                                            bool, False)
+        self.enable_deactive_user = self.get_option('LDAP_SYNC', 'DEACTIVE_USER_IF_NOTFOUND',
+                                                    bool, False)
         self.first_name_attr = self.get_option('LDAP_SYNC', 'FIRST_NAME_ATTR',
                                                dval='givenName')
         self.last_name_attr = self.get_option('LDAP_SYNC', 'LAST_NAME_ATTR',
