@@ -433,7 +433,11 @@ class LdapUserSync(LdapSync):
         # sync deleted user in ldap to db
         for k in data_db.iterkeys():
             if not data_ldap.has_key(k) and data_db[k].is_active == 1:
-                self.sync_del_user(data_db[k], k)
+                if self.settings.enable_deactive_user:
+                    self.sync_del_user(data_db[k], k)
+                else:
+                    logging.debug('User[%s] not found in ldap, '
+                                  'DEACTIVE_USER_IF_NOTFOUND option is not set, so not deactive it.' % k)
 
         # sync undeleted user in ldap to db
         for k, v in data_ldap.iteritems():

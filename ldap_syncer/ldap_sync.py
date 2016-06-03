@@ -36,8 +36,9 @@ class LdapSync(Thread):
 
         for config in self.settings.ldap_configs:
             cur_ret = self.get_data_from_ldap_by_server(config)
-            if not cur_ret:
-                continue
+            # If get data from one server failed, then the result is failed
+            if cur_ret is None:
+                return None
             for key in cur_ret.iterkeys():
                 if not ret.has_key(key):
                     ret[key] = cur_ret[key]
