@@ -1,6 +1,7 @@
 #coding: utf-8
 
 import logging
+from sqlalchemy.orm.scoping import scoped_session
 from models import VirusScanRecord, VirusFile
 
 class DBOper(object):
@@ -19,7 +20,7 @@ class DBOper(object):
             return
 
         try:
-            self.edb_session = settings.session_cls()
+            self.edb_session = scoped_session(settings.session_cls)
 
             self.sdb_conn = MySQLdb.connect(host=settings.sdb_host, port=settings.sdb_port,
                                             user=settings.sdb_user, passwd=settings.sdb_passwd,
@@ -66,7 +67,9 @@ class DBOper(object):
     def get_scan_commit_id(self, repo_id):
         q = self.edb_session.query(VirusScanRecord).filter(VirusScanRecord.repo_id==repo_id)
         r = q.first()
-        return r.scan_commit_id if r else None
+        scan_commit_id = r.scan_commit_id if r else None
+        self.edb_session.remove()
+        return scan_commit_id
 
     def update_vscan_record(self, repo_id, scan_commit_id):
         try:
@@ -79,6 +82,7 @@ class DBOper(object):
                 r.scan_commit_id = scan_commit_id
 
             self.edb_session.commit()
+            self.edb_session.remove()
         except Exception as e:
             logging.warning('Failed to update virus scan record from db: %s.', e)
 
@@ -87,6 +91,7 @@ class DBOper(object):
             self.edb_session.add_all(VirusFile(repo_id, commit_id, file_path, 0) \
                                      for repo_id, commit_id, file_path in records)
             self.edb_session.commit()
+            self.edb_session.remove()
             return 0
         except Exception as e:
             logging.warning('Failed to add virus records to db: %s.', e)
