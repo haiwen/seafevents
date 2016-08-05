@@ -250,6 +250,8 @@ class Convertor(object):
             '--first-page', str(page_number),
             '--last-page', str(page_number),
             '--fit-width', '850',
+            # disable "@media print" in css
+            '--printing', '0',
             pdf, page_file_name,
         ]
 
