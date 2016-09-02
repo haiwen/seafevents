@@ -60,7 +60,7 @@ def is_python3():
         if not m:
             return False
         major, minor = map(int, m.groups())
-        if major == 4 and minor >= 2:
+        if (major == 4 and minor >= 2) or major > 4:
             return True
 
     return False
