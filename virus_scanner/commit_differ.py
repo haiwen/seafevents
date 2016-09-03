@@ -43,9 +43,11 @@ class CommitDiffer(object):
                 if new_dent and new_dent.type == dent.type:
                     dir2.remove_entry(dent.name)
                     if new_dent.id != dent.id:
-                        scan_files.append((make_path(path, dent.name), new_dent.id))
+                        scan_files.append((make_path(path, dent.name), new_dent.id,
+                                           new_dent.size))
 
-            scan_files.extend([(make_path(path, dent.name), dent.id) for dent in dir2.get_files_list()])
+            scan_files.extend([(make_path(path, dent.name), dent.id, dent.size)
+                               for dent in dir2.get_files_list()])
 
             for dent in dir1.get_subdirs_list():
                 new_dent = dir2.lookup_dent(dent.name)
@@ -54,7 +56,8 @@ class CommitDiffer(object):
                     if new_dent.id != dent.id:
                         queued_dirs.append((make_path(path, dent.name), dent.id, new_dent.id))
 
-            new_dirs.extend([(make_path(path, dent.name), dent.id) for dent in dir2.get_subdirs_list()])
+            new_dirs.extend([(make_path(path, dent.name), dent.id)
+                             for dent in dir2.get_subdirs_list()])
 
         while True:
             # Process newly added dirs and its sub-dirs, all files under
@@ -65,9 +68,11 @@ class CommitDiffer(object):
             except IndexError:
                 break
             d = fs_mgr.load_seafdir(self.repo_id, self.version, obj_id)
-            scan_files.extend([(make_path(path, dent.name), dent.id) for dent in d.get_files_list()])
+            scan_files.extend([(make_path(path, dent.name), dent.id, dent.size)
+                               for dent in d.get_files_list()])
 
-            new_dirs.extend([(make_path(path, dent.name), dent.id) for dent in d.get_subdirs_list()])
+            new_dirs.extend([(make_path(path, dent.name), dent.id)
+                             for dent in d.get_subdirs_list()])
 
         return scan_files
 

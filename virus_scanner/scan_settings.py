@@ -14,6 +14,11 @@ class Settings(object):
         self.vir_codes = None
         self.nonvir_codes = None
         self.scan_interval = 60
+        # default 20M
+        self.scan_size_limit = 20
+        self.scan_skip_ext = ['.bmp', '.gif', '.ico', '.png', '.jpg',
+                              '.mp3', '.mp4', '.wav', '.avi', '.rmvb',
+                              '.mkv']
 
         # seafile db config
         self.sdb_host = None
@@ -98,6 +103,20 @@ class Settings(object):
                 self.scan_interval = cfg.getint('virus_scan', 'scan_interval')
             except ValueError:
                 pass
+
+        if cfg.has_option('virus_scan', 'scan_size_limit'):
+            try:
+                # in M unit
+                self.scan_size_limit = cfg.getint('virus_scan', 'scan_size_limit')
+            except ValueError:
+                pass
+
+        if cfg.has_option('virus_scan', 'scan_skip_ext'):
+            exts = cfg.get('virus_scan', 'scan_skip_ext').split(',')
+            # .jpg, .mp3, .mp4 format
+            exts = [ext.strip() for ext in exts if ext]
+            self.scan_skip_ext = [ext.lower() for ext in exts
+                                  if len(ext) > 1 and ext[0] == '.']
 
         return True
 

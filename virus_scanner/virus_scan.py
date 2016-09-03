@@ -7,7 +7,14 @@ import subprocess
 from seafobj import commit_mgr, fs_mgr, block_mgr
 from db_oper import DBOper
 from commit_differ import CommitDiffer
+from thread_pool import ThreadPool
 from seafevents.utils import get_python_executable
+
+class ScanTask(object):
+    def __init__(self, repo_id, head_commit_id, scan_commit_id):
+        self.repo_id = repo_id
+        self.head_commit_id = head_commit_id
+        self.scan_commit_id = scan_commit_id
 
 class VirusScan(object):
     def __init__(self, settings):
@@ -23,6 +30,9 @@ class VirusScan(object):
             self.db_oper.close_db()
             return
 
+        thread_pool = ThreadPool(self.scan_virus)
+        thread_pool.start()
+
         for row in repo_list:
             repo_id, head_commit_id, scan_commit_id = row
 
@@ -30,30 +40,35 @@ class VirusScan(object):
                 logging.debug('No change occur for repo %.8s, skip virus scan.',
                               repo_id)
                 continue
-            self.scan_virus(repo_id, head_commit_id, scan_commit_id)
+
+            thread_pool.put_task(ScanTask(repo_id, head_commit_id, scan_commit_id))
+
+        thread_pool.join()
 
         self.db_oper.close_db()
 
-    def scan_virus(self, repo_id, head_commit_id, scan_commit_id):
+    def scan_virus(self, scan_task):
         try:
             sroot_id = None
             hroot_id = None
 
-            if scan_commit_id:
-                sroot_id = commit_mgr.get_commit_root_id(repo_id, 1, scan_commit_id)
-            if head_commit_id:
-                hroot_id = commit_mgr.get_commit_root_id(repo_id, 1, head_commit_id)
+            if scan_task.scan_commit_id:
+                sroot_id = commit_mgr.get_commit_root_id(scan_task.repo_id, 1,
+                                                         scan_task.scan_commit_id)
+            if scan_task.head_commit_id:
+                hroot_id = commit_mgr.get_commit_root_id(scan_task.repo_id, 1,
+                                                         scan_task.head_commit_id)
 
-            differ = CommitDiffer(repo_id, 1, sroot_id, hroot_id)
+            differ = CommitDiffer(scan_task.repo_id, 1, sroot_id, hroot_id)
             scan_files = differ.diff()
 
             if len(scan_files) == 0:
                 logging.debug('No change occur for repo %.8s, skip virus scan.',
-                              repo_id)
-                self.db_oper.update_vscan_record(repo_id, head_commit_id)
+                              scan_task.repo_id)
+                self.db_oper.update_vscan_record(scan_task.repo_id, scan_task.head_commit_id)
                 return
             else:
-                logging.info('Start to scan virus for repo %.8s.', repo_id)
+                logging.info('Start to scan virus for repo %.8s.', scan_task.repo_id)
 
             vnum = 0
             nvnum = 0
@@ -61,8 +76,11 @@ class VirusScan(object):
             vrecords = []
 
             for scan_file in scan_files:
-                fpath, fid = scan_file
-                ret = self.scan_file_virus(repo_id, fid, fpath)
+                fpath, fid, fsize = scan_file
+                if not self.should_scan_file(fpath, fsize):
+                    continue
+
+                ret = self.scan_file_virus(scan_task.repo_id, fid, fpath)
 
                 if ret == 0:
                     logging.debug('File %s virus scan by %s: OK.',
@@ -72,7 +90,7 @@ class VirusScan(object):
                     logging.info('File %s virus scan by %s: Found virus.',
                                  fpath, self.settings.scan_cmd)
                     vnum += 1
-                    vrecords.append((repo_id, head_commit_id, fpath))
+                    vrecords.append((scan_task.repo_id, scan_task.head_commit_id, fpath))
                 else:
                     logging.debug('File %s virus scan by %s: Failed.',
                                   fpath, self.settings.scan_cmd)
@@ -85,14 +103,14 @@ class VirusScan(object):
                     if ret == 0 and self.settings.enable_send_mail:
                         self.send_email()
                 if ret == 0:
-                    self.db_oper.update_vscan_record(repo_id, head_commit_id)
+                    self.db_oper.update_vscan_record(scan_task.repo_id, scan_task.head_commit_id)
 
             logging.info('Virus scan for repo %.8s finished: %d virus, %d non virus, %d failed.',
-                         repo_id, vnum, nvnum, nfailed)
+                         scan_task.repo_id, vnum, nvnum, nfailed)
 
         except Exception as e:
             logging.warning('Failed to scan virus for repo %.8s: %s.',
-                            repo_id, e)
+                            scan_task.repo_id, e)
 
     def scan_file_virus(self, repo_id, file_id, file_path):
         try:
@@ -136,3 +154,17 @@ class VirusScan(object):
                 return 1
 
         return ret_code
+
+    def should_scan_file(self, fpath, fsize):
+        if fsize >= self.settings.scan_size_limit << 20:
+            logging.debug('File %s size exceed %sM, skip virus scan.' %
+                          (fpath, self.settings.scan_size_limit))
+            return False
+
+        ext = os.path.splitext(fpath)[1].lower()
+        if ext in self.settings.scan_skip_ext:
+            logging.debug('File %s type in scan skip list, skip virus scan.' %
+                          fpath)
+            return False
+
+        return True
