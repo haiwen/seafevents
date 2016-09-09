@@ -19,6 +19,7 @@ class Settings(object):
         self.scan_skip_ext = ['.bmp', '.gif', '.ico', '.png', '.jpg',
                               '.mp3', '.mp4', '.wav', '.avi', '.rmvb',
                               '.mkv']
+        self.threads = 4
 
         # seafile db config
         self.sdb_host = None
@@ -117,6 +118,12 @@ class Settings(object):
             exts = [ext.strip() for ext in exts if ext]
             self.scan_skip_ext = [ext.lower() for ext in exts
                                   if len(ext) > 1 and ext[0] == '.']
+
+        if cfg.has_option('virus_scan', 'threads'):
+            try:
+                self.threads = cfg.getint('virus_scan', 'threads')
+            except ValueError:
+                pass
 
         return True
 

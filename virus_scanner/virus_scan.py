@@ -30,7 +30,7 @@ class VirusScan(object):
             self.db_oper.close_db()
             return
 
-        thread_pool = ThreadPool(self.scan_virus)
+        thread_pool = ThreadPool(self.scan_virus, self.settings.threads)
         thread_pool.start()
 
         for row in repo_list:
