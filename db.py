@@ -39,6 +39,23 @@ def create_engine_from_conf(config_file):
         dbname = config.get('DATABASE', 'name')
         db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
         logger.info('[seafevents] database: mysql, name: %s', dbname)
+    elif backend == 'oracle':
+        if config.has_option('DATABASE', 'host'):
+            host = config.get('DATABASE', 'host').lower()
+        else:
+            host = 'localhost'
+
+        if config.has_option('DATABASE', 'port'):
+            port = config.getint('DATABASE', 'port')
+        else:
+            port = 1521
+        username = config.get('DATABASE', 'username')
+        passwd = config.get('DATABASE', 'password')
+        service_name = config.get('DATABASE', 'service_name')
+        db_url = "oracle://%s:%s@%s:%s/%s" % (username, quote_plus(passwd),
+                host, port, service_name)
+
+        logger.info('[seafevents] database: oracle, service_name: %s', service_name)
     else:
         raise RuntimeError("Unknown database backend: %s" % backend)
 
