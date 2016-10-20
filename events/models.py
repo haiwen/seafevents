@@ -1,7 +1,7 @@
 import json
 import uuid
 
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Text, Index
+from sqlalchemy import Column, Integer, String, DateTime, Text, Index
 from sqlalchemy import ForeignKey, Sequence
 
 from seafevents.db import Base
@@ -33,7 +33,7 @@ class Event(Base):
 class UserEvent(Base):
     __tablename__ = 'UserEvent'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, Sequence('user_event_eid_seq'), primary_key=True)
 
     org_id = Column(Integer)
 
@@ -70,7 +70,7 @@ class FileAudit(Base):
                             'org_id', 'eid'),
                       Index('idx_file_audit_user_orgid_eid',
                             'user', 'org_id', 'eid'),
-                      Index('idx_file_audit_repoid_orgid_eid',
+                      Index('idx_file_audit_repo_org_eid',
                             'repo_id', 'org_id', 'eid'))
 
     def __init__(self, timestamp, etype, user, ip, device, \
@@ -110,7 +110,7 @@ class FileUpdate(Base):
                             'org_id', 'eid'),
                       Index('idx_file_update_user_orgid_eid',
                             'user', 'org_id', 'eid'),
-                      Index('idx_file_update_repoid_orgid_eid',
+                      Index('idx_file_update_repo_org_eid',
                             'repo_id', 'org_id', 'eid'))
 
     def __init__(self, timestamp, user, org_id, repo_id, commit_id, file_oper):
@@ -147,7 +147,7 @@ class PermAudit(Base):
                             'org_id', 'eid'),
                       Index('idx_perm_audit_user_orgid_eid',
                             'from_user', 'org_id', 'eid'),
-                      Index('idx_perm_audit_repoid_orgid_eid',
+                      Index('idx_perm_audit_repo_org_eid',
                             'repo_id', 'org_id', 'eid'))
 
     def __init__(self, timestamp, etype, from_user, to, org_id, repo_id, \
