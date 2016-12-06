@@ -27,7 +27,7 @@ jquery_file.onload = function () {
     });
 
   $(function() {
-    $('image.bi').each(function(index, image) {
+    $('img.bi').each(function(index, image) {
       var image = $(image);
 
       // Newer version of pdf2htmlEX use a different way to render the images
@@ -37,18 +37,12 @@ jquery_file.onload = function () {
       //
       // old: https://github.com/coolwanglu/pdf2htmlEX/blob/v0.9/src/HTMLRenderer/general.cc#L218-L219
       // new: https://github.com/coolwanglu/pdf2htmlEX/blob/v0.14.6/src/BackgroundRenderer/SplashBackgroundRenderer.cc#L168-L173
-      if (image.hasClass('x0')) {
-        // If the image has class 'x0', then it's the newer version of
-        // pdf2htmlEX. We'll update the style to match it.
-        image.css({
-          'position': 'absolute',
-          'border': '0',
-          'margin': '0',
-          '-ms-user-select': 'none',
-          '-moz-user-select': 'none',
-          '-webkit-user-select': 'none',
-          'user-select': 'none',
-        });
+      if (!image.hasClass('x0')) {
+        // If the image doesn't have the class 'x0', then it's the old version
+        // of pdf2htmlEX. We'll update the style to match it.
+        $(image).addClass('bi-old');
+      } else {
+        $(image).addClass('bi-new');
       }
     });
   });
