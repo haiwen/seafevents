@@ -95,14 +95,20 @@
 }
 .bi {
   position:absolute;
-  left:0;
-  top:0;
-  width:100%;
-  height:100%;
   -ms-user-select:none;
   -moz-user-select:none;
   -webkit-user-select:none;
   user-select:none;
+}
+.bi-old {
+  left:0;
+  top:0;
+  width:100%;
+  height:100%;
+}
+.bi-new {
+  border:0;
+  margin:0;
 }
 @media print {
   .pd {
