@@ -25,4 +25,32 @@ jquery_file.onload = function () {
             });
         }
     });
+
+  $(function() {
+    $('image.bi').each(function(index, image) {
+      var image = $(image);
+
+      // Newer version of pdf2htmlEX use a different way to render the images
+      // embedded in the pdf.
+      //
+      // See the source code for the difference:
+      //
+      // old: https://github.com/coolwanglu/pdf2htmlEX/blob/v0.9/src/HTMLRenderer/general.cc#L218-L219
+      // new: https://github.com/coolwanglu/pdf2htmlEX/blob/v0.14.6/src/BackgroundRenderer/SplashBackgroundRenderer.cc#L168-L173
+      if (image.hasClass('x0')) {
+        // If the image has class 'x0', then it's the newer version of
+        // pdf2htmlEX. We'll update the style to match it.
+        image.css({
+          'position': 'absolute',
+          'border': '0',
+          'margin': '0',
+          '-ms-user-select': 'none',
+          '-moz-user-select': 'none',
+          '-webkit-user-select': 'none',
+          'user-select': 'none',
+        });
+      }
+    });
+  });
+
 };
