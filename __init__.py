@@ -26,6 +26,7 @@ event details:
 
 import os
 import ConfigParser
+import logging
 
 from .db import init_db_session_class
 
@@ -40,6 +41,8 @@ from .virus_scanner import get_virus_record, handle_virus_record, \
 from .utils import has_office_tools
 from .utils.config import get_office_converter_conf
 from .tasks import IndexUpdater
+
+logger = logging.getLogger(__name__)
 
 def is_search_enabled(config):
     index_updater = IndexUpdater(config)
@@ -77,19 +80,32 @@ def get_office_converter_limit(config):
 
 def is_audit_enabled(config):
 
-    enable_audit = False
     if config.has_section('Audit'):
-        if config.has_option('Audit', 'enable'):
+        audit_section = 'Audit'
+    elif config.has_section('AUDIT'):
+        audit_section = 'AUDIT'
+    else:
+        logger.debug('No "AUDIT" section found')
+        return False
+
+    enable_audit = False
+    if config.has_section(audit_section):
+        if config.has_option(audit_section, 'enable'):
             enable_param = 'enable'
-        elif config.has_option('Audit', 'enabled'):
+        elif config.has_option(audit_section, 'enabled'):
             enable_param = 'enabled'
         else:
             enable_param = None
 
         if enable_param:
             try:
-                enable_audit = config.getboolean('Audit', enable_param)
+                enable_audit = config.getboolean(audit_section, enable_param)
             except ValueError:
                 pass
+
+    if enable_audit:
+        logger.info('audit is enabled')
+    else:
+        logger.info('audit is not enabled')
 
     return enable_audit
