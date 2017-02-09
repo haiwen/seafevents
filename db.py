@@ -4,9 +4,10 @@ import logging
 
 from urllib import quote_plus
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, exc, event
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -79,3 +80,23 @@ def init_db_session_class(config_file):
 
     Session = sessionmaker(bind=engine)
     return Session
+
+# This is used to fix the problem of "MySQL has gone away" that happenes when
+# mysql server is restarted or the pooled connections are closed by the mysql
+# server beacause being idle for too long.
+#
+# See http://stackoverflow.com/a/17791117/1467959
+@event.listens_for(Pool, "checkout")
+def ping_connection(dbapi_connection, connection_record, connection_proxy): # pylint: disable=unused-argument
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute("SELECT 1")
+        cursor.close()
+    except:
+        # optional - dispose the whole pool
+        # instead of invalidating one at a time
+        connection_proxy._pool.dispose()
+
+        # raise DisconnectionError - pool will try
+        # connecting again up to three times before raising.
+        raise exc.DisconnectionError()
