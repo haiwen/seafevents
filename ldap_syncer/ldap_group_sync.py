@@ -72,8 +72,7 @@ class LdapGroupSync(LdapSync):
                 continue
             data = self.get_data_by_base_dn(ldap_conn, base_dn, search_filter)
             if data is None:
-                ldap_conn.unbind_conn()
-                return None
+                continue
             grp_data_ldap.update(data)
 
         ldap_conn.unbind_conn()
