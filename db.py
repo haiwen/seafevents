@@ -99,9 +99,8 @@ def ping_connection(dbapi_connection, connection_record, connection_proxy): # py
         cursor.execute("SELECT 1")
         cursor.close()
     except:
-        # optional - dispose the whole pool
-        # instead of invalidating one at a time
-        connection_proxy._pool.dispose()
+        logger.info('fail to ping database server, disposing all cached connections')
+        connection_proxy._pool.dispose() # pylint: disable=protected-access
 
         # raise DisconnectionError - pool will try
         # connecting again up to three times before raising.
