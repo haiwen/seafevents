@@ -4,7 +4,9 @@ import logging
 
 from urllib import quote_plus
 
-from sqlalchemy import create_engine, exc, event
+from sqlalchemy import create_engine
+from sqlalchemy.event import contains as has_event_listener, listen as add_event_listener
+from sqlalchemy.exc import DisconnectionError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import Pool
@@ -14,11 +16,11 @@ logger = logging.getLogger(__name__)
 ## base class of model classes in events.models and stats.models
 Base = declarative_base()
 
-_need_connection_pool_fix = True
-
 def create_engine_from_conf(config_file):
     config = ConfigParser.ConfigParser()
     config.read(config_file)
+
+    need_connection_pool_fix = True
 
     backend = config.get('DATABASE', 'type')
     if backend == 'sqlite' or backend == 'sqlite3':
@@ -27,8 +29,7 @@ def create_engine_from_conf(config_file):
             path = os.path.join(os.path.dirname(config_file), path)
         db_url = "sqlite:///%s" % path
         logger.info('[seafevents] database: sqlite3, path: %s', path)
-        global _need_connection_pool_fix
-        _need_connection_pool_fix = False
+        need_connection_pool_fix = False
     elif backend == 'mysql':
         if config.has_option('DATABASE', 'host'):
             host = config.get('DATABASE', 'host').lower()
@@ -70,6 +71,11 @@ def create_engine_from_conf(config_file):
 
     engine = create_engine(db_url, **kwargs)
 
+    if need_connection_pool_fix and not has_event_listener(Pool, 'checkout', ping_connection):
+        # We use has_event_listener to double check in case we call create_engine
+        # multipe times in the same process.
+        add_event_listener(Pool, 'checkout', ping_connection)
+
     return engine
 
 def init_db_session_class(config_file):
@@ -85,15 +91,12 @@ def init_db_session_class(config_file):
     Session = sessionmaker(bind=engine)
     return Session
 
-# This is used to fix the problem of "MySQL has gone away" that happenes when
+# This is used to fix the problem of "MySQL has gone away" that happens when
 # mysql server is restarted or the pooled connections are closed by the mysql
 # server beacause being idle for too long.
 #
 # See http://stackoverflow.com/a/17791117/1467959
-@event.listens_for(Pool, "checkout")
 def ping_connection(dbapi_connection, connection_record, connection_proxy): # pylint: disable=unused-argument
-    if not _need_connection_pool_fix:
-        return
     cursor = dbapi_connection.cursor()
     try:
         cursor.execute("SELECT 1")
@@ -102,6 +105,5 @@ def ping_connection(dbapi_connection, connection_record, connection_proxy): # py
         logger.info('fail to ping database server, disposing all cached connections')
         connection_proxy._pool.dispose() # pylint: disable=protected-access
 
-        # raise DisconnectionError - pool will try
-        # connecting again up to three times before raising.
-        raise exc.DisconnectionError()
+        # Raise DisconnectionError so the pool would create a new connection
+        raise DisconnectionError()
