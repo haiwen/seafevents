@@ -136,6 +136,7 @@ class Settings(object):
                                          dval='department')
         self.uid_attr = self.get_option('LDAP_SYNC', 'UID_ATTR')
         self.cemail_attr = self.get_option('LDAP_SYNC', 'CONTACT_EMAIL_ATTR')
+        self.is_active = self.get_option('LDAP_SYNC', 'ACTIVATE_USER_WHEN_IMPORT', bool, True)
 
     def read_base_config(self, section):
         if not self.parser.has_section(section):

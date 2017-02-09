@@ -372,7 +372,8 @@ class LdapUserSync(LdapSync):
         return user_data_ldap
 
     def sync_add_user(self, ldap_user, email):
-        user_id = add_ldap_user(email, ldap_user.password, 0, 1)
+        user_id = add_ldap_user(email, ldap_user.password, 0,
+                                1 if self.settings.is_active else 0)
         if user_id <= 0:
             logging.warning('Add user [%s] failed.' % email)
             return
