@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 ## base class of model classes in events.models and stats.models
 Base = declarative_base()
 
+_need_connection_pool_fix = True
+
 def create_engine_from_conf(config_file):
     config = ConfigParser.ConfigParser()
     config.read(config_file)
@@ -25,6 +27,8 @@ def create_engine_from_conf(config_file):
             path = os.path.join(os.path.dirname(config_file), path)
         db_url = "sqlite:///%s" % path
         logger.info('[seafevents] database: sqlite3, path: %s', path)
+        global _need_connection_pool_fix
+        _need_connection_pool_fix = False
     elif backend == 'mysql':
         if config.has_option('DATABASE', 'host'):
             host = config.get('DATABASE', 'host').lower()
@@ -88,6 +92,8 @@ def init_db_session_class(config_file):
 # See http://stackoverflow.com/a/17791117/1467959
 @event.listens_for(Pool, "checkout")
 def ping_connection(dbapi_connection, connection_record, connection_proxy): # pylint: disable=unused-argument
+    if not _need_connection_pool_fix:
+        return
     cursor = dbapi_connection.cursor()
     try:
         cursor.execute("SELECT 1")
