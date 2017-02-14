@@ -101,7 +101,7 @@ class VirusScan(object):
                 if len(vrecords) > 0:
                     ret = self.db_oper.add_virus_record(vrecords)
                     if ret == 0 and self.settings.enable_send_mail:
-                        self.send_email()
+                        self.send_email(vrecords)
                 if ret == 0:
                     self.db_oper.update_vscan_record(scan_task.repo_id, scan_task.head_commit_id)
 
@@ -134,12 +134,13 @@ class VirusScan(object):
                 os.close(tfd)
                 os.unlink(tpath)
 
-    def send_email(self):
+    def send_email(self, vrecords):
+        args = ["%s:%s" % (e[0], e[2]) for e in vrecords]
         cmd = [
             get_python_executable(),
             os.path.join(self.settings.seahub_dir, 'manage.py'),
             'notify_admins_on_virus',
-        ]
+        ] + args
         subprocess.Popen(cmd, cwd=self.settings.seahub_dir)
 
     def parse_scan_result(self, ret_code):
