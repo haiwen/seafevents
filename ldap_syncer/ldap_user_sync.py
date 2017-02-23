@@ -116,7 +116,7 @@ class LdapUserSync(LdapSync):
         field = 'user, nickname, intro'
         qmark = '%s, %s, %s'
         val = [email, ldap_user.name, '']
-        if ldap_user.uid is not None:
+        if ldap_user.uid is not None and ldap_user.uid != '':
             field += ', login_id'
             qmark += ', %s'
             val.append(ldap_user.uid)
@@ -384,10 +384,8 @@ class LdapUserSync(LdapSync):
             self.add_dept(email, ldap_user.dept)
 
     def sync_update_user(self, ldap_user, db_user, email):
-        # if user deleted from ldap then rejoin, should reset the user to active status
         set_status = False
         if db_user.is_active == 0:
-            db_user.is_active = 1
             set_status = True
 
         if ldap_user.password != db_user.password or set_status:
