@@ -53,6 +53,7 @@ class LdapGroupSync(LdapSync):
     def get_data_from_ldap_by_server(self, config):
         ldap_conn = LdapConn(config.host, config.user_dn, config.passwd)
         ldap_conn.create_conn()
+        self.config = config
         if not ldap_conn.conn:
             return None
 
@@ -104,7 +105,12 @@ class LdapGroupSync(LdapSync):
                 continue
             all_mails = []
             for member in attrs[self.settings.group_member_attr]:
-                mails = self.get_group_member_from_ldap(ldap_conn, member, grp_data_ldap)
+                mails = []
+                if self.settings.group_object_class == 'posixGroup':
+                    mails = self.get_posix_group_member_from_ldap(ldap_conn, member)
+                else:
+                    mails = self.get_group_member_from_ldap(ldap_conn, member, grp_data_ldap)
+
                 if mails is None:
                     return None
                 for mail in mails:
@@ -113,6 +119,29 @@ class LdapGroupSync(LdapSync):
                                                 sorted(set(all_mails)))
 
         return grp_data_ldap
+
+    def get_posix_group_member_from_ldap(self, ldap_conn, member):
+        all_mails = []
+        search_filter = '(&(objectClass=%s)(%s=%s))' % \
+                        (self.settings.user_object_class,
+                         self.settings.user_attr_in_memberUid,
+                         member)
+
+        base_dns = self.config.base_dn.split(';')
+        for base_dn in base_dns:
+            results = ldap_conn.search(base_dn, SCOPE_SUBTREE,
+                                       search_filter,
+                                       [self.settings.login_attr,'cn'])
+
+            for result in results:
+                dn, attrs = result
+                if type(attrs) != dict:
+                    continue
+                if attrs.has_key(self.settings.login_attr):
+                    for mail in attrs[self.settings.login_attr]:
+                        all_mails.append(mail.lower())
+
+        return all_mails
 
     def get_group_member_from_ldap(self, ldap_conn, base_dn, grp_data):
         all_mails = []
