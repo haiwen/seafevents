@@ -1,5 +1,6 @@
 import os
 import libevent
+import urlparse
 import ConfigParser
 import logging
 
@@ -82,6 +83,7 @@ class App(object):
                                                            'password')
 
         self.load_statistics_config(config)
+        self.load_aliyun_config(config)
 
     def load_statistics_config(self, config):
         appconfig.statistics = AppConfig()
@@ -91,6 +93,16 @@ class App(object):
                 appconfig.statistics.enabled = config.get('STATISTICS', 'enabled')
         except Exception as e:
             logging.info(e)
+
+    def load_aliyun_config(config):
+        appconfig.ali = AppConfig()
+        appconfig.ali.url = config.get('Aliyun MQ', 'url')
+        appconfig.ali.host = urlparse.urlparse(appconfig.ali.url).netloc
+        appconfig.ali.producer_id = config.get('Aliyun MQ', 'producer_id')
+        appconfig.ali.topic = config.get('Aliyun MQ', 'topic')
+        appconfig.ali.tag = config.get('Aliyun MQ', 'tag')
+        appconfig.ali.ak = config.get('Aliyun MQ', 'access_key')
+        appconfig.ali.sk = config.get('Aliyun MQ', 'secret_key')
 
     def start_ccnet_session(self):
         '''Connect to ccnet-server, retry util connection is made'''
