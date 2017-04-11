@@ -1,5 +1,6 @@
 import os
 import logging
+import urlparse
 from seafevents.db import init_db_session_class
 from seafevents.utils import get_config
 
@@ -26,6 +27,7 @@ def load_config(config_file):
     load_env_config()
     load_publish_config(config)
     load_statistics_config(config)
+    load_aliyun_config(config)
 
 def load_env_config():
     # get central config dir
@@ -80,3 +82,17 @@ def load_statistics_config(config):
             appconfig.statistics.enabled = config.getboolean('STATISTICS', 'enabled')
     except Exception as e:
         logging.info(e)
+
+def load_aliyun_config(config):
+    appconfig.ali = AppConfig()
+    try:
+        appconfig.ali.url = config.get('Aliyun MQ', 'url')
+        appconfig.ali.host = urlparse.urlparse(appconfig.ali.url).netloc
+        appconfig.ali.producer_id = config.get('Aliyun MQ', 'producer_id')
+        appconfig.ali.topic = config.get('Aliyun MQ', 'topic')
+        appconfig.ali.tag = config.get('Aliyun MQ', 'tag')
+        appconfig.ali.ak = config.get('Aliyun MQ', 'access_key')
+        appconfig.ali.sk = config.get('Aliyun MQ', 'secret_key')
+    except Exception as e:
+        logging.error(e)
+        appconfig.ali = None
