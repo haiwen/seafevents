@@ -21,7 +21,7 @@ class MessageHandler(object):
         if func not in funcs:
             funcs.append(func)
 
-    def handle_message(self, session, msg):
+    def handle_message(self, session, msg, ali_mq=None):
         pos = msg.body.find('\t')
         if pos == -1:
             logger.warning("invalid message format: %s", msg)
@@ -34,7 +34,7 @@ class MessageHandler(object):
         funcs = self._handlers.get(etype)
         for func in funcs:
             try:
-                func (session, msg)
+                func (session, msg, ali_mq)
             except:
                 logger.exception("error when handle msg %s", msg)
 
