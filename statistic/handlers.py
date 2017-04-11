@@ -33,7 +33,7 @@ def get_logger(name, logfile):
 
     return logger
 
-def PutBlockEventHandler(session, msg):
+def PutBlockEventHandler(session, msg, ali_mq=None):
     elements = msg.body.split('\t')
     if len(elements) != 5:
         logging.warning("got bad message: %s", elements)
@@ -53,7 +53,7 @@ def PutBlockEventHandler(session, msg):
     if owner:
         update_block_download_traffic(session, owner, int(block_size))
 
-def FileViewEventHandler(session, msg):
+def FileViewEventHandler(session, msg, ali_mq=None):
     elements = msg.body.split('\t')
     if len(elements) != 5:
         logging.warning("got bad message: %s", elements)
@@ -72,7 +72,7 @@ def FileViewEventHandler(session, msg):
     if file_size > 0:
         update_file_view_traffic(session, shared_by, int(file_size))
 
-def FileDownloadEventHandler(session, msg):
+def FileDownloadEventHandler(session, msg, ali_mq=None):
     elements = msg.body.split('\t')
     if len(elements) != 5:
         logging.warning("got bad message: %s", elements)
@@ -91,7 +91,7 @@ def FileDownloadEventHandler(session, msg):
     if file_size > 0:
         update_file_download_traffic(session, shared_by, file_size)
 
-def DirDownloadEventHandler(session, msg):
+def DirDownloadEventHandler(session, msg, ali_mq=None):
     elements = msg.body.split('\t')
     if len(elements) != 5:
         logging.warning("got bad message: %s", elements)
@@ -110,7 +110,7 @@ def DirDownloadEventHandler(session, msg):
     if dir_size > 0:
         update_dir_download_traffic(session, shared_by, dir_size)
 
-def UserLoginEventHandler(session, msg):
+def UserLoginEventHandler(session, msg, ali_mq=None):
     elements = msg.body.split('\t')
     if len(elements) != 3:
         logging.warning("got bad message: %s", elements)

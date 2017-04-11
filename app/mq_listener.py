@@ -1,11 +1,14 @@
 import threading
 import Queue
 import logging
+import ConfigParser
 
 import seafevents.events.handlers as events_handlers
 import seafevents.events_publisher.handlers as publisher_handlers
 import seafevents.statistic.handlers as stats_handlers
 from seafevents.db import init_db_session_class
+from seafevents.events.alimq_producer import AliMQProducer
+from sqlalchemy.orm.scoping import scoped_session
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +81,8 @@ class EventsMQListener(object):
         self._db_session_class = init_db_session_class(events_conf)
         self._seafevents_thread = None
         self._mq_client = None
+        self.config = ConfigParser.ConfigParser()
+        self.config.read(events_conf)
 
     def start(self, async_client):
         if self._seafevents_thread is None:
@@ -87,31 +92,39 @@ class EventsMQListener(object):
         self._mq_client.set_callback(self.message_cb)
         mqs = message_handler.get_mqs()
         self._mq_client.start(*mqs)
-        logging.info('listen to mq: %s', mqs)
+        logging.info('listen to mq: %s' % mqs)
 
     def message_cb(self, message):
+        logging.info('Lenth of events_queue: %d' % self._events_queue.qsize())
         self._events_queue.put(message)
 
     def _start_worker_thread(self):
         '''Starts the worker thread for saving events'''
-        self._seafevents_thread = SeafEventsThread(self._db_session_class,
-                                                   self._events_queue)
-        self._seafevents_thread.setDaemon(True)
-        self._seafevents_thread.start()
+        nthreads = 6
+        for i in xrange(nthreads):
+            if self.config.has_section('Aliyun MQ'):
+                ali_mq = AliMQProducer(self.config)
+
+            _seafevents_thread = SeafEventsThread(self._db_session_class,
+                                                  self._events_queue,
+                                                  ali_mq)
+            _seafevents_thread.setDaemon(True)
+            _seafevents_thread.start()
 
 class SeafEventsThread(threading.Thread):
     '''Worker thread for saving events to databases'''
-    def __init__(self, db_session_class, msg_queue):
+    def __init__(self, db_session_class, msg_queue, ali_mq):
         threading.Thread.__init__(self)
         self._db_session_class = db_session_class
         self._msg_queue = msg_queue
+        self._ali_mq = ali_mq
 
     def do_work(self, msg):
-        session = self._db_session_class()
+        session = scoped_session(self._db_session_class)
         try:
-            message_handler.handle_message(session, msg)
+            message_handler.handle_message(session, msg, self._ali_mq)
         finally:
-            session.close()
+            session.remove()
 
     def run(self):
         while True:
