@@ -1,9 +1,11 @@
 import threading
 import Queue
 import logging
+import ConfigParser
 
 from seafevents.db import init_db_session_class
 from seafevents.message_handler import message_handler
+from seafevents.events.alimq_producer import AliMQProducer
 
 __all__ = [
     'EventsMQListener',
@@ -20,6 +22,11 @@ class EventsMQListener(object):
         self._db_session_class = init_db_session_class(events_conf)
         self._seafevents_thread = None
         self._mq_client = None
+        config = ConfigParser.ConfigParser()
+        config.read(events_conf)
+        self.ali_mq = None
+        if config.has_section('Aliyun MQ'):
+            self.ali_mq = AliMQProducer(config)
 
     def start(self, async_client):
         if self._seafevents_thread is None:
@@ -37,21 +44,23 @@ class EventsMQListener(object):
     def _start_worker_thread(self):
         '''Starts the worker thread for saving events'''
         self._seafevents_thread = SeafEventsThread(self._db_session_class,
-                                                   self._events_queue)
+                                                   self._events_queue,
+                                                   self.ali_mq)
         self._seafevents_thread.setDaemon(True)
         self._seafevents_thread.start()
 
 class SeafEventsThread(threading.Thread):
     '''Worker thread for saving events to databases'''
-    def __init__(self, db_session_class, msg_queue):
+    def __init__(self, db_session_class, msg_queue, ali_mq):
         threading.Thread.__init__(self)
         self._db_session_class = db_session_class
         self._msg_queue = msg_queue
+        self._ali_mq = ali_mq
 
     def do_work(self, msg):
         session = self._db_session_class()
         try:
-            message_handler.handle_message(session, msg)
+            message_handler.handle_message(session, msg, self._ali_mq)
         finally:
             session.close()
 
