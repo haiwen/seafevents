@@ -4,6 +4,7 @@ username=seafevents
 password=seafevents
 name=seafevents
 host=localhost
+mq_worker = 6
 
 [DATABASE]
 type = sqlite3
