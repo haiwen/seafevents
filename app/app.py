@@ -1,5 +1,6 @@
 import os
 import libevent
+import urlparse
 import ConfigParser
 import logging
 
@@ -14,7 +15,7 @@ import ccnet
 from ccnet.async import AsyncClient
 
 from seafevents.db import ping_connection
-from seafevents.app.config import appconfig
+from seafevents.app.config import appconfig, AppConfig
 from seafevents.app.signal_handler import SignalHandler
 from seafevents.app.mq_listener import EventsMQListener
 from seafevents.events_publisher.events_publisher import events_publisher
@@ -106,6 +107,18 @@ class App(object):
             appconfig.db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
         else:
             logging.info('Seafile does not use mysql db, disable statistics.')
+
+        self.load_aliyun_config(config)
+
+    def load_aliyun_config(config):
+        appconfig.ali = AppConfig()
+        appconfig.ali.url = config.get('Aliyun MQ', 'url')
+        appconfig.ali.host = urlparse.urlparse(appconfig.ali.url).netloc
+        appconfig.ali.producer_id = config.get('Aliyun MQ', 'producer_id')
+        appconfig.ali.topic = config.get('Aliyun MQ', 'topic')
+        appconfig.ali.tag = config.get('Aliyun MQ', 'tag')
+        appconfig.ali.ak = config.get('Aliyun MQ', 'access_key')
+        appconfig.ali.sk = config.get('Aliyun MQ', 'secret_key')
 
     def init_engine(self, appconfig):
         kwargs = dict(pool_recycle=300, echo=False, echo_pool=False)
