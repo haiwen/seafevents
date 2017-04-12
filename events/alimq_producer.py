@@ -15,6 +15,7 @@ class AliMQProducer(object):
         self.host = urlparse.urlparse(self.url).netloc
         self.producer_id = config.get('Aliyun MQ', 'producer_id')
         self.topic = config.get('Aliyun MQ', 'topic')
+        self.tag = config.get('Aliyun MQ', 'tag')
         self.ak = config.get('Aliyun MQ', 'access_key')
         self.sk = config.get('Aliyun MQ', 'secret_key')
 
@@ -32,7 +33,7 @@ class AliMQProducer(object):
                 'ProducerID' : self.producer_id,
                 'Content-Type' : 'text/html;charset=UTF-8'
             }
-            post_url = self.url + '/message/?topic='+self.topic+'&time='+date+'&tag=http&key=http'
+            post_url = self.url + '/message/?topic='+self.topic+'&time='+date+'&tag='+self.tag
             conn.request(method='POST',
                          url=post_url,
                          body=content,

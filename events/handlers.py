@@ -241,7 +241,7 @@ def FileUpdateEventHandler(session, msg, ali_mq=None):
     time = datetime.datetime.utcfromtimestamp(msg.ctime)
 
     save_file_update_event(session, time, commit.creator_name, org_id, \
-                           repo_id, commit_id, commit.desc)
+                           repo_id, commit_id, commit.description)
 
 def FileAuditEventHandler(session, msg, ali_mq=None):
     elements = msg.body.split('\t')
