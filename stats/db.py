@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import desc
 
 from .models import Base, UserTrafficStat
+from seafevents.statistic import FileAuditStat, TotalStorageStat, UserActivityStat
 
 logger = logging.getLogger(__name__)
 
@@ -70,3 +71,36 @@ def get_user_traffic_list(session, month, start, limit):
     else:
         ret = [ row.as_dict() for row in rows ]
         return ret
+
+def get_user_activity_stats(session, start, end):
+    q = session.query(UserActivityStat).filter(UserActivityStat.timestamp.between(
+                                               start, end))
+
+    rows = q.all()
+    ret = []
+
+    for row in rows:
+        ret.append((row.timestamp, row.number))
+    return ret
+
+def get_total_storage_stats(session, start, end):
+    q = session.query(TotalStorageStat).filter(TotalStorageStat.timestamp.between(
+                                               start, end))
+
+    rows = q.all()
+    ret = []
+
+    for row in rows:
+        ret.append((row.timestamp, row.total_size))
+    return ret
+
+def get_file_audit_stats(session, start, end):
+    q = session.query(FileAuditStat).filter(FileAuditStat.timestamp.between(
+                                            start, end))
+
+    rows = q.all()
+    ret = []
+
+    for row in rows:
+        ret.append((row.timestamp, row.a_type, row.number))
+    return ret

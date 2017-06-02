@@ -11,7 +11,7 @@ import ccnet
 from ccnet.async import AsyncClient
 
 from seafevents import is_audit_enabled
-from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer, VirusScanner
+from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer, VirusScanner, DataCounter
 from seafevents.utils import do_exit, write_pidfile, ClientConnector, has_office_tools
 from seafevents.utils.config import get_office_converter_conf
 from seafevents.mq_listener import EventsMQListener
@@ -176,6 +176,7 @@ class BackgroundTasks(object):
         self._seahub_email_sender = SeahubEmailSender(self._app_config)
         self._ldap_syncer = LdapSyncer()
         self._virus_scanner = VirusScanner(os.environ['EVENTS_CONFIG_FILE'])
+        self._datacounter = DataCounter(os.environ['EVENTS_CONFIG_FILE'])
 
         self._office_converter = None
         if has_office_tools():
@@ -214,6 +215,11 @@ class BackgroundTasks(object):
             self._virus_scanner.start()
         else:
             logging.info('virus scan is disabled')
+
+        if self._datacounter.is_enabled():
+            self._datacounter.start()
+        else:
+            logging.info('data statistic is disabled')
 
         if self._office_converter and self._office_converter.is_enabled():
             self._office_converter.start()
