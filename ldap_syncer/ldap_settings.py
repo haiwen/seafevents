@@ -41,6 +41,7 @@ class Settings(object):
         self.dept_attr = None
         self.uid_attr = None
         self.cemail_attr = None
+        self.role_name_attr = None
 
         self.parser = None
         self.is_test = is_test
@@ -138,6 +139,13 @@ class Settings(object):
         self.cemail_attr = self.get_option('LDAP_SYNC', 'CONTACT_EMAIL_ATTR')
         self.is_active = self.get_option('LDAP_SYNC', 'ACTIVATE_USER_WHEN_IMPORT', bool, True)
         self.user_attr_in_memberUid = self.get_option('LDAP_SYNC', 'USER_ATTR_IN_MEMBERUID',dval='uid')
+        self.role_name_attr = self.get_option('LDAP_SYNC', 'ROLE_NAME_ATTR', dval='')
+
+        self.role_list_to_sync = []
+        role_list_to_sync = self.get_option('LDAP_SYNC', 'ROLE_LIST_TO_SYNC').replace(' ', '')
+        if role_list_to_sync:
+            self.role_list_to_sync = role_list_to_sync.split(',')
+
 
     def read_base_config(self, section):
         if not self.parser.has_section(section):
