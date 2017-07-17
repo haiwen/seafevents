@@ -28,6 +28,9 @@ class LdapUserSync(LdapSync):
         self.uuser = 0
         self.duser = 0
 
+        self.arole = 0
+        self.urole = 0
+
         self.aprofile = 0
         self.uprofile = 0
         self.dprofile = 0
@@ -91,8 +94,8 @@ class LdapUserSync(LdapSync):
             self.db_conn.close()
 
     def show_sync_result(self):
-        logging.info('LDAP user sync result: add [%d]user, update [%d]user, deactive [%d]user' %
-                     (self.auser, self.uuser, self.duser))
+        logging.info('''LDAP user sync result: add [%d]user, update [%d]user, deactive [%d]user, add [%d]role, update [%d]role''' %
+                     (self.auser, self.uuser, self.duser, self.arole, self.urole))
 
         if self.settings.enable_extra_user_info_sync:
             logging.info('LDAP profile sync result: add [%d]profile, update [%d]profile, '
@@ -399,6 +402,10 @@ class LdapUserSync(LdapSync):
             else:
                 ret = ccnet_api.update_role_emailuser(email, ldap_user.role)
 
+            if ret == 0:
+                self.arole += 1
+                logging.debug('Add role [%s] for user [%s] success.' % (ldap_user.role, email))
+
         if ret < 0:
             logging.warning('Add role [%s] for user [%s] failed.' % (ldap_user.role, email))
 
@@ -429,6 +436,10 @@ class LdapUserSync(LdapSync):
                     logging.warning('Role [%s] is not in the role list, skipped.' % ldap_user.role)
             else:
                 ret = ccnet_api.update_role_emailuser(email, ldap_user.role)
+
+            if ret == 0:
+                self.urole += 1
+                logging.debug('Update role [%s] for user [%s] success.' % (ldap_user.role, email))
 
         if ret < 0:
             logging.warning('Update role [%s] for user [%s] failed.' % (ldap_user.role, email))
