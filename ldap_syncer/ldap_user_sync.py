@@ -3,14 +3,14 @@
 import logging
 
 from seaserv import get_ldap_users, add_ldap_user, update_ldap_user, \
-        seafile_api
+        seafile_api, ccnet_api
 from ldap_conn import LdapConn
 from ldap_sync import LdapSync
 from ldap import SCOPE_SUBTREE
 
 class LdapUser(object):
     def __init__(self, user_id, password, name, dept, uid, cemail,
-                 is_staff=0, is_active=1):
+                 is_staff=0, is_active=1, role = ''):
         self.user_id = user_id
         self.password = password
         self.name = name
@@ -19,6 +19,7 @@ class LdapUser(object):
         self.cemail = cemail
         self.is_staff = is_staff
         self.is_active = is_active
+        self.role = role
 
 class LdapUserSync(LdapSync):
     def __init__(self, settings):
@@ -295,6 +296,9 @@ class LdapUserSync(LdapSync):
         user_data_ldap = {}
         search_attr = [self.settings.login_attr, self.settings.pwd_change_attr]
 
+        if self.settings.role_name_attr:
+            search_attr.append(self.settings.role_name_attr)
+
         if self.settings.enable_extra_user_info_sync:
             search_attr.append(self.settings.first_name_attr)
             search_attr.append(self.settings.last_name_attr)
@@ -329,6 +333,12 @@ class LdapUserSync(LdapSync):
             dept = None
             uid = None
             cemail = None
+            role = None
+
+            if not attrs.has_key(self.settings.role_name_attr):
+                role = ''
+            else:
+                role = attrs[self.settings.role_name_attr][0]
 
             if self.settings.enable_extra_user_info_sync:
                 if not attrs.has_key(self.settings.first_name_attr):
@@ -366,7 +376,7 @@ class LdapUserSync(LdapSync):
             email = attrs[self.settings.login_attr][0].lower()
             user_name = None if user_name is None else user_name.strip()
             user_data_ldap[email] = LdapUser(None, password, user_name, dept,
-                                             uid, cemail)
+                                             uid, cemail, role = role)
 
         return user_data_ldap
 
@@ -378,6 +388,19 @@ class LdapUserSync(LdapSync):
             return
         self.auser += 1
         logging.debug('Add user [%s] success.' % email)
+
+        ret = 0
+        if ldap_user.role:
+            if self.settings.role_list_to_sync:
+                if ldap_user.role in self.settings.role_list_to_sync:
+                    ret = ccnet_api.update_role_emailuser(email, ldap_user.role)
+                else:
+                    logging.warning('Role [%s] is not in the role list, skipped.' % ldap_user.role)
+            else:
+                ret = ccnet_api.update_role_emailuser(email, ldap_user.role)
+
+        if ret < 0:
+            logging.warning('Add role [%s] for user [%s] failed.' % (ldap_user.role, email))
 
         if self.settings.enable_extra_user_info_sync:
             self.add_profile(email, ldap_user)
@@ -396,6 +419,19 @@ class LdapUserSync(LdapSync):
             else:
                 logging.debug('Update user [%s] success.' % email)
                 self.uuser += 1
+
+        ret = 0
+        if ldap_user.role:
+            if self.settings.role_list_to_sync:
+                if ldap_user.role in self.settings.role_list_to_sync:
+                    ret = ccnet_api.update_role_emailuser(email, ldap_user.role)
+                else:
+                    logging.warning('Role [%s] is not in the role list, skipped.' % ldap_user.role)
+            else:
+                ret = ccnet_api.update_role_emailuser(email, ldap_user.role)
+
+        if ret < 0:
+            logging.warning('Update role [%s] for user [%s] failed.' % (ldap_user.role, email))
 
         if self.settings.enable_extra_user_info_sync:
             self.update_profile(email, db_user, ldap_user)
