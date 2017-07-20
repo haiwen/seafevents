@@ -8,6 +8,16 @@ from ldap_conn import LdapConn
 from ldap_sync import LdapSync
 from ldap import SCOPE_SUBTREE
 
+def default_ldap_role_mapping(role):
+    return role
+
+role_mapping = None
+try:
+    from custom_functions import ldap_role_mapping
+    role_mapping = ldap_role_mapping
+except:
+    role_mapping = default_ldap_role_mapping
+
 class LdapUser(object):
     def __init__(self, user_id, password, name, dept, uid, cemail,
                  is_staff=0, is_active=1, role = ''):
@@ -394,20 +404,15 @@ class LdapUserSync(LdapSync):
 
         ret = 0
         if ldap_user.role:
-            if self.settings.role_list_to_sync:
-                if ldap_user.role in self.settings.role_list_to_sync:
-                    ret = ccnet_api.update_role_emailuser(email, ldap_user.role)
-                else:
-                    logging.warning('Role [%s] is not in the role list, skipped.' % ldap_user.role)
-            else:
-                ret = ccnet_api.update_role_emailuser(email, ldap_user.role)
+            role = role_mapping(ldap_user.role)
+            ret = ccnet_api.update_role_emailuser(email, role)
 
             if ret == 0:
                 self.arole += 1
-                logging.debug('Add role [%s] for user [%s] success.' % (ldap_user.role, email))
+                logging.debug('Add role [%s] for user [%s] success.' % (role, email))
 
-        if ret < 0:
-            logging.warning('Add role [%s] for user [%s] failed.' % (ldap_user.role, email))
+            if ret < 0:
+                logging.warning('Add role [%s] for user [%s] failed.' % (role, email))
 
         if self.settings.enable_extra_user_info_sync:
             self.add_profile(email, ldap_user)
@@ -429,20 +434,15 @@ class LdapUserSync(LdapSync):
 
         ret = 0
         if ldap_user.role:
-            if self.settings.role_list_to_sync:
-                if ldap_user.role in self.settings.role_list_to_sync:
-                    ret = ccnet_api.update_role_emailuser(email, ldap_user.role)
-                else:
-                    logging.warning('Role [%s] is not in the role list, skipped.' % ldap_user.role)
-            else:
-                ret = ccnet_api.update_role_emailuser(email, ldap_user.role)
+            role = role_mapping(ldap_user.role)
+            ret = ccnet_api.update_role_emailuser(email, role)
 
             if ret == 0:
                 self.urole += 1
-                logging.debug('Update role [%s] for user [%s] success.' % (ldap_user.role, email))
+                logging.debug('Update role [%s] for user [%s] success.' % (role, email))
 
-        if ret < 0:
-            logging.warning('Update role [%s] for user [%s] failed.' % (ldap_user.role, email))
+            if ret < 0:
+                logging.warning('Update role [%s] for user [%s] failed.' % (role, email))
 
         if self.settings.enable_extra_user_info_sync:
             self.update_profile(email, db_user, ldap_user)
