@@ -141,11 +141,6 @@ class Settings(object):
         self.user_attr_in_memberUid = self.get_option('LDAP_SYNC', 'USER_ATTR_IN_MEMBERUID',dval='uid')
         self.role_name_attr = self.get_option('LDAP_SYNC', 'ROLE_NAME_ATTR', dval='')
 
-        self.role_list_to_sync = []
-        role_list_to_sync = self.get_option('LDAP_SYNC', 'ROLE_LIST_TO_SYNC').replace(' ', '')
-        if role_list_to_sync:
-            self.role_list_to_sync = role_list_to_sync.split(',')
-
 
     def read_base_config(self, section):
         if not self.parser.has_section(section):
