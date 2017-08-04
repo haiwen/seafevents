@@ -6,9 +6,12 @@ import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import desc
+from sqlalchemy import func
+from sqlalchemy import distinct
+from datetime import datetime
 
-from .models import Base, UserTrafficStat
-from seafevents.statistic import FileAuditStat, TotalStorageStat, UserActivityStat
+from .models import Base, UserTrafficStat, UserActivityStat
+from seafevents.statistic import FileOpsStat, TotalStorageStat
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +39,18 @@ def update_traffic_common(session, email, size, type, name):
     n = q.update({ type: type + size })
     if n != 1:
         stat = UserTrafficStat(email, month, **{name:size})
+        session.add(stat)
+
+    session.commit()
+
+def update_user_last_login_info(session, login_name, login_time):
+    time_str = login_time.strftime('%Y-%m-%d %H:00:00')
+    time_by_hour = datetime.strptime(time_str,'%Y-%m-%d %H:%M:%S')
+    q = session.query(UserActivityStat).filter_by(username = login_name,
+                                                timestamp = time_by_hour)
+    r = q.first()
+    if not r:
+        stat = UserActivityStat(login_name, time_by_hour)
         session.add(stat)
 
     session.commit()
@@ -73,8 +88,10 @@ def get_user_traffic_list(session, month, start, limit):
         return ret
 
 def get_user_activity_stats(session, start, end):
-    q = session.query(UserActivityStat).filter(UserActivityStat.timestamp.between(
-                                               start, end))
+    q = session.query(UserActivityStat.timestamp, func.count(distinct(UserActivityStat.username)).label("number")
+                     ).filter(UserActivityStat.timestamp.between(start, end)
+                     ).order_by(UserActivityStat.timestamp
+                     ).group_by(UserActivityStat.timestamp)
 
     rows = q.all()
     ret = []
@@ -83,9 +100,26 @@ def get_user_activity_stats(session, start, end):
         ret.append((row.timestamp, row.number))
     return ret
 
+def get_user_activity_stats_by_day(session, start, end):
+    start_str = start.strftime('%Y-%m-%d 00:00:00')
+    end_str = end.strftime('%Y-%m-%d 23:59:59')
+    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+
+    q = session.query(func.date(UserActivityStat.timestamp).label("timestamp"),
+                      func.count(distinct(UserActivityStat.username)).label("number")).filter(
+                      UserActivityStat.timestamp.between(start_at_0, end_at_23)).group_by(
+                      func.date(UserActivityStat.timestamp)).order_by("timestamp")
+    rows = q.all()
+    ret = []
+
+    for row in rows:
+        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.number))
+    return ret
+
 def get_total_storage_stats(session, start, end):
     q = session.query(TotalStorageStat).filter(TotalStorageStat.timestamp.between(
-                                               start, end))
+                                               start, end)).order_by(TotalStorageStat.timestamp)
 
     rows = q.all()
     ret = []
@@ -94,13 +128,58 @@ def get_total_storage_stats(session, start, end):
         ret.append((row.timestamp, row.total_size))
     return ret
 
-def get_file_audit_stats(session, start, end):
-    q = session.query(FileAuditStat).filter(FileAuditStat.timestamp.between(
-                                            start, end))
+def get_total_storage_stats_by_day(session, start, end):
+    start_str = start.strftime('%Y-%m-%d 00:00:00')
+    end_str = end.strftime('%Y-%m-%d 23:59:59')
+    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+
+    rets = get_total_storage_stats (session, start_at_0, end_at_23)
+    rets.reverse()
+
+    last_date = None
+    last_num = 0
+    res = []
+    for ret in rets:
+        cur_time = ret[0]
+        cur_num = ret[1]
+        cur_date = datetime.date (cur_time)
+        if cur_date != last_date or last_date == None:
+            res.append((datetime.strptime(str(cur_date),'%Y-%m-%d'), cur_num))
+            last_date = cur_date
+        else:
+            last_date = cur_date
+
+    res.reverse()
+    return res
+
+def get_file_ops_stats(session, start, end):
+    q = session.query(FileOpsStat).filter(FileOpsStat.timestamp.between(
+                                            start, end)).order_by(FileOpsStat.timestamp)
 
     rows = q.all()
     ret = []
 
     for row in rows:
-        ret.append((row.timestamp, row.a_type, row.number))
+        ret.append((row.timestamp, row.op_type, row.number))
     return ret
+
+def get_file_ops_stats_by_day(session, start, end):
+    start_str = start.strftime('%Y-%m-%d 00:00:00')
+    end_str = end.strftime('%Y-%m-%d 23:59:59')
+    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+
+    q = session.query(func.date(FileOpsStat.timestamp).label("timestamp"),
+                      func.sum(FileOpsStat.number).label("number"),
+                      FileOpsStat.op_type).filter(FileOpsStat.timestamp.between(
+                      start_at_0, end_at_23)).group_by(func.date(FileOpsStat.timestamp),
+                      FileOpsStat.op_type).order_by("timestamp")
+
+    rows = q.all()
+    ret = []
+
+    for row in rows:
+        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.number)))
+    return ret
+

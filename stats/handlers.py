@@ -4,9 +4,10 @@ import os
 import logging
 import logging.handlers
 
+from datetime import datetime
 from seaserv import get_repo_owner
 from .db import update_block_download_traffic, update_file_view_traffic, \
-    update_file_download_traffic, update_dir_download_traffic
+    update_file_download_traffic, update_dir_download_traffic, update_user_last_login_info
 
 LOG_ACCESS_INFO = False
 
@@ -108,8 +109,21 @@ def DirDownloadEventHandler(session, msg):
     if dir_size > 0:
         update_dir_download_traffic(session, shared_by, dir_size)
 
+def UserLoginEventHandler(session, msg):
+    elements = msg.body.split('\t')
+    if len(elements) != 3:
+        logging.warning("got bad message: %s", elements)
+        return
+    username = elements[1]
+    timestamp = elements[2]
+    #agent = elements[3]
+    _timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+
+    update_user_last_login_info(session, username, _timestamp)
+
 def register_handlers(handlers):
     handlers.add_handler('seaf_server.event:put-block', PutBlockEventHandler)
     handlers.add_handler('seahub.stats:file-view', FileViewEventHandler)
     handlers.add_handler('seahub.stats:file-download', FileDownloadEventHandler)
     handlers.add_handler('seahub.stats:dir-download', DirDownloadEventHandler)
+    handlers.add_handler('seahub.stats:user-login', UserLoginEventHandler)

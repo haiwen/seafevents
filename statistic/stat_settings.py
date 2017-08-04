@@ -41,52 +41,6 @@ class Settings(object):
         if cfg.has_option('data_count', 'enable_audit_count'):
             self.enable_audit_count = cfg.get('data_count', 'enable_audit_count')
 
-    def init_seahub_db(self):
-        try:
-            import MySQLdb
-            import seahub_settings
-        except ImportError as e:
-            logging.warning('Failed to init seahub db: %s.' %  e)  
-            return
-
-        try:
-            db_infos = seahub_settings.DATABASES['default']
-        except KeyError as e:
-            logging.warning('Failed to init seahub db, can not find db info in seahub settings.')
-            return
-
-        if db_infos.get('ENGINE') != 'django.db.backends.mysql':
-            logging.warning('Failed to init seahub db, only mysql db supported.')
-            return
-
-        db_host = db_infos.get('HOST', '127.0.0.1')
-        db_port = int(db_infos.get('PORT', '3306'))
-        db_name = db_infos.get('NAME')
-        if not db_name:
-            logging.warning('Failed to init seahub db, db name is not setted.')
-            return
-        db_user = db_infos.get('USER')
-        if not db_user:
-            logging.warning('Failed to init seahub db, db user is not setted.')
-            return
-        db_passwd = db_infos.get('PASSWORD')
-
-        try:
-            self.db_conn = MySQLdb.connect(host=db_host, port=db_port,
-                                           user=db_user, passwd=db_passwd,
-                                           db=db_name, charset='utf8')
-            self.db_conn.autocommit(True)
-            self.seahub_cursor = self.db_conn.cursor()
-        except Exception as e:
-            logging.warning('Failed to init seahub db: %s.' %  e)
-
-
-    def close_seahub_db(self):
-        if self.cursor:
-            self.cursor.close()
-        if self.db_conn:
-            self.db_conn.close()
-
     def init_seafile_db(self):
         try:
             cfg = ConfigParser()

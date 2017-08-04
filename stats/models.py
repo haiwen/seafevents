@@ -36,3 +36,14 @@ file download: %s, dir download: %s>''' % (self.email, self.month, self.block_do
                     file_view=self.file_view,
                     file_download=self.file_download,
                     dir_download=self.dir_download)
+
+class UserActivityStat(Base):
+    __tablename__ = 'UserActivityStat'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(length=255))
+    timestamp = Column(DateTime, nullable=False)
+
+    def __init__(self, username, timestamp):
+        self.username = username
+        self.timestamp = timestamp

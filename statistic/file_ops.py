@@ -5,11 +5,11 @@ from datetime import timedelta
 from datetime import datetime
 from sqlalchemy.orm.scoping import scoped_session
 from sqlalchemy import func
-from models import FileAuditStat
+from models import FileOpsStat
 from seafevents.events.models import FileUpdate
 from seafevents.events.models import FileAudit
 
-class FileAuditCounter(object):
+class FileOpsCounter(object):
     def __init__(self, settings):
         self.settings = settings
         self.edb_session = scoped_session(settings.session_cls)
@@ -29,8 +29,8 @@ class FileAuditCounter(object):
         s_timestamp = datetime.strptime(start,'%Y-%m-%d %H:%M:%S')
         e_timestamp = datetime.strptime(end,'%Y-%m-%d %H:%M:%S')
         try:
-            q = self.edb_session.query(FileAuditStat.timestamp).filter(
-                                       FileAuditStat.timestamp==s_timestamp)
+            q = self.edb_session.query(FileOpsStat.timestamp).filter(
+                                       FileOpsStat.timestamp==s_timestamp)
             if q.first():
                 return
         except Exception as e:
@@ -63,13 +63,13 @@ class FileAuditCounter(object):
             return
 
         if added:
-            new_record = FileAuditStat(s_timestamp, 'Added', added)
+            new_record = FileOpsStat(s_timestamp, 'Added', added)
             self.edb_session.add(new_record)
         if deleted:
-            new_record = FileAuditStat(s_timestamp, 'Deleted', deleted)
+            new_record = FileOpsStat(s_timestamp, 'Deleted', deleted)
             self.edb_session.add(new_record)
         if visited:
-            new_record = FileAuditStat(s_timestamp, 'Visited', visited)
+            new_record = FileOpsStat(s_timestamp, 'Visited', visited)
             self.edb_session.add(new_record)
             
         self.edb_session.commit()
