@@ -23,6 +23,7 @@ class Settings(object):
         self.ldap_configs = []
         self.login_attr = None
         self.use_page_result = False
+        self.follow_referrals = True
 
         self.sync_interval = 0
         self.enable_group_sync = False
@@ -87,6 +88,7 @@ class Settings(object):
 
         self.login_attr = self.get_option('LDAP', 'LOGIN_ATTR', dval='mail')
         self.use_page_result = self.get_option('LDAP', 'USE_PAGED_RESULT', bool, False)
+        self.follow_referrals = self.get_option('LDAP', 'FOLLOW_REFERRALS', bool, True)
         self.has_base_info = True
 
         if not self.parser.has_section('LDAP_SYNC'):

@@ -277,7 +277,7 @@ class LdapUserSync(LdapSync):
         return user_data_db
 
     def get_data_from_ldap_by_server(self, config):
-        ldap_conn = LdapConn(config.host, config.user_dn, config.passwd)
+        ldap_conn = LdapConn(config.host, config.user_dn, config.passwd, self.settings.follow_referrals)
         ldap_conn.create_conn()
         if not ldap_conn.conn:
             return None

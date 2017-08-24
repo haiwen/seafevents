@@ -87,7 +87,7 @@ def search_group(settings, config, ldap_conn):
 def test_ldap(settings):
     for config in settings.ldap_configs:
         logging.debug('Try to connect ldap server %s.', config.host)
-        ldap_conn = LdapConn(config.host, config.user_dn, config.passwd)
+        ldap_conn = LdapConn(config.host, config.user_dn, config.passwd, settings.follow_referrals)
         ldap_conn.create_conn()
         if ldap_conn.conn is None:
             continue

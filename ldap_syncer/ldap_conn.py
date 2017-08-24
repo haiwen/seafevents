@@ -8,14 +8,20 @@ class LdapConn(object):
 
     PAGE_SIZE = 100
 
-    def __init__(self, host, user_dn, passwd):
+    def __init__(self, host, user_dn, passwd, follow_referrals):
         self.host = host
         self.user_dn = user_dn
         self.passwd = passwd
+        self.follow_referrals = follow_referrals
         self.conn = None
 
     def create_conn(self):
         self.conn = ldap.initialize(self.host)
+        try:
+            self.conn.set_option(ldap.OPT_REFERRALS, 1 if self.follow_referrals else 0)
+        except ldap.LDAPError as e:
+            logging.warning('Failed to set follow_referrals option, error: %s' % e.message)
+
         try:
             self.conn.simple_bind_s(self.user_dn, self.passwd)
         except ldap.INVALID_CREDENTIALS:
