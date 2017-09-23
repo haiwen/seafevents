@@ -11,6 +11,15 @@ from .db import save_user_events, save_org_user_events, save_file_audit_event, \
         save_file_update_event, save_perm_audit_event
 from seafobj import CommitDiffer, commit_mgr
 
+def RepoMoveEventHandler(session, msg, ali_mq=None):
+    if ali_mq:
+        start = msg.body.find('\t')
+        if start < 0:
+            logging.warning("got bad message: %s", elements)
+            return
+        msg_str = msg.body[start+1:]
+        ali_mq.send_msg(msg_str)
+
 def RepoUpdateEventHandler(session, msg, ali_mq=None):
     elements = msg.body.split('\t')
     if len(elements) != 3:
@@ -283,6 +292,7 @@ def PermAuditEventHandler(session, msg, ali_mq=None):
 
 def register_handlers(handlers, enable_audit):
     handlers.add_handler('seaf_server.event:repo-update', RepoUpdateEventHandler)
+    handlers.add_handler('seaf_server.event:cross-repo-move', RepoMoveEventHandler)
     if enable_audit:
         handlers.add_handler('seaf_server.event:repo-update', FileUpdateEventHandler)
         handlers.add_handler('seahub.stats:file-download-web', FileAuditEventHandler)
