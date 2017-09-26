@@ -18,7 +18,7 @@ def RepoMoveEventHandler(session, msg, ali_mq=None):
             logging.warning("got bad message: %s", elements)
             return
         msg_str = msg.body[start+1:]
-        ali_mq.send_msg(msg_str)
+        #ali_mq.send_msg(msg_str)
 
 def RepoUpdateEventHandler(session, msg, ali_mq=None):
     elements = msg.body.split('\t')
