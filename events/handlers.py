@@ -10,13 +10,27 @@ from seaserv import get_related_users_by_repo, get_org_id_by_repo_id, \
 from .db import save_user_events, save_org_user_events, save_file_audit_event, \
         save_file_update_event, save_perm_audit_event
 from seafobj import CommitDiffer, commit_mgr
+from change_uuid_path import ChangeFileUUIDMap
+
+changer = ChangeFileUUIDMap()
 
 def RepoMoveEventHandler(session, msg, ali_mq=None):
+    start = msg.body.find('\t')
+    if start < 0:
+        logging.warning("got bad message: %s", elements)
+        return
+    dic = eval(msg.body[start+1:])
+    if not dic['src_path']:
+        dic['src_path'] = '/'
+    if not dic['dst_path']:
+        dic['dst_path'] = '/'
+    path = os.path.join(dic['src_path'], dic['src_file_name'])
+    new_path = os.path.join(dic['dst_path'], dic['dst_file_name'])
+    changer.change_file_uuid_map (dic['dst_repo_id'], path, new_path,
+                                  0 if dic['obj_type'] == 'file' else 1,
+                                  dic['src_repo_id'])
+
     if ali_mq:
-        start = msg.body.find('\t')
-        if start < 0:
-            logging.warning("got bad message: %s", elements)
-            return
         msg_str = msg.body[start+1:]
         #ali_mq.send_msg(msg_str)
 
@@ -56,7 +70,7 @@ def RepoUpdateEventHandler(session, msg, ali_mq=None):
             return
 
     # TODO: maybe handle merge commit.
-    if ali_mq and commit.parent_id and not commit.second_parent_id:
+    if commit.parent_id and not commit.second_parent_id:
         import json
 
         OP_CREATE = 'create'
@@ -77,6 +91,19 @@ def RepoUpdateEventHandler(session, msg, ali_mq=None):
                               True, True)
         added_files, deleted_files, added_dirs, deleted_dirs, modified_files, \
         renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
+
+        if renamed_files or renamed_dirs or moved_files or moved_dirs:
+            for r_file in renamed_files:
+                changer.change_file_uuid_map (repo_id, r_file.path, r_file.new_path, 0)
+            for r_dir in renamed_dirs:
+                changer.change_file_uuid_map (repo_id, r_dir.path, r_dir.new_path, 1)
+            for m_file in moved_files:
+                changer.change_file_uuid_map (repo_id, m_file.path, m_file.new_path, 0)
+            for m_dir in moved_dirs:
+                changer.change_file_uuid_map (repo_id, m_dir.path, m_dir.new_path, 1)
+
+        if not ali_mq:
+            return
 
         for de in added_files:
             op_type = ''
