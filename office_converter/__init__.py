@@ -36,14 +36,14 @@ class OfficeConverter(object):
             self._max_size = conf['max_size']
             self._max_pages = conf['max_pages']
 
-    def add_task(self, file_id, doctype, url):
+    def add_task(self, file_id, doctype, url, enable_watermark=False, name=None, email=None):
         if doctype not in self.supported_doctypes:
             raise Exception('doctype "%s" is not supported' % doctype)
 
         if not _valid_file_id(file_id):
             raise Exception('invalid file id')
 
-        return task_manager.add_task(file_id, doctype, url)
+        return task_manager.add_task(file_id, doctype, url, enable_watermark, name, email)
 
     def query_convert_status(self, file_id, page):
         if not _valid_file_id(file_id):

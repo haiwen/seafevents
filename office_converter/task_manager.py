@@ -8,9 +8,14 @@ import urllib2
 import logging
 import atexit
 import json
+from StringIO import StringIO
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from pdfrw import PdfReader, PdfWriter, PageMerge
 
 from .convert import Convertor, ConvertorFatalError
 from .doctypes import EXCEL_TYPES
+
 
 __all__ = ["task_manager"]
 
@@ -35,7 +40,8 @@ class ConvertTask(object):
     - ERROR: error in fetching or converting
 
     """
-    def __init__(self, file_id, doctype, url, pdf_dir, html_dir):
+    def __init__(self, file_id, doctype, url, pdf_dir, html_dir, 
+                 enable_watermark=False, name=None, email=None):
         self.url = url
         self.doctype = doctype
         self.file_id = file_id
@@ -53,6 +59,9 @@ class ConvertTask(object):
 
         self.pdf_info = {}
         self.last_processed_page = 0
+        self.enable_watermark = enable_watermark
+        self.name = name
+        self.email = email
 
     def __str__(self):
         return "<type: %s, id: %s>" % (self.doctype, self.file_id)
@@ -172,7 +181,30 @@ class Worker(threading.Thread):
             return False
         else:
             if task.doctype == 'pdf':
-                task.pdf = tmpfile
+                if task.enable_watermark and task.name and task.email:
+                    pdfreader = PdfReader(StringIO(content))
+                    if not pdfreader.Encrypt:
+                        for page in pdfreader.pages:
+                            info = PageMerge().add(page)
+                            zero, zero, width, height = info.xobj_box
+                            fd, temp_wmark = tempfile.mkstemp(suffix=suffix)
+                            os.close(fd)
+                            c = canvas.Canvas(temp_wmark, pagesize=letter)
+                            c.setFillColorRGB(0, 1, 0)
+                            c.setFontSize(20)
+                            c.rotate(30)
+                            c.drawString(width/2 - 200, height / 3, task.name)
+                            c.drawString(width/2 - 100, height / 3, task.email)
+                            c.save()
+                            watermark = PageMerge().add(PdfReader(temp_wmark).pages[0])[0]
+                            PageMerge(page).add(watermark, prepend=False).render()
+                        fd, pdf_data = tempfile.mkstemp(suffix=suffix)
+                        os.close(fd)
+                        PdfWriter(pdf_data, trailer=pdfreader).write()
+                        task.pdf = pdf_data
+                        task.htmldir = task.htmldir + '_watermark'
+                else:
+                    task.pdf = tmpfile
             else:
                 task.document = tmpfile
             return True
@@ -294,6 +326,8 @@ class TaskManager(object):
     def _task_file_exists(self, file_id, doctype=None):
         '''Test whether the file has already been converted'''
         file_html_dir = os.path.join(self.html_dir, file_id)
+        if self._tasks_map[file_id].enable_watermark:
+            file_html_dir = os.path.join(self.html_dir, file_id+'_watermark')
         if doctype not in EXCEL_TYPES:
             done_file = os.path.join(file_html_dir, 'done')
         else:
@@ -301,7 +335,7 @@ class TaskManager(object):
 
         return os.path.exists(done_file)
 
-    def add_task(self, file_id, doctype, url):
+    def add_task(self, file_id, doctype, url, enable_watermark=False, name=None, email=None):
         """Create a convert task and dipatch it to worker threads"""
         with self._tasks_map_lock:
             if file_id in self._tasks_map:
@@ -312,7 +346,8 @@ class TaskManager(object):
                     return
 
             if not self._task_file_exists(file_id, doctype):
-                task = ConvertTask(file_id, doctype, url, self.pdf_dir, self.html_dir)
+                task = ConvertTask(file_id, doctype, url, self.pdf_dir, self.html_dir, 
+                                   enable_watermark, name, email)
                 self._tasks_map[file_id] = task
                 self._tasks_queue.put(task)
 
