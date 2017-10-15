@@ -1,9 +1,6 @@
 import os
-import sys
 import re
 import logging
-import tempfile
-import ConfigParser
 from pysearpc import searpc_server
 from ccnet.async import RpcServerProc
 
@@ -11,7 +8,6 @@ from .task_manager import task_manager
 from .rpc import OfficeConverterRpcClient, OFFICE_RPC_SERVICE_NAME
 from .doctypes import DOC_TYPES, PPT_TYPES, EXCEL_TYPES
 from seafevents.utils import has_office_tools
-from seafevents.utils.config import parse_max_size, parse_max_pages, parse_workers, parse_bool
 
 __all__ = [
     'office_converter',
@@ -36,20 +32,20 @@ class OfficeConverter(object):
             self._max_size = conf['max_size']
             self._max_pages = conf['max_pages']
 
-    def add_task(self, file_id, doctype, url):
+    def add_task(self, file_id, doctype, url, watermark='', convert_tmp_filename=''):
         if doctype not in self.supported_doctypes:
             raise Exception('doctype "%s" is not supported' % doctype)
 
         if not _valid_file_id(file_id):
             raise Exception('invalid file id')
 
-        return task_manager.add_task(file_id, doctype, url)
+        return task_manager.add_task(file_id, doctype, url, watermark, convert_tmp_filename)
 
-    def query_convert_status(self, file_id, doctype):
+    def query_convert_status(self, file_id, page, convert_tmp_filename=''):
         if not _valid_file_id(file_id):
             raise Exception('invalid file id')
 
-        return task_manager.query_task_status(file_id, doctype)
+        return task_manager.query_task_status(file_id, page, convert_tmp_filename)
 
     def register_rpc(self, ccnet_client):
         '''Register office rpc service'''

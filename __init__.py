@@ -111,3 +111,8 @@ def is_audit_enabled(config):
         logger.info('audit is not enabled')
 
     return enable_audit
+
+def get_ttc_font_path():
+    c_dir = os.path.dirname(os.path.abspath(__file__))
+    c_path = os.path.join(c_dir, 'font.ttc')
+    return c_path
