@@ -45,11 +45,11 @@ class OfficeConverter(object):
 
         return task_manager.add_task(file_id, doctype, url, enable_watermark, name, email)
 
-    def query_convert_status(self, file_id, page):
+    def query_convert_status(self, file_id, page, shared_by=''):
         if not _valid_file_id(file_id):
             raise Exception('invalid file id')
 
-        return task_manager.query_task_status(file_id, page)
+        return task_manager.query_task_status(file_id, page, shared_by)
 
     def register_rpc(self, ccnet_client):
         '''Register office rpc service'''

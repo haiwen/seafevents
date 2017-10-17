@@ -202,7 +202,7 @@ class Worker(threading.Thread):
                         os.close(fd)
                         PdfWriter(pdf_data, trailer=pdfreader).write()
                         task.pdf = pdf_data
-                        task.htmldir = task.htmldir + '_watermark'
+                        task.htmldir = task.htmldir + '_' +  task.email
                 else:
                     task.pdf = tmpfile
             else:
@@ -323,11 +323,12 @@ class TaskManager(object):
         _checkdir_with_mkdir(html_dir)
         self.html_dir = html_dir
 
-    def _task_file_exists(self, file_id, doctype=None):
+    def _task_file_exists(self, file_id, doctype=None, shared_by=''):
         '''Test whether the file has already been converted'''
         file_html_dir = os.path.join(self.html_dir, file_id)
-        if self._tasks_map[file_id].enable_watermark:
-            file_html_dir = os.path.join(self.html_dir, file_id+'_watermark')
+        if file_id in self._tasks_map:
+            if shared_by and self._task_map[file_id].enable_watermark:
+                file_html_dir = os.path.join(self.html_dir, file_id+ '_' + shared_by)
         if doctype not in EXCEL_TYPES:
             done_file = os.path.join(file_html_dir, 'done')
         else:
@@ -377,7 +378,7 @@ class TaskManager(object):
                         ret['error'] = 'invalid file id'
         return ret
 
-    def query_task_status(self, file_id, page):
+    def query_task_status(self, file_id, page, shared_by=''):
         if page == 0:
             return self.query_task_status_excel(file_id)
         ret = {}
@@ -392,7 +393,7 @@ class TaskManager(object):
                     ret['info'] = task.pdf_info
                     ret['info']['processed_pages'] = task.last_processed_page
             else:
-                if self._task_file_exists(file_id):
+                if self._task_file_exists(file_id, shared_by):
                     ret['status'] = 'DONE'
                     ret['info'] = self._get_pdf_info(file_id)
                     ret['info']['processed_pages'] = ret['info']['final_pages']
