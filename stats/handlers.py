@@ -109,7 +109,7 @@ def DirDownloadEventHandler(session, msg):
     if dir_size > 0:
         update_dir_download_traffic(session, shared_by, dir_size)
 
-def UserLoginEventHandler(session, msg):
+def UserLoginEventHandler(session, msg, ali_mq=None):
     elements = msg.body.split('\t')
     if len(elements) != 3:
         logging.warning("got bad message: %s", elements)

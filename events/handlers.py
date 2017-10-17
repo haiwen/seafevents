@@ -48,29 +48,14 @@ def RepoUpdateEventHandler(session, msg, ali_mq=None):
           'commit_id': commit_id,
     }
 
-    org_id = get_org_id_by_repo_id(repo_id)
-    if org_id > 0:
-        users = get_related_users_by_org_repo(org_id, repo_id)
-    else:
-        users = get_related_users_by_repo(repo_id)
-
-    if not users:
-        return
-
     time = datetime.datetime.utcfromtimestamp(msg.ctime)
-    if org_id > 0:
-        save_org_user_events (session, org_id, etype, detail, users, time)
-    else:
-        save_user_events (session, etype, detail, users, time)
 
     commit = commit_mgr.load_commit(repo_id, 1, commit_id)
     if commit is None:
         commit = commit_mgr.load_commit(repo_id, 0, commit_id)
-        if commit is None:
-            return
 
     # TODO: maybe handle merge commit.
-    if commit.parent_id and not commit.second_parent_id:
+    if commit is not None and commit.parent_id and not commit.second_parent_id:
         import json
 
         OP_CREATE = 'create'
@@ -84,178 +69,189 @@ def RepoUpdateEventHandler(session, msg, ali_mq=None):
         OBJ_DIR = 'dir'
 
         parent = commit_mgr.load_commit(repo_id, commit.version, commit.parent_id)
-        if parent is None:
-            return
 
-        differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id,
-                              True, True)
-        added_files, deleted_files, added_dirs, deleted_dirs, modified_files, \
-        renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
+        if parent is not None:
+            differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id,
+                                  True, True)
+            added_files, deleted_files, added_dirs, deleted_dirs, modified_files, \
+            renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
 
-        if renamed_files or renamed_dirs or moved_files or moved_dirs:
-            for r_file in renamed_files:
-                changer.change_file_uuid_map (repo_id, r_file.path, r_file.new_path, 0)
-            for r_dir in renamed_dirs:
-                changer.change_file_uuid_map (repo_id, r_dir.path, r_dir.new_path, 1)
-            for m_file in moved_files:
-                changer.change_file_uuid_map (repo_id, m_file.path, m_file.new_path, 0)
-            for m_dir in moved_dirs:
-                changer.change_file_uuid_map (repo_id, m_dir.path, m_dir.new_path, 1)
+            if ali_mq:
+                for de in added_files:
+                    op_type = ''
+                    if commit.description.encode('utf-8').startswith('Reverted'):
+                        op_type = OP_RECOVER
+                    else:
+                        op_type = OP_CREATE
+                    msg = { 'op_type': op_type,
+                            'obj_type': OBJ_FILE,
+                            'commit_id': commit_id,
+                            'user': commit.creator_name,
+                            'date': commit.ctime,
+                            'repo_id': repo_id,
+                            'repo_name': commit.repo_name.encode('utf-8'),
+                            'path': de.path,
+                            'size': de.size,
+                            'parent_commit_id': parent.commit_id,
+                    }
+                    msg_str = json.dumps(msg)
+                    ali_mq.send_msg(msg_str)
 
-        if not ali_mq:
-            return
+                for de in deleted_files:
+                    msg = { 'op_type': OP_DELETE,
+                            'obj_type': OBJ_FILE,
+                            'commit_id': commit_id,
+                            'user': commit.creator_name,
+                            'date': commit.ctime,
+                            'repo_id': repo_id,
+                            'repo_name': commit.repo_name.encode('utf-8'),
+                            'path': de.path,
+                            'size': de.size,
+                            'parent_commit_id': parent.commit_id,
+                    }
+                    msg_str = json.dumps(msg)
+                    ali_mq.send_msg(msg_str)
 
-        for de in added_files:
-            op_type = ''
-            if commit.description.encode('utf-8').startswith('Reverted'):
-                op_type = OP_RECOVER
-            else:
-                op_type = OP_CREATE
-            msg = { 'op_type': op_type,
-                    'obj_type': OBJ_FILE,
-                    'commit_id': commit_id,
-                    'user': commit.creator_name,
-                    'date': commit.ctime,
-                    'repo_id': repo_id,
-                    'repo_name': commit.repo_name.encode('utf-8'),
-                    'path': de.path,
-                    'size': de.size,
-                    'parent_commit_id': parent.commit_id,
-            }
-            msg_str = json.dumps(msg)
-            ali_mq.send_msg(msg_str)
+                for de in added_dirs:
+                    op_type = ''
+                    if commit.description.encode('utf-8').startswith('Recovered'):
+                        op_type = OP_RECOVER
+                    else:
+                        op_type = OP_CREATE
+                    msg = { 'op_type': op_type,
+                            'obj_type': OBJ_DIR,
+                            'commit_id': commit_id,
+                            'user': commit.creator_name,
+                            'date': commit.ctime,
+                            'repo_id': repo_id,
+                            'repo_name': commit.repo_name.encode('utf-8'),
+                            'path': de.path,
+                            'parent_commit_id': parent.commit_id,
+                    }
+                    msg_str = json.dumps(msg)
+                    ali_mq.send_msg(msg_str)
 
-        for de in deleted_files:
-            msg = { 'op_type': OP_DELETE,
-                    'obj_type': OBJ_FILE,
-                    'commit_id': commit_id,
-                    'user': commit.creator_name,
-                    'date': commit.ctime,
-                    'repo_id': repo_id,
-                    'repo_name': commit.repo_name.encode('utf-8'),
-                    'path': de.path,
-                    'size': de.size,
-                    'parent_commit_id': parent.commit_id,
-            }
-            msg_str = json.dumps(msg)
-            ali_mq.send_msg(msg_str)
+                for de in deleted_dirs:
+                    msg = { 'op_type': OP_DELETE,
+                            'obj_type': OBJ_DIR,
+                            'commit_id': commit_id,
+                            'user': commit.creator_name,
+                            'date': commit.ctime,
+                            'repo_id': repo_id,
+                            'repo_name': commit.repo_name.encode('utf-8'),
+                            'path': de.path,
+                            'parent_commit_id': parent.commit_id,
+                    }
+                    msg_str = json.dumps(msg)
+                    ali_mq.send_msg(msg_str)
 
-        for de in added_dirs:
-            op_type = ''
-            if commit.description.encode('utf-8').startswith('Recovered'):
-                op_type = OP_RECOVER
-            else:
-                op_type = OP_CREATE
-            msg = { 'op_type': op_type,
-                    'obj_type': OBJ_DIR,
-                    'commit_id': commit_id,
-                    'user': commit.creator_name,
-                    'date': commit.ctime,
-                    'repo_id': repo_id,
-                    'repo_name': commit.repo_name.encode('utf-8'),
-                    'path': de.path,
-                    'parent_commit_id': parent.commit_id,
-            }
-            msg_str = json.dumps(msg)
-            ali_mq.send_msg(msg_str)
+                for de in modified_files:
+                    op_type = ''
+                    if commit.description.encode('utf-8').startswith('Reverted'):
+                        op_type = OP_RECOVER
+                    else:
+                        op_type = OP_EDIT
+                    msg = { 'op_type': op_type,
+                            'obj_type': OBJ_FILE,
+                            'commit_id': commit_id,
+                            'user': commit.creator_name,
+                            'date': commit.ctime,
+                            'repo_id': repo_id,
+                            'repo_name': commit.repo_name.encode('utf-8'),
+                            'path': de.path,
+                            'size': de.size,
+                            'parent_commit_id': parent.commit_id,
+                    }
+                    msg_str = json.dumps(msg)
+                    ali_mq.send_msg(msg_str)
 
-        for de in deleted_dirs:
-            msg = { 'op_type': OP_DELETE,
-                    'obj_type': OBJ_DIR,
-                    'commit_id': commit_id,
-                    'user': commit.creator_name,
-                    'date': commit.ctime,
-                    'repo_id': repo_id,
-                    'repo_name': commit.repo_name.encode('utf-8'),
-                    'path': de.path,
-                    'parent_commit_id': parent.commit_id,
-            }
-            msg_str = json.dumps(msg)
-            ali_mq.send_msg(msg_str)
+                for de in renamed_files:
+                    msg = { 'op_type': OP_RENAME,
+                            'obj_type': OBJ_FILE,
+                            'commit_id': commit_id,
+                            'user': commit.creator_name,
+                            'date': commit.ctime,
+                            'repo_id': repo_id,
+                            'repo_name': commit.repo_name.encode('utf-8'),
+                            'path': de.path,
+                            'size': de.size,
+                            'parent_commit_id': parent.commit_id,
+                            'new_path': de.new_path,
+                    }
+                    msg_str = json.dumps(msg)
+                    ali_mq.send_msg(msg_str)
 
-        for de in modified_files:
-            op_type = ''
-            if commit.description.encode('utf-8').startswith('Reverted'):
-                op_type = OP_RECOVER
-            else:
-                op_type = OP_EDIT
-            msg = { 'op_type': op_type,
-                    'obj_type': OBJ_FILE,
-                    'commit_id': commit_id,
-                    'user': commit.creator_name,
-                    'date': commit.ctime,
-                    'repo_id': repo_id,
-                    'repo_name': commit.repo_name.encode('utf-8'),
-                    'path': de.path,
-                    'size': de.size,
-                    'parent_commit_id': parent.commit_id,
-            }
-            msg_str = json.dumps(msg)
-            ali_mq.send_msg(msg_str)
+                for de in moved_files:
+                    msg = { 'op_type': OP_MOVE,
+                            'obj_type': OBJ_FILE,
+                            'commit_id': commit_id,
+                            'user': commit.creator_name,
+                            'date': commit.ctime,
+                            'repo_id': repo_id,
+                            'repo_name': commit.repo_name.encode('utf-8'),
+                            'path': de.path,
+                            'size': de.size,
+                            'parent_commit_id': parent.commit_id,
+                            'new_path': de.new_path,
+                    }
+                    msg_str = json.dumps(msg)
+                    ali_mq.send_msg(msg_str)
 
-        for de in renamed_files:
-            msg = { 'op_type': OP_RENAME,
-                    'obj_type': OBJ_FILE,
-                    'commit_id': commit_id,
-                    'user': commit.creator_name,
-                    'date': commit.ctime,
-                    'repo_id': repo_id,
-                    'repo_name': commit.repo_name.encode('utf-8'),
-                    'path': de.path,
-                    'size': de.size,
-                    'parent_commit_id': parent.commit_id,
-                    'new_path': de.new_path,
-            }
-            msg_str = json.dumps(msg)
-            ali_mq.send_msg(msg_str)
+                for de in renamed_dirs:
+                    msg = { 'op_type': OP_RENAME,
+                            'obj_type': OBJ_DIR,
+                            'commit_id': commit_id,
+                            'user': commit.creator_name,
+                            'date': commit.ctime,
+                            'repo_id': repo_id,
+                            'repo_name': commit.repo_name.encode('utf-8'),
+                            'path': de.path,
+                            'size': de.size,
+                            'parent_commit_id': parent.commit_id,
+                            'new_path': de.new_path,
+                    }
+                    msg_str = json.dumps(msg)
+                    ali_mq.send_msg(msg_str)
 
-        for de in moved_files:
-            msg = { 'op_type': OP_MOVE,
-                    'obj_type': OBJ_FILE,
-                    'commit_id': commit_id,
-                    'user': commit.creator_name,
-                    'date': commit.ctime,
-                    'repo_id': repo_id,
-                    'repo_name': commit.repo_name.encode('utf-8'),
-                    'path': de.path,
-                    'size': de.size,
-                    'parent_commit_id': parent.commit_id,
-                    'new_path': de.new_path,
-            }
-            msg_str = json.dumps(msg)
-            ali_mq.send_msg(msg_str)
+                for de in moved_dirs:
+                    msg = { 'op_type': OP_MOVE,
+                            'obj_type': OBJ_DIR,
+                            'commit_id': commit_id,
+                            'user': commit.creator_name,
+                            'date': commit.ctime,
+                            'repo_id': repo_id,
+                            'repo_name': commit.repo_name.encode('utf-8'),
+                            'path': de.path,
+                            'size': de.size,
+                            'parent_commit_id': parent.commit_id,
+                            'new_path': de.new_path,
+                    }
+                    msg_str = json.dumps(msg)
+                    ali_mq.send_msg(msg_str)
 
-        for de in renamed_dirs:
-            msg = { 'op_type': OP_RENAME,
-                    'obj_type': OBJ_DIR,
-                    'commit_id': commit_id,
-                    'user': commit.creator_name,
-                    'date': commit.ctime,
-                    'repo_id': repo_id,
-                    'repo_name': commit.repo_name.encode('utf-8'),
-                    'path': de.path,
-                    'size': de.size,
-                    'parent_commit_id': parent.commit_id,
-                    'new_path': de.new_path,
-            }
-            msg_str = json.dumps(msg)
-            ali_mq.send_msg(msg_str)
+            if renamed_files or renamed_dirs or moved_files or moved_dirs:
+                for r_file in renamed_files:
+                    changer.change_file_uuid_map (repo_id, r_file.path, r_file.new_path, 0)
+                for r_dir in renamed_dirs:
+                    changer.change_file_uuid_map (repo_id, r_dir.path, r_dir.new_path, 1)
+                for m_file in moved_files:
+                    changer.change_file_uuid_map (repo_id, m_file.path, m_file.new_path, 0)
+                for m_dir in moved_dirs:
+                    changer.change_file_uuid_map (repo_id, m_dir.path, m_dir.new_path, 1)
 
-        for de in moved_dirs:
-            msg = { 'op_type': OP_MOVE,
-                    'obj_type': OBJ_DIR,
-                    'commit_id': commit_id,
-                    'user': commit.creator_name,
-                    'date': commit.ctime,
-                    'repo_id': repo_id,
-                    'repo_name': commit.repo_name.encode('utf-8'),
-                    'path': de.path,
-                    'size': de.size,
-                    'parent_commit_id': parent.commit_id,
-                    'new_path': de.new_path,
-            }
-            msg_str = json.dumps(msg)
-            ali_mq.send_msg(msg_str)
+    org_id = get_org_id_by_repo_id(repo_id)
+    if org_id > 0:
+        users = get_related_users_by_org_repo(org_id, repo_id)
+    else:
+        users = get_related_users_by_repo(repo_id)
+
+    if not users:
+        return
+
+    if org_id > 0:
+        save_org_user_events (session, org_id, etype, detail, users, time)
+    else:
+        save_user_events (session, etype, detail, users, time)
 
 def FileUpdateEventHandler(session, msg, ali_mq=None):
     elements = msg.body.split('\t')
