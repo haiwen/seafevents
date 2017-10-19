@@ -1,6 +1,7 @@
 import logging
 import logging.handlers
 import sys
+import os
 
 class LogConfigurator(object):
     def __init__(self, level, logfile=None):
@@ -41,10 +42,10 @@ class LogConfigurator(object):
         logging.root.addHandler(handler)
 
     def _get_log_level(self, level):
-        if level == 'debug':
+        if level == 'debug' or 'SEAFEVENTS_DEBUG' in os.environ:
             return logging.DEBUG
-        elif level == 'info':
-            return logging.INFO
-        else:
+        elif level == 'warning':
             return logging.WARNING
+        else:
+            return logging.INFO
 
