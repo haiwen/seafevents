@@ -325,9 +325,10 @@ class TaskManager(object):
 
     def _task_file_exists(self, file_id, doctype=None, shared_by=''):
         '''Test whether the file has already been converted'''
+        task_key = str(file_id) + shared_by if shared_by else file_id
         file_html_dir = os.path.join(self.html_dir, file_id)
-        if file_id in self._tasks_map:
-            if shared_by and self._task_map[file_id].enable_watermark:
+        if task_key in self._tasks_map:
+            if shared_by and self._tasks_map[task_key].enable_watermark:
                 file_html_dir = os.path.join(self.html_dir, file_id+ '_' + shared_by)
         if doctype not in EXCEL_TYPES:
             done_file = os.path.join(file_html_dir, 'done')
@@ -339,17 +340,18 @@ class TaskManager(object):
     def add_task(self, file_id, doctype, url, enable_watermark=False, name=None, email=None):
         """Create a convert task and dipatch it to worker threads"""
         with self._tasks_map_lock:
-            if file_id in self._tasks_map:
-                task = self._tasks_map[file_id]
+            task_key = str(file_id) + email if email else file_id
+            if task_key in self._tasks_map:
+                task = self._tasks_map[task_key]
                 if task.status != 'ERROR' and task.status != 'DONE':
                     # If there is already a convert task in progress, don't create a
                     # new one.
                     return
 
-            if not self._task_file_exists(file_id, doctype):
+            if not self._task_file_exists(file_id, doctype, email):
                 task = ConvertTask(file_id, doctype, url, self.pdf_dir, self.html_dir, 
                                    enable_watermark, name, email)
-                self._tasks_map[file_id] = task
+                self._tasks_map[task_key] = task
                 self._tasks_queue.put(task)
 
     def _get_pdf_info(self, file_id):
@@ -360,7 +362,7 @@ class TaskManager(object):
         with open(info_file, 'r') as fp:
             return json.load(fp)
 
-    def query_task_status_excel(self, file_id):
+    def query_task_status_excel(self, file_id, shared_by):
         ret = {}
         with self._tasks_map_lock:
             if file_id in self._tasks_map:
@@ -371,7 +373,7 @@ class TaskManager(object):
                 elif task.status in ('QUEUED', 'PROCESSING'):
                     ret['status'] = task.status
                 else:
-                    if self._task_file_exists(file_id, 'xls'):
+                    if self._task_file_exists(file_id, 'xls', shared_by):
                         ret['status'] = 'DONE'
                     else:
                         ret['status'] = 'ERROR'
@@ -379,12 +381,13 @@ class TaskManager(object):
         return ret
 
     def query_task_status(self, file_id, page, shared_by=''):
+        task_key = str(file_id) + shared_by
         if page == 0:
-            return self.query_task_status_excel(file_id)
+            return self.query_task_status_excel(file_id, shared_by)
         ret = {}
         with self._tasks_map_lock:
-            if file_id in self._tasks_map:
-                task = self._tasks_map[file_id]
+            if task_key in self._tasks_map:
+                task = self._tasks_map[task_key]
                 if task.status == 'ERROR':
                     ret['status'] = 'ERROR'
                     ret['error'] = task.error
