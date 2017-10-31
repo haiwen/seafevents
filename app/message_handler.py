@@ -1,6 +1,7 @@
 import logging
 
 import seafevents.events.handlers as events_handlers
+import seafevents.events_publisher.handlers as publisher_handlers
 import seafevents.stats.handlers as stats_handlers
 
 logger = logging.getLogger(__name__)
@@ -53,5 +54,6 @@ class MessageHandler(object):
 def init_message_handlers(enable_audit):
     events_handlers.register_handlers(message_handler, enable_audit)
     stats_handlers.register_handlers(message_handler)
+    publisher_handlers.register_handlers(message_handler)
 
 message_handler = MessageHandler()
