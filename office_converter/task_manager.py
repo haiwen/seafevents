@@ -10,7 +10,9 @@ import atexit
 import json
 from StringIO import StringIO
 from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
 from reportlab.lib.pagesizes import letter
+from reportlab.pdfbase.ttfonts import TTFont
 from pdfrw import PdfReader, PdfWriter, PageMerge
 
 from .convert import Convertor, ConvertorFatalError
@@ -41,7 +43,7 @@ class ConvertTask(object):
 
     """
     def __init__(self, file_id, doctype, url, pdf_dir, html_dir, 
-                 enable_watermark=False, name=None, email=None):
+                 watermark='', convert_tmp_filename=''):
         self.url = url
         self.doctype = doctype
         self.file_id = file_id
@@ -55,13 +57,15 @@ class ConvertTask(object):
         self.pdf = os.path.join(pdf_dir, file_id)
         # html output, each page of the document is converted to a separate
         # html file, and displayed in iframes on seahub
-        self.htmldir = os.path.join(html_dir, file_id)
+        self.htmldir = os.path.join(html_dir, convert_tmp_filename)
 
         self.pdf_info = {}
         self.last_processed_page = 0
-        self.enable_watermark = enable_watermark
-        self.name = name
-        self.email = email
+        self.name = ''
+        self.email = ''
+        if '\t' in watermark:
+            self.name, self.email = watermark.split('\t')[:2]
+        self.convert_tmp_filename = convert_tmp_filename
 
     def __str__(self):
         return "<type: %s, id: %s>" % (self.doctype, self.file_id)
@@ -167,6 +171,7 @@ class Worker(threading.Thread):
     def write_content_to_tmp(self, task):
         '''write the document/pdf content to a temporary file'''
         content = task.content
+
         try:
             suffix = "." + task.doctype
             fd, tmpfile = tempfile.mkstemp(suffix=suffix)
@@ -181,7 +186,7 @@ class Worker(threading.Thread):
             return False
         else:
             if task.doctype == 'pdf':
-                if task.enable_watermark and task.name and task.email:
+                if task.name and task.email:
                     pdfreader = PdfReader(StringIO(content))
                     if not pdfreader.Encrypt:
                         for page in pdfreader.pages:
@@ -192,9 +197,8 @@ class Worker(threading.Thread):
                             c = canvas.Canvas(temp_wmark, pagesize=letter)
                             c.setFillColorRGB(0, 1, 0)
                             c.setFontSize(20)
-                            c.rotate(30)
-                            c.drawString(width/2 - 200, height / 3, task.name)
-                            c.drawString(width/2 - 100, height / 3, task.email)
+                            c.drawString(width/2 - 200, 140, task.name)
+                            c.drawString(width/2 - 100, 100, task.email)
                             c.save()
                             watermark = PageMerge().add(PdfReader(temp_wmark).pages[0])[0]
                             PageMerge(page).add(watermark, prepend=False).render()
@@ -202,7 +206,6 @@ class Worker(threading.Thread):
                         os.close(fd)
                         PdfWriter(pdf_data, trailer=pdfreader).write()
                         task.pdf = pdf_data
-                        task.htmldir = task.htmldir + '_' +  task.email
                 else:
                     task.pdf = tmpfile
             else:
@@ -323,13 +326,9 @@ class TaskManager(object):
         _checkdir_with_mkdir(html_dir)
         self.html_dir = html_dir
 
-    def _task_file_exists(self, file_id, doctype=None, shared_by=''):
+    def _task_file_exists(self, convert_tmp_filename, doctype=None):
         '''Test whether the file has already been converted'''
-        task_key = str(file_id) + shared_by if shared_by else file_id
-        file_html_dir = os.path.join(self.html_dir, file_id)
-        if task_key in self._tasks_map:
-            if shared_by and self._tasks_map[task_key].enable_watermark:
-                file_html_dir = os.path.join(self.html_dir, file_id+ '_' + shared_by)
+        file_html_dir = os.path.join(self.html_dir, convert_tmp_filename)
         if doctype not in EXCEL_TYPES:
             done_file = os.path.join(file_html_dir, 'done')
         else:
@@ -337,21 +336,24 @@ class TaskManager(object):
 
         return os.path.exists(done_file)
 
-    def add_task(self, file_id, doctype, url, enable_watermark=False, name=None, email=None):
+    def add_task(self, file_id, doctype, url, watermark, convert_tmp_filename):
         """Create a convert task and dipatch it to worker threads"""
         with self._tasks_map_lock:
-            task_key = str(file_id) + email if email else file_id
-            if task_key in self._tasks_map:
-                task = self._tasks_map[task_key]
+            self.name = ''
+            self.email = ''
+            if '\t' in watermark:
+                self.name, self.email = watermark.split('\t')[:2] 
+            if convert_tmp_filename in self._tasks_map:
+                task = self._tasks_map[convert_tmp_filename]
                 if task.status != 'ERROR' and task.status != 'DONE':
                     # If there is already a convert task in progress, don't create a
                     # new one.
                     return
 
-            if not self._task_file_exists(file_id, doctype, email):
+            if not self._task_file_exists(convert_tmp_filename, doctype):
                 task = ConvertTask(file_id, doctype, url, self.pdf_dir, self.html_dir, 
-                                   enable_watermark, name, email)
-                self._tasks_map[task_key] = task
+                                   watermark, convert_tmp_filename)
+                self._tasks_map[convert_tmp_filename] = task
                 self._tasks_queue.put(task)
 
     def _get_pdf_info(self, file_id):
@@ -362,32 +364,31 @@ class TaskManager(object):
         with open(info_file, 'r') as fp:
             return json.load(fp)
 
-    def query_task_status_excel(self, file_id, shared_by):
+    def query_task_status_excel(self, file_id, convert_tmp_filename):
         ret = {}
         with self._tasks_map_lock:
-            if file_id in self._tasks_map:
-                task = self._tasks_map[file_id]
+            if convert_tmp_filename in self._tasks_map:
+                task = self._tasks_map[convert_tmp_filename]
                 if task.status == 'ERROR':
                     ret['status'] = 'ERROR'
                     ret['error'] = task.error
                 elif task.status in ('QUEUED', 'PROCESSING'):
                     ret['status'] = task.status
                 else:
-                    if self._task_file_exists(file_id, 'xls', shared_by):
+                    if self._task_file_exists(file_id, 'xls'):
                         ret['status'] = 'DONE'
                     else:
                         ret['status'] = 'ERROR'
                         ret['error'] = 'invalid file id'
         return ret
 
-    def query_task_status(self, file_id, page, shared_by=''):
-        task_key = str(file_id) + shared_by
+    def query_task_status(self, file_id, page, convert_tmp_filename=''):
         if page == 0:
-            return self.query_task_status_excel(file_id, shared_by)
+            return self.query_task_status_excel(file_id, convert_tmp_filename)
         ret = {}
         with self._tasks_map_lock:
-            if task_key in self._tasks_map:
-                task = self._tasks_map[task_key]
+            if convert_tmp_filename in self._tasks_map:
+                task = self._tasks_map[convert_tmp_filename]
                 if task.status == 'ERROR':
                     ret['status'] = 'ERROR'
                     ret['error'] = task.error
@@ -396,7 +397,7 @@ class TaskManager(object):
                     ret['info'] = task.pdf_info
                     ret['info']['processed_pages'] = task.last_processed_page
             else:
-                if self._task_file_exists(file_id, shared_by):
+                if self._task_file_exists(convert_tmp_filename):
                     ret['status'] = 'DONE'
                     ret['info'] = self._get_pdf_info(file_id)
                     ret['info']['processed_pages'] = ret['info']['final_pages']
