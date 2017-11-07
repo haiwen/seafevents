@@ -15,7 +15,7 @@ class FileOpsStat(Base):
     __tablename__ = 'FileOpsStat'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, nullable=False)
+    timestamp = Column(DateTime, nullable=False, index=True)
     op_type = Column(String(length=16), nullable=False)
     number = Column(Integer, nullable=False)
     

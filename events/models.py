@@ -58,7 +58,7 @@ class FileAudit(Base):
     __tablename__ = 'FileAudit'
 
     eid = Column(Integer, Sequence('file_audit_eid_seq'), primary_key=True)
-    timestamp = Column(DateTime, nullable=False)
+    timestamp = Column(DateTime, nullable=False, index=True)
     etype = Column(String(length=128), nullable=False)
     user = Column(String(length=255), nullable=False)
     ip = Column(String(length=45), nullable=False)
