@@ -15,7 +15,7 @@ class Event(Base):
 
     uuid = Column(String(length=36), primary_key=True)
     etype = Column(String(length=128), nullable=False)
-    timestamp = Column(DateTime, nullable=False)
+    timestamp = Column(DateTime, nullable=False, index=True)
 
     # Json format detail for this event
     detail = Column(Text, nullable=False)
