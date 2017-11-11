@@ -3,7 +3,7 @@ import Queue
 import logging
 
 from seafevents.db import init_db_session_class
-from seafevents.message_handler import message_handler
+from seafevents.app.message_handler import message_handler
 
 __all__ = [
     'EventsMQListener',
