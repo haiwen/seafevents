@@ -119,7 +119,7 @@ def UserLoginEventHandler(session, msg, ali_mq=None):
     #agent = elements[3]
     _timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
 
-    update_user_last_login_info(session, username, _timestamp)
+    #update_user_last_login_info(session, username, _timestamp)
 
 def register_handlers(handlers):
     handlers.add_handler('seaf_server.event:put-block', PutBlockEventHandler)
