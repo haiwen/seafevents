@@ -30,7 +30,7 @@ class App(object):
 
         self._events_listener = None
         if self._events_listener_enabled:
-            self._events_listener = EventsListener(args.config_file)
+            self._events_listener = EventsMQListener(self._args.config_file)
 
         if appconfig.publish_enabled:
             events_publisher.init()
@@ -43,7 +43,6 @@ class App(object):
         self._sync_client = None
 
         self._evbase = libevent.Base() #pylint: disable=E1101
-        self._mq_listener = EventsMQListener(self._args.config_file)
         self._sighandler = SignalHandler(self._evbase)
 
     def load_config(self, appconfig, config_file):
@@ -85,7 +84,13 @@ class App(object):
         self.start_ccnet_session()
 
         if self._events_listener:
-            self._events_listener.on_ccnet_connected(self._ccnet_session, self._sync_client)
+            try:
+                self._sync_client.register_service_sync('seafevents-events-dummy-service', 'rpc-inner')
+            except:
+                logging.exception('Another instance is already running')
+                do_exit(1)
+            self._events_listener.start(self._ccnet_session)
+
         if self._bg_tasks:
             self._bg_tasks.on_ccnet_connected(self._ccnet_session, self._sync_client)
 
@@ -108,32 +113,8 @@ class App(object):
         if self._bg_tasks:
             self._bg_tasks.start(self._evbase)
 
-        if self._events_listener:
-            self._events_listener.start(self._evbase)
-
         while True:
             self._serve()
-
-class EventsListener(object):
-    DUMMY_SERVICE = 'seafevents-events-dummy-service'
-    DUMMY_SERVICE_GROUP = 'rpc-inner'
-
-    def __init__(self, config_file):
-        self._mq_listener = EventsMQListener(config_file)
-
-    def _ensure_single_instance(self, sync_client):
-        try:
-            sync_client.register_service_sync(self.DUMMY_SERVICE, self.DUMMY_SERVICE_GROUP)
-        except:
-            logging.exception('Another instance is already running')
-            do_exit(1)
-
-    def on_ccnet_connected(self, async_client, sync_client):
-        self._ensure_single_instance(sync_client)
-        self._mq_listener.start(async_client)
-
-    def start(self, base):
-        pass
 
 
 class BackgroundTasks(object):

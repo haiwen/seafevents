@@ -10,7 +10,7 @@ from seafevents import is_audit_enabled
 from seafevents.utils import write_pidfile
 from seafevents.app.log import LogConfigurator
 from seafevents.app.app import App, get_config
-from seafevents.app.message_handler import init_message_handlers
+from seafevents.app.mq_listener import init_message_handlers
 
 
 class AppArgParser(object):
