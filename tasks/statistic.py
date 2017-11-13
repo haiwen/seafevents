@@ -1,21 +1,19 @@
 #coding: utf-8
 
-import logging
 from threading import Thread, Event
 from seafevents.statistic import Settings
 from seafevents.statistic import TotalStorageCounter, FileOpsCounter
 
-class DataCounter(object):
+class Statistics(object):
     def __init__(self, config_file):
         self.settings = Settings(config_file)
 
     def is_enabled(self):
-        return self.settings.enable_count
+        return self.settings.statistics_enabled
 
     def start(self):
-        if self.settings.enable_storage_count:
+        if self.settings.statistics_enabled:
             CountTotalStorage(self.settings).start()
-        if self.settings.enable_audit_count:
             CountFileOps(self.settings).start()
 
 class CountTotalStorage(Thread):
