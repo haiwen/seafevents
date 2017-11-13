@@ -34,14 +34,15 @@ class EventsMQListener(object):
         self._mq_client.set_callback(self.message_cb)
         mqs = message_handler.get_mqs()
         self._mq_client.start(*mqs)
-        logging.info('listen to mq: %s', mqs)
+        logging.info('listen to mq: %s' % mqs)
 
     def message_cb(self, message):
+        logging.info('Lenth of events_queue: %d' % self._events_queue.qsize())
         self._events_queue.put(message)
 
     def _start_worker_thread(self):
         '''Starts the worker thread for saving events'''
-        nthreads = 3
+        nthreads = 6
         for i in xrange(nthreads):
             if self.config.has_section('Aliyun MQ'):
                 ali_mq = AliMQProducer(self.config)
