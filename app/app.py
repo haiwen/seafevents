@@ -12,7 +12,7 @@ from seafevents.app.mq_listener import EventsMQListener
 from seafevents.events_publisher.events_publisher import events_publisher
 from seafevents.utils.config import get_office_converter_conf
 from seafevents.utils import do_exit, ClientConnector, has_office_tools
-from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer, VirusScanner, DataCounter
+from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer, VirusScanner, Statistics
 from seafevents.utils import config_get_string, config_get_boolean
 
 if has_office_tools():
@@ -128,7 +128,7 @@ class BackgroundTasks(object):
         self._seahub_email_sender = SeahubEmailSender(self._app_config)
         self._ldap_syncer = LdapSyncer()
         self._virus_scanner = VirusScanner(os.environ['EVENTS_CONFIG_FILE'])
-        self._datacounter = DataCounter(os.environ['EVENTS_CONFIG_FILE'])
+        self._statistics = Statistics(os.environ['EVENTS_CONFIG_FILE'])
 
         self._office_converter = None
         if has_office_tools():
@@ -168,8 +168,8 @@ class BackgroundTasks(object):
         else:
             logging.info('virus scan is disabled')
 
-        if self._datacounter.is_enabled():
-            self._datacounter.start()
+        if self._statistics.is_enabled():
+            self._statistics.start()
         else:
             logging.info('data statistic is disabled')
 

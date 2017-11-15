@@ -13,3 +13,5 @@ path = seafevents.db
 interval=5m
 seafesdir=/data/github/seafes/
 
+[STATISTICS]
+enabled = true

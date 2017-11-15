@@ -8,10 +8,7 @@ from seafevents.utils.config import get_opt_from_conf_or_env, parse_bool
 
 class Settings(object):
     def __init__(self, config_file):
-        self.enable_count = False
-        self.enable_storage_count = True
-        self.enable_activity_count = True
-        self.enable_audit_count = True
+        self.statistics_enabled = False
 
         self.session_cls = None
 
@@ -29,17 +26,8 @@ class Settings(object):
 
         cfg = ConfigParser()
         cfg.read(config_file)
-        if cfg.has_option('data_count', 'enable_count'):
-            self.enable_count = cfg.get('data_count', 'enable_count')
-
-        if cfg.has_option('data_count', 'enable_storage_count'):
-            self.enable_storage_count = cfg.get('data_count', 'enable_storage_count')
-
-        if cfg.has_option('data_count', 'enable_activity_count'):
-            self.enable_activity_count = cfg.get('data_count', 'enable_activity_count')
-
-        if cfg.has_option('data_count', 'enable_audit_count'):
-            self.enable_audit_count = cfg.get('data_count', 'enable_audit_count')
+        if cfg.has_option('STATISTICS', 'enabled'):
+            self.statistics_enabled = cfg.get('STATISTICS', 'enabled')
 
     def init_seafile_db(self):
         try:
