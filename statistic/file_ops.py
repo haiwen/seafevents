@@ -54,7 +54,7 @@ class FileOpsCounter(object):
                                        FileAudit.timestamp.between(
                                        s_timestamp, e_timestamp))
         except Exception as e:
-            ogging.warning('query error : %s.', e)
+            logging.warning('query error : %s.', e)
 
         visited = q.first()[0]
         
