@@ -172,18 +172,14 @@ class ClientConnector(object):
 
         return self._client
 
-def config_get_string(config_mgr, section, key):
-    try:
-        return config_mgr.get(section, key)
-    except ConfigParser.NoOptionError:
-        return ''
-    except ConfigParser.NoSectionError:
-        return ''
-
-def config_get_boolean(config_mgr, section, key):
-    try:
-        return config_mgr.getboolean(section, key)
-    except ConfigParser.NoOptionError:
-        return False
-    except ConfigParser.NoSectionError:
-        return False
+def retry(func):
+    """ retry the function in the class
+    """
+    def decorator(instance):
+        try:
+            return func(instance)
+        except Exception as e:
+            logging.info(e)
+        finally:
+            return func(instance)
+    return decorator

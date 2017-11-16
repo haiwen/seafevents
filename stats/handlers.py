@@ -7,7 +7,7 @@ import logging.handlers
 from datetime import datetime
 from seaserv import get_repo_owner
 from .db import update_block_download_traffic, update_file_view_traffic, \
-    update_file_download_traffic, update_dir_download_traffic, update_user_last_login_info
+    update_file_download_traffic, update_dir_download_traffic, update_hash_record
 
 LOG_ACCESS_INFO = False
 
@@ -119,7 +119,7 @@ def UserLoginEventHandler(session, msg):
     #agent = elements[3]
     _timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
 
-    update_user_last_login_info(session, username, _timestamp)
+    update_hash_record(session, username, _timestamp)
 
 def register_handlers(handlers):
     handlers.add_handler('seaf_server.event:put-block', PutBlockEventHandler)

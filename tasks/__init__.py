@@ -4,3 +4,4 @@ from .seahub_email_sender import SeahubEmailSender
 from .ldap_syncer import LdapSyncer
 from .virus_scanner import VirusScanner
 from .statistic import Statistics
+from .timer import TimerTasks

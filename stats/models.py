@@ -40,7 +40,7 @@ file download: %s, dir download: %s>''' % (self.email, self.month, self.block_do
 class UserActivityStat(Base):
     __tablename__ = 'UserActivityStat'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    name_time_md5 = Column(String(length=32), primary_key=True)
     username = Column(String(length=255))
     timestamp = Column(DateTime, nullable=False)
 

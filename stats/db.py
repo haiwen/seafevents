@@ -1,18 +1,16 @@
-import os
-import ConfigParser
+import hashlib
 import logging
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy import desc
 from sqlalchemy import func
 from sqlalchemy import distinct
 from datetime import datetime
 
-from .models import Base, UserTrafficStat, UserActivityStat
+from .models import UserTrafficStat, UserActivityStat
 from seafevents.statistic import FileOpsStat, TotalStorageStat
 
 logger = logging.getLogger(__name__)
+login_records = {}
 
 def update_block_download_traffic(session, email, size):
     update_traffic_common(session, email, size, UserTrafficStat.block_download, 'block_download')
@@ -42,17 +40,12 @@ def update_traffic_common(session, email, size, type, name):
 
     session.commit()
 
-def update_user_last_login_info(session, login_name, login_time):
-    time_str = login_time.strftime('%Y-%m-%d %H:00:00')
-    time_by_hour = datetime.strptime(time_str,'%Y-%m-%d %H:%M:%S')
-    q = session.query(UserActivityStat).filter_by(username = login_name,
-                                                timestamp = time_by_hour)
-    r = q.first()
-    if not r:
-        stat = UserActivityStat(login_name, time_by_hour)
-        session.add(stat)
-
-    session.commit()
+def update_hash_record(session, login_name, login_time):
+    time_str = login_time.strftime('%Y-%m-%d %H:%M:%S')
+    time_by_day = datetime.strptime(time_str,'%Y-%m-%d %H:%M:%S')
+    time_for_key = login_time.strftime('%Y-%m-%d 01:01:01')
+    md5_key = hashlib.md5((login_name + time_for_key).encode('utf-8')).hexdigest()
+    login_records[md5_key] = (login_name, time_by_day)
 
 def get_user_traffic_stat(session, email, month=None):
     '''Return the total traffic of a user in the given month. If month is not
@@ -157,7 +150,6 @@ def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
     '''
 
     last_date = None
-    last_num = 0
     res = []
     for ret in rets:
         cur_time = ret[0]
