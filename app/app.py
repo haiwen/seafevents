@@ -19,7 +19,7 @@ from seafevents.app.signal_handler import SignalHandler
 from seafevents.app.mq_listener import EventsMQListener
 from seafevents.events_publisher.events_publisher import events_publisher
 from seafevents.utils.config import get_office_converter_conf
-from seafevents.utils import do_exit, ClientConnector, has_office_tools, retry
+from seafevents.utils import do_exit, ClientConnector, has_office_tools
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, TimerTasks
 
@@ -38,6 +38,7 @@ class App(object):
         self._bg_tasks_enabled = background_tasks_enabled
         try:
             self.load_config(appconfig, args.config_file)
+            self.init_engine(appconfig)
         except Exception as e:
             logging.error('Error loading seafevents config. Detial: %s' % e)
             raise RuntimeError("Error loading seafevents config")
@@ -49,8 +50,6 @@ class App(object):
         if appconfig.publish_enabled:
             events_publisher.init()
 
-        self.prepare_statistic()
-
         self._bg_tasks = None
         if self._bg_tasks_enabled:
             self._bg_tasks = BackgroundTasks(args.config_file)
@@ -61,16 +60,15 @@ class App(object):
         self._evbase = libevent.Base() #pylint: disable=E1101
         self._sighandler = SignalHandler(self._evbase)
 
-    @retry
-    def prepare_statistic(self):
-        if appconfig.engine == 'mysql':
-            self.init_statistic_engine(appconfig)
-            self.timer_task = TimerTasks()
 
     def load_config(self, appconfig, config_file):
         config = ConfigParser.ConfigParser()
         config.read(config_file)
-        appconfig.publish_enabled = config.getboolean('EVENTS PUBLISH', 'enabled')
+        appconfig.publish_enabled = False
+        try:
+            appconfig.publish_enabled = config.getboolean('EVENTS PUBLISH', 'enabled')
+        except:
+            pass
         if appconfig.publish_enabled:
             appconfig.publish_mq_type = config.get('EVENTS PUBLISH', 'mq_type').upper()
             if appconfig.publish_mq_type != 'REDIS':
@@ -83,7 +81,11 @@ class App(object):
             appconfig.publish_mq_password = config.get(appconfig.publish_mq_type,
                                                        'password')
 
-        appconfig.engine = config.get('DATABASE', 'type')
+        appconfig.engine = ''
+        try:
+            appconfig.engine = config.get('DATABASE', 'type')
+        except:
+            pass
         if appconfig.engine == 'mysql':
             if config.has_option('DATABASE', 'host'):
                 host = config.get('DATABASE', 'host').lower()
@@ -101,7 +103,7 @@ class App(object):
         else:
             logging.info('Seafile does not use mysql db, disable statistics.')
 
-    def init_statistic_engine(self, appconfig):
+    def init_engine(self, appconfig):
         kwargs = dict(pool_recycle=300, echo=False, echo_pool=False)
 
         engine = create_engine(appconfig.db_url, **kwargs)
@@ -161,9 +163,6 @@ class App(object):
     def serve_forever(self):
         self.connect_ccnet()
 
-        if appconfig.engine == 'mysql':
-            self.timer_task.run()
-
         if self._bg_tasks:
             self._bg_tasks.start(self._evbase)
 
@@ -188,6 +187,9 @@ class BackgroundTasks(object):
         if has_office_tools():
             self._office_converter = OfficeConverter(get_office_converter_conf(self._app_config))
 
+        if appconfig.engine == 'mysql':
+            self.timer_task = TimerTasks()
+
     def _ensure_single_instance(self, sync_client):
         try:
             sync_client.register_service_sync(self.DUMMY_SERVICE, self.DUMMY_SERVICE_GROUP)
@@ -206,6 +208,9 @@ class BackgroundTasks(object):
             self._index_updater.start(base)
         else:
             logging.info('search indexer is disabled')
+
+        if appconfig.engine == 'mysql':
+            self.timer_task.run()
 
         if self._seahub_email_sender.is_enabled():
             self._seahub_email_sender.start(base)
