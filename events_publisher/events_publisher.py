@@ -1,4 +1,3 @@
-import redis
 import logging
 
 from seafevents.app.config import appconfig
@@ -7,6 +6,7 @@ logger = logging.getLogger(__name__)
 
 class EventsPublisher(object):
     def init(self):
+        import redis
         if appconfig.publish_mq_type == 'REDIS':
             self.mq = redis.Redis(host=appconfig.publish_mq_server,
                                   port=appconfig.publish_mq_port,
