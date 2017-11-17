@@ -79,29 +79,6 @@ def get_user_traffic_list(session, month, start, limit):
         ret = [ row.as_dict() for row in rows ]
         return ret
 
-def get_user_activity_stats(session, start, end, offset='+00:00'):
-    '''
-    type of 'start' and 'end': datetime.datetime
-    string 'offset' format: '+08:00'
-
-    convert local to utc: func.convert_tz(time, offset, '+00:00')
-    convert utc to local: func.convert_tz(time, '+00:00', offset)
-    '''
-
-    q = session.query(func.convert_tz(UserActivityStat.timestamp, '+00:00', offset).label("timestamp"),
-                      func.count(distinct(UserActivityStat.username)).label("number")).filter(
-                      UserActivityStat.timestamp.between(
-                      func.convert_tz(start, offset, '+00:00'),
-                      func.convert_tz(end, offset, '+00:00'))).group_by(
-                      func.convert_tz(UserActivityStat.timestamp, '+00:00', offset)).order_by("timestamp")
-
-    rows = q.all()
-    ret = []
-
-    for row in rows:
-        ret.append((row.timestamp, row.number))
-    return ret
-
 def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
@@ -121,7 +98,7 @@ def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
         ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.number))
     return ret
 
-def get_total_storage_stats(session, start, end, offset='+00:00'):
+def _get_total_storage_stats(session, start, end, offset='+00:00'):
     q = session.query(func.convert_tz(TotalStorageStat.timestamp, '+00:00', offset).label("timestamp"),
                       TotalStorageStat.total_size).filter(
                       TotalStorageStat.timestamp.between(
@@ -141,7 +118,7 @@ def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
     start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
 
-    rets = get_total_storage_stats (session, start_at_0, end_at_23, offset)
+    rets = _get_total_storage_stats (session, start_at_0, end_at_23, offset)
     rets.reverse()
 
     '''
