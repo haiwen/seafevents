@@ -21,7 +21,7 @@ from seafevents.events_publisher.events_publisher import events_publisher
 from seafevents.utils.config import get_office_converter_conf
 from seafevents.utils import do_exit, ClientConnector, has_office_tools
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
-        VirusScanner, Statistics, TimerTasks
+        VirusScanner, Statistics, UpdateLoginRecordTask
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
@@ -188,7 +188,7 @@ class BackgroundTasks(object):
             self._office_converter = OfficeConverter(get_office_converter_conf(self._app_config))
 
         if appconfig.engine == 'mysql':
-            self.timer_task = TimerTasks()
+            self.update_login_record_task = UpdateLoginRecordTask()
 
     def _ensure_single_instance(self, sync_client):
         try:
@@ -210,7 +210,7 @@ class BackgroundTasks(object):
             logging.info('search indexer is disabled')
 
         if appconfig.engine == 'mysql':
-            self.timer_task.run()
+            self.update_login_record_task.start()
 
         if self._seahub_email_sender.is_enabled():
             self._seahub_email_sender.start(base)

@@ -171,15 +171,3 @@ class ClientConnector(object):
                 time.sleep(self.RECONNECT_CCNET_INTERVAL)
 
         return self._client
-
-def retry(func):
-    """ retry the function in the class
-    """
-    def decorator(instance):
-        try:
-            return func(instance)
-        except Exception as e:
-            logging.info(e)
-        finally:
-            return func(instance)
-    return decorator

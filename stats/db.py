@@ -41,10 +41,9 @@ def update_traffic_common(session, email, size, type, name):
     session.commit()
 
 def update_hash_record(session, login_name, login_time):
-    time_str = login_time.strftime('%Y-%m-%d %H:%M:%S')
+    time_str = login_time.strftime('%Y-%m-%d 01:01:01')
     time_by_day = datetime.strptime(time_str,'%Y-%m-%d %H:%M:%S')
-    time_for_key = login_time.strftime('%Y-%m-%d 01:01:01')
-    md5_key = hashlib.md5((login_name + time_for_key).encode('utf-8')).hexdigest()
+    md5_key = hashlib.md5((login_name + time_str).encode('utf-8')).hexdigest()
     login_records[md5_key] = (login_name, time_by_day)
 
 def get_user_traffic_stat(session, email, month=None):

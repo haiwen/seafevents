@@ -42,7 +42,7 @@ class UserActivityStat(Base):
 
     name_time_md5 = Column(String(length=32), primary_key=True)
     username = Column(String(length=255))
-    timestamp = Column(DateTime, nullable=False)
+    timestamp = Column(DateTime, nullable=False, index=True)
 
     def __init__(self, username, timestamp):
         self.username = username
