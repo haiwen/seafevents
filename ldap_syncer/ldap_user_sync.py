@@ -419,6 +419,7 @@ class LdapUserSync(LdapSync):
             self.add_dept(email, ldap_user.dept)
 
     def sync_update_user(self, ldap_user, db_user, email):
+        '''
         set_status = False
         if db_user.is_active == 0:
             set_status = True
@@ -431,7 +432,7 @@ class LdapUserSync(LdapSync):
             else:
                 logging.debug('Update user [%s] success.' % email)
                 self.uuser += 1
-
+        '''
         ret = 0
         if ldap_user.role:
             role = role_mapping(ldap_user.role)
