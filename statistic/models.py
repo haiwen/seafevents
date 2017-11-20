@@ -16,7 +16,7 @@ class FileOpsStat(Base):
     __tablename__ = 'FileOpsStat'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, nullable=False)
+    timestamp = Column(DateTime, nullable=False, index=True)
     op_type = Column(String(length=16), nullable=False)
     number = Column(Integer, nullable=False)
     
@@ -29,7 +29,7 @@ class UserTrafficStat(Base):
     __tablename__ = 'UserTrafficStat'
 
     email = Column(String(length=255), primary_key=True)
-    month = Column(String(length=6), primary_key=True)
+    month = Column(String(length=6), primary_key=True, index=True)
 
     block_download = Column(BigInteger, nullable=False)
     file_view = Column(BigInteger, nullable=False)
