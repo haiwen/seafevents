@@ -140,20 +140,6 @@ def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
     res.reverse()
     return res
 
-def get_file_ops_stats(session, start, end, offset='+00:00'):
-    q = session.query(func.convert_tz(FileOpsStat.timestamp, '+00:00', offset).label("timestamp"),
-                      FileOpsStat.op_type, FileOpsStat.number).filter(
-                      FileOpsStat.timestamp.between(
-                      func.convert_tz(start, offset, '+00:00'),
-                      func.convert_tz(end, offset, '+00:00'))).order_by("timestamp")
-
-    rows = q.all()
-    ret = []
-
-    for row in rows:
-        ret.append((row.timestamp, row.op_type, row.number))
-    return ret
-
 def get_file_ops_stats_by_day(session, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
@@ -174,4 +160,3 @@ def get_file_ops_stats_by_day(session, start, end, offset='+00:00'):
     for row in rows:
         ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.number)))
     return ret
-
