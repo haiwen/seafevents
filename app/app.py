@@ -3,20 +3,30 @@ import libevent
 import ConfigParser
 import logging
 
+from urllib import quote_plus
+from sqlalchemy import create_engine
+from sqlalchemy.pool import Pool
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.event import contains as has_event_listener, listen as add_event_listener
+
 import ccnet
 from ccnet.async import AsyncClient
 
+from seafevents.db import ping_connection
 from seafevents.app.config import appconfig
 from seafevents.app.signal_handler import SignalHandler
 from seafevents.app.mq_listener import EventsMQListener
 from seafevents.events_publisher.events_publisher import events_publisher
 from seafevents.utils.config import get_office_converter_conf
 from seafevents.utils import do_exit, ClientConnector, has_office_tools
-from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer, VirusScanner, Statistics
-from seafevents.utils import config_get_string, config_get_boolean
+from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
+        VirusScanner, Statistics, UpdateLoginRecordTask
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
+
+Base = declarative_base()
 
 
 class App(object):
@@ -26,7 +36,12 @@ class App(object):
         self._args = args
         self._events_listener_enabled = events_listener_enabled
         self._bg_tasks_enabled = background_tasks_enabled
-        self.load_config(appconfig, args.config_file)
+        try:
+            self.load_config(appconfig, args.config_file)
+            self.init_engine(appconfig)
+        except Exception as e:
+            logging.error('Error loading seafevents config. Detial: %s' % e)
+            raise RuntimeError("Error loading seafevents config")
 
         self._events_listener = None
         if self._events_listener_enabled:
@@ -45,28 +60,66 @@ class App(object):
         self._evbase = libevent.Base() #pylint: disable=E1101
         self._sighandler = SignalHandler(self._evbase)
 
+
     def load_config(self, appconfig, config_file):
         config = ConfigParser.ConfigParser()
         config.read(config_file)
-        appconfig.publish_enabled = config_get_boolean(config, 'EVENTS PUBLISH', 'enabled')
+        appconfig.publish_enabled = False
+        try:
+            appconfig.publish_enabled = config.getboolean('EVENTS PUBLISH', 'enabled')
+        except:
+            pass
         if appconfig.publish_enabled:
-            appconfig.publish_mq_type = config_get_string(config, 'EVENTS PUBLISH', 'mq_type').upper()
+            appconfig.publish_mq_type = config.get('EVENTS PUBLISH', 'mq_type').upper()
             if appconfig.publish_mq_type != 'REDIS':
                 raise RuntimeError("Unknown database backend: %s" % self.config['publish_mq_type'])
 
-            appconfig.publish_mq_server = config_get_string(config,
-                                                           appconfig.publish_mq_type,
-                                                           'server')
-            appconfig.publish_mq_port = config_get_string(config,
-                                                         appconfig.publish_mq_type,
-                                                         'port')
-            appconfig.publish_mq_password = config_get_string(config,
-                                                             appconfig.publish_mq_type,
-                                                             'password')
+            appconfig.publish_mq_server = config.get(appconfig.publish_mq_type,
+                                                     'server')
+            appconfig.publish_mq_port = config.getint(appconfig.publish_mq_type,
+                                                      'port')
+            appconfig.publish_mq_password = config.get(appconfig.publish_mq_type,
+                                                       'password')
 
-            if not appconfig.publish_mq_server or not appconfig.publish_mq_port:
-                raise RuntimeError("Server address and port can't be empty.")
+        appconfig.engine = ''
+        try:
+            appconfig.engine = config.get('DATABASE', 'type')
+        except:
+            pass
+        if appconfig.engine == 'mysql':
+            if config.has_option('DATABASE', 'host'):
+                host = config.get('DATABASE', 'host').lower()
+            else:
+                host = 'localhost'
+    
+            if config.has_option('DATABASE', 'port'):
+                port = config.getint('DATABASE', 'port')
+            else:
+                port = 3306
+            username = config.get('DATABASE', 'username')
+            passwd = config.get('DATABASE', 'password')
+            dbname = config.get('DATABASE', 'name')
+            appconfig.db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
+        else:
+            logging.info('Seafile does not use mysql db, disable statistics.')
 
+    def init_engine(self, appconfig):
+        kwargs = dict(pool_recycle=300, echo=False, echo_pool=False)
+
+        engine = create_engine(appconfig.db_url, **kwargs)
+        # retry when connection was unstable
+        try:
+            Base.metadata.create_all(engine)
+        except Exception as e:
+            logging.info(e)
+            Base.metadata.create_all(engine)
+
+        if not has_event_listener(Pool, 'checkout', ping_connection):
+            # We use has_event_listener to double check in case we call create_engine
+            # multipe times in the same process.
+            add_event_listener(Pool, 'checkout', ping_connection)
+        appconfig.statistic_engine = engine
+        appconfig.statistic_session = sessionmaker(bind=engine)
 
     def start_ccnet_session(self):
         '''Connect to ccnet-server, retry util connection is made'''
@@ -134,6 +187,9 @@ class BackgroundTasks(object):
         if has_office_tools():
             self._office_converter = OfficeConverter(get_office_converter_conf(self._app_config))
 
+        if appconfig.engine == 'mysql':
+            self.update_login_record_task = UpdateLoginRecordTask()
+
     def _ensure_single_instance(self, sync_client):
         try:
             sync_client.register_service_sync(self.DUMMY_SERVICE, self.DUMMY_SERVICE_GROUP)
@@ -152,6 +208,9 @@ class BackgroundTasks(object):
             self._index_updater.start(base)
         else:
             logging.info('search indexer is disabled')
+
+        if appconfig.engine == 'mysql':
+            self.update_login_record_task.start()
 
         if self._seahub_email_sender.is_enabled():
             self._seahub_email_sender.start(base)

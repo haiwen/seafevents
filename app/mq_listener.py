@@ -4,7 +4,7 @@ import logging
 
 import seafevents.events.handlers as events_handlers
 import seafevents.events_publisher.handlers as publisher_handlers
-import seafevents.stats.handlers as stats_handlers
+import seafevents.statistic.handlers as stats_handlers
 from seafevents.db import init_db_session_class
 
 logger = logging.getLogger(__name__)

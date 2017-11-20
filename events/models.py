@@ -100,7 +100,7 @@ class FileUpdate(Base):
     __tablename__ = 'FileUpdate'
 
     eid = Column(Integer, Sequence('file_update_eid_seq'), primary_key=True)
-    timestamp = Column(DateTime, nullable=False)
+    timestamp = Column(DateTime, nullable=False, index=True)
     user = Column(String(length=255), nullable=False)
     org_id = Column(Integer, nullable=False)
     repo_id = Column(String(length=36), nullable=False)

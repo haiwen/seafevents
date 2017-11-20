@@ -1,18 +1,16 @@
-import os
-import ConfigParser
+import hashlib
 import logging
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy import desc
 from sqlalchemy import func
 from sqlalchemy import distinct
 from datetime import datetime
 
-from .models import Base, UserTrafficStat, UserActivityStat
 from seafevents.statistic import FileOpsStat, TotalStorageStat
+from seafevents.statistic.models import UserTrafficStat, UserActivityStat
 
 logger = logging.getLogger(__name__)
+login_records = {}
 
 def update_block_download_traffic(session, email, size):
     update_traffic_common(session, email, size, UserTrafficStat.block_download, 'block_download')
@@ -42,17 +40,11 @@ def update_traffic_common(session, email, size, type, name):
 
     session.commit()
 
-def update_user_last_login_info(session, login_name, login_time):
-    time_str = login_time.strftime('%Y-%m-%d %H:00:00')
-    time_by_hour = datetime.strptime(time_str,'%Y-%m-%d %H:%M:%S')
-    q = session.query(UserActivityStat).filter_by(username = login_name,
-                                                timestamp = time_by_hour)
-    r = q.first()
-    if not r:
-        stat = UserActivityStat(login_name, time_by_hour)
-        session.add(stat)
-
-    session.commit()
+def update_hash_record(session, login_name, login_time):
+    time_str = login_time.strftime('%Y-%m-%d 01:01:01')
+    time_by_day = datetime.strptime(time_str,'%Y-%m-%d %H:%M:%S')
+    md5_key = hashlib.md5((login_name + time_str).encode('utf-8')).hexdigest()
+    login_records[md5_key] = (login_name, time_by_day)
 
 def get_user_traffic_stat(session, email, month=None):
     '''Return the total traffic of a user in the given month. If month is not
@@ -86,29 +78,6 @@ def get_user_traffic_list(session, month, start, limit):
         ret = [ row.as_dict() for row in rows ]
         return ret
 
-def get_user_activity_stats(session, start, end, offset='+00:00'):
-    '''
-    type of 'start' and 'end': datetime.datetime
-    string 'offset' format: '+08:00'
-
-    convert local to utc: func.convert_tz(time, offset, '+00:00')
-    convert utc to local: func.convert_tz(time, '+00:00', offset)
-    '''
-
-    q = session.query(func.convert_tz(UserActivityStat.timestamp, '+00:00', offset).label("timestamp"),
-                      func.count(distinct(UserActivityStat.username)).label("number")).filter(
-                      UserActivityStat.timestamp.between(
-                      func.convert_tz(start, offset, '+00:00'),
-                      func.convert_tz(end, offset, '+00:00'))).group_by(
-                      func.convert_tz(UserActivityStat.timestamp, '+00:00', offset)).order_by("timestamp")
-
-    rows = q.all()
-    ret = []
-
-    for row in rows:
-        ret.append((row.timestamp, row.number))
-    return ret
-
 def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
@@ -128,7 +97,7 @@ def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
         ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.number))
     return ret
 
-def get_total_storage_stats(session, start, end, offset='+00:00'):
+def _get_total_storage_stats(session, start, end, offset='+00:00'):
     q = session.query(func.convert_tz(TotalStorageStat.timestamp, '+00:00', offset).label("timestamp"),
                       TotalStorageStat.total_size).filter(
                       TotalStorageStat.timestamp.between(
@@ -148,7 +117,7 @@ def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
     start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
 
-    rets = get_total_storage_stats (session, start_at_0, end_at_23, offset)
+    rets = _get_total_storage_stats (session, start_at_0, end_at_23, offset)
     rets.reverse()
 
     '''
@@ -157,7 +126,6 @@ def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
     '''
 
     last_date = None
-    last_num = 0
     res = []
     for ret in rets:
         cur_time = ret[0]
@@ -171,20 +139,6 @@ def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
 
     res.reverse()
     return res
-
-def get_file_ops_stats(session, start, end, offset='+00:00'):
-    q = session.query(func.convert_tz(FileOpsStat.timestamp, '+00:00', offset).label("timestamp"),
-                      FileOpsStat.op_type, FileOpsStat.number).filter(
-                      FileOpsStat.timestamp.between(
-                      func.convert_tz(start, offset, '+00:00'),
-                      func.convert_tz(end, offset, '+00:00'))).order_by("timestamp")
-
-    rows = q.all()
-    ret = []
-
-    for row in rows:
-        ret.append((row.timestamp, row.op_type, row.number))
-    return ret
 
 def get_file_ops_stats_by_day(session, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
@@ -206,4 +160,3 @@ def get_file_ops_stats_by_day(session, start, end, offset='+00:00'):
     for row in rows:
         ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.number)))
     return ret
-

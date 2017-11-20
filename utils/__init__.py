@@ -171,19 +171,3 @@ class ClientConnector(object):
                 time.sleep(self.RECONNECT_CCNET_INTERVAL)
 
         return self._client
-
-def config_get_string(config_mgr, section, key):
-    try:
-        return config_mgr.get(section, key)
-    except ConfigParser.NoOptionError:
-        return ''
-    except ConfigParser.NoSectionError:
-        return ''
-
-def config_get_boolean(config_mgr, section, key):
-    try:
-        return config_mgr.getboolean(section, key)
-    except ConfigParser.NoOptionError:
-        return False
-    except ConfigParser.NoSectionError:
-        return False
