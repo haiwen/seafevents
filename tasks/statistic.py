@@ -8,7 +8,7 @@ from sqlalchemy.orm.scoping import scoped_session
 from threading import Thread, Event
 from seafevents.statistic import Settings
 from seafevents.statistic import TotalStorageCounter, FileOpsCounter
-from seafevents.stats.db import login_records
+from seafevents.statistic.db import login_records
 from seafevents.app.config import appconfig
 
 
