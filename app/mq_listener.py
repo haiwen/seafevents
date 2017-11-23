@@ -101,6 +101,15 @@ class EventsMQListener(object):
     def _start_worker_thread(self):
         '''Starts the worker thread for saving events'''
         nthreads = 6
+        try:
+            nthreads = self.config.getint('DEFAULT', 'mq_worker')
+        except Exception as e:
+            logging.error(e)
+            pass
+        if nthreads < 0:
+            logging.info("mq_worker can't less than 0")
+            nthreads = 6
+
         for i in xrange(nthreads):
             if self.config.has_section('Aliyun MQ'):
                 ali_mq = AliMQProducer(self.config)
