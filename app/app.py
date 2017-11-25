@@ -68,6 +68,7 @@ class App(object):
         try:
             appconfig.publish_enabled = config.getboolean('EVENTS PUBLISH', 'enabled')
         except:
+            # prevent hasn't EVENTS PUBLISH section.
             pass
         if appconfig.publish_enabled:
             appconfig.publish_mq_type = config.get('EVENTS PUBLISH', 'mq_type').upper()
@@ -78,8 +79,11 @@ class App(object):
                                                      'server')
             appconfig.publish_mq_port = config.getint(appconfig.publish_mq_type,
                                                       'port')
-            appconfig.publish_mq_password = config.get(appconfig.publish_mq_type,
-                                                       'password')
+            # prevent needn't password
+            appconfig.publish_mq_password = ""
+            if config.has_option(appconfig.publish_mq_type, 'password'):
+                appconfig.publish_mq_password = config.get(appconfig.publish_mq_type,
+                                                           'password')
 
         appconfig.engine = ''
         try:
