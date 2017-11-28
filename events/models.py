@@ -172,3 +172,39 @@ class PermAudit(Base):
                    RepoID = %s, FilePath = %s, Permission = %s>" % \
                     (self.etype, self.from_user, self.to, \
                      self.repo_id, self.file_path, self.permission)
+
+
+class FileHistory(Base):
+    __tablename__ = 'FileHistory'
+
+    eid = Column(Integer, Sequence('file_history_eid_seq'), primary_key=True)
+    repo_id = Column(String(length=36), nullable=False)
+    path = Column(Text, nullable=False)
+    commit_id = Column(String(length=40), nullable=False, index=True)
+    ctime = Column(DateTime, nullable=False, index=True)
+    file_id = Column(String(length=40), nullable=False)
+    file_size = Column(Integer, nullable=False)
+    renamed_old_path = Column(Text, nullable=True)
+    __table_args__ = (Index('idx_file_history_repo_id_path',
+                           'repo_id', 'path'),)
+
+    def __init__(self, repo_id, path, commit_id, ctime, file_id, file_size, renamed_old_path=''):
+        self.repo_id = repo_id
+        self.path = path
+        self.commit_id = commit_id
+        self.ctime = ctime
+        self.file_id = file_id
+        self.file_size = file_size
+        self.renamed_old_path = renamed_old_path
+
+    def __str__(self):
+        if self.renamed_old_path:
+            return "FileHistory<RepoID = %s, Path = %s, CommitID = %s, CreateTime = %s, \
+                    FileID = %s, FileSize = %s, RenamedOldPath = %s" % \
+                    (self.repo_id, self.path, self.commit_id, self.ctime, \
+                    self.file_id, self.file_size, self.renamed_old_path)
+        else:
+            return "FileHistory<RepoID = %s, Path = %s, CommitID = %s, \
+                    CreateTime = %s, FileID = %s, FileSize = %s" % \
+                    (self.repo_id, self.path, self.commit_id, self.ctime, \
+                    self.file_id, self.file_size)

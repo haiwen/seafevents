@@ -19,10 +19,11 @@ from seafevents.app.config import appconfig, AppConfig
 from seafevents.app.signal_handler import SignalHandler
 from seafevents.app.mq_listener import EventsMQListener
 from seafevents.events_publisher.events_publisher import events_publisher
-from seafevents.utils.config import get_office_converter_conf
+from seafevents.utils.config import get_office_converter_conf, \
+        get_boolean_from_conf, get_opt_from_conf_or_env
 from seafevents.utils import do_exit, ClientConnector, has_office_tools
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
-        VirusScanner, Statistics, UpdateLoginRecordTask
+        VirusScanner, Statistics, UpdateLoginRecordTask, FileHistoryMaster
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
@@ -55,6 +56,9 @@ class App(object):
         if self._bg_tasks_enabled:
             self._bg_tasks = BackgroundTasks(args.config_file)
 
+        self.file_history_tasks = FileHistoryMaster()
+        self.file_history_tasks.start()
+
         self._ccnet_session = None
         self._sync_client = None
 
@@ -65,6 +69,7 @@ class App(object):
     def load_config(self, appconfig, config_file):
         config = ConfigParser.ConfigParser()
         config.read(config_file)
+        appconfig.events_config_file = config_file
         appconfig.publish_enabled = False
         try:
             appconfig.publish_enabled = config.getboolean('EVENTS PUBLISH', 'enabled')
@@ -108,7 +113,13 @@ class App(object):
         else:
             logging.info('Seafile does not use mysql db, disable statistics.')
 
+        self.load_file_history_config(config)
         self.load_aliyun_config(config)
+
+    def load_file_history_config(self, config):
+        appconfig.fh = AppConfig()
+        appconfig.fh.enabled = get_boolean_from_conf(config, 'FILE HISTORY', 'enabled', False)
+        appconfig.fh.suffix = get_opt_from_conf_or_env(config, 'FILE HISTORY', 'suffix')
 
     def load_aliyun_config(self, config):
         appconfig.ali = AppConfig()

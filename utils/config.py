@@ -50,6 +50,12 @@ def get_opt_from_conf_or_env(config, section, key, env_key=None, default=None):
         else:
             return os.environ.get(env_key.upper(), default)
 
+def get_boolean_from_conf(config, section, key, default=None):
+    try:
+        return config.get(section, key)
+    except ConfigParser.NoOptionError:
+        return default
+
 def parse_bool(v):
     if isinstance(v, bool):
         return v
