@@ -94,7 +94,7 @@ class App(object):
         except Exception as e:
             logging.info(e)
 
-    def load_aliyun_config(config):
+    def load_aliyun_config(self, config):
         appconfig.ali = AppConfig()
         appconfig.ali.url = config.get('Aliyun MQ', 'url')
         appconfig.ali.host = urlparse.urlparse(appconfig.ali.url).netloc

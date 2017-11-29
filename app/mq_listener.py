@@ -106,7 +106,7 @@ class EventsMQListener(object):
             logging.error(e)
             pass
         if nthreads < 0:
-            logging.info("mq_worker can't less than 0")
+            logging.info("mq_worker can't less than 0, has been set to 6")
             nthreads = 6
 
         for i in xrange(nthreads):
