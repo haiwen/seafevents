@@ -195,19 +195,6 @@ def get_event_log_by_time(session, log_type, tstart, tend):
     return q.all()
 
 def get_file_revision(session, repo_id, file_path):
-    i = 0
-    res = []
-    while True:
-        commits = seafile_api.get_commit_list(repo_id, i, 20)
-        if len(commits) == 0:
-            return res
-        files_history = session.query(FileHistory).filter(FileHistory.commit_id.in_([c.id for c in commits])).order_by(FileHistory.ctime.desc()).all()
-        for fh in files_history:
-            if fh.repo_id == repo_id and fh.renamed_old_path == file_path:
-                return res
-            if fh.repo_id == repo_id and fh.path == file_path:
-                res.append(fh)
-                if fh.renamed_old_path:
-                    file_path = fh.renamed_old_path
-
-        i += 20
+    files_history = session.query(FileHistory).filter(FileHistory.repo_id==repo_id).\
+            filter(FileHistory.path==file_path).order_by(FileHistory.ctime.desc()).all()
+    return files_history

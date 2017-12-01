@@ -40,10 +40,14 @@ class App(object):
         self._bg_tasks_enabled = background_tasks_enabled
         try:
             self.load_config(appconfig, args.config_file)
-            self.init_engine(appconfig)
         except Exception as e:
             logging.error('Error loading seafevents config. Detial: %s' % e)
             raise RuntimeError("Error loading seafevents config")
+        try:
+            self.init_engine(appconfig)
+        except Exception as e:
+            logging.error('Error when init db engine. Detial: %s' % e)
+            raise RuntimeError("Error init db engine")
 
         self._events_listener = None
         if self._events_listener_enabled:
@@ -71,7 +75,7 @@ class App(object):
         config = ConfigParser.ConfigParser()
         config.read(config_file)
         appconfig.events_config_file = config_file
-        appconfig.publish_enabled = get_boolean_from_conf('EVENTS PUBLISH', 'enabled', False)
+        appconfig.publish_enabled = get_boolean_from_conf(config, 'EVENTS PUBLISH', 'enabled', False)
 
         if appconfig.publish_enabled:
             appconfig.publish_mq_type = get_opt_from_conf_or_env(config, 'EVENTS PUBLISH', 'mq_type').upper()

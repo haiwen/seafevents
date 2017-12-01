@@ -111,3 +111,31 @@ def is_audit_enabled(config):
         logger.info('audit is not enabled')
 
     return enable_audit
+
+def is_file_history_enabled(config):
+    enable_file_history = False
+    if not config.has_section('FILE HISTORY'):
+        logger.debug('No "FILE HISTORY" section found')
+    if config.has_option('FILE HISTORY', 'enabled'):
+        try:
+            enable_file_history = config.getboolean('FILE HISTORY', 'enabled')
+        except Exception as e:
+            logger.error(e)
+            return False
+        if enable_file_history:
+            logger.info('seafevents file history is enabled')
+        else:
+            logger.info('seafevents file history is not enabled')
+
+    return enable_file_history
+
+def get_file_history_suffix(config):
+    if not config.has_section('FILE HISTORY'):
+        logger.debug('No "FILE HISTORY" section found')
+    if config.has_option('FILE HISTORY', 'enabled'):
+        try:
+            suffix = config.get('FILE HISTORY', 'suffix')
+        except Exception as e:
+            logger.error(e)
+            return []
+        return ['.' + str(e) for e in suffix.split(',')]

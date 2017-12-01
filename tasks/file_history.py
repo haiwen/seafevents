@@ -1,6 +1,7 @@
 import os
 import stat
 import Queue
+import logging
 import datetime
 
 from threading import Thread
@@ -33,17 +34,22 @@ class FileHistoryWorker(Thread):
         if record:
             self.d_records.append(record)
         if exect or len(self.d_records) > 100:
-            session.query(FileHistory).filter(FileHistory.file_id.in_([e.file_id for e in self.d_records])).delete(synchronize_session='fetch')
-            session.commit()
-            self.d_records = []
+            if len(self.d_records) > 0:
+                session.query(FileHistory).filter(FileHistory.repo_id == self.d_records[0].repo_id).\
+                        filter(FileHistory.path.in_([v.path for v in self.d_records])).delete(synchronize_session='fetch')
+
+                self.d_records = []
 
     def add_record(self, session, record, exect=False):
         if record:
             self.records.append(record)
         if exect or len(self.records) > 100:
             if len(self.records) > 0:
-                session.bulk_save_objects(self.records)
-                session.commit()
+                try:
+                    session.bulk_save_objects(self.records)
+                    session.commit()
+                except Exception as e:
+                    logging.error(e)
                 self.records=[]
 
     def extract_dirs(self, repo_id, dirs, files):
@@ -73,36 +79,40 @@ class FileHistoryWorker(Thread):
         self.records = []
         self.d_records = []
         session = scoped_session(self._db_session_class)
-        added_files, deleted_files, added_dirs, deleted_dirs, modified_files, \
-        renamed_files, moved_files, renamed_dirs, moved_dirs, commit, commit_id, repo_id = task
+        try:
+            added_files, deleted_files, added_dirs, deleted_dirs, modified_files, \
+            renamed_files, moved_files, renamed_dirs, moved_dirs, commit, commit_id, repo_id = task
 
-        for de in self.extract_dirs(repo_id, added_dirs, added_files):
-            if os.path.splitext(de['path'])[1] in self.files_suffix:
-                time = datetime.datetime.utcfromtimestamp(commit.ctime)
-                self.add_record(session, FileHistory(repo_id, de['path'], commit_id, time, de['obj_id'], de['size']))
+            for de in self.extract_dirs(repo_id, added_dirs, added_files):
+                if os.path.splitext(de['path'])[1] in self.files_suffix:
+                    time = datetime.datetime.utcfromtimestamp(commit.ctime)
+                    self.add_record(session, FileHistory(repo_id, de['path'], commit_id, time, de['obj_id'], de['size'], commit.creator_name))
 
-        for de in modified_files:
-            if os.path.splitext(de['path'])[1] in self.files_suffix:
-                time = datetime.datetime.utcfromtimestamp(commit.ctime)
-                self.add_record(session, FileHistory(repo_id, de['path'], commit_id, time, de['obj_id'], de['size']))
+            for de in modified_files:
+                if os.path.splitext(de.path)[1] in self.files_suffix:
+                    time = datetime.datetime.utcfromtimestamp(commit.ctime)
+                    self.add_record(session, FileHistory(repo_id, de.path, commit_id, time, de.obj_id, de.size, commit.creator_name))
 
-        for de in self.extract_dirs(repo_id, renamed_dirs, renamed_files):
-            if os.path.splitext(de['path'])[1] in self.files_suffix:
-                time = datetime.datetime.utcfromtimestamp(commit.ctime)
-                self.add_record(session, FileHistory(repo_id, de['new_path'], commit_id, time, de['obj_id'], de['size'], de['path']))
+            for de in self.extract_dirs(repo_id, renamed_dirs, renamed_files):
+                if os.path.splitext(de['path'])[1] in self.files_suffix:
+                    time = datetime.datetime.utcfromtimestamp(commit.ctime)
+                    self.add_record(session, FileHistory(repo_id, de['new_path'], commit_id, time, de['obj_id'], de['size'], commit.creator_name, de['path']))
 
-        for de in self.extract_dirs(repo_id, moved_dirs, moved_files):
-            if os.path.splitext(de['path'])[1] in self.files_suffix:
-                time = datetime.datetime.utcfromtimestamp(commit.ctime)
-                self.add_record(session, FileHistory(repo_id, de['new_path'], commit_id, time, de['obj_id'], de['size'], de['path']))
+            for de in self.extract_dirs(repo_id, moved_dirs, moved_files):
+                if os.path.splitext(de['path'])[1] in self.files_suffix:
+                    time = datetime.datetime.utcfromtimestamp(commit.ctime)
+                    self.add_record(session, FileHistory(repo_id, de['new_path'], commit_id, time, de['obj_id'], de['size'], commit.creator_name, de['path']))
 
-        for de in self.extract_dirs(repo_id, deleted_dirs, deleted_files):
-            if os.path.splitext(de['path'])[1] in self.files_suffix:
-                time = datetime.datetime.utcfromtimestamp(commit.ctime)
-                self.delete_record(session, FileHistory(repo_id, de['new_path'], commit_id, time, de['obj_id'], de['size'], de['path']))
+            for de in self.extract_dirs(repo_id, deleted_dirs, deleted_files):
+                if os.path.splitext(de['path'])[1] in self.files_suffix:
+                    time = datetime.datetime.utcfromtimestamp(commit.ctime)
+                    self.delete_record(session, FileHistory(repo_id, de['path'], commit_id, time, de['obj_id'], de['size'], commit.creator_name, de['new_path']))
 
-        self.add_record(session, None, exect=True)
-        self.delete_record(session, None, exect=True)
+            self.add_record(session, None, exect=True)
+            self.delete_record(session, None, exect=True)
+            session.commit()
+        finally:
+            session.close()
 
     def run(self):
         while True:
