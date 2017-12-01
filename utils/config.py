@@ -44,7 +44,8 @@ def get_opt_from_conf_or_env(config, section, key, env_key=None, default=None):
     '''
     try:
         return config.get(section, key)
-    except ConfigParser.NoOptionError:
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+        logging.info("Can't find section %s and key %s" % (section, key))
         if env_key is None:
             return default
         else:
@@ -53,7 +54,15 @@ def get_opt_from_conf_or_env(config, section, key, env_key=None, default=None):
 def get_boolean_from_conf(config, section, key, default=None):
     try:
         return config.get(section, key)
-    except ConfigParser.NoOptionError:
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+        logging.info("Can't find section %s and key %s" % (section, key))
+        return default
+
+def get_int_from_conf(config, section, key, default=None):
+    try:
+        return config.getint(section, key)
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+        logging.info("Can't find section %s and key %s" % (section, key))
         return default
 
 def parse_bool(v):

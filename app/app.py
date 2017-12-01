@@ -20,7 +20,7 @@ from seafevents.app.signal_handler import SignalHandler
 from seafevents.app.mq_listener import EventsMQListener
 from seafevents.events_publisher.events_publisher import events_publisher
 from seafevents.utils.config import get_office_converter_conf, \
-        get_boolean_from_conf, get_opt_from_conf_or_env
+        get_boolean_from_conf, get_opt_from_conf_or_env, get_int_from_conf
 from seafevents.utils import do_exit, ClientConnector, has_office_tools
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, UpdateLoginRecordTask, FileHistoryMaster
@@ -56,8 +56,9 @@ class App(object):
         if self._bg_tasks_enabled:
             self._bg_tasks = BackgroundTasks(args.config_file)
 
-        self.file_history_tasks = FileHistoryMaster()
-        self.file_history_tasks.start()
+        if appconfig.fh.enabled:
+            self.file_history_tasks = FileHistoryMaster()
+            self.file_history_tasks.start()
 
         self._ccnet_session = None
         self._sync_client = None
@@ -70,14 +71,10 @@ class App(object):
         config = ConfigParser.ConfigParser()
         config.read(config_file)
         appconfig.events_config_file = config_file
-        appconfig.publish_enabled = False
-        try:
-            appconfig.publish_enabled = config.getboolean('EVENTS PUBLISH', 'enabled')
-        except:
-            # prevent hasn't EVENTS PUBLISH section.
-            pass
+        appconfig.publish_enabled = get_boolean_from_conf('EVENTS PUBLISH', 'enabled', False)
+
         if appconfig.publish_enabled:
-            appconfig.publish_mq_type = config.get('EVENTS PUBLISH', 'mq_type').upper()
+            appconfig.publish_mq_type = get_opt_from_conf_or_env(config, 'EVENTS PUBLISH', 'mq_type').upper()
             if appconfig.publish_mq_type != 'REDIS':
                 raise RuntimeError("Unknown database backend: %s" % self.config['publish_mq_type'])
 
@@ -90,25 +87,17 @@ class App(object):
             if config.has_option(appconfig.publish_mq_type, 'password'):
                 appconfig.publish_mq_password = config.get(appconfig.publish_mq_type,
                                                            'password')
+        else:
+            logging.info('Disenabled Publish Features.')
 
-        appconfig.engine = ''
-        try:
-            appconfig.engine = config.get('DATABASE', 'type')
-        except:
-            pass
+        appconfig.engine = get_opt_from_conf_or_env(config, 'DATABASE', 'type', default='')
         if appconfig.engine == 'mysql':
-            if config.has_option('DATABASE', 'host'):
-                host = config.get('DATABASE', 'host').lower()
-            else:
-                host = 'localhost'
+            host = get_opt_from_conf_or_env(config, 'DATABASE', 'host', default='localhost').lower()
+            port = get_int_from_conf(config, 'DATABASE', 'port', default=3306)
     
-            if config.has_option('DATABASE', 'port'):
-                port = config.getint('DATABASE', 'port')
-            else:
-                port = 3306
-            username = config.get('DATABASE', 'username')
-            passwd = config.get('DATABASE', 'password')
-            dbname = config.get('DATABASE', 'name')
+            username = get_opt_from_conf_or_env(config, 'DATABASE', 'username')
+            passwd = get_opt_from_conf_or_env(config, 'DATABASE', 'password')
+            dbname = get_opt_from_conf_or_env(config, 'DATABASE', 'name')
             appconfig.db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
         else:
             logging.info('Seafile does not use mysql db, disable statistics.')
@@ -119,17 +108,20 @@ class App(object):
     def load_file_history_config(self, config):
         appconfig.fh = AppConfig()
         appconfig.fh.enabled = get_boolean_from_conf(config, 'FILE HISTORY', 'enabled', False)
-        appconfig.fh.suffix = get_opt_from_conf_or_env(config, 'FILE HISTORY', 'suffix')
+        if appconfig.fh.enabled:
+            appconfig.fh.suffix = get_opt_from_conf_or_env(config, 'FILE HISTORY', 'suffix')
+        else:
+            logging.info('Disenabled File History Features.')
 
     def load_aliyun_config(self, config):
         appconfig.ali = AppConfig()
-        appconfig.ali.url = config.get('Aliyun MQ', 'url')
+        appconfig.ali.url = get_opt_from_conf_or_env(config, 'Aliyun MQ', 'url')
         appconfig.ali.host = urlparse.urlparse(appconfig.ali.url).netloc
-        appconfig.ali.producer_id = config.get('Aliyun MQ', 'producer_id')
-        appconfig.ali.topic = config.get('Aliyun MQ', 'topic')
-        appconfig.ali.tag = config.get('Aliyun MQ', 'tag')
-        appconfig.ali.ak = config.get('Aliyun MQ', 'access_key')
-        appconfig.ali.sk = config.get('Aliyun MQ', 'secret_key')
+        appconfig.ali.producer_id = get_opt_from_conf_or_env(config, 'Aliyun MQ', 'producer_id')
+        appconfig.ali.topic = get_opt_from_conf_or_env(config, 'Aliyun MQ', 'topic')
+        appconfig.ali.tag = get_opt_from_conf_or_env(config, 'Aliyun MQ', 'tag')
+        appconfig.ali.ak = get_opt_from_conf_or_env(config, 'Aliyun MQ', 'access_key')
+        appconfig.ali.sk = get_opt_from_conf_or_env(config, 'Aliyun MQ', 'secret_key')
 
     def init_engine(self, appconfig):
         kwargs = dict(pool_recycle=300, echo=False, echo_pool=False)
