@@ -9,8 +9,7 @@ from sqlalchemy.orm.scoping import scoped_session
 from seafobj import CommitDiffer, commit_mgr
 from seaserv import seafile_api
 from seafevents.db import init_db_session_class
-from seafevents.app.app import App
-from seafevents.app.config import appconfig
+from seafevents.app.config import appconfig, load_config
 from seafevents.events.models import FileHistory
 from seafevents.tasks.file_history import office_version_record_tasks, FileHistoryMaster
 
@@ -37,7 +36,7 @@ class RestoreUnrecordHistory(object):
 
 
 
-        App.load_config(appconfig, args.config_file)
+        load_config(args.config_file)
         self._db_session_class = init_db_session_class(appconfig.events_config_file)
         self._history_repo = self._get_last_repo_and_commit()
         self._current_repo_position = 0

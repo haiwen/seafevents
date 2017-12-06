@@ -70,7 +70,7 @@ class FileHistoryWorker(Thread):
                     if stat.S_ISDIR(dirent.mode):
                         dirs.append(obj)
                     else:
-                        files[dirent.obj_id] = obj
+                        files[dirent.obj_name + dirent.obj_id] = obj
 
     def do_work(self, task):
         self.records = []

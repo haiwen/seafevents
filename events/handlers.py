@@ -9,7 +9,6 @@ from seaserv import get_related_users_by_repo, get_org_id_by_repo_id, \
     get_related_users_by_org_repo
 from seafevents.events.db import save_user_events, save_org_user_events, \
         save_file_audit_event, save_file_update_event, save_perm_audit_event
-from seafevents.events.alimq_producer import ali_mq
 from seafevents.tasks.file_history import office_version_record_tasks
 from seafobj import CommitDiffer, commit_mgr
 from change_uuid_path import ChangeFileUUIDMap
