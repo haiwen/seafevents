@@ -16,8 +16,13 @@ class RestoreUnrecordHistory(object):
         self._history_repo = self.get_exists_history_repo()
         self._current_repo_position = 0
         self._current_commit_position = 0
+        self.status = False
 
     def start(self):
+        if not self.status:
+            self.status = True
+        else:
+            logging.info('There is already a task at work.')
         while True:
             try:
                 self.do_work()
@@ -80,6 +85,7 @@ class RestoreUnrecordHistory(object):
         finally:
             session.close()
 
+Task = RestoreUnrecordHistory()
+
 if __name__ == '__main__':
-    Task = RestoreUnrecordHistory()
     Task.start()

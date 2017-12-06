@@ -180,33 +180,35 @@ class FileHistory(Base):
     eid = Column(Integer, Sequence('file_history_eid_seq'), primary_key=True)
     repo_id = Column(String(length=36), nullable=False)
     path = Column(Text, nullable=False)
-    commit_id = Column(String(length=40), nullable=False, index=True)
-    ctime = Column(DateTime, nullable=False, index=True)
+    commit_id = Column(String(length=40), nullable=False)
+    ctime = Column(DateTime, nullable=False)
     file_id = Column(String(length=40), nullable=False)
     file_size = Column(Integer, nullable=False)
     renamed_old_path = Column(Text, nullable=True)
-    creator_name = Column(String(length=255), nullable=False)
+    creator = Column(String(length=255), nullable=False)
     __table_args__ = (Index('idx_file_history_repo_id_path',
-                           'repo_id', 'path'),)
+                           'repo_id', 'path'),
+                      Index('idx_file_history_repo_id_ctime',
+                           'repo_id', 'ctime'))
 
-    def __init__(self, repo_id, path, commit_id, ctime, file_id, file_size, creator_name, renamed_old_path=''):
+    def __init__(self, repo_id, path, commit_id, ctime, file_id, file_size, creator, renamed_old_path=''):
         self.repo_id = repo_id
         self.path = path
         self.commit_id = commit_id
         self.ctime = ctime
         self.file_id = file_id
         self.file_size = file_size
-        self.creator_name = creator_name
+        self.creator = creator
         self.renamed_old_path = renamed_old_path
 
     def __str__(self):
         if self.renamed_old_path:
             return "FileHistory<RepoID = %s, Path = %s, CommitID = %s, CreateTime = %s, \
-                    FileID = %s, FileSize = %s, CreateName = %s, RenamedOldPath = %s" % \
+                    FileID = %s, FileSize = %s, Create = %s, RenamedOldPath = %s" % \
                     (self.repo_id, self.path, self.commit_id, self.ctime, \
-                    self.file_id, self.file_size, self.creator_name, self.renamed_old_path)
+                    self.file_id, self.file_size, self.creator, self.renamed_old_path)
         else:
             return "FileHistory<RepoID = %s, Path = %s, CommitID = %s, \
-                    CreateTime = %s, FileID = %s, FileSize = %s, CreatorName = %s" % \
+                    CreateTime = %s, FileID = %s, FileSize = %s, Creator = %s" % \
                     (self.repo_id, self.path, self.commit_id, self.ctime, \
-                    self.file_id, self.file_size, self.creator_name)
+                    self.file_id, self.file_size, self.creator)
