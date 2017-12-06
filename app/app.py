@@ -39,7 +39,7 @@ class App(object):
         self._events_listener_enabled = events_listener_enabled
         self._bg_tasks_enabled = background_tasks_enabled
         try:
-            self.load_config(appconfig, args.config_file)
+            App.load_config(appconfig, args.config_file)
         except Exception as e:
             logging.error('Error loading seafevents config. Detial: %s' % e)
             raise RuntimeError("Error loading seafevents config")
@@ -71,7 +71,8 @@ class App(object):
         self._sighandler = SignalHandler(self._evbase)
 
 
-    def load_config(self, appconfig, config_file):
+    @classmethod
+    def load_config(cls, appconfig, config_file):
         config = ConfigParser.ConfigParser()
         config.read(config_file)
         appconfig.events_config_file = config_file
@@ -80,7 +81,7 @@ class App(object):
         if appconfig.publish_enabled:
             appconfig.publish_mq_type = get_opt_from_conf_or_env(config, 'EVENTS PUBLISH', 'mq_type').upper()
             if appconfig.publish_mq_type != 'REDIS':
-                raise RuntimeError("Unknown database backend: %s" % self.config['publish_mq_type'])
+                raise RuntimeError("Unknown database backend: %s" % appconfig.publish_mq_type)
 
             appconfig.publish_mq_server = config.get(appconfig.publish_mq_type,
                                                      'server')
@@ -106,10 +107,11 @@ class App(object):
         else:
             logging.info('Seafile does not use mysql db, disable statistics.')
 
-        self.load_file_history_config(config)
-        self.load_aliyun_config(config)
+        cls.load_file_history_config(config)
+        cls.load_aliyun_config(config)
 
-    def load_file_history_config(self, config):
+    @classmethod
+    def load_file_history_config(cls, config):
         appconfig.fh = AppConfig()
         appconfig.fh.enabled = get_boolean_from_conf(config, 'FILE HISTORY', 'enabled', False)
         if appconfig.fh.enabled:
@@ -117,7 +119,8 @@ class App(object):
         else:
             logging.info('Disenabled File History Features.')
 
-    def load_aliyun_config(self, config):
+    @classmethod
+    def load_aliyun_config(cls, config):
         appconfig.ali = AppConfig()
         appconfig.ali.url = get_opt_from_conf_or_env(config, 'Aliyun MQ', 'url')
         appconfig.ali.host = urlparse.urlparse(appconfig.ali.url).netloc

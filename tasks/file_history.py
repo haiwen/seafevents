@@ -16,29 +16,26 @@ office_version_record_tasks = Queue.Queue(-1)
 
 
 class FileHistoryMaster(object):
-    def start(self):
+    def start(self, deleted=True):
         self._db_session_class = init_db_session_class(appconfig.events_config_file)
         for i in xrange(6):
-            task_thread = FileHistoryWorker(self._db_session_class)
+            task_thread = FileHistoryWorker(self._db_session_class, deleted)
             task_thread.setDaemon(True)
             task_thread.start()
 
 
 class FileHistoryWorker(Thread):
-    def __init__(self, db_session_class):
+    def __init__(self, db_session_class, deleted=True):
         Thread.__init__(self)
         self._db_session_class = db_session_class
         self.files_suffix = ['.'+s for s in appconfig.fh.suffix.split(',')]
+        self.DEL_CODE = 'dddddddddddddddddddddddddddddd'
+        self.deleted = deleted
 
     def delete_record(self, session, record, exect=False):
-        if record:
-            self.d_records.append(record)
-        if exect or len(self.d_records) > 100:
-            if len(self.d_records) > 0:
-                session.query(FileHistory).filter(FileHistory.repo_id == self.d_records[0].repo_id).\
-                        filter(FileHistory.path.in_([v.path for v in self.d_records])).delete(synchronize_session='fetch')
-
-                self.d_records = []
+        session.query(FileHistory).filter(FileHistory.repo_id == record.repo_id).\
+                filter(FileHistory.path == record.path ).\
+                filter(FileHistory.ctime <= record.ctime).delete()
 
     def add_record(self, session, record, exect=False):
         if record:
@@ -77,7 +74,6 @@ class FileHistoryWorker(Thread):
 
     def do_work(self, task):
         self.records = []
-        self.d_records = []
         session = scoped_session(self._db_session_class)
         try:
             added_files, deleted_files, added_dirs, deleted_dirs, modified_files, \
@@ -106,10 +102,13 @@ class FileHistoryWorker(Thread):
             for de in self.extract_dirs(repo_id, deleted_dirs, deleted_files):
                 if os.path.splitext(de['path'])[1] in self.files_suffix:
                     time = datetime.datetime.utcfromtimestamp(commit.ctime)
-                    self.delete_record(session, FileHistory(repo_id, de['path'], commit_id, time, de['obj_id'], de['size'], commit.creator_name, de['new_path']))
+                    # if exec by script, can't delete right now.
+                    if self.deleted:
+                        self.delete_record(session, FileHistory(repo_id, de['path'], commit_id, time, de['obj_id'], de['size'], commit.creator_name, de['new_path']))
+                    else:
+                        self.add_record(session, FileHistory(repo_id, de['path'], self.DEL_CODE, time, self.DEL_CODE, de['size'], commit.creator_name, de['new_path']))
 
             self.add_record(session, None, exect=True)
-            self.delete_record(session, None, exect=True)
             session.commit()
         finally:
             session.close()
