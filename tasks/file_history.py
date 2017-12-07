@@ -29,7 +29,7 @@ class FileHistoryWorker(Thread):
         Thread.__init__(self)
         self._db_session_class = db_session_class
         self.files_suffix = ['.'+s for s in appconfig.fh.suffix.split(',')]
-        self.DEL_CODE = 'dddddddddddddddddddddddddddddd'
+        self.DEL_CODE = 'dddddddddddddddddddddddddddddddddddddddd'
         self.deleted = deleted
 
     def delete_record(self, session, record, exect=False):

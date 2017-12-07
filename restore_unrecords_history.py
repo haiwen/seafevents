@@ -34,14 +34,12 @@ class RestoreUnrecordHistory(object):
         # basicconfig didn't work
         logging.getLogger().setLevel(logging.INFO)
 
-
-
         load_config(args.config_file)
         self._db_session_class = init_db_session_class(appconfig.events_config_file)
         self._history_repo = self._get_last_repo_and_commit()
         self._current_repo_position = 0
         self._current_commit_position = 0
-        self.DEL_CODE = 'dddddddddddddddddddddddddddddd'
+        self.DEL_CODE = 'dddddddddddddddddddddddddddddddddddddddd'
 
     def start(self):
         filehistory_master = FileHistoryMaster()
@@ -62,15 +60,21 @@ class RestoreUnrecordHistory(object):
         repo = repo[0]
         logging.info('Start processing repo :%s', repo.repo_id)
         if repo.repo_id in self._history_repo.keys():
-            commit_id = self.get_repo_last_commit(repo.repo_id)
+            commit_ids = self.get_repo_last_commits(repo.repo_id)
+            count = 0
             k = 0
             while True:
                 temp = [e.id for e in seafile_api.get_commit_list(repo.repo_id, k*100, 100)]
                 if not temp:
                     break
-                if commit_id[0] in temp:
-                    self._current_commit_position = k * 100 + temp.index(commit_id[0]) + 1
-                    break
+                # avoid two commit at the same time
+                for commit_id in commit_ids:
+                    if commit_id[0] in temp:
+                        count += 1
+
+                    if count == len(commit_ids):
+                        self._current_commit_position = k * 100 + temp.index(commit_id[0]) + 1
+                        break
                 else:
                     k += 1
 
@@ -109,23 +113,31 @@ class RestoreUnrecordHistory(object):
 
     def clear_repo(self, repo_id):
         session = scoped_session(self._db_session_class)
-        while True:
-            e = session.query(FileHistory).filter(
-                and_(FileHistory.repo_id == repo_id,
-                FileHistory.file_id == self.DEL_CODE,
-                FileHistory.commit_id == self.DEL_CODE)
-            ).first()
-            if not e:
-                break
-            session.query(FileHistory).filter(and_(FileHistory.repo_id == e.repo_id,
-                                                   FileHistory.path == e.path),
-                                                   FileHistory.ctime <= e.ctime).delete(synchronize_session='fetch')
+        try:
+            while True:
+                e = session.query(FileHistory).filter(
+                    and_(FileHistory.repo_id == repo_id,
+                    FileHistory.file_id == self.DEL_CODE,
+                    FileHistory.commit_id == self.DEL_CODE)
+                ).first()
+                if not e:
+                    break
+                session.query(FileHistory).filter(and_(FileHistory.repo_id == e.repo_id,
+                                                       FileHistory.path == e.path),
+                                                       FileHistory.ctime <= e.ctime).delete(synchronize_session='fetch')
+            session.commit()
+        except Exception as e:
+            logging.error(e)
+        finally:
+            session.close()
 
-    def get_repo_last_commit(self, repo_id):
+    def get_repo_last_commits(self, repo_id):
         session = scoped_session(self._db_session_class)
         ctime = self._history_repo.get(repo_id)
         try:
-            res = session.query(FileHistory.commit_id).filter(and_(FileHistory.repo_id == repo_id, FileHistory.ctime == ctime)).first()
+            res = session.query(FileHistory.commit_id).\
+                    filter(and_(FileHistory.repo_id == repo_id, FileHistory.ctime == ctime)).\
+                    order_by(FileHistory.ctime).all()
             return res
         finally:
             session.close()
