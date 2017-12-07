@@ -3,8 +3,9 @@ import json
 import logging
 
 from sqlalchemy import desc
+from seaserv import seafile_api
 
-from .models import Event, UserEvent, FileAudit, FileUpdate, PermAudit
+from .models import Event, UserEvent, FileAudit, FileUpdate, PermAudit, FileHistory
 
 logger = logging.getLogger('seafevents')
 
@@ -192,3 +193,8 @@ def get_event_log_by_time(session, log_type, tstart, tend):
     q = q.filter(obj.timestamp.between(datetime.datetime.utcfromtimestamp(tstart),
                                        datetime.datetime.utcfromtimestamp(tend)))
     return q.all()
+
+def get_file_revision(session, repo_id, file_path):
+    files_history = session.query(FileHistory).filter(FileHistory.repo_id==repo_id).\
+            filter(FileHistory.path==file_path).order_by(FileHistory.ctime.desc()).all()
+    return files_history

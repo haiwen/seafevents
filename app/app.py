@@ -1,10 +1,8 @@
 import os
 import libevent
-import urlparse
 import ConfigParser
 import logging
 
-from urllib import quote_plus
 from sqlalchemy import create_engine
 from sqlalchemy.pool import Pool
 from sqlalchemy.orm import sessionmaker
@@ -15,14 +13,14 @@ import ccnet
 from ccnet.async import AsyncClient
 
 from seafevents.db import ping_connection
-from seafevents.app.config import appconfig, AppConfig
+from seafevents.app.config import appconfig, load_config
 from seafevents.app.signal_handler import SignalHandler
 from seafevents.app.mq_listener import EventsMQListener
 from seafevents.events_publisher.events_publisher import events_publisher
 from seafevents.utils.config import get_office_converter_conf
 from seafevents.utils import do_exit, ClientConnector, has_office_tools
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
-        VirusScanner, Statistics, UpdateLoginRecordTask
+        VirusScanner, Statistics, UpdateLoginRecordTask, FileHistoryMaster
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
@@ -38,11 +36,15 @@ class App(object):
         self._events_listener_enabled = events_listener_enabled
         self._bg_tasks_enabled = background_tasks_enabled
         try:
-            self.load_config(appconfig, args.config_file)
-            self.init_engine(appconfig)
+            load_config(args.config_file)
         except Exception as e:
             logging.error('Error loading seafevents config. Detial: %s' % e)
             raise RuntimeError("Error loading seafevents config")
+        try:
+            self.init_engine(appconfig)
+        except Exception as e:
+            logging.error('Error when init db engine. Detial: %s' % e)
+            raise RuntimeError("Error init db engine")
 
         self._events_listener = None
         if self._events_listener_enabled:
@@ -55,70 +57,16 @@ class App(object):
         if self._bg_tasks_enabled:
             self._bg_tasks = BackgroundTasks(args.config_file)
 
+        if appconfig.fh.enabled:
+            self.file_history_tasks = FileHistoryMaster()
+            self.file_history_tasks.start()
+
         self._ccnet_session = None
         self._sync_client = None
 
         self._evbase = libevent.Base() #pylint: disable=E1101
         self._sighandler = SignalHandler(self._evbase)
 
-
-    def load_config(self, appconfig, config_file):
-        config = ConfigParser.ConfigParser()
-        config.read(config_file)
-        appconfig.publish_enabled = False
-        try:
-            appconfig.publish_enabled = config.getboolean('EVENTS PUBLISH', 'enabled')
-        except:
-            # prevent hasn't EVENTS PUBLISH section.
-            pass
-        if appconfig.publish_enabled:
-            appconfig.publish_mq_type = config.get('EVENTS PUBLISH', 'mq_type').upper()
-            if appconfig.publish_mq_type != 'REDIS':
-                raise RuntimeError("Unknown database backend: %s" % self.config['publish_mq_type'])
-
-            appconfig.publish_mq_server = config.get(appconfig.publish_mq_type,
-                                                     'server')
-            appconfig.publish_mq_port = config.getint(appconfig.publish_mq_type,
-                                                      'port')
-            # prevent needn't password
-            appconfig.publish_mq_password = ""
-            if config.has_option(appconfig.publish_mq_type, 'password'):
-                appconfig.publish_mq_password = config.get(appconfig.publish_mq_type,
-                                                           'password')
-
-        appconfig.engine = ''
-        try:
-            appconfig.engine = config.get('DATABASE', 'type')
-        except:
-            pass
-        if appconfig.engine == 'mysql':
-            if config.has_option('DATABASE', 'host'):
-                host = config.get('DATABASE', 'host').lower()
-            else:
-                host = 'localhost'
-    
-            if config.has_option('DATABASE', 'port'):
-                port = config.getint('DATABASE', 'port')
-            else:
-                port = 3306
-            username = config.get('DATABASE', 'username')
-            passwd = config.get('DATABASE', 'password')
-            dbname = config.get('DATABASE', 'name')
-            appconfig.db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
-        else:
-            logging.info('Seafile does not use mysql db, disable statistics.')
-
-        self.load_aliyun_config(config)
-
-    def load_aliyun_config(self, config):
-        appconfig.ali = AppConfig()
-        appconfig.ali.url = config.get('Aliyun MQ', 'url')
-        appconfig.ali.host = urlparse.urlparse(appconfig.ali.url).netloc
-        appconfig.ali.producer_id = config.get('Aliyun MQ', 'producer_id')
-        appconfig.ali.topic = config.get('Aliyun MQ', 'topic')
-        appconfig.ali.tag = config.get('Aliyun MQ', 'tag')
-        appconfig.ali.ak = config.get('Aliyun MQ', 'access_key')
-        appconfig.ali.sk = config.get('Aliyun MQ', 'secret_key')
 
     def init_engine(self, appconfig):
         kwargs = dict(pool_recycle=300, echo=False, echo_pool=False)
