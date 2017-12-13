@@ -59,12 +59,15 @@ class UpdateLoginRecordTask(Thread):
     """ Run every thirty minutes, Handle 1000 tasks at a time. 
     """
     def __init__(self):
+        super(UpdateLoginRecordTask, self).__init__()
+        self.session = appconfig.statistic_session
+
+    def _scoped_session(self):
         try:
-            self.session = scoped_session(appconfig.statistic_session)
+            return scoped_session(appconfig.statistic_session)
         except Exception as e:
             logging.error(e)
-            self.session = scoped_session(appconfig.statistic_session)
-        super(UpdateLoginRecordTask, self).__init__()
+            return scoped_session(appconfig.statistic_session)
 
     def _update_login_record(self):
         """ example:
@@ -73,6 +76,7 @@ class UpdateLoginRecordTask(Thread):
         """
         l = len(self.keys)
         if l > 0:
+            session = self._scoped_session()
             try:
                 cmd = "REPLACE INTO UserActivityStat values"
                 cmd_extend = ''.join([' (:key' + str(i) +', :name'+ str(i) +', :time'+ str(i) +'),' for i in xrange(l)])[:-1]
@@ -85,19 +89,17 @@ class UpdateLoginRecordTask(Thread):
                     data['name'+i] = pop_data[0]
                     data['time'+i] = pop_data[1]
                 try:
-                    self.session.execute(text(cmd), data)
-                    self.session.commit()
+                    session.execute(text(cmd), data)
+                    session.commit()
                 except Exception as e:
                     logging.error(e)
-                    self.session.execute(text(cmd), data)
-                    self.session.commit()
 
             except Exception as e:
                 logging.error(e)
             else:
                 logging.info('%s records has beend updated' % l)
             finally:
-                self.session.remove()
+                session.remove()
 
     def update_login_record(self):
         while True:

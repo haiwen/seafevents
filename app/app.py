@@ -54,6 +54,11 @@ class App(object):
         if self._bg_tasks_enabled:
             self._bg_tasks = BackgroundTasks(args.config_file)
 
+        if appconfig.engine == 'mysql':
+            self.update_login_record_task = UpdateLoginRecordTask()
+        else:
+            logging.info('The user statistics module only supports mysql.')
+
         self._ccnet_session = None
         self._sync_client = None
 
@@ -170,6 +175,9 @@ class App(object):
         if self._bg_tasks:
             self._bg_tasks.start(self._evbase)
 
+        if appconfig.engine == 'mysql':
+            self.update_login_record_task.start()
+
         while True:
             self._serve()
 
@@ -191,9 +199,6 @@ class BackgroundTasks(object):
         if has_office_tools():
             self._office_converter = OfficeConverter(get_office_converter_conf(self._app_config))
 
-        if appconfig.engine == 'mysql':
-            self.update_login_record_task = UpdateLoginRecordTask()
-
     def _ensure_single_instance(self, sync_client):
         try:
             sync_client.register_service_sync(self.DUMMY_SERVICE, self.DUMMY_SERVICE_GROUP)
@@ -213,8 +218,6 @@ class BackgroundTasks(object):
         else:
             logging.info('search indexer is disabled')
 
-        if appconfig.engine == 'mysql':
-            self.update_login_record_task.start()
 
         if self._seahub_email_sender.is_enabled():
             self._seahub_email_sender.start(base)
