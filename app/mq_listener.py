@@ -103,7 +103,8 @@ class EventsMQListener(object):
         try:
             nthreads = self.config.getint('DEFAULT', 'mq_worker')
         except Exception as e:
-            logging.error(e)
+            logging.info(e)
+            logging.info('set mq_worker to 2')
             pass
         if nthreads < 0:
             logging.info("mq_worker can't less than 0, has been set to 6")

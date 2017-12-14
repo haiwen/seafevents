@@ -96,13 +96,13 @@ class App(object):
 
     def load_aliyun_config(self, config):
         appconfig.ali = AppConfig()
-        appconfig.ali.url = config.get('Aliyun MQ', 'url')
+        appconfig.ali.url = config.get('ALIYUN MQ', 'url')
         appconfig.ali.host = urlparse.urlparse(appconfig.ali.url).netloc
-        appconfig.ali.producer_id = config.get('Aliyun MQ', 'producer_id')
-        appconfig.ali.topic = config.get('Aliyun MQ', 'topic')
-        appconfig.ali.tag = config.get('Aliyun MQ', 'tag')
-        appconfig.ali.ak = config.get('Aliyun MQ', 'access_key')
-        appconfig.ali.sk = config.get('Aliyun MQ', 'secret_key')
+        appconfig.ali.producer_id = config.get('ALIYUN MQ', 'producer_id')
+        appconfig.ali.topic = config.get('ALIYUN MQ', 'topic')
+        appconfig.ali.tag = config.get('ALIYUN MQ', 'tag')
+        appconfig.ali.ak = config.get('ALIYUN MQ', 'access_key')
+        appconfig.ali.sk = config.get('ALIYUN MQ', 'secret_key')
 
     def start_ccnet_session(self):
         '''Connect to ccnet-server, retry util connection is made'''
