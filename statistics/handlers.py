@@ -6,7 +6,7 @@ import logging.handlers
 
 from datetime import datetime
 from seaserv import get_repo_owner
-from seafevents.statistic.db import update_block_download_traffic, \
+from seafevents.statistics.db import update_block_download_traffic, \
         update_file_view_traffic, update_file_download_traffic, \
         update_dir_download_traffic, update_hash_record
 
