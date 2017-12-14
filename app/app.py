@@ -14,7 +14,7 @@ import ccnet
 from ccnet.async import AsyncClient
 
 from seafevents.db import ping_connection
-from seafevents.app.config import appconfig
+from seafevents.app.config import appconfig, AppConfig
 from seafevents.app.signal_handler import SignalHandler
 from seafevents.app.mq_listener import EventsMQListener
 from seafevents.events_publisher.events_publisher import events_publisher
@@ -107,6 +107,17 @@ class App(object):
         else:
             logging.info('Seafile does not use mysql db, disable statistics.')
 
+        self.load_statistics_config(config)
+
+    def load_statistics_config(self, config):
+        appconfig.statistics = AppConfig()
+        appconfig.statistics.enabled = False
+        try:
+            if config.has_option('STATISTICS', 'enabled'):
+                appconfig.statistics_enabled = config.get('STATISTICS', 'enabled')
+        except Exception as e:
+            logging.info(e)
+
     def init_engine(self, appconfig):
         kwargs = dict(pool_recycle=300, echo=False, echo_pool=False)
 
@@ -191,8 +202,10 @@ class BackgroundTasks(object):
         if has_office_tools():
             self._office_converter = OfficeConverter(get_office_converter_conf(self._app_config))
 
-        if appconfig.engine == 'mysql':
+        if appconfig.statistics.enabled and appconfig.engine == 'mysql':
             self.update_login_record_task = UpdateLoginRecordTask()
+        else:
+            logging.info('login record updater disabled')
 
     def _ensure_single_instance(self, sync_client):
         try:
@@ -213,7 +226,7 @@ class BackgroundTasks(object):
         else:
             logging.info('search indexer is disabled')
 
-        if appconfig.engine == 'mysql':
+        if hasattr(self, 'update_login_record_task'):
             self.update_login_record_task.start()
 
         if self._seahub_email_sender.is_enabled():
