@@ -131,7 +131,7 @@ class IndexUpdater(object):
         return self._enabled
 
 class IndexUpdateTimer(Timer):
-    _script_name = 'update_repos.py'
+    _script_name = 'index_local.py'
     def __init__(self, ev_base, timeout, seafesdir, index_office_pdf, logfile, es_host, es_port):
         Timer.__init__(self, ev_base, timeout)
         self._seafesdir = seafesdir
@@ -151,12 +151,12 @@ class IndexUpdateTimer(Timer):
             logging.exception('error when index files:')
 
     def _update_file_index(self):
-        '''Invoking the update_repos.py, log to ./index.log'''
+        '''Invoking the index_local.py, log to ./index.log'''
         assert os.path.exists(self._seafesdir)
         script_path = os.path.join(self._seafesdir, self._script_name)
         cmd = [
             get_python_executable(),
-            '-m', 'seafes.update_repos',
+            '-m', 'seafes.index_local',
             '--logfile', self._logfile,
             'update',
         ]
