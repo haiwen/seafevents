@@ -3,17 +3,12 @@ import libevent
 import ConfigParser
 import logging
 
-from urllib import quote_plus
-from sqlalchemy import create_engine
-from sqlalchemy.pool import Pool
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.event import contains as has_event_listener, listen as add_event_listener
 
 import ccnet
 from ccnet.async import AsyncClient
 
-from seafevents.db import ping_connection
+from seafevents.db import init_db_session_class
 from seafevents.app.config import appconfig, AppConfig
 from seafevents.app.signal_handler import SignalHandler
 from seafevents.app.mq_listener import EventsMQListener
@@ -38,7 +33,6 @@ class App(object):
         self._bg_tasks_enabled = background_tasks_enabled
         try:
             self.load_config(appconfig, args.config_file)
-            self.init_engine(appconfig)
         except Exception as e:
             logging.error('Error loading seafevents config. Detial: %s' % e)
             raise RuntimeError("Error loading seafevents config")
@@ -62,6 +56,8 @@ class App(object):
 
 
     def load_config(self, appconfig, config_file):
+        appconfig.event_session = init_db_session_class(config_file)
+
         config = ConfigParser.ConfigParser()
         config.read(config_file)
         appconfig.publish_enabled = False
@@ -85,28 +81,6 @@ class App(object):
                 appconfig.publish_mq_password = config.get(appconfig.publish_mq_type,
                                                            'password')
 
-        appconfig.engine = ''
-        try:
-            appconfig.engine = config.get('DATABASE', 'type')
-        except:
-            pass
-        if appconfig.engine == 'mysql':
-            if config.has_option('DATABASE', 'host'):
-                host = config.get('DATABASE', 'host').lower()
-            else:
-                host = 'localhost'
-    
-            if config.has_option('DATABASE', 'port'):
-                port = config.getint('DATABASE', 'port')
-            else:
-                port = 3306
-            username = config.get('DATABASE', 'username')
-            passwd = config.get('DATABASE', 'password')
-            dbname = config.get('DATABASE', 'name')
-            appconfig.db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
-        else:
-            logging.info('Seafile does not use mysql db, disable statistics.')
-
         self.load_statistics_config(config)
 
     def load_statistics_config(self, config):
@@ -114,27 +88,9 @@ class App(object):
         appconfig.statistics.enabled = False
         try:
             if config.has_option('STATISTICS', 'enabled'):
-                appconfig.statistics_enabled = config.get('STATISTICS', 'enabled')
+                appconfig.statistics.enabled = config.get('STATISTICS', 'enabled')
         except Exception as e:
             logging.info(e)
-
-    def init_engine(self, appconfig):
-        kwargs = dict(pool_recycle=300, echo=False, echo_pool=False)
-
-        engine = create_engine(appconfig.db_url, **kwargs)
-        # retry when connection was unstable
-        try:
-            Base.metadata.create_all(engine)
-        except Exception as e:
-            logging.info(e)
-            Base.metadata.create_all(engine)
-
-        if not has_event_listener(Pool, 'checkout', ping_connection):
-            # We use has_event_listener to double check in case we call create_engine
-            # multipe times in the same process.
-            add_event_listener(Pool, 'checkout', ping_connection)
-        appconfig.statistic_engine = engine
-        appconfig.statistic_session = sessionmaker(bind=engine)
 
     def start_ccnet_session(self):
         '''Connect to ccnet-server, retry util connection is made'''
@@ -202,7 +158,7 @@ class BackgroundTasks(object):
         if has_office_tools():
             self._office_converter = OfficeConverter(get_office_converter_conf(self._app_config))
 
-        if appconfig.statistics.enabled and appconfig.engine == 'mysql':
+        if appconfig.statistics.enabled:
             self.update_login_record_task = UpdateLoginRecordTask()
         else:
             logging.info('login record updater disabled')
@@ -247,7 +203,7 @@ class BackgroundTasks(object):
         if self._statistics.is_enabled():
             self._statistics.start()
         else:
-            logging.info('data statistic is disabled')
+            logging.info('data statistics is disabled')
 
         if self._office_converter and self._office_converter.is_enabled():
             self._office_converter.start()

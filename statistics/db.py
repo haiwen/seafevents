@@ -6,8 +6,8 @@ from sqlalchemy import func
 from sqlalchemy import distinct
 from datetime import datetime
 
-from seafevents.statistic import FileOpsStat, TotalStorageStat
-from seafevents.statistic.models import UserTrafficStat, UserActivityStat
+from seafevents.statistics import FileOpsStat, TotalStorageStat
+from seafevents.statistics.models import UserTrafficStat, UserActivityStat
 
 logger = logging.getLogger(__name__)
 login_records = {}
