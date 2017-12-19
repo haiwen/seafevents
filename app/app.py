@@ -47,6 +47,8 @@ class App(object):
         self._bg_tasks = None
         if self._bg_tasks_enabled:
             self._bg_tasks = BackgroundTasks(args.config_file)
+        else:
+            self.update_login_record_task = UpdateLoginRecordTask()
 
         self._ccnet_session = None
         self._sync_client = None
@@ -136,6 +138,8 @@ class App(object):
 
         if self._bg_tasks:
             self._bg_tasks.start(self._evbase)
+        else:
+            self.update_login_record_task.start()
 
         while True:
             self._serve()
