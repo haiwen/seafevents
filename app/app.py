@@ -1,6 +1,5 @@
 import os
 import libevent
-import ConfigParser
 import logging
 
 from sqlalchemy.ext.declarative import declarative_base
@@ -8,13 +7,12 @@ from sqlalchemy.ext.declarative import declarative_base
 import ccnet
 from ccnet.async import AsyncClient
 
-from seafevents.db import init_db_session_class
-from seafevents.app.config import appconfig, AppConfig
+from seafevents.app.config import appconfig, load_config
 from seafevents.app.signal_handler import SignalHandler
 from seafevents.app.mq_listener import EventsMQListener
 from seafevents.events_publisher.events_publisher import events_publisher
 from seafevents.utils.config import get_office_converter_conf
-from seafevents.utils import do_exit, ClientConnector, has_office_tools
+from seafevents.utils import do_exit, ClientConnector, has_office_tools, get_config
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, UpdateLoginRecordTask
 
@@ -32,10 +30,10 @@ class App(object):
         self._events_listener_enabled = events_listener_enabled
         self._bg_tasks_enabled = background_tasks_enabled
         try:
-            self.load_config(appconfig, args.config_file)
+            load_config(args.config_file)
         except Exception as e:
             logging.error('Error loading seafevents config. Detial: %s' % e)
-            raise RuntimeError("Error loading seafevents config")
+            raise RuntimeError("Error loading seafevents config. Detial: %s" % e)
 
         self._events_listener = None
         if self._events_listener_enabled:
@@ -47,7 +45,7 @@ class App(object):
         self._bg_tasks = None
         if self._bg_tasks_enabled:
             self._bg_tasks = BackgroundTasks(args.config_file)
-        else:
+        elif appconfig.statistics.enabled:
             self.update_login_record_task = UpdateLoginRecordTask()
 
         self._ccnet_session = None
@@ -55,44 +53,6 @@ class App(object):
 
         self._evbase = libevent.Base() #pylint: disable=E1101
         self._sighandler = SignalHandler(self._evbase)
-
-
-    def load_config(self, appconfig, config_file):
-        appconfig.event_session = init_db_session_class(config_file)
-
-        config = ConfigParser.ConfigParser()
-        config.read(config_file)
-        appconfig.publish_enabled = False
-        try:
-            appconfig.publish_enabled = config.getboolean('EVENTS PUBLISH', 'enabled')
-        except:
-            # prevent hasn't EVENTS PUBLISH section.
-            pass
-        if appconfig.publish_enabled:
-            appconfig.publish_mq_type = config.get('EVENTS PUBLISH', 'mq_type').upper()
-            if appconfig.publish_mq_type != 'REDIS':
-                raise RuntimeError("Unknown database backend: %s" % self.config['publish_mq_type'])
-
-            appconfig.publish_mq_server = config.get(appconfig.publish_mq_type,
-                                                     'server')
-            appconfig.publish_mq_port = config.getint(appconfig.publish_mq_type,
-                                                      'port')
-            # prevent needn't password
-            appconfig.publish_mq_password = ""
-            if config.has_option(appconfig.publish_mq_type, 'password'):
-                appconfig.publish_mq_password = config.get(appconfig.publish_mq_type,
-                                                           'password')
-
-        self.load_statistics_config(config)
-
-    def load_statistics_config(self, config):
-        appconfig.statistics = AppConfig()
-        appconfig.statistics.enabled = False
-        try:
-            if config.has_option('STATISTICS', 'enabled'):
-                appconfig.statistics.enabled = config.get('STATISTICS', 'enabled')
-        except Exception as e:
-            logging.info(e)
 
     def start_ccnet_session(self):
         '''Connect to ccnet-server, retry util connection is made'''
@@ -138,8 +98,10 @@ class App(object):
 
         if self._bg_tasks:
             self._bg_tasks.start(self._evbase)
-        else:
+        elif appconfig.statistics.enabled:
             self.update_login_record_task.start()
+        else:
+            logging.info("Neither background task nor update login record has started.")
 
         while True:
             self._serve()
@@ -211,15 +173,3 @@ class BackgroundTasks(object):
 
         if self._office_converter and self._office_converter.is_enabled():
             self._office_converter.start()
-
-
-def get_config(config_file):
-    config = ConfigParser.ConfigParser()
-    try:
-        config.read(config_file)
-    except Exception, e:
-        logging.critical('failed to read config file %s', e)
-        do_exit(1)
-
-    return config
-

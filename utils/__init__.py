@@ -171,3 +171,13 @@ class ClientConnector(object):
                 time.sleep(self.RECONNECT_CCNET_INTERVAL)
 
         return self._client
+
+def get_config(config_file):
+    config = ConfigParser.ConfigParser()
+    try:
+        config.read(config_file)
+    except Exception, e:
+        logging.critical('failed to read config file %s', e)
+        do_exit(1)
+
+    return config
