@@ -41,11 +41,14 @@ class App(object):
 
         if appconfig.publish_enabled:
             events_publisher.init()
+        else:
+            logging.info("Events publish to redis is disabled.")
 
         self._bg_tasks = None
         if self._bg_tasks_enabled:
             self._bg_tasks = BackgroundTasks(args.config_file)
-        elif appconfig.statistics.enabled:
+
+        if appconfig.statistics.enabled:
             self.update_login_record_task = UpdateLoginRecordTask()
 
         self._ccnet_session = None
@@ -98,10 +101,13 @@ class App(object):
 
         if self._bg_tasks:
             self._bg_tasks.start(self._evbase)
-        elif appconfig.statistics.enabled:
+        else:
+            logging.info("Background task is disabled.")
+
+        if appconfig.statistics.enabled:
             self.update_login_record_task.start()
         else:
-            logging.info("Neither background task nor update login record has started.")
+            logging.info("User login statistics is disabled.")
 
         while True:
             self._serve()
@@ -124,11 +130,6 @@ class BackgroundTasks(object):
         if has_office_tools():
             self._office_converter = OfficeConverter(get_office_converter_conf(self._app_config))
 
-        if appconfig.statistics.enabled:
-            self.update_login_record_task = UpdateLoginRecordTask()
-        else:
-            logging.info('login record updater disabled')
-
     def _ensure_single_instance(self, sync_client):
         try:
             sync_client.register_service_sync(self.DUMMY_SERVICE, self.DUMMY_SERVICE_GROUP)
@@ -142,14 +143,11 @@ class BackgroundTasks(object):
             self._office_converter.register_rpc(async_client)
 
     def start(self, base):
-        logging.info('staring background tasks')
+        logging.info('Starting background tasks.')
         if self._index_updater.is_enabled():
             self._index_updater.start(base)
         else:
             logging.info('search indexer is disabled')
-
-        if hasattr(self, 'update_login_record_task'):
-            self.update_login_record_task.start()
 
         if self._seahub_email_sender.is_enabled():
             self._seahub_email_sender.start(base)

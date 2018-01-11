@@ -4,7 +4,7 @@ import os
 import logging
 from ConfigParser import ConfigParser
 from seafevents.db import init_db_session_class
-from sqlalchemy.ext.declarative import declarative_base
+from seafevents.app.config import appconfig
 from seafevents.utils.config import get_opt_from_conf_or_env, parse_bool
 
 class Settings(object):
@@ -39,11 +39,7 @@ class Settings(object):
     def parse_config(self, config_file):
         try:
             cfg = ConfigParser()
-            if 'SEAFILE_CENTRAL_CONF_DIR' in os.environ:
-                confdir = os.environ['SEAFILE_CENTRAL_CONF_DIR']
-            else:
-                confdir = os.environ['SEAFILE_CONF_DIR']
-            seaf_conf = os.path.join(confdir, 'seafile.conf')
+            seaf_conf = appconfig.seaf_conf_path
             cfg.read(seaf_conf)
         except Exception as e:
             logging.warning('Failed to read seafile config, disable virus scan.')

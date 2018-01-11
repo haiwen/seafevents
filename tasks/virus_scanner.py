@@ -1,5 +1,6 @@
 #coding: utf-8
 
+import logging
 from threading import Thread, Event
 from seafevents.virus_scanner import Settings
 from seafevents.virus_scanner import VirusScan
@@ -12,6 +13,7 @@ class VirusScanner(object):
         return self.settings.is_enabled()
 
     def start(self):
+        logging.info("Starting virus scan.")
         VirusScanTimer(self.settings).start()
 
 class VirusScanTimer(Thread):

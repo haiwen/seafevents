@@ -1,8 +1,8 @@
 #coding: utf-8
 
-import os
 import logging
 import ConfigParser
+from seafevents.app.config import appconfig
 
 class LDAPConfig(object):
 
@@ -51,17 +51,13 @@ class Settings(object):
         self.read_config()
 
     def read_config(self):
-        if 'SEAFILE_CENTRAL_CONF_DIR' in os.environ:
-            confdir = os.environ['SEAFILE_CENTRAL_CONF_DIR']
-        elif 'CCNET_CONF_DIR' in os.environ:
-            confdir = os.environ['CCNET_CONF_DIR']
-        else:
+        if not appconfig.ccnet_conf_path:
             if self.is_test:
                 logging.warning('Environment variable CCNET_CONF_DIR and SEAFILE_CENTRAL_CONF_DIR is not define, stop ldap test.')
             else:
                 logging.warning('Environment variable CCNET_CONF_DIR and SEAFILE_CENTRAL_CONF_DIR is not define, disable ldap sync.')
             return
-        ccnet_conf_path = os.path.join(confdir, 'ccnet.conf')
+        ccnet_conf_path = appconfig.ccnet_conf_path
 
         self.parser = ConfigParser.ConfigParser()
         self.parser.read(ccnet_conf_path)
