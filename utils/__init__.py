@@ -181,3 +181,15 @@ def get_config(config_file):
         do_exit(1)
 
     return config
+
+def get_env_without_thirdpart():
+    """ because unoconv.py be executed by python3, some same packpage in seahub/thirdpart folder.
+        so need remove thirdpart from PYTHONPATH env.
+    """
+    envs = os.environ.get('PYTHONPATH').split(':')
+    for env in envs:
+        if 'thirdpart' in env:
+            envs.remove(env)
+    os.environ['PYTHONPATH'] = ':'.join(envs)
+    return os.environ
+

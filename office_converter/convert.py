@@ -13,7 +13,8 @@ import json
 
 from .doctypes import DOC_TYPES, PPT_TYPES, EXCEL_TYPES
 
-from ..utils import get_python_executable, run, run_and_wait, find_in_path
+from ..utils import get_python_executable, run, run_and_wait, find_in_path, \
+        get_env_without_thirdpart
 
 __all__ = [
     "Convertor",
@@ -96,7 +97,7 @@ class Convertor(object):
             '-l',
         ]
 
-        self.proc = run(args, cwd=self.cwd)
+        self.proc = run(args, cwd=self.cwd, env=get_env_without_thirdpart())
 
         retcode = self.proc.poll()
         if retcode != None:
@@ -127,7 +128,7 @@ class Convertor(object):
         ]
 
         try:
-            _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
+            _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT, env=get_env_without_thirdpart())
         except subprocess.CalledProcessError, e:
             logging.warning('error when invoking libreoffice: %s', e.output)
             return False
@@ -152,7 +153,7 @@ class Convertor(object):
         ]
 
         try:
-            _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
+            _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT, env=get_env_without_thirdpart())
         except subprocess.CalledProcessError, e:
             logging.warning('error when invoking libreoffice: %s', e.output)
             return False
@@ -174,7 +175,7 @@ class Convertor(object):
 
         with self.lock:
             try:
-                _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
+                _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT, env=get_env_without_thirdpart())
             except subprocess.CalledProcessError, e:
                 logging.warning('error when invoking libreoffice: %s', e.output)
                 return False
@@ -200,7 +201,7 @@ class Convertor(object):
 
         with self.lock:
             try:
-                _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
+                _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT, env=get_env_without_thirdpart())
             except subprocess.CalledProcessError, e:
                 logging.warning('error when invoking libreoffice: %s', e.output)
                 return False
