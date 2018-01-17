@@ -1,14 +1,12 @@
-import os
 import logging
 import datetime
 from ConfigParser import ConfigParser
 from seafevents.db import init_db_session_class
-from sqlalchemy.ext.declarative import declarative_base
-from seafevents.utils.config import get_opt_from_conf_or_env, parse_bool
+from seafevents.app.config import appconfig
 
 class Settings(object):
     def __init__(self, config_file):
-        self.statistics_enabled = False
+        self.statistics_enabled = appconfig.statistics.enabled
 
         self.session_cls = None
 
@@ -24,21 +22,12 @@ class Settings(object):
             logging.warning('Failed to init db session class: %s', e)
             return
 
-        cfg = ConfigParser()
-        cfg.read(config_file)
-        if cfg.has_option('STATISTICS', 'enabled'):
-            self.statistics_enabled = cfg.get('STATISTICS', 'enabled')
-
     def init_seafile_db(self):
         try:
             cfg = ConfigParser()
-            if 'SEAFILE_CENTRAL_CONF_DIR' in os.environ:
-                confdir = os.environ['SEAFILE_CENTRAL_CONF_DIR']
-            else:
-                confdir = os.environ['SEAFILE_CONF_DIR']
-            seaf_conf = os.path.join(confdir, 'seafile.conf')
+            seaf_conf = appconfig.seaf_conf_path
             cfg.read(seaf_conf)
-        except Exception as e:
+        except:
             logging.warning('Failed to read seafile config, disable statistics.')
             return
 

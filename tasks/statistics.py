@@ -19,6 +19,7 @@ class Statistics(object):
         return self.settings.statistics_enabled
 
     def start(self):
+        logging.info("Starting data statistics.")
         if self.settings.statistics_enabled:
             CountTotalStorage(self.settings).start()
             CountFileOps(self.settings).start()
@@ -105,6 +106,7 @@ class UpdateLoginRecordTask(Thread):
                 session.remove()
 
     def update_login_record(self):
+        logging.info("start to update user login record")
         while True:
             all_keys = login_records.keys()
             if len(all_keys) > 1000:
@@ -114,9 +116,11 @@ class UpdateLoginRecordTask(Thread):
                 self.keys = all_keys
                 self._update_login_record()
                 break
+        logging.info("total %s items has been updated")
         self.run()
 
     def run(self):
+        logging.info("Starting user login statistics.")
         # makesure always run at (30, 60) minutes
         minutes = time.gmtime().tm_min
         interval = 30 - minutes % 30

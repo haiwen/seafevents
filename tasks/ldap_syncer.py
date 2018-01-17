@@ -12,6 +12,7 @@ class LdapSyncer(object):
         return self.settings.enable_sync()
 
     def start(self):
+        logging.info("Starting ldap sync.")
         LdapSyncTimer(self.settings).start()
 
 class LdapSyncTimer(Thread):
