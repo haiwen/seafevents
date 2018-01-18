@@ -186,10 +186,10 @@ def get_env_without_thirdpart():
     """ because unoconv.py be executed by python3, some same packpage in seahub/thirdpart folder.
         so need remove thirdpart from PYTHONPATH env.
     """
-    envs = os.environ.get('PYTHONPATH').split(':')
-    for env in envs:
-        if 'thirdpart' in env:
-            envs.remove(env)
-    os.environ['PYTHONPATH'] = ':'.join(envs)
-    return os.environ
-
+    envs = dict(os.environ)
+    python_envs = envs.get('PYTHONPATH').split(':')
+    for env in python_envs:
+        if 'thirdpart' in python_envs:
+            python_envs.remove(env)
+    envs['PYTHONPATH'] = ':'.join(python_envs)
+    return envs
