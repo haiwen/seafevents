@@ -84,13 +84,13 @@ def load_statistics_config(config):
 def load_aliyun_config(config):
     appconfig.ali = AppConfig()
     try:
-        appconfig.ali.url = config.get('Aliyun MQ', 'url')
+        appconfig.ali.url = config.get('ALIYUN MQ', 'url')
         appconfig.ali.host = urlparse.urlparse(appconfig.ali.url).netloc
-        appconfig.ali.producer_id = config.get('Aliyun MQ', 'producer_id')
-        appconfig.ali.topic = config.get('Aliyun MQ', 'topic')
-        appconfig.ali.tag = config.get('Aliyun MQ', 'tag')
-        appconfig.ali.ak = config.get('Aliyun MQ', 'access_key')
-        appconfig.ali.sk = config.get('Aliyun MQ', 'secret_key')
+        appconfig.ali.producer_id = config.get('ALIYUN MQ', 'producer_id')
+        appconfig.ali.topic = config.get('ALIYUN MQ', 'topic')
+        appconfig.ali.tag = config.get('ALIYUN MQ', 'tag')
+        appconfig.ali.ak = config.get('ALIYUN MQ', 'access_key')
+        appconfig.ali.sk = config.get('ALIYUN MQ', 'secret_key')
     except Exception as e:
         logging.error(e)
         appconfig.ali = None
