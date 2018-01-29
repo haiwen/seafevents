@@ -11,6 +11,8 @@ from ldap_conn import LdapConn
 from ldap_group_sync import LdapGroupSync
 from ldap_user_sync import LdapUserSync
 
+from seafevents.app.config import load_env_config
+
 def print_search_result(records):
     if len(records) > 0:
         n = 0
@@ -124,6 +126,8 @@ if __name__ == '__main__':
         'stream': sys.stdout
     }
     logging.basicConfig(**kw)
+
+    load_env_config()
 
     setting = Settings(True if arg.test else False)
     if not setting.has_base_info:

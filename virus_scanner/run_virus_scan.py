@@ -5,9 +5,10 @@ import os
 import sys
 import logging
 import argparse
-from ConfigParser import ConfigParser
 from scan_settings import Settings
 from virus_scan import VirusScan
+
+from seafevents.app.config import load_env_config
 
 if __name__ == "__main__":
     kw = {
@@ -23,6 +24,8 @@ if __name__ == "__main__":
                         default=os.path.join(os.path.abspath('..'), 'events.conf'),
                         help='seafevents config file')
     args = parser.parse_args()
+
+    load_env_config()
 
     setting = Settings(args.config_file)
     if setting.is_enabled():
