@@ -23,6 +23,11 @@ def load_config(config_file):
     appconfig.event_session = init_db_session_class(config_file)
     config = get_config(config_file)
 
+    load_env_config()
+    load_publish_config(config)
+    load_statistics_config(config)
+
+def load_env_config():
     # get central config dir
     appconfig.central_confdir = ""
     if 'SEAFILE_CENTRAL_CONF_DIR' in os.environ:
@@ -41,9 +46,6 @@ def load_config(config_file):
         appconfig.ccnet_conf_path = os.path.join(appconfig.central_confdir, 'ccnet.conf')
     elif 'CCNET_CONF_DIR' in os.environ:
         appconfig.ccnet_conf_path = os.path.join(os.environ['CCNET_CONF_DIR'], 'ccnet.conf')
-
-    load_publish_config(config)
-    load_statistics_config(config)
 
 def load_publish_config(config):
     appconfig.publish_enabled = False
