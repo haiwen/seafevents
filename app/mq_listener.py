@@ -91,7 +91,6 @@ class EventsMQListener(object):
 
     def message_cb(self, message):
         self._events_queue.put(message)
-        logging.info('Lenth of events_queue: %d' % self._events_queue.qsize())
 
     def _start_worker_thread(self):
         '''Starts the worker thread for saving events'''
