@@ -127,9 +127,10 @@ class LdapUserSync(LdapSync):
         return '' if not val else val.encode('utf8')
 
     def add_profile(self, email, ldap_user):
-        field = 'user, nickname, intro'
-        qmark = '%s, %s, %s'
-        val = [email, ldap_user.name, '']
+        # list_in_address_book: django will not apply default value to mysql. it will be processed in ORM.
+        field = 'user, nickname, intro, list_in_address_book'
+        qmark = '%s, %s, %s, %s'
+        val = [email, ldap_user.name, '', False]
         if ldap_user.uid is not None and ldap_user.uid != '':
             field += ', login_id'
             qmark += ', %s'
