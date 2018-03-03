@@ -46,7 +46,7 @@ class ConvertTask(object):
         # fetched office document
         self.document = None
         # pdf output
-        self.pdf = os.path.join(pdf_dir, file_id)
+        self.pdf = '{0}.{1}'.format(os.path.join(pdf_dir, file_id),'pdf')
         # html output, each page of the document is converted to a separate
         # html file, and displayed in iframes on seahub
         self.htmldir = os.path.join(html_dir, file_id)
@@ -107,6 +107,10 @@ class Worker(threading.Thread):
     def _convert_to_pdf(self, task):
         """Use libreoffice API to convert document to pdf"""
         convertor = task_manager.convertor
+        if os.path.exists(task.pdf):
+            logging.debug('task %s already handle', task)
+            task.status = 'DONE'
+            return True
 
         logging.debug('start to convert task %s', task)
 
@@ -115,31 +119,19 @@ class Worker(threading.Thread):
         try:
             success = convertor.convert_to_pdf(task.document, task.pdf)
         except ConvertorFatalError:
+            task.status = 'ERROR'
+            task.error = 'failed to convert document'
             return False
 
         if success:
             logging.debug("succefully converted %s to pdf", task)
+            task.status = 'DONE'
         else:
             logging.warning("failed to convert %s to pdf", task)
-
-        return success
-
-    def _convert_pdf_to_html(self, task):
-        """Use pdf2htmlEX to convert pdf to html"""
-        _checkdir_with_mkdir(task.htmldir)
-        def progress_callback(page, pdf_info):
-            task.last_processed_page = page
-            task.pdf_info = pdf_info
-        try:
-            task_manager.convertor.pdf_to_html2(
-                task.pdf, task.htmldir, task_manager.max_pages, progress_callback)
-        except Exception:
-            logging.exception('failed to convert %s to html', task)
             task.status = 'ERROR'
             task.error = 'failed to convert document'
-        else:
-            logging.debug('successfully convert %s to html', task)
-            task.status = 'DONE'
+
+        return success
 
     def _convert_excel_to_html(self, task):
         '''Use libreoffice to convert excel to html'''
@@ -229,8 +221,6 @@ class Worker(threading.Thread):
                 task.error = 'failed to convert document'
                 return
 
-        self._convert_pdf_to_html(task)
-
     def run(self):
         """Repeatedly get task from tasks queue and process it."""
         while True:
@@ -294,8 +284,9 @@ class TaskManager(object):
     def _task_file_exists(self, file_id, doctype=None):
         '''Test whether the file has already been converted'''
         file_html_dir = os.path.join(self.html_dir, file_id)
+        # handler document->pdf
         if doctype not in EXCEL_TYPES:
-            done_file = os.path.join(file_html_dir, 'done')
+            done_file = os.path.join(os.path.basename(file_html_dir), 'pdf', file_id)
         else:
             done_file = os.path.join(file_html_dir, 'index.html')
 
@@ -342,8 +333,8 @@ class TaskManager(object):
                         ret['error'] = 'invalid file id'
         return ret
 
-    def query_task_status(self, file_id, page):
-        if page == 0:
+    def query_task_status(self, file_id, doctype):
+        if doctype == 'spreadsheet':
             return self.query_task_status_excel(file_id)
         ret = {}
         with self._tasks_map_lock:
@@ -353,17 +344,13 @@ class TaskManager(object):
                     ret['status'] = 'ERROR'
                     ret['error'] = task.error
                 else:
-                    ret['status'] = task.page_status(page)
-                    ret['info'] = task.pdf_info
-                    ret['info']['processed_pages'] = task.last_processed_page
+                    ret['status'] = task.status
             else:
                 if self._task_file_exists(file_id):
                     ret['status'] = 'DONE'
-                    ret['info'] = self._get_pdf_info(file_id)
-                    ret['info']['processed_pages'] = ret['info']['final_pages']
-                    return ret
                 else:
                     ret['status'] = 'ERROR'
+                    # handler document->pdf
                     ret['error'] = 'invalid file id'
         return ret
 

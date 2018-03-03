@@ -58,7 +58,7 @@ def is_office_converter_enabled(config):
 
     return conf.get('enabled', False)
 
-def get_office_converter_html_dir(config):
+def get_office_converter_dir(config, file_type):
     if not has_office_tools():
         raise RuntimeError('office converter is not enabled')
 
@@ -66,7 +66,7 @@ def get_office_converter_html_dir(config):
     if not conf['enabled']:
         raise RuntimeError('office conveter is not enabled')
 
-    return os.path.join(conf['outputdir'], 'html')
+    return os.path.join(conf['outputdir'], file_type)
 
 def get_office_converter_limit(config):
     if not has_office_tools():
