@@ -1,9 +1,12 @@
+# coding: utf-8
+
 import os
 import logging
 import hashlib
 import MySQLdb
 
-class ChangeFileUUIDMap(object):
+
+class ChangeFilePathHandler(object):
     def __init__(self):
         self.db_conn = None
         self.cursor = None
@@ -23,6 +26,7 @@ class ChangeFileUUIDMap(object):
 
         try:
             db_infos = seahub_settings.DATABASES['default']
+            #db_infos = local_settings.DATABASES['default']
         except KeyError as e:
             logging.warning('Failed to init seahub db, can not find db info in seahub settings.')
             return
@@ -68,8 +72,37 @@ class ChangeFileUUIDMap(object):
             self.cursor = self.db_conn.cursor()
         except Exception as e:
             logging.warning('Failed to connect seahub db: %s.' %  e)
-        
-    def change_file_uuid_map (self, repo_id, path, new_path, is_dir, src_repo_id = None):
+
+    def change_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
+        if not repo_id or not path or not new_path:
+            logging.warning('Failed to change file uuid map, bad args')
+            return
+
+        try:
+            self._change_share_file_path(repo_id, path, new_path, is_dir, src_repo_id)
+        except MySQLdb.OperationalError:
+            self.reconnect_db()
+            self._change_share_file_path(repo_id, path, new_path, is_dir, src_repo_id)
+        except Exception as e:
+            logging.warning('Failed to change share file path for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
+
+    def _change_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
+        self.cursor.execute('select path from share_fileshare where repo_id=%s and path like %s',
+                            [src_repo_id if src_repo_id else repo_id, path + '%'])
+        if self.cursor.rowcount == 0:
+            return
+        # For multi-layer dirs, divide orig_path into orig_parent_path and orig_sub_path
+        # new_path_value = new_path + orig_sub_path
+        results = self.cursor.fetchall()
+        for row in results:
+            new_path_value = new_path + row[0].split(path, 1)[1]
+
+            self.cursor.execute('''update share_fileshare set repo_id=%s, path=%s
+                            where repo_id=%s and path=%s''',
+                            (repo_id, new_path_value,
+                            src_repo_id if src_repo_id else repo_id, row[0]))
+
+    def change_file_uuid_map(self, repo_id, path, new_path, is_dir, src_repo_id=None):
         if not repo_id or not path or not new_path:
             logging.warning('Failed to change file uuid map, bad args')
             return
