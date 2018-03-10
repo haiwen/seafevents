@@ -48,9 +48,12 @@ class ChangeFilePathHandler(object):
         self.db_passwd = db_infos.get('PASSWORD')
 
         try:
+            # type of msg from ccnet is str, so there need str too,
+            # otherwise there will be a conversion operation（ascii is python default encode 
+            # type, it's hard to change）.
             self.db_conn = MySQLdb.connect(host=self.db_host, port=self.db_port,
                                            user=self.db_user, passwd=self.db_passwd,
-                                           db=self.db_name, charset='utf8')
+                                           db=self.db_name, charset='utf8', use_unicode=False)
             self.db_conn.autocommit(True)
             self.cursor = self.db_conn.cursor()
         except Exception as e:
@@ -153,6 +156,5 @@ class ChangeFilePathHandler(object):
 
     def md5_repo_id_parent_path(self, repo_id, parent_path):
         parent_path = parent_path.rstrip('/') if parent_path != '/' else '/' 
-        return hashlib.md5((repo_id + parent_path).encode('utf-8')).hexdigest()
-
-    
+        # repo_id and parent_path are already utf8 encoded characters, can't use encode
+        return hashlib.md5(repo_id + parent_path).hexdigest()
