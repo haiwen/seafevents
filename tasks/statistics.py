@@ -1,7 +1,6 @@
 #coding: utf-8
 
 import logging
-import sched, time
 
 from sqlalchemy.sql import text
 from sqlalchemy.orm.scoping import scoped_session
@@ -61,7 +60,7 @@ class UpdateLoginRecordTask(Thread):
     def __init__(self):
         self.session = appconfig.event_session
         super(UpdateLoginRecordTask, self).__init__()
-        self.s = sched.scheduler(time.time, time.sleep)
+        self.fininsh = Event()
 
     def _scoped_session(self):
         try:
@@ -69,7 +68,6 @@ class UpdateLoginRecordTask(Thread):
         except Exception as e:
             logging.error(e)
             return scoped_session(self.session)
-
 
     def _update_login_record(self):
         """ example:
@@ -109,20 +107,21 @@ class UpdateLoginRecordTask(Thread):
         logging.info("start to update user login record")
         while True:
             all_keys = login_records.keys()
-            if len(all_keys) > 1000:
-                self.keys = all_keys[:1000]
+            if len(all_keys) > 30:
+                self.keys = all_keys[:30]
                 self._update_login_record()
             else:
                 self.keys = all_keys
                 self._update_login_record()
                 break
-        logging.info("total %s items has been updated")
-        self.run()
+        logging.info("total %s items has been updated" % len(all_keys))
 
     def run(self):
         logging.info("Starting user login statistics.")
-        # makesure always run at (30, 60) minutes
-        minutes = time.gmtime().tm_min
-        interval = 30 - minutes % 30
-        self.s.enter(interval * 60, 0, self.update_login_record, ())
-        self.s.run()
+        while not self.fininsh.is_set():
+            self.fininsh.wait(20 * 60)
+            if not self.fininsh.is_set():
+                self.update_login_record()
+
+    def cancel(self):
+        self.fininsh.set()
