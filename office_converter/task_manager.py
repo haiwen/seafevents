@@ -8,9 +8,13 @@ import urllib2
 import logging
 import atexit
 import json
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from pdfrw import PdfReader, PdfWriter, PageMerge
 
 from .convert import Convertor, ConvertorFatalError
 from .doctypes import EXCEL_TYPES
+
 
 __all__ = ["task_manager"]
 
@@ -35,7 +39,8 @@ class ConvertTask(object):
     - ERROR: error in fetching or converting
 
     """
-    def __init__(self, file_id, doctype, url, pdf_dir, html_dir):
+    def __init__(self, file_id, doctype, url, pdf_dir, html_dir, 
+                 watermark=''):
         self.url = url
         self.doctype = doctype
         self.file_id = file_id
@@ -53,6 +58,10 @@ class ConvertTask(object):
 
         self.pdf_info = {}
         self.last_processed_page = 0
+        self.name = ''
+        self.email = ''
+        if '\t' in watermark:
+            self.name, self.email = watermark.split('\t')[:2]
 
     def __str__(self):
         return "<type: %s, id: %s>" % (self.doctype, self.file_id)
@@ -73,9 +82,7 @@ class ConvertTask(object):
         # Remove temporary file when done or error
         if status == 'ERROR' or status == 'DONE':
             fn = ''
-            if self.doctype == 'pdf' and self.pdf:
-                fn = self.pdf
-            elif self.document:
+            if self.document:
                 fn = self.document
 
             if fn and os.path.exists(fn):
@@ -150,10 +157,15 @@ class Worker(threading.Thread):
     def write_content_to_tmp(self, task):
         '''write the document/pdf content to a temporary file'''
         content = task.content
+
         try:
-            suffix = "." + task.doctype
-            fd, tmpfile = tempfile.mkstemp(suffix=suffix)
-            os.close(fd)
+            tmpfile = ''
+            if task.doctype == 'pdf':
+                tmpfile = task.pdf
+            else:
+                suffix = "." + task.doctype
+                fd, tmpfile = tempfile.mkstemp(suffix=suffix)
+                os.close(fd)
 
             with open(tmpfile, 'wb') as fp:
                 fp.write(content)
@@ -163,9 +175,7 @@ class Worker(threading.Thread):
             task.error = 'failed to write fetched document to temporary file'
             return False
         else:
-            if task.doctype == 'pdf':
-                task.pdf = tmpfile
-            else:
+            if task.doctype != 'pdf':
                 task.document = tmpfile
             return True
 
@@ -191,11 +201,10 @@ class Worker(threading.Thread):
         """
                     libreoffice
         Excel  ===============>  html
-                         libreoffice           pdf2htmlEX
-        Document file  ===============>  pdf ==============> html
+                         libreoffice
+        Document file  ===============>  pdf
 
-                pdf2htmlEX
-        PDF   ==============> html
+        add watermark to pdf
         """
         task.status = 'PROCESSING'
 
@@ -220,6 +229,29 @@ class Worker(threading.Thread):
                 task.status = 'ERROR'
                 task.error = 'failed to convert document'
                 return
+
+        if task.name and task.email:
+            try:
+                pdfreader = PdfReader(task.pdf)
+                if not pdfreader.Encrypt:
+                    suffix = "." + task.doctype
+                    fd, temp_wmark = tempfile.mkstemp(suffix=suffix)
+                    os.close(fd)
+                    c = canvas.Canvas(temp_wmark, pagesize=letter)
+                    c.setFillColorRGB(0, 1, 0)
+                    c.setFontSize(20)
+                    c.drawString(4, 4, task.email)
+                    c.drawString(4, 40, task.name)
+                    c.save()
+                    for page in pdfreader.pages:
+                        watermark = PageMerge().add(PdfReader(temp_wmark).pages[0])[0]
+                        PageMerge(page).add(watermark, prepend=False).render()
+                    PdfWriter(task.pdf, trailer=pdfreader).write()
+            except Exception as e:
+                logging.error('add watermark failed:%s' % e)
+                task.status = 'ERROR'
+
+        task.status = 'DONE'
 
     def run(self):
         """Repeatedly get task from tasks queue and process it."""
@@ -284,16 +316,21 @@ class TaskManager(object):
     def _task_file_exists(self, file_id, doctype=None):
         '''Test whether the file has already been converted'''
         file_html_dir = os.path.join(self.html_dir, file_id)
-        # handler document->pdf
         if doctype not in EXCEL_TYPES:
-            done_file = os.path.join(os.path.basename(file_html_dir), 'pdf', file_id)
+            dirname = os.path.dirname(os.path.dirname(file_html_dir))
+            if not file_id.endswith('.pdf'):
+                file_id = file_id + '.pdf'
+            done_file = os.path.join(dirname, 'pdf', file_id)
         else:
             done_file = os.path.join(file_html_dir, 'index.html')
 
         return os.path.exists(done_file)
 
-    def add_task(self, file_id, doctype, url):
+    def add_task(self, file_id, doctype, url, watermark, convert_tmp_filename):
         """Create a convert task and dipatch it to worker threads"""
+        if convert_tmp_filename:
+            file_id = convert_tmp_filename
+
         with self._tasks_map_lock:
             if file_id in self._tasks_map:
                 task = self._tasks_map[file_id]
@@ -303,7 +340,8 @@ class TaskManager(object):
                     return
 
             if not self._task_file_exists(file_id, doctype):
-                task = ConvertTask(file_id, doctype, url, self.pdf_dir, self.html_dir)
+                task = ConvertTask(file_id, doctype, url, self.pdf_dir, self.html_dir, 
+                                   watermark)
                 self._tasks_map[file_id] = task
                 self._tasks_queue.put(task)
 
@@ -333,7 +371,10 @@ class TaskManager(object):
                         ret['error'] = 'invalid file id'
         return ret
 
-    def query_task_status(self, file_id, doctype):
+    def query_task_status(self, file_id, doctype, convert_tmp_filename=''):
+        if convert_tmp_filename:
+            file_id = convert_tmp_filename
+
         if doctype == 'spreadsheet':
             return self.query_task_status_excel(file_id)
         ret = {}
