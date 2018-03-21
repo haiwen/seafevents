@@ -97,13 +97,27 @@ class ChangeFilePathHandler(object):
         # For multi-layer dirs, divide orig_path into orig_parent_path and orig_sub_path
         # new_path_value = new_path + orig_sub_path
         results = self.cursor.fetchall()
+        # get all records that path starts with old path
+        # e.g
+        # old_path: /old_path/t
+        # get all results: /old_path/t /old_path/t1  /old_path/t/q
         for row in results:
-            new_path_value = new_path + row[0].split(path, 1)[1]
+            # row[0]: old path in db
+            # path: old path
+            # new_path_value: new path 
 
-            self.cursor.execute('''update share_fileshare set repo_id=%s, path=%s
-                            where repo_id=%s and path=%s''',
-                            (repo_id, new_path_value,
-                            src_repo_id if src_repo_id else repo_id, row[0]))
+            # pass only oldpath and subdir path
+            if row[0] == path or row[0].startswith(path + '/'):
+                if row[0] == path:
+                    new_path_value = new_path
+                else:
+                    new_path_value = new_path + row[0].split(path, 1)[1]
+
+            # update old path and subdir record
+                self.cursor.execute('''update share_fileshare set repo_id=%s, path=%s
+                                where repo_id=%s and path=%s''',
+                                (repo_id, new_path_value,
+                                src_repo_id if src_repo_id else repo_id, row[0]))
 
     def change_file_uuid_map(self, repo_id, path, new_path, is_dir, src_repo_id=None):
         if not repo_id or not path or not new_path:
@@ -123,6 +137,7 @@ class ChangeFilePathHandler(object):
         old_file = os.path.split(path)[1]
         self.cursor.execute('select 1 from tags_fileuuidmap where repo_id=%s and parent_path=%s and filename=%s and is_dir=%s',
                             [src_repo_id if src_repo_id else repo_id, old_dir, old_file, is_dir])
+        # update old path itself
         if self.cursor.rowcount != 0:
             new_dir = os.path.split(new_path)[0]
             new_file = os.path.split(new_path)[1]
@@ -144,15 +159,28 @@ class ChangeFilePathHandler(object):
             # For multi-layer dirs, divide orig_path into orig_parent_path and orig_sub_path
             # new_path_value = new_path + orig_sub_path
             results = self.cursor.fetchall()
+            # get all record that parent_path starts with old parent_path
+            # e.g
+            # old_path: /old_path/t
+            # get all resultts: /old_path/t /old_path1/t  /olt_path/t/1
             for row in results:
-                new_path_value = new_path + row[0].split(path, 1)[1]
-                path_md5 = self.md5_repo_id_parent_path(repo_id, new_path_value)
+                # row[0]: old parent_path in db
+                # path: old  path
+                # new_path_value: new path
 
-                self.cursor.execute('''update tags_fileuuidmap set repo_id=%s, parent_path=%s,
-                                repo_id_parent_path_md5=%s where
-                                repo_id=%s and parent_path=%s''',
-                                (repo_id, new_path_value, path_md5,
-                                src_repo_id if src_repo_id else repo_id, row[0]))
+                # pass only oldpath and subdir path
+                if row[0] == path or row[0].startswith(path + '/'):
+                    if row[0] == path:
+                        new_path_value = new_path
+                    else:
+                        new_path_value = new_path + row[0].split(path, 1)[1]
+                    path_md5 = self.md5_repo_id_parent_path(repo_id, new_path_value)
+
+                    self.cursor.execute('''update tags_fileuuidmap set repo_id=%s, parent_path=%s,
+                                    repo_id_parent_path_md5=%s where
+                                    repo_id=%s and parent_path=%s''',
+                                    (repo_id, new_path_value, path_md5,
+                                    src_repo_id if src_repo_id else repo_id, row[0]))
 
     def md5_repo_id_parent_path(self, repo_id, parent_path):
         parent_path = parent_path.rstrip('/') if parent_path != '/' else '/' 
