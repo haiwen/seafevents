@@ -1,4 +1,4 @@
-#coding: utf-8
+# coding: utf-8
 
 import os
 import Queue
@@ -127,6 +127,7 @@ class Worker(threading.Thread):
     def _convert_pdf_to_html(self, task):
         """Use pdf2htmlEX to convert pdf to html"""
         _checkdir_with_mkdir(task.htmldir)
+
         def progress_callback(page, pdf_info):
             task.last_processed_page = page
             task.pdf_info = pdf_info
@@ -194,6 +195,8 @@ class Worker(threading.Thread):
         else:
             task.content = content
             return True
+        finally:
+            file_response.close()
 
     def _handle_task(self, task):
         """
