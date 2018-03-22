@@ -184,6 +184,7 @@ class Worker(threading.Thread):
 
         """
         logging.debug('start to fetch task %s', task)
+        file_response = None
         try:
             file_response = urllib2.urlopen(task.url)
             content = file_response.read()
@@ -196,7 +197,8 @@ class Worker(threading.Thread):
             task.content = content
             return True
         finally:
-            file_response.close()
+            if file_response:
+                file_response.close()
 
     def _handle_task(self, task):
         """
@@ -224,7 +226,8 @@ class Worker(threading.Thread):
                 task.status = 'ERROR'
                 task.error = 'failed to convert excel to document'
             else:
-                task_manager._tasks_map.pop(task.file_id)
+                with task_manager._tasks_map_lock:
+                    task_manager._tasks_map.pop(task.file_id)
 
             return
 
@@ -236,7 +239,8 @@ class Worker(threading.Thread):
                 return
 
         self._convert_pdf_to_html(task)
-        task_manager._tasks_map.pop(task.file_id)
+        with task_manager._tasks_map_lock:
+            task_manager._tasks_map.pop(task.file_id)
 
     def run(self):
         """Repeatedly get task from tasks queue and process it."""
