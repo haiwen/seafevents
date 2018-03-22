@@ -11,7 +11,7 @@ from seafevents.events.db import save_user_events, save_org_user_events, \
         save_file_audit_event, save_file_update_event, save_perm_audit_event
 from seafevents.app.config import appconfig
 from seafobj import CommitDiffer, commit_mgr
-from change_uuid_path import ChangeFilePathHandler
+from change_file_path import ChangeFilePathHandler
 
 changer = ChangeFilePathHandler()
 
@@ -27,12 +27,9 @@ def RepoMoveEventHandler(session, msg):
         dic['dst_path'] = '/'
     path = os.path.join(dic['src_path'], dic['src_file_name'])
     new_path = os.path.join(dic['dst_path'], dic['dst_file_name'])
-    changer.change_file_uuid_map(dic['dst_repo_id'], path, new_path,
-                                 0 if dic['obj_type'] == 'file' else 1,
-                                 dic['src_repo_id'])
-    changer.change_share_file_path(dic['dst_repo_id'], path, new_path,
-                                   0 if dic['obj_type'] == 'file' else 1,
-                                   dic['src_repo_id'])
+    changer.update_db_records(dic['dst_repo_id'], path, new_path,
+                    0 if dic['obj_type'] == 'file' else 1,
+                    dic['src_repo_id'])
 
 def RepoUpdateEventHandler(session, msg):
     elements = msg.body.split('\t')
@@ -74,17 +71,13 @@ def RepoUpdateEventHandler(session, msg):
 
             if renamed_files or renamed_dirs or moved_files or moved_dirs:
                 for r_file in renamed_files:
-                    changer.change_file_uuid_map(repo_id, r_file.path, r_file.new_path, 0)
-                    changer.change_share_file_path(repo_id, r_file.path, r_file.new_path, 0)
+                    changer.update_db_records(repo_id, r_file.path, r_file.new_path, 0)
                 for r_dir in renamed_dirs:
-                    changer.change_file_uuid_map(repo_id, r_dir.path, r_dir.new_path, 1)
-                    changer.change_share_file_path(repo_id, r_dir.path, r_dir.new_path, 1)
+                    changer.update_db_records(repo_id, r_dir.path, r_dir.new_path, 1)
                 for m_file in moved_files:
-                    changer.change_file_uuid_map(repo_id, m_file.path, m_file.new_path, 0)
-                    changer.change_share_file_path(repo_id, m_file.path, m_file.new_path, 0)
+                    changer.update_db_records(repo_id, m_file.path, m_file.new_path, 0)
                 for m_dir in moved_dirs:
-                    changer.change_file_uuid_map(repo_id, m_dir.path, m_dir.new_path, 1)
-                    changer.change_share_file_path(repo_id, m_dir.path, m_dir.new_path, 1)
+                    changer.update_db_records(repo_id, m_dir.path, m_dir.new_path, 1)
 
     org_id = get_org_id_by_repo_id(repo_id)
     if org_id > 0:
