@@ -220,6 +220,9 @@ class Worker(threading.Thread):
             if not success:
                 task.status = 'ERROR'
                 task.error = 'failed to convert excel to document'
+            else:
+                task_manager._tasks_map.pop(task.file_id)
+
             return
 
         if task.doctype != 'pdf':
@@ -230,6 +233,7 @@ class Worker(threading.Thread):
                 return
 
         self._convert_pdf_to_html(task)
+        task_manager._tasks_map.pop(task.file_id)
 
     def run(self):
         """Repeatedly get task from tasks queue and process it."""
