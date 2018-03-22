@@ -76,11 +76,16 @@ class ChangeFilePathHandler(object):
         except Exception as e:
             logging.warning('Failed to connect seahub db: %s.' %  e)
 
-    def change_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
-        if not repo_id or not path or not new_path:
+    def handler(self, dst_repo_id, path, new_path, is_dir, src_repo_id=None):
+        if not dst_repo_id or not path or not new_path:
             logging.warning('Failed to change file uuid map, bad args')
             return
 
+        self.change_file_uuid_map(dst_repo_id, path, new_path, is_dir, src_repo_id)
+        self.change_share_file_path(dst_repo_id, path, new_path, is_dir, src_repo_id)
+        self.change_upload_share_file_path(dst_repo_id, path, new_path, is_dir, src_repo_id)
+
+    def change_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
         try:
             self._change_share_file_path(repo_id, path, new_path, is_dir, src_repo_id)
         except MySQLdb.OperationalError:
@@ -120,10 +125,6 @@ class ChangeFilePathHandler(object):
                                 src_repo_id if src_repo_id else repo_id, row[0]))
 
     def change_file_uuid_map(self, repo_id, path, new_path, is_dir, src_repo_id=None):
-        if not repo_id or not path or not new_path:
-            logging.warning('Failed to change file uuid map, bad args')
-            return
-
         try:
             self._change_file_uuid_map (repo_id, path, new_path, is_dir, src_repo_id)
         except MySQLdb.OperationalError:
@@ -186,3 +187,43 @@ class ChangeFilePathHandler(object):
         parent_path = parent_path.rstrip('/') if parent_path != '/' else '/' 
         # repo_id and parent_path are already utf8 encoded characters, can't use encode
         return hashlib.md5(repo_id + parent_path).hexdigest()
+
+    def change_upload_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
+        try:
+            self._change_upload_share_file_path(repo_id, path, new_path, is_dir, src_repo_id)
+        except MySQLdb.OperationalError:
+            self.reconnect_db()
+            self._change_upload_share_file_path(repo_id, path, new_path, is_dir, src_repo_id)
+        except Exception as e:
+            logging.warning('Failed to change upload share file path for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
+
+    def _change_upload_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id):
+        self.cursor.execute('select path from share_uploadlinkshare where repo_id=%s and path like %s',
+                            [src_repo_id if src_repo_id else repo_id, path + '%'])
+
+        if self.cursor.rowcount == 0:
+            return
+        # For multi-layer dirs, divide orig_path into orig_parent_path and orig_sub_path
+        # new_path_value = new_path + orig_sub_path
+        results = self.cursor.fetchall()
+        # get all records that path starts with old path
+        # e.g
+        # old_path: /old_path/t
+        # get all results: /old_path/t /old_path/t1  /old_path/t/q
+        for row in results:
+            # row[0]: old path in db
+            # path: old path
+            # new_path_value: new path 
+
+            # pass only oldpath and subdir path
+            if row[0] == path or row[0].startswith(path + '/'):
+                if row[0] == path:
+                    new_path_value = new_path
+                else:
+                    new_path_value = new_path + row[0].split(path, 1)[1]
+
+            # update old path and subdir record
+                self.cursor.execute('''update share_uploadlinkshare set repo_id=%s, path=%s
+                                where repo_id=%s and path=%s''',
+                                (repo_id, new_path_value,
+                                src_repo_id if src_repo_id else repo_id, row[0]))
