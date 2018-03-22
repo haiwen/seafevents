@@ -76,7 +76,7 @@ class ChangeFilePathHandler(object):
         except Exception as e:
             logging.warning('Failed to connect seahub db: %s.' %  e)
 
-    def handler(self, dst_repo_id, path, new_path, is_dir, src_repo_id=None):
+    def update_db_records(self, dst_repo_id, path, new_path, is_dir, src_repo_id=None):
         if not dst_repo_id or not path or not new_path:
             logging.warning('Failed to change file uuid map, bad args')
             return
