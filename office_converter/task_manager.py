@@ -1,4 +1,4 @@
-#coding: utf-8
+# coding: utf-8
 
 import os
 import Queue
@@ -127,6 +127,7 @@ class Worker(threading.Thread):
     def _convert_pdf_to_html(self, task):
         """Use pdf2htmlEX to convert pdf to html"""
         _checkdir_with_mkdir(task.htmldir)
+
         def progress_callback(page, pdf_info):
             task.last_processed_page = page
             task.pdf_info = pdf_info
@@ -183,6 +184,7 @@ class Worker(threading.Thread):
 
         """
         logging.debug('start to fetch task %s', task)
+        file_response = None
         try:
             file_response = urllib2.urlopen(task.url)
             content = file_response.read()
@@ -194,6 +196,9 @@ class Worker(threading.Thread):
         else:
             task.content = content
             return True
+        finally:
+            if file_response:
+                file_response.close()
 
     def _handle_task(self, task):
         """
@@ -220,6 +225,10 @@ class Worker(threading.Thread):
             if not success:
                 task.status = 'ERROR'
                 task.error = 'failed to convert excel to document'
+            else:
+                with task_manager._tasks_map_lock:
+                    task_manager._tasks_map.pop(task.file_id)
+
             return
 
         if task.doctype != 'pdf':
@@ -230,6 +239,8 @@ class Worker(threading.Thread):
                 return
 
         self._convert_pdf_to_html(task)
+        with task_manager._tasks_map_lock:
+            task_manager._tasks_map.pop(task.file_id)
 
     def run(self):
         """Repeatedly get task from tasks queue and process it."""
