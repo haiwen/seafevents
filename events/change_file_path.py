@@ -71,6 +71,8 @@ class ChangeFilePathHandler(object):
             thread_local_session = self.Session()
             self._change_share_file_path(thread_local_session, repo_id, path, new_path, is_dir, src_repo_id)
         except Exception as e:
+            self.thread_local_session.close()
+
             thread_local_session = self.Session()
             self._change_share_file_path(thread_local_session, repo_id, path, new_path, is_dir, src_repo_id)
         except Exception as e:
@@ -116,6 +118,8 @@ class ChangeFilePathHandler(object):
             thread_local_session = self.Session()
             self._change_file_uuid_map(thread_local_session, repo_id, path, new_path, is_dir, src_repo_id)
         except Exception:
+            self.thread_local_session.close()
+
             thread_local_session = self.Session()
             self._change_file_uuid_map(thread_local_session, repo_id, path, new_path, is_dir, src_repo_id)
         except Exception as e:
@@ -184,6 +188,8 @@ class ChangeFilePathHandler(object):
             thread_local_session = self.Session()
             self._change_upload_share_file_path(thread_local_session, repo_id, path, new_path, is_dir, src_repo_id)
         except Exception:
+            self.thread_local_session.close()
+
             thread_local_session = self.Session()
             self._change_upload_share_file_path(thread_local_session, repo_id, path, new_path, is_dir, src_repo_id)
         except Exception as e:
@@ -216,9 +222,9 @@ class ChangeFilePathHandler(object):
                 else:
                     new_path_value = new_path + row[0].split(path, 1)[1]
 
-            # update old path and subdir record
-            session.execute(text('update share_uploadlinkshare set repo_id=:new_repo_id, path=:new_path '
-                                 'where repo_id=:repo_id and path=:path'),
-                            {'new_repo_id': repo_id, 'new_path': new_path_value,
-                             'repo_id': src_repo_id if src_repo_id else repo_id, 'path': row[0]})
-            session.commit()
+                # update old path and subdir record
+                session.execute(text('update share_uploadlinkshare set repo_id=:new_repo_id, path=:new_path '
+                                     'where repo_id=:repo_id and path=:path'),
+                                {'new_repo_id': repo_id, 'new_path': new_path_value,
+                                 'repo_id': src_repo_id if src_repo_id else repo_id, 'path': row[0]})
+                session.commit()
