@@ -16,6 +16,23 @@ logger = logging.getLogger(__name__)
 ## base class of model classes in events.models and stats.models
 Base = declarative_base()
 
+
+def create_mysql_session(host, port, username, passwd, dbname):
+    db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
+    # Add pool recycle, or mysql connection will be closed by mysqld if idle
+    # for too long.
+    kwargs = dict(pool_recycle=300, echo=False, echo_pool=False)
+
+    engine = create_engine(db_url, **kwargs)
+
+    if not has_event_listener(Pool, 'checkout', ping_connection):
+        # We use has_event_listener to double check in case we call create_engine
+        # multipe times in the same process.
+        add_event_listener(Pool, 'checkout', ping_connection)
+
+    Session = sessionmaker(bind=engine)
+    return Session
+
 def create_engine_from_conf(config_file):
     config = ConfigParser.ConfigParser()
     config.read(config_file)
