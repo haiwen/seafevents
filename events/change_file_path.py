@@ -5,7 +5,7 @@ import logging
 import hashlib
 
 from sqlalchemy.sql import text
-from seafevents.db import create_mysql_engine
+from seafevents.db import create_mysql_session
 from sqlalchemy.orm.scoping import scoped_session
 
 
@@ -46,11 +46,9 @@ class ChangeFilePathHandler(object):
             return
         self.db_passwd = db_infos.get('PASSWORD')
 
-        self.session = create_mysql_engine(self.db_host, self.db_port,
+        self.MysqlSession = create_mysql_session(self.db_host, self.db_port,
                                            self.db_user, self.db_passwd, self.db_name)
-
-    def get_con(self):
-        return scoped_session(self.session)
+        self.Session = scoped_session(self.MysqlSession)
 
     def trans_to_unicode(self, str_list):
         return [ e.decode('utf-8') for e in str_list]
@@ -70,17 +68,16 @@ class ChangeFilePathHandler(object):
 
     def change_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
         try:
-            session = self.get_con()
-            thread_local_session = session()
+            thread_local_session = self.Session()
             self._change_share_file_path(thread_local_session, repo_id, path, new_path, is_dir, src_repo_id)
         except Exception as e:
-            session = self.get_con()
-            thread_local_session = session()
+            thread_local_session = self.Session()
             self._change_share_file_path(thread_local_session, repo_id, path, new_path, is_dir, src_repo_id)
         except Exception as e:
             logging.warning('Failed to change share file path for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
         finally:
-            session.remove()
+            # The scoped_session.remove() method, as always, removes the current Session associated with the thread, if any.
+            self.Session.remove()
 
     def _change_share_file_path(self, session, repo_id, path, new_path, is_dir, src_repo_id=None):
         result = session.execute(text('select path from share_fileshare where repo_id=:repo_id and path like :path')
@@ -116,17 +113,15 @@ class ChangeFilePathHandler(object):
 
     def change_file_uuid_map(self, repo_id, path, new_path, is_dir, src_repo_id=None):
         try:
-            session = self.get_con()
-            thread_local_session = session()
+            thread_local_session = self.Session()
             self._change_file_uuid_map(thread_local_session, repo_id, path, new_path, is_dir, src_repo_id)
         except Exception:
-            session = self.get_con()
-            thread_local_session = session()
+            thread_local_session = self.Session()
             self._change_file_uuid_map(thread_local_session, repo_id, path, new_path, is_dir, src_repo_id)
         except Exception as e:
             logging.warning('Failed to change file uuid map for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
         finally:
-            session.remove()
+            self.Session.remove()
 
     def _change_file_uuid_map(self, session, repo_id, path, new_path, is_dir, src_repo_id = None):
         old_dir = os.path.split(path)[0]
@@ -186,17 +181,15 @@ class ChangeFilePathHandler(object):
 
     def change_upload_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
         try:
-            session = self.get_con()
-            thread_local_session = session()
+            thread_local_session = self.Session()
             self._change_upload_share_file_path(thread_local_session, repo_id, path, new_path, is_dir, src_repo_id)
         except Exception:
-            session = self.get_con()
-            thread_local_session = session()
+            thread_local_session = self.Session()
             self._change_upload_share_file_path(thread_local_session, repo_id, path, new_path, is_dir, src_repo_id)
         except Exception as e:
             logging.warning('Failed to change upload share file path for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
         finally:
-            session.remove()
+            self.Session.remove()
 
     def _change_upload_share_file_path(self, session, repo_id, path, new_path, is_dir, src_repo_id):
         result = session.execute(text('select path from share_uploadlinkshare where repo_id=:repo_id and path like :dir'),
