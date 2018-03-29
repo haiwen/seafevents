@@ -244,26 +244,58 @@ class Worker(threading.Thread):
                 pdfmetrics.registerFont(TTFont('Seafile', font_path))
 
                 pdfreader = PdfReader(task.pdf)
-                if not pdfreader.Encrypt:
-                    suffix = "." + task.doctype
-                    fd, temp_wmark = tempfile.mkstemp(suffix=suffix)
-                    os.close(fd)
-                    c = canvas.Canvas(temp_wmark, pagesize=letter)
-                    c.setFillColorRGB(0, 1, 0)
-                    c.setFont('Seafile', 20)
-                    c.drawString(4, 4, task.email)
-                    c.drawString(4, 40, task.name)
-                    c.save()
-                    for page in pdfreader.pages:
-                        watermark = PageMerge().add(PdfReader(temp_wmark).pages[0])[0]
-                        PageMerge(page).add(watermark, prepend=False).render()
-                    PdfWriter(task.pdf, trailer=pdfreader).write()
+                if pdfreader.Encrypt:
+                    logging.error('pdf is encrypted, can not add watermark.')
+                    task.error = 'E005'
+                    task.status = 'ERROR'
+                    return
+
+                pdfreader = PdfReader(task.pdf)
+                if pdfreader.Encrypt:
+                    logging.error('pdf is encrypted, can not add watermark.')
+                    task.error = 'E005'
+                    task.status = 'ERROR'
+                    return
+                temp_files = []
+                for page in pdfreader.pages:
+                    try:
+                        x, y, x1, y1 = page.get('/MediaBox')
+                        if x1 and y1:
+                            width = float(x1) - float(x)
+                            height = float(y1) - float(y)
+                    except:
+                        width = 0
+                        height = 0
+
+                    temp_wmark = self.generate_pdf_watermark(600, 800, task.name, task.email)
+                    watermark = PageMerge().add(PdfReader(temp_wmark).pages[0])[0]
+                    PageMerge(page).add(watermark, prepend=False).render()
+                res = PdfWriter(task.pdf, trailer=pdfreader).write()
             except Exception as e:
                 logging.error('add watermark failed:%s' % e)
                 task.status = 'ERROR'
                 task.error = 'E005'
+                return
 
         task.status = 'DONE'
+
+    def generate_pdf_watermark(self, width, height, name, email):
+        # need origin page width and height
+        wm_height = 20
+        if width == 0 or height == 0:
+            width, height = letter
+            wm_height = 100
+
+        fd, temp_wmark = tempfile.mkstemp(suffix='.pdf')
+        os.close(fd)
+        c = canvas.Canvas(temp_wmark, pagesize=(width, height))
+        c.setFillColorRGB(0, 1, 0)
+        c.setFont('Seafile', 20)
+        email_left, name_left = len(email) / 2, len(name) / 2
+        c.drawString(width / 2 - email_left * 10, wm_height, email)
+        c.drawString(width / 2 - name_left * 10, wm_height + 25, name)
+        c.save()
+        return temp_wmark
 
     def run(self):
         """Repeatedly get task from tasks queue and process it."""
