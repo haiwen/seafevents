@@ -15,21 +15,21 @@ from change_file_path import ChangeFilePathHandler
 
 changer = ChangeFilePathHandler()
 
-def RepoMoveEventHandler(session, msg):
-    start = msg.body.find('\t')
-    if start < 0:
-        logging.warning("got bad message: %s", msg.body)
-        return
-    dic = eval(msg.body[start+1:])
-    if not dic['src_path']:
-        dic['src_path'] = '/'
-    if not dic['dst_path']:
-        dic['dst_path'] = '/'
-    path = os.path.join(dic['src_path'], dic['src_file_name'])
-    new_path = os.path.join(dic['dst_path'], dic['dst_file_name'])
-    changer.update_db_records(dic['dst_repo_id'], path, new_path,
-                    0 if dic['obj_type'] == 'file' else 1,
-                    dic['src_repo_id'])
+#def RepoMoveEventHandler(session, msg):
+#    start = msg.body.find('\t')
+#    if start < 0:
+#        logging.warning("got bad message: %s", msg.body)
+#        return
+#    dic = eval(msg.body[start+1:])
+#    if not dic['src_path']:
+#        dic['src_path'] = '/'
+#    if not dic['dst_path']:
+#        dic['dst_path'] = '/'
+#    path = os.path.join(dic['src_path'], dic['src_file_name'])
+#    new_path = os.path.join(dic['dst_path'], dic['dst_file_name'])
+#    changer.update_db_records(dic['dst_repo_id'], path, new_path,
+#                    0 if dic['obj_type'] == 'file' else 1,
+#                    dic['src_repo_id'])
 
 def RepoUpdateEventHandler(session, msg):
     elements = msg.body.split('\t')
@@ -323,7 +323,7 @@ def send_to_ali_mq(added_files, deleted_files, added_dirs, deleted_dirs, modifie
 
 def register_handlers(handlers, enable_audit):
     handlers.add_handler('seaf_server.event:repo-update', RepoUpdateEventHandler)
-    handlers.add_handler('seaf_server.event:cross-repo-move', RepoMoveEventHandler)
+    #handlers.add_handler('seaf_server.event:cross-repo-move', RepoMoveEventHandler)
     if enable_audit:
         handlers.add_handler('seaf_server.event:repo-update', FileUpdateEventHandler)
         handlers.add_handler('seahub.stats:file-download-web', FileAuditEventHandler)
