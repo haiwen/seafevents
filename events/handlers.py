@@ -1,6 +1,6 @@
 # coding: utf-8
 
-import os
+import json
 import logging
 import logging.handlers
 import datetime
@@ -15,21 +15,21 @@ from change_file_path import ChangeFilePathHandler
 
 changer = ChangeFilePathHandler()
 
-#def RepoMoveEventHandler(session, msg):
-#    start = msg.body.find('\t')
-#    if start < 0:
-#        logging.warning("got bad message: %s", msg.body)
-#        return
-#    dic = eval(msg.body[start+1:])
-#    if not dic['src_path']:
-#        dic['src_path'] = '/'
-#    if not dic['dst_path']:
-#        dic['dst_path'] = '/'
-#    path = os.path.join(dic['src_path'], dic['src_file_name'])
-#    new_path = os.path.join(dic['dst_path'], dic['dst_file_name'])
-#    changer.update_db_records(dic['dst_repo_id'], path, new_path,
-#                    0 if dic['obj_type'] == 'file' else 1,
-#                    dic['src_repo_id'])
+# def RepoMoveEventHandler(session, msg):
+#     start = msg.body.find('\t')
+#     if start < 0:
+#         logging.warning("got bad message: %s", msg.body)
+#         return
+#     dic = eval(msg.body[start+1:])
+#     if not dic['src_path']:
+#         dic['src_path'] = '/'
+#     if not dic['dst_path']:
+#         dic['dst_path'] = '/'
+#     path = os.path.join(dic['src_path'], dic['src_file_name'])
+#     new_path = os.path.join(dic['dst_path'], dic['dst_file_name'])
+#     changer.update_db_records(dic['dst_repo_id'], path, new_path,
+#                     0 if dic['obj_type'] == 'file' else 1,
+#                     dic['src_repo_id'])
 
 def RepoUpdateEventHandler(session, msg):
     elements = msg.body.split('\t')
@@ -41,8 +41,9 @@ def RepoUpdateEventHandler(session, msg):
     repo_id = elements[1]
     commit_id = elements[2]
 
-    detail = {'repo_id': repo_id,
-          'commit_id': commit_id,
+    detail = {
+        'repo_id': repo_id,
+        'commit_id': commit_id,
     }
 
     time = datetime.datetime.utcfromtimestamp(msg.ctime)
@@ -89,9 +90,63 @@ def RepoUpdateEventHandler(session, msg):
         return
 
     if org_id > 0:
-        save_org_user_events (session, org_id, etype, detail, users, time)
+        save_org_user_events(session, org_id, etype, detail, users, time)
     else:
-        save_user_events (session, etype, detail, users, time)
+        save_user_events(session, etype, detail, users, time)
+
+def RepoTrashEventHandler(session, msg):
+    from seafevents.events.alimq_producer import ali_mq
+
+    elements = msg.body.split('\t')
+    if len(elements) != 7:
+        logging.warning("got bad message: %s", elements)
+        return
+
+    etype = elements[0]
+    OBJ_FILE = 'file'
+    OBJ_DIR = 'dir'
+    if etype == 'clean-up-repo-trash':
+        repo_id, repo_name, operator, days, date, is_dir= elements[1:]
+        detail = {
+            'repo_id': repo_id,
+            'days': days,
+            'repo_name': repo_name
+        }
+        msg = {
+            'op_type': etype,
+            'obj_type': OBJ_DIR if is_dir.lower() == 'true' else OBJ_FILE,
+            'user': operator,
+            'repo_id': repo_id,
+            'repo_name': repo_name,
+            'days': days,
+            'date': date
+        }
+    else:
+        repo_id, repo_name, operator, filepath, date, is_dir = elements[1:]
+        detail = {
+            'repo_id': repo_id,
+            'filepath': filepath,
+            'repo_name': repo_name
+        }
+        msg = {
+            'op_type': etype,
+            'obj_type': OBJ_DIR if is_dir.lower() == 'true' else OBJ_FILE,
+            'user': operator,
+            'repo_id': repo_id,
+            'repo_name': repo_name,
+            'filepath': filepath,
+            'date': date
+        }
+
+    date = datetime.datetime.fromtimestamp(int(date))
+    org_id = get_org_id_by_repo_id(repo_id)
+    if org_id > 0:
+        save_org_user_events(session, org_id, etype, detail, [operator], date)
+
+    else:
+        save_user_events(session, etype, detail, [operator], date)
+    msg_str = json.dumps(msg)
+    ali_mq.send_msg(msg_str)
 
 def FileUpdateEventHandler(session, msg):
     elements = msg.body.split('\t')
@@ -157,7 +212,6 @@ def send_to_ali_mq(added_files, deleted_files, added_dirs, deleted_dirs, modifie
                    renamed_files, moved_files, renamed_dirs, moved_dirs, commit, \
                    commit_id, repo_id, parent):
     from seafevents.events.alimq_producer import ali_mq
-    import json
 
     OP_CREATE = 'create'
     OP_DELETE = 'delete'
@@ -268,7 +322,7 @@ def send_to_ali_mq(added_files, deleted_files, added_dirs, deleted_dirs, modifie
                 'path': de.path,
                 'size': de.size,
                 'parent_commit_id': parent.commit_id,
-                'new_path': de.new_path,
+                'new_path': de.new_path
         }
         msg_str = json.dumps(msg)
         ali_mq.send_msg(msg_str)
@@ -323,7 +377,9 @@ def send_to_ali_mq(added_files, deleted_files, added_dirs, deleted_dirs, modifie
 
 def register_handlers(handlers, enable_audit):
     handlers.add_handler('seaf_server.event:repo-update', RepoUpdateEventHandler)
-    #handlers.add_handler('seaf_server.event:cross-repo-move', RepoMoveEventHandler)
+    handlers.add_handler('seahub.stats:clean-up-repo-trash', RepoTrashEventHandler)
+    handlers.add_handler('seahub.stats:clean-up-repo-trash-item', RepoTrashEventHandler)
+    # handlers.add_handler('seaf_server.event:cross-repo-move', RepoMoveEventHandler)
     if enable_audit:
         handlers.add_handler('seaf_server.event:repo-update', FileUpdateEventHandler)
         handlers.add_handler('seahub.stats:file-download-web', FileAuditEventHandler)
