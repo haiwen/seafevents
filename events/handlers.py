@@ -98,13 +98,15 @@ def RepoTrashEventHandler(session, msg):
     from seafevents.events.alimq_producer import ali_mq
 
     elements = msg.body.split('\t')
-    if len(elements) != 6:
+    if len(elements) != 7:
         logging.warning("got bad message: %s", elements)
         return
 
     etype = elements[0]
+    OBJ_FILE = 'file'
+    OBJ_DIR = 'dir'
     if etype == 'clean-up-repo-trash':
-        repo_id, repo_name, operator, days, date = elements[1:]
+        repo_id, repo_name, operator, days, date, is_dir= elements[1:]
         detail = {
             'repo_id': repo_id,
             'days': days,
@@ -112,6 +114,7 @@ def RepoTrashEventHandler(session, msg):
         }
         msg = {
             'op_type': etype,
+            'obj_type': OBJ_FILE if is_dir.lower() == 'true' else OBJ_DIR,
             'user': operator,
             'repo_id': repo_id,
             'repo_name': repo_name,
@@ -119,7 +122,7 @@ def RepoTrashEventHandler(session, msg):
             'date': date
         }
     else:
-        repo_id, repo_name, operator, filepath, date = elements[1:]
+        repo_id, repo_name, operator, filepath, date, is_dir = elements[1:]
         detail = {
             'repo_id': repo_id,
             'filepath': filepath,
@@ -127,6 +130,7 @@ def RepoTrashEventHandler(session, msg):
         }
         msg = {
             'op_type': etype,
+            'obj_type': OBJ_FILE if is_dir.lower() == 'true' else OBJ_DIR,
             'user': operator,
             'repo_id': repo_id,
             'repo_name': repo_name,
