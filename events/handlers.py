@@ -134,7 +134,7 @@ def RepoTrashEventHandler(session, msg):
             'user': operator,
             'repo_id': repo_id,
             'repo_name': repo_name,
-            'filepath': filepath,
+            'path': filepath,
             'date': date
         }
 
