@@ -112,12 +112,15 @@ def init_db_session_class(config_file, db = 'seafevent'):
     except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
         raise RuntimeError("invalid config file %s", config_file)
 
-    if db != 'seafile':
-        # Create tables if not exists.
-        Base.metadata.create_all(engine)
-    else:
-        # reflect the tables
-        SeafBase.prepare(engine, reflect=True)
+    try:
+        if db != 'seafile':
+            # Create tables if not exists.
+            Base.metadata.create_all(engine)
+        else:
+            # reflect the tables
+            SeafBase.prepare(engine, reflect=True)
+    except Exception as e:
+        logger.info('Attempt to create a database failure: %s' % e)
 
     Session = sessionmaker(bind=engine)
     return Session
