@@ -102,7 +102,10 @@ def init_db_session_class(config_file):
         raise RuntimeError("invalid config file %s", config_file)
 
     # Create tables if not exists.
-    Base.metadata.create_all(engine)
+    try:
+        Base.metadata.create_all(engine)
+    except Exception as e:
+        logger.info('Attempt to create a database failure: %s' % e)
 
     Session = sessionmaker(bind=engine)
     return Session
