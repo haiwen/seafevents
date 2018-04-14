@@ -376,7 +376,7 @@ def send_to_ali_mq(added_files, deleted_files, added_dirs, deleted_dirs, modifie
         ali_mq.send_msg(msg_str)
 
 def register_handlers(handlers, enable_audit):
-    handlers.add_handler('seaf_server.event:repo-update', RepoUpdateEventHandler)
+    #handlers.add_handler('seaf_server.event:repo-update', RepoUpdateEventHandler)
     handlers.add_handler('seahub.stats:clean-up-repo-trash', RepoTrashEventHandler)
     handlers.add_handler('seahub.stats:clean-up-repo-trash-item', RepoTrashEventHandler)
     # handlers.add_handler('seaf_server.event:cross-repo-move', RepoMoveEventHandler)
