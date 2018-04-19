@@ -345,12 +345,12 @@ class TaskManager(object):
                     ret['error'] = task.error
                 elif task.status in ('QUEUED', 'PROCESSING'):
                     ret['status'] = task.status
+            else:
+                if self._task_file_exists(file_id, 'xls'):
+                    ret['status'] = 'DONE'
                 else:
-                    if self._task_file_exists(file_id, 'xls'):
-                        ret['status'] = 'DONE'
-                    else:
-                        ret['status'] = 'ERROR'
-                        ret['error'] = 'invalid file id'
+                    ret['status'] = 'ERROR'
+                    ret['error'] = 'invalid file id'
         return ret
 
     def query_task_status(self, file_id, page):

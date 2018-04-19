@@ -188,8 +188,5 @@ def get_env_without_thirdpart():
     """
     envs = dict(os.environ)
     python_envs = envs.get('PYTHONPATH').split(':')
-    for env in python_envs:
-        if 'thirdpart' in python_envs:
-            python_envs.remove(env)
-    envs['PYTHONPATH'] = ':'.join(python_envs)
+    envs['PYTHONPATH'] = ':'.join([x for x in python_envs if 'thirdpart' not in x])
     return envs
