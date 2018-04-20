@@ -81,7 +81,10 @@ def has_office_tools():
 
 def do_exit(code=0):
     logging.info('exit with code %s', code)
-    sys.exit(code)
+    # os._exit: Exit the process with status n, without calling cleanup handlers, flushing stdio buffers, etc
+    # sys.exit: This is implemented by raising the SystemExit exception. So only kill the current thread.
+    # we need to make sure that the process exits.
+    os._exit(code)
 
 def write_pidfile(pidfile):
     pid = os.getpid()
