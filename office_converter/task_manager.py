@@ -1,4 +1,4 @@
-#coding: utf-8
+# coding: utf-8
 
 import os
 import Queue
@@ -175,6 +175,7 @@ class Worker(threading.Thread):
 
         """
         logging.debug('start to fetch task %s', task)
+        file_response = None
         try:
             file_response = urllib2.urlopen(task.url)
             content = file_response.read()
@@ -186,6 +187,9 @@ class Worker(threading.Thread):
         else:
             task.content = content
             return True
+        finally:
+            if file_response:
+                file_response.close()
 
     def _handle_task(self, task):
         """
@@ -212,6 +216,10 @@ class Worker(threading.Thread):
             if not success:
                 task.status = 'ERROR'
                 task.error = 'failed to convert excel to document'
+            else:
+                with task_manager._tasks_map_lock:
+                    task_manager._tasks_map.pop(task.file_id)
+
             return
 
         if task.doctype != 'pdf':
@@ -220,6 +228,9 @@ class Worker(threading.Thread):
                 task.status = 'ERROR'
                 task.error = 'failed to convert document'
                 return
+
+        with task_manager._tasks_map_lock:
+            task_manager._tasks_map.pop(task.file_id)
 
     def run(self):
         """Repeatedly get task from tasks queue and process it."""
@@ -325,12 +336,12 @@ class TaskManager(object):
                     ret['error'] = task.error
                 elif task.status in ('QUEUED', 'PROCESSING'):
                     ret['status'] = task.status
+            else:
+                if self._task_file_exists(file_id, 'xls'):
+                    ret['status'] = 'DONE'
                 else:
-                    if self._task_file_exists(file_id, 'xls'):
-                        ret['status'] = 'DONE'
-                    else:
-                        ret['status'] = 'ERROR'
-                        ret['error'] = 'invalid file id'
+                    ret['status'] = 'ERROR'
+                    ret['error'] = 'invalid file id'
         return ret
 
     def query_task_status(self, file_id, doctype):

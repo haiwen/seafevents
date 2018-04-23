@@ -79,7 +79,10 @@ def has_office_tools():
 
 def do_exit(code=0):
     logging.info('exit with code %s', code)
-    sys.exit(code)
+    # os._exit: Exit the process with status n, without calling cleanup handlers, flushing stdio buffers, etc
+    # sys.exit: This is implemented by raising the SystemExit exception. So only kill the current thread.
+    # we need to make sure that the process exits.
+    os._exit(code)
 
 def write_pidfile(pidfile):
     pid = os.getpid()
@@ -188,8 +191,5 @@ def get_env_without_thirdpart():
     """
     envs = dict(os.environ)
     python_envs = envs.get('PYTHONPATH').split(':')
-    for env in python_envs:
-        if 'thirdpart' in python_envs:
-            python_envs.remove(env)
-    envs['PYTHONPATH'] = ':'.join(python_envs)
+    envs['PYTHONPATH'] = ':'.join([x for x in python_envs if 'thirdpart' not in x])
     return envs
