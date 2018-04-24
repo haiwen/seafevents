@@ -1,0 +1,23 @@
+[SEAFEVENTSDB]
+#type = sqlite3
+#path = seafevents.db
+type = mysql
+host = 127.0.0.1
+username = root
+password = zxcvbnm,./
+name=seafevent
+
+[SEAHUBDB]
+type = mysql
+host = 127.0.0.1
+username = root
+password = zxcvbnm,./
+name=seahub
+
+[TESTDB]
+type = mysql
+host = database
+#host = localhost
+username = root
+password = zxcvbnm,./
+name = seafeventstest

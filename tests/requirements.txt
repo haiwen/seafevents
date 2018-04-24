@@ -1,4 +1,0 @@
-pytest==3.1
-mysql-python
-sqlalchemy
-mock
