@@ -4,16 +4,18 @@ import logging
 
 from seaserv import get_ldap_groups, get_group_members, add_group_dn_pair, \
         get_group_dn_pairs, create_group, group_add_member, group_remove_member, \
-        remove_group, get_super_users
-from ldap import SCOPE_SUBTREE, SCOPE_BASE
+        remove_group, get_super_users, ccnet_api, seafile_api
+from ldap import SCOPE_SUBTREE, SCOPE_BASE, SCOPE_ONELEVEL
 from ldap_conn import LdapConn
 from ldap_sync import LdapSync
 
 class LdapGroup(object):
-    def __init__(self, cn, creator, members):
+    def __init__(self, cn, creator, members, parent_dn=None, group_id=0):
         self.cn = cn
         self.creator = creator
         self.members = members
+        self.parent_dn = parent_dn
+        self.group_id = group_id
 
 class LdapGroupSync(LdapSync):
     def __init__(self, settings):
@@ -60,6 +62,21 @@ class LdapGroupSync(LdapSync):
         # group dn <-> LdapGroup
         grp_data_ldap = {}
         # search all groups on base dn
+
+        if self.settings.group_by_ou:
+            grp_data_ldap = self.get_ou_data(ldap_conn, config)
+        elif self.settings.group_object_class == 'posixGroup':
+            grp_data_ldap = self.get_posix_group_data(ldap_conn, config)
+        else:
+            grp_data_ldap = self.get_common_group_data(ldap_conn, config)
+
+        ldap_conn.unbind_conn()
+
+        return grp_data_ldap
+
+    def get_common_group_data(self, ldap_conn, config):
+        grp_data_ldap = {}
+
         if config.group_filter != '':
             search_filter = '(&(objectClass=%s)(%s))' % \
                              (self.settings.group_object_class,
@@ -67,83 +84,39 @@ class LdapGroupSync(LdapSync):
         else:
             search_filter = '(objectClass=%s)' % self.settings.group_object_class
 
+        sort_list = []
         base_dns = config.base_dn.split(';')
         for base_dn in base_dns:
             if base_dn == '':
                 continue
-            data = self.get_data_by_base_dn(ldap_conn, base_dn, search_filter)
-            if data is None:
-                continue
-            grp_data_ldap.update(data)
-
-        ldap_conn.unbind_conn()
-
-        return grp_data_ldap
-
-    def get_data_by_base_dn(self, ldap_conn, base_dn, search_filter):
-        grp_data_ldap = {}
-
-        if self.settings.use_page_result:
-            groups = ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
-                                            search_filter,
-                                            [self.settings.group_member_attr, 'cn'])
-        else:
-            groups = ldap_conn.search(base_dn, SCOPE_SUBTREE,
-                                      search_filter,
-                                      [self.settings.group_member_attr, 'cn'])
-        if groups is None:
-            return None
-
-        for pair in groups:
-            group_dn, attrs = pair
-            if type(attrs) != dict:
-                continue
-            if not attrs.has_key(self.settings.group_member_attr):
-                grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None, [])
-                continue
-            if grp_data_ldap.has_key(group_dn):
-                continue
-            all_mails = []
-            for member in attrs[self.settings.group_member_attr]:
-                mails = []
-                if self.settings.group_object_class == 'posixGroup':
-                    mails = self.get_posix_group_member_from_ldap(ldap_conn, member)
-                else:
-                    mails = self.get_group_member_from_ldap(ldap_conn, member, grp_data_ldap)
-
-                if mails is None:
-                    return None
-                for mail in mails:
-                    all_mails.append(mail)
-            grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None,
-                                                sorted(set(all_mails)))
-
-        return grp_data_ldap
-
-    def get_posix_group_member_from_ldap(self, ldap_conn, member):
-        all_mails = []
-        search_filter = '(&(objectClass=%s)(%s=%s))' % \
-                        (self.settings.user_object_class,
-                         self.settings.user_attr_in_memberUid,
-                         member)
-
-        base_dns = self.config.base_dn.split(';')
-        for base_dn in base_dns:
-            results = ldap_conn.search(base_dn, SCOPE_SUBTREE,
-                                       search_filter,
-                                       [self.settings.login_attr,'cn'])
-
+            results = None
+            scope = SCOPE_ONELEVEL if self.settings.import_group_structure else SCOPE_SUBTREE
+            if self.settings.use_page_result:
+                results = ldap_conn.paged_search(base_dn, scope,
+                                                search_filter,
+                                                [self.settings.group_member_attr, 'cn'])
+            else:
+                results = ldap_conn.search(base_dn, scope,
+                                          search_filter,
+                                          [self.settings.group_member_attr, 'cn'])
             for result in results:
-                dn, attrs = result
+                group_dn, attrs = result
                 if type(attrs) != dict:
                     continue
-                if attrs.has_key(self.settings.login_attr):
-                    for mail in attrs[self.settings.login_attr]:
-                        all_mails.append(mail.lower())
+                # empty group
+                if not attrs.has_key(self.settings.group_member_attr):
+                    grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None, [], base_dn)
+                    sort_list.append((group_dn, grp_data_ldap[group_dn]))
+                    continue
+                if grp_data_ldap.has_key(group_dn):
+                    continue
+                self.get_group_member_from_ldap(ldap_conn, group_dn, grp_data_ldap, sort_list, None)
+        sort_list.reverse()
+        self.sort_list = sort_list
 
-        return all_mails
+        return grp_data_ldap
 
-    def get_group_member_from_ldap(self, ldap_conn, base_dn, grp_data):
+    def get_group_member_from_ldap(self, ldap_conn, base_dn, grp_data, sort_list, parent_dn):
         all_mails = []
         search_filter = '(|(objectClass=%s)(objectClass=%s))' % \
                          (self.settings.group_object_class,
@@ -151,10 +124,8 @@ class LdapGroupSync(LdapSync):
         result = ldap_conn.search(base_dn, SCOPE_BASE, search_filter,
                                   [self.settings.group_member_attr,
                                    self.settings.login_attr, 'cn'])
-        if result is None:
-            return None
-        elif not result:
-            return all_mails
+        if not result:
+            return []
 
         dn, attrs = result[0]
         if type(attrs) != dict:
@@ -162,22 +133,154 @@ class LdapGroupSync(LdapSync):
         # group member
         if attrs.has_key(self.settings.group_member_attr):
             if grp_data.has_key(dn):
-                for mail in grp_data[dn].members:
-                    all_mails.append(mail)
-                    continue
+                return None
             for member in attrs[self.settings.group_member_attr]:
-                mails = self.get_group_member_from_ldap(ldap_conn, member, grp_data)
-                if mails is None:
-                    return None
+                mails = self.get_group_member_from_ldap(ldap_conn, member, grp_data, sort_list, base_dn)
+                if not mails:
+                    continue
                 for mail in mails:
                     all_mails.append(mail.lower())
-            grp_data[dn] = LdapGroup(attrs['cn'][0], None, sorted(set(all_mails)))
+            grp_data[dn] = LdapGroup(attrs['cn'][0], None, sorted(set(all_mails)), parent_dn)
+            sort_list.append((dn, grp_data[dn]))
+            if self.settings.import_group_structure:
+                return []
+            else:
+                return all_mails
         # user member
         elif attrs.has_key(self.settings.login_attr):
             for mail in attrs[self.settings.login_attr]:
                 all_mails.append(mail.lower())
 
         return all_mails
+
+    def get_posix_group_data(self, ldap_conn, config):
+        grp_data_ldap = {}
+
+        if config.group_filter != '':
+            search_filter = '(&(objectClass=%s)(%s))' % \
+                             (self.settings.group_object_class,
+                             config.group_filter)
+        else:
+            search_filter = '(objectClass=%s)' % self.settings.group_object_class
+
+        base_dns = config.base_dn.split(';')
+        for base_dn in base_dns:
+            if base_dn == '':
+                continue
+            results = None
+            if self.settings.use_page_result:
+                results = ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
+                                                search_filter,
+                                                [self.settings.group_member_attr, 'cn'])
+            else:
+                results = ldap_conn.search(base_dn, SCOPE_SUBTREE,
+                                          search_filter,
+                                          [self.settings.group_member_attr, 'cn'])
+            for result in results:
+                group_dn, attrs = result
+                if type(attrs) != dict:
+                    continue
+                # empty group
+                if not attrs.has_key(self.settings.group_member_attr):
+                    grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None, [])
+                    continue
+                if grp_data_ldap.has_key(group_dn):
+                    continue
+                all_mails = []
+                for member in attrs[self.settings.group_member_attr]:
+                    mails = self.get_posix_group_member_from_ldap(ldap_conn, base_dn)
+                    if not mails:
+                        continue
+                    for mail in mails:
+                        all_mails.append(mail)
+
+                grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None,
+                                                    sorted(set(all_mails)))
+        return grp_data_ldap
+
+    def get_posix_group_member_from_ldap(self, ldap_conn, base_dn, member):
+        all_mails = []
+        search_filter = '(&(objectClass=%s)(%s=%s))' % \
+                        (self.settings.user_object_class,
+                         self.settings.user_attr_in_memberUid,
+                         member)
+
+        results = ldap_conn.search(base_dn, SCOPE_SUBTREE,
+                                   search_filter,
+                                   [self.settings.login_attr,'cn'])
+        for result in results:
+            dn, attrs = result
+            if type(attrs) != dict:
+                continue
+            if attrs.has_key(self.settings.login_attr):
+                for mail in attrs[self.settings.login_attr]:
+                    all_mails.append(mail.lower())
+
+        return all_mails
+
+    def get_ou_data(self, ldap_conn, config):
+        if config.group_filter != '':
+            search_filter = '(&(|(objectClass=organizationalUnit)(objectClass=%s))(%s))' % \
+                             (self.settings.user_object_class,
+                              config.group_filter)
+        else:
+            search_filter = '(|(objectClass=organizationalUnit)(objectClass=%s))' % self.settings.user_object_class
+
+        base_dns = config.base_dn.split(';')
+        sort_list = []
+        grp_data_ou={}
+        for base_dn in base_dns:
+            if base_dn == '':
+                continue
+            s_idx = base_dn.find('=') + 1
+            e_idx = base_dn.find(',')
+            if e_idx == -1:
+                e_idx = len(base_dn)
+            ou_name = base_dn[s_idx:e_idx]
+            self.get_ou_member (ldap_conn, base_dn, search_filter, sort_list, ou_name, None, grp_data_ou)
+        sort_list.reverse()
+        self.sort_list = sort_list
+
+        return grp_data_ou
+
+    def get_ou_member(self, ldap_conn, base_dn, search_filter, sort_list, ou_name, parent_dn, grp_data_ou):
+        if self.settings.use_page_result:
+            results = ldap_conn.paged_search(base_dn, SCOPE_ONELEVEL,
+                                             search_filter,
+                                             [self.settings.login_attr, 'ou'])
+        else:
+            results = ldap_conn.search(base_dn, SCOPE_ONELEVEL,
+                                       search_filter,
+                                       [self.settings.login_attr, 'ou'])
+        # empty ou
+        if not results:
+            group = LdapGroup(ou_name, None, [], parent_dn)
+            sort_list.append((base_dn, group))
+            grp_data_ou[base_dn] = group
+            return
+
+        mails = []
+        member_dn=''
+        for pair in results:
+            member_dn, attrs = pair
+            if type(attrs) != dict:
+                continue
+            # member
+            if attrs.has_key(self.settings.login_attr) and 'ou=' in base_dn:
+                mails.append(attrs[self.settings.login_attr][0])
+                continue
+            # ou
+            if attrs.has_key('ou'):
+                self.get_ou_member (ldap_conn, member_dn, search_filter,
+                                    sort_list, attrs['ou'][0],
+                                    base_dn,
+                                    grp_data_ou)
+
+        group = LdapGroup(ou_name, None, sorted(set(mails)), parent_dn)
+        sort_list.append((base_dn, group))
+        grp_data_ou[base_dn] = group
+
+        return grp_data_ou
 
     def sync_data(self, data_db, data_ldap):
         dn_pairs = get_group_dn_pairs()
@@ -190,7 +293,7 @@ class LdapGroupSync(LdapSync):
 
         # sync deleted group in ldap to db
         for k in grp_dn_pairs.iterkeys():
-            if not data_ldap.has_key(k):
+            if not data_ldap.has_key(k) and self.settings.del_group_if_not_found:
                 ret = remove_group(grp_dn_pairs[k], '')
                 if ret < 0:
                     logging.warning('remove group %d failed.' % grp_dn_pairs[k])
@@ -200,7 +303,11 @@ class LdapGroupSync(LdapSync):
 
         # sync undeleted group in ldap to db
         super_user = None
-        for k, v in data_ldap.iteritems():
+        ldap_tup = data_ldap.iteritems()
+        if self.settings.import_group_structure:
+            ldap_tup = self.sort_list
+
+        for k, v in ldap_tup:
             if grp_dn_pairs.has_key(k):
                 # group data lost in db
                 if not data_db.has_key(grp_dn_pairs[k]):
@@ -232,7 +339,12 @@ class LdapGroupSync(LdapSync):
                 # add ldap group to db
                 if super_user is None:
                     super_user = LdapGroupSync.get_super_user()
-                group_id = create_group(v.cn, super_user, 'LDAP')
+                parent_id = 0
+                if self.settings.import_group_structure:
+                    parent_id = -1
+                    if v.parent_dn:
+                        parent_id = data_ldap[v.parent_dn].group_id
+                group_id = ccnet_api.create_group(v.cn, super_user, 'LDAP', parent_id)
                 if group_id < 0:
                     logging.warning('create ldap group [%s] failed.' % v.cn)
                     continue
@@ -245,6 +357,14 @@ class LdapGroupSync(LdapSync):
                 logging.debug('create group %d, and add dn pair %s<->%d success.' %
                               (group_id, k, group_id))
                 self.agroup += 1
+                v.group_id = group_id
+                if self.settings.create_group_repo:
+                    ret = seafile_api.set_group_quota(group_id, -2)
+                    if ret < 0:
+                        logging.warning('Failed to set group [%s] quota.' % v.cn)
+                    ret = seafile_api.add_group_owned_repo(group_id, v.cn, None, 'rw')
+                    if not ret:
+                        logging.warning('Failed to create group owned repo for %s.' % v.cn)
 
                 for member in v.members:
                     ret = group_add_member(group_id, super_user, member)
