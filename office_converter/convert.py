@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import os
+import time
 import subprocess
 import threading
 import re
@@ -92,9 +93,14 @@ class Convertor(object):
 
         self.proc = run(args, cwd=self.cwd, env=get_env_without_thirdpart())
 
-        retcode = self.proc.poll()
-        if retcode != None:
-            logging.warning('unoconv process exited with code %s' % retcode)
+        time.sleep(3)
+        exists_args = ["ps", "-ef"]
+        result = run(exists_args, output=subprocess.PIPE)
+        rows = result.stdout.read()
+        if self.unoconv_py in rows:
+            logging.info('unoconv process already start.')
+        else:
+            logging.warning('Failed to running unoconv process.')
 
     def stop(self):
         if self.proc:
