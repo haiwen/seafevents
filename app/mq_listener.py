@@ -1,4 +1,4 @@
-#coding: utf-8
+# coding: utf-8
 
 import threading
 import Queue
@@ -7,7 +7,7 @@ import ConfigParser
 
 import seafevents.events.handlers as events_handlers
 import seafevents.events_publisher.handlers as publisher_handlers
-import seafevents.statistics.handlers as stats_handlers
+import seafevents.statistics.handlers as stats_handlers # noqa: E401
 from seafevents.db import init_db_session_class
 from sqlalchemy.orm.scoping import scoped_session
 
@@ -47,7 +47,7 @@ class MessageHandler(object):
         funcs = self._handlers.get(etype)
         for func in funcs:
             try:
-                func (session, msg)
+                func(session, msg)
             except:
                 logger.exception("error when handle msg %s", msg)
 
@@ -65,7 +65,7 @@ class MessageHandler(object):
 
 def init_message_handlers(enable_audit):
     events_handlers.register_handlers(message_handler, enable_audit)
-    stats_handlers.register_handlers(message_handler)
+    # stats_handlers.register_handlers(message_handler)
     publisher_handlers.register_handlers(message_handler)
 
 message_handler = MessageHandler()
@@ -112,7 +112,7 @@ class EventsMQListener(object):
             logging.info("mq_worker can't less than 0, has been set to 6")
             nthreads = 6
 
-        for i in xrange(nthreads):
+        for i in xrange(nthreads): # noqa: F821
             _seafevents_thread = SeafEventsThread(self._db_session_class,
                                                   self._events_queue)
             _seafevents_thread.setDaemon(True)
