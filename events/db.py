@@ -213,7 +213,10 @@ def save_perm_audit_event(session, timestamp, etype, from_user, to,
     session.commit()
 
 def get_perm_audit_events(session, from_user, org_id, repo_id, start, limit):
-    return get_events(session, PermAudit, from_user, org_id, repo_id, None, start, limit)
+    events = get_events(session, PermAudit, from_user, org_id, repo_id, None, start, limit)
+    for e in events:
+        e.to = e.to_obj
+    return events
 
 def get_event_log_by_time(session, log_type, tstart, tend):
     if log_type not in ('file_update', 'file_audit', 'perm_audit'):
