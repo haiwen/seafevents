@@ -6,7 +6,7 @@ class TotalStorageStat(Base):
     __tablename__ = 'TotalStorageStat'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, nullable=False)
+    timestamp = Column(DateTime, nullable=False, unique=True)
     total_size = Column(BigInteger, nullable=False)
     org_id = Column(Integer, nullable=False)
 
@@ -39,7 +39,7 @@ class UserActivityStat(Base):
     __tablename__ = 'UserActivityStat'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name_time_md5 = Column(String(length=32), unique=True)
+    name_time_md5 = Column(String(length=32), nullable=False, unique=True)
     username = Column(String(length=255))
     timestamp = Column(DateTime, nullable=False, index=True)
     org_id = Column(Integer, nullable=False)
