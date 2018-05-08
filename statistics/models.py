@@ -6,7 +6,7 @@ class TotalStorageStat(Base):
     __tablename__ = 'TotalStorageStat'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, nullable=False)
+    timestamp = Column(DateTime, nullable=False, unique=True)
     total_size = Column(BigInteger, nullable=False)
     org_id = Column(Integer, nullable=False)
 
@@ -37,13 +37,15 @@ class FileOpsStat(Base):
 class UserTrafficStat(Base):
     __tablename__ = 'UserTrafficStat'
 
-    email = Column(String(length=255), primary_key=True)
-    month = Column(String(length=6), primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(length=255))
+    month = Column(String(length=6), index=True)
 
     block_download = Column(BigInteger, nullable=False)
     file_view = Column(BigInteger, nullable=False)
     file_download = Column(BigInteger, nullable=False)
     dir_download = Column(BigInteger, nullable=False)
+    __table_args__ = (UniqueConstraint('email', 'month'), )
 
     def __init__(self, email, month, block_download=0, file_view=0, file_download=0, dir_download=0):
         self.email = email
@@ -70,7 +72,7 @@ class UserActivityStat(Base):
     __tablename__ = 'UserActivityStat'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name_time_md5 = Column(String(length=32), unique=True)
+    name_time_md5 = Column(String(length=32), nullable=False, unique=True)
     username = Column(String(length=255))
     timestamp = Column(DateTime, nullable=False, index=True)
     org_id = Column(Integer, nullable=False)
