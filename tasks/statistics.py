@@ -123,7 +123,7 @@ class UpdateLoginRecordTask(Thread):
         if l > 0:
             try:
                 session = self._scoped_session()
-                cmd = "REPLACE INTO UserActivityStat values"
+                cmd = "REPLACE INTO UserActivityStat (name_time_md5, username, timestamp) values"
                 cmd_extend = ''.join([' (:key' + str(i) +', :name'+ str(i) +', :time'+ str(i) +'),' for i in xrange(l)])[:-1]
                 cmd += cmd_extend
                 data = {}

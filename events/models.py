@@ -13,7 +13,8 @@ class Event(Base):
     """
     __tablename__ = 'Event'
 
-    uuid = Column(String(length=36), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(String(length=36), nullable=False, unique=True)
     etype = Column(String(length=128), nullable=False)
     timestamp = Column(DateTime, nullable=False, index=True)
 
@@ -33,7 +34,7 @@ class Event(Base):
 class UserEvent(Base):
     __tablename__ = 'UserEvent'
 
-    id = Column(Integer, Sequence('user_event_eid_seq'), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
 
     org_id = Column(Integer)
 
@@ -57,7 +58,8 @@ class UserEvent(Base):
 class FileAudit(Base):
     __tablename__ = 'FileAudit'
 
-    eid = Column(Integer, Sequence('file_audit_eid_seq'), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    eid = Column(Integer, Sequence('file_audit_eid_seq'), unique=True)
     timestamp = Column(DateTime, nullable=False, index=True)
     etype = Column(String(length=128), nullable=False)
     user = Column(String(length=255), nullable=False)
@@ -99,7 +101,8 @@ class FileAudit(Base):
 class FileUpdate(Base):
     __tablename__ = 'FileUpdate'
 
-    eid = Column(Integer, Sequence('file_update_eid_seq'), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    eid = Column(Integer, Sequence('file_update_eid_seq'), unique=True)
     timestamp = Column(DateTime, nullable=False, index=True)
     user = Column(String(length=255), nullable=False)
     org_id = Column(Integer, nullable=False)
@@ -136,11 +139,12 @@ class FileUpdate(Base):
 class PermAudit(Base):
     __tablename__ = 'PermAudit'
 
-    eid = Column(Integer, Sequence('user_perm_audit_eid_seq'), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    eid = Column(Integer, Sequence('user_perm_audit_eid_seq'), unique=True)
     timestamp = Column(DateTime, nullable=False)
     etype = Column(String(length=128), nullable=False)
     from_user = Column(String(length=255), nullable=False)
-    to = Column(String(length=255), nullable=False)
+    to_obj = Column(String(length=255), nullable=False)
     org_id = Column(Integer, nullable=False)
     repo_id = Column(String(length=36), nullable=False)
     file_path = Column(Text, nullable=False)
@@ -157,7 +161,7 @@ class PermAudit(Base):
         self.timestamp = timestamp
         self.etype = etype
         self.from_user = from_user
-        self.to = to
+        self.to_obj = to
         self.org_id = org_id
         self.repo_id = repo_id
         self.file_path = file_path
