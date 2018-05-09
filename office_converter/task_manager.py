@@ -295,9 +295,10 @@ class TaskManager(object):
     def _task_file_exists(self, file_id, doctype=None):
         '''Test whether the file has already been converted'''
         file_html_dir = os.path.join(self.html_dir, file_id)
+        pdf_dir = os.path.dirname(self.html_dir)
         # handler document->pdf
         if doctype not in EXCEL_TYPES:
-            done_file = os.path.join(os.path.basename(file_html_dir), 'pdf', file_id)
+            done_file = os.path.join(pdf_dir, 'pdf', file_id + '.pdf')
         else:
             done_file = os.path.join(file_html_dir, 'index.html')
 
