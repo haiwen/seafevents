@@ -99,13 +99,16 @@ class LdapGroupSync(LdapSync):
                 results = ldap_conn.search(base_dn, scope,
                                           search_filter,
                                           [self.settings.group_member_attr, 'cn'])
+            if not results:
+                continue
+
             for result in results:
                 group_dn, attrs = result
                 if type(attrs) != dict:
                     continue
                 # empty group
                 if not attrs.has_key(self.settings.group_member_attr):
-                    grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None, [], base_dn)
+                    grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None, [])
                     sort_list.append((group_dn, grp_data_ldap[group_dn]))
                     continue
                 if grp_data_ldap.has_key(group_dn):
@@ -176,6 +179,9 @@ class LdapGroupSync(LdapSync):
                 results = ldap_conn.search(base_dn, SCOPE_SUBTREE,
                                           search_filter,
                                           [self.settings.group_member_attr, 'cn'])
+            if not results:
+                continue
+
             for result in results:
                 group_dn, attrs = result
                 if type(attrs) != dict:
@@ -208,6 +214,9 @@ class LdapGroupSync(LdapSync):
         results = ldap_conn.search(base_dn, SCOPE_SUBTREE,
                                    search_filter,
                                    [self.settings.login_attr,'cn'])
+        if not results:
+            return []
+
         for result in results:
             dn, attrs = result
             if type(attrs) != dict:
@@ -266,7 +275,7 @@ class LdapGroupSync(LdapSync):
             if type(attrs) != dict:
                 continue
             # member
-            if attrs.has_key(self.settings.login_attr) and 'ou=' in base_dn:
+            if attrs.has_key(self.settings.login_attr) and ('ou=' in base_dn or 'OU=' in base_dn):
                 mails.append(attrs[self.settings.login_attr][0])
                 continue
             # ou
@@ -358,7 +367,7 @@ class LdapGroupSync(LdapSync):
                               (group_id, k, group_id))
                 self.agroup += 1
                 v.group_id = group_id
-                if self.settings.create_group_repo:
+                if self.settings.create_group_repo and self.settings.import_group_structure:
                     ret = seafile_api.set_group_quota(group_id, -2)
                     if ret < 0:
                         logging.warning('Failed to set group [%s] quota.' % v.cn)
