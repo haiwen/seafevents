@@ -4,8 +4,7 @@ import logging
 import logging.handlers
 import datetime
 
-from seaserv import get_related_users_by_repo, get_org_id_by_repo_id, \
-    get_related_users_by_org_repo, get_commit
+from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafevents.events.db import save_user_events, save_org_user_events, \
         save_file_audit_event, save_file_update_event, save_perm_audit_event
 
@@ -19,24 +18,26 @@ def RepoUpdateEventHandler(session, msg):
     repo_id = elements[1]
     commit_id = elements[2]
 
-    detail = {'repo_id': repo_id,
-          'commit_id': commit_id,
-    }
+    detail =  {'repo_id': repo_id,
+               'commit_id': commit_id}
 
     org_id = get_org_id_by_repo_id(repo_id)
     if org_id > 0:
-        users = get_related_users_by_org_repo(org_id, repo_id)
+        users_obj = seafile_api.org_get_shared_users_by_repo(org_id, repo_id)
+        owner = seafile_api.get_org_repo_owner(repo_id)
     else:
-        users = get_related_users_by_repo(repo_id)
+        users_obj = seafile_api.get_shared_users_by_repo(repo_id)
+        owner = seafile_api.get_repo_owner(repo_id)
 
+    users = [e.user for e in users_obj] + [owner]
     if not users:
         return
 
     time = datetime.datetime.utcfromtimestamp(msg.ctime)
     if org_id > 0:
-        save_org_user_events (session, org_id, etype, detail, users, time)
+        save_org_user_events(session, org_id, etype, detail, users, time)
     else:
-        save_user_events (session, etype, detail, users, time)
+        save_user_events(session, etype, detail, users, time)
 
 def FileUpdateEventHandler(session, msg):
     elements = msg.body.split('\t')
@@ -57,7 +58,7 @@ def FileUpdateEventHandler(session, msg):
 
     time = datetime.datetime.utcfromtimestamp(msg.ctime)
 
-    save_file_update_event(session, time, commit.creator_name, org_id, \
+    save_file_update_event(session, time, commit.creator_name, org_id,
                            repo_id, commit_id, commit.desc)
 
 def FileAuditEventHandler(session, msg):
@@ -76,7 +77,7 @@ def FileAuditEventHandler(session, msg):
 
     org_id = get_org_id_by_repo_id(repo_id)
 
-    save_file_audit_event(session, timestamp, msg_type, user_name, ip, \
+    save_file_audit_event(session, timestamp, msg_type, user_name, ip,
                           user_agent, org_id, repo_id, file_path)
 
 def PermAuditEventHandler(session, msg):
@@ -95,7 +96,7 @@ def PermAuditEventHandler(session, msg):
 
     org_id = get_org_id_by_repo_id(repo_id)
 
-    save_perm_audit_event(session, timestamp, etype, from_user, to, \
+    save_perm_audit_event(session, timestamp, etype, from_user, to,
                           org_id, repo_id, file_path, perm)
 
 def register_handlers(handlers, enable_audit):
