@@ -77,6 +77,9 @@ class LdapGroupSync(LdapSync):
     def get_common_group_data(self, ldap_conn, config):
         grp_data_ldap = {}
 
+        # Importing structure from ldap group is not supported for now.
+        self.settings.import_group_structure = False
+
         if config.group_filter != '':
             search_filter = '(&(objectClass=%s)(%s))' % \
                              (self.settings.group_object_class,
@@ -158,6 +161,9 @@ class LdapGroupSync(LdapSync):
 
     def get_posix_group_data(self, ldap_conn, config):
         grp_data_ldap = {}
+
+        # Importing structure from ldap group is not supported for now.
+        self.settings.import_group_structure = False
 
         if config.group_filter != '':
             search_filter = '(&(objectClass=%s)(%s))' % \
