@@ -1,0 +1,7 @@
+MySQL-python
+SQLAlchemy
+reportlab==3.4.0
+pdfrw==0.4
+mock
+mysql-python
+pytest==3.1
