@@ -111,7 +111,7 @@ def RepoTrashEventHandler(session, msg):
             'date': date
         }
 
-    date = datetime.datetime.fromtimestamp(int(date))
+    date = datetime.datetime.utcfromtimestamp(int(date))
     org_id = get_org_id_by_repo_id(repo_id)
     if org_id > 0:
         save_org_user_events(session, org_id, etype, detail, [operator], date)
