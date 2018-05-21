@@ -16,16 +16,17 @@ class EventsPublisher(object):
         try:
             self.mq.ping()
         except:
-            logger.error("Redis server can't be connected: host %s, port %s", 
+            logger.error("Redis server can't be connected: host %s, port %s",
                          appconfig.publish_mq_server, appconfig.publish_mq_port)
 
     def publish_event(self, event):
-    # redis python library already has a connection pool and a retry mechanism
+        # redis python library already has a connection pool and a retry mechanism
         try:
             if self.mq.publish('repo_update', event) > 0:
                 logger.debug('Publish event: %s' % event)
             else:
-                logger.info("No one subscribed to repo_update channel, event (%s) has not been send" % event)
+                logger.info("No one subscribed to repo_update channel, send event (%s) already to repo_update_unpublish_list channel" % event)
+                self.mq.rpush('repo_update_unpublish_list', event)
         except Exception as e:
             logger.error(e)
             logger.error("Failed to publish event: %s " % event)
