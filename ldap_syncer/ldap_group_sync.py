@@ -353,7 +353,10 @@ class LdapGroupSync(LdapSync):
             else:
                 # add ldap group to db
                 if super_user is None:
-                    super_user = LdapGroupSync.get_super_user()
+                    if self.settings.import_group_structure:
+                        super_user = 'system admin'
+                    else:
+                        super_user = LdapGroupSync.get_super_user()
                 parent_id = 0
                 if self.settings.import_group_structure:
                     parent_id = -1
