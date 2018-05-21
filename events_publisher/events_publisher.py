@@ -25,7 +25,8 @@ class EventsPublisher(object):
             if self.mq.publish('repo_update', event) > 0:
                 logger.debug('Publish event: %s' % event)
             else:
-                logger.info("No one subscribed to repo_update channel, event (%s) has not been send" % event)
+                logger.info("No one subscribed to repo_update channel, send event (%s) already to repo_update_unpublish_list channel" % event)
+                self.mq.rpush('repo_update_unpublish_list', event)
         except Exception as e:
             logger.error(e)
             logger.error("Failed to publish event: %s " % event)
