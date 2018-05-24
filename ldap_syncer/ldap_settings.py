@@ -106,6 +106,8 @@ class Settings(object):
         self.sync_interval = self.get_option('LDAP_SYNC', 'SYNC_INTERVAL', int, 60)
         self.group_object_class = self.get_option('LDAP_SYNC', 'GROUP_OBJECT_CLASS',
                                                   dval='group')
+        if self.group_object_class.lower() == 'organizationalunit':
+            self.group_by_ou = True
 
         # If GROUP_FILTER is not set in server level, using value of LDAP_SYNC section,
         # in order to compatible with previous
@@ -142,11 +144,9 @@ class Settings(object):
         self.is_active = self.get_option('LDAP_SYNC', 'ACTIVATE_USER_WHEN_IMPORT', bool, True)
         self.user_attr_in_memberUid = self.get_option('LDAP_SYNC', 'USER_ATTR_IN_MEMBERUID',dval='uid')
         self.role_name_attr = self.get_option('LDAP_SYNC', 'ROLE_NAME_ATTR', dval='')
-        self.group_by_ou = self.get_option('LDAP_SYNC', 'IMPORT_BY_OU', bool, False)
         self.import_group_structure = self.get_option('LDAP_SYNC', 'IMPORT_GROUP_STRUCTURE', bool, False)
         self.del_group_if_not_found = self.get_option('LDAP_SYNC', 'DEL_GROUP_IF_NOT_FOUND', bool, False)
         self.create_group_repo = self.get_option('LDAP_SYNC', 'CREATE_GROUP_REPO', bool, False)
-
 
     def read_base_config(self, section):
         if not self.parser.has_section(section):
