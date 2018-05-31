@@ -112,7 +112,7 @@ class LdapGroupSync(LdapSync):
                     mails = self.get_group_member_from_ldap(ldap_conn, member, grp_data_ldap)
 
                 if mails is None:
-                    return None
+                    continue
                 for mail in mails:
                     all_mails.append(mail)
             grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None,
@@ -168,7 +168,8 @@ class LdapGroupSync(LdapSync):
             for member in attrs[self.settings.group_member_attr]:
                 mails = self.get_group_member_from_ldap(ldap_conn, member, grp_data)
                 if mails is None:
-                    return None
+                    logging.warning('Member %s in group %s does not exist.' % (member, dn))
+                    continue
                 for mail in mails:
                     all_mails.append(mail.lower())
             grp_data[dn] = LdapGroup(attrs['cn'][0], None, sorted(set(all_mails)))
