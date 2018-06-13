@@ -10,3 +10,4 @@ restart.sh
 *.conf
 cscope.*
 stats-logs/
+*.cnf
