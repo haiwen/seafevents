@@ -2,13 +2,14 @@ import os
 import sys
 import logging
 import atexit
-import tempfile
 import ConfigParser
 import ccnet
 import time
 import subprocess
 
 logger = logging.getLogger(__name__)
+pyexec = None
+HAS_OFFICE_TOOLS = None
 
 def find_in_path(prog):
     if 'win32' in sys.platform:
@@ -53,7 +54,6 @@ def check_python_uno():
     else:
         return True
 
-HAS_OFFICE_TOOLS = None
 def has_office_tools():
     '''Test whether office converter can be enabled by checking the
     libreoffice executable and python-uno library.
@@ -94,7 +94,7 @@ def write_pidfile(pidfile):
         logging.info('remove pidfile %s' % pidfile)
         try:
             os.remove(pidfile)
-        except:
+        except Exception as e:
             pass
 
     atexit.register(remove_pidfile)
@@ -119,7 +119,6 @@ def _get_python_executable():
 
     return path
 
-pyexec = None
 def get_python_executable():
     '''Find a suitable python executable'''
     global pyexec

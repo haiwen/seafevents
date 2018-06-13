@@ -28,10 +28,16 @@ def test_db():
 def generate_tables_sql():
     seahub_db = read_db_conf('SEAHUBDB')
     seafevents_db = read_db_conf('SEAFEVENTSDB')
-    cmd = "mysqldump -u%s -p%s --skip-add-locks --no-data --skip-add-drop-table --skip-comments %s > seahub.sql" % seahub_db[2:]
+    connection_data = [seahub_db[0]]
+    connection_data.extend(seahub_db[2:])
+    connection_data = tuple(connection_data)
+    cmd = "mysqldump -h%s -u%s -p%s --skip-add-locks --no-data --skip-add-drop-table --skip-comments %s > seahub.sql" % connection_data
     cwd = ["bash", "-c", cmd]
     subprocess.check_call(cwd, stdout=None, stderr=None)
-    cmd = "mysqldump -u%s -p%s --skip-add-locks --no-data --skip-add-drop-table --skip-comments %s > seafevents.sql" % seahub_db[2:]
+    connection_data = [seafevents_db[0]]
+    connection_data.extend(seafevents_db[2:])
+    connection_data = tuple(connection_data)
+    cmd = "mysqldump -h%s -u%s -p%s --skip-add-locks --no-data --skip-add-drop-table --skip-comments %s > seafevents.sql" % connection_data
     cwd = ["bash", "-c", cmd]
     subprocess.check_call(cwd, stdout=None, stderr=None)
     merge_sql_file('raw_table_sql.sql')
