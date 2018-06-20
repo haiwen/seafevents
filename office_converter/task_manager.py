@@ -15,6 +15,7 @@ from .doctypes import EXCEL_TYPES
 __all__ = ["task_manager"]
 
 def _checkdir_with_mkdir(dname):
+    # If you do not have permission for /opt/seafile-office-output files, then false is returned event if the file exists.
     if os.path.exists(dname):
         if not os.path.isdir(dname):
             raise RuntimeError("%s exists, but not a directory" % dname)
@@ -22,7 +23,11 @@ def _checkdir_with_mkdir(dname):
         if not os.access(dname, os.R_OK | os.W_OK):
             raise RuntimeError("Access to %s denied" % dname)
     else:
-        os.makedirs(dname)
+        try:
+            os.makedirs(dname)
+        except Exception as e:
+            logging.error(e)
+            raise
 
 
 class ConvertTask(object):
