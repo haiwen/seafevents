@@ -131,6 +131,15 @@ def get_office_converter_conf(config):
 
     # [ outputdir ]
     outputdir = get_option(key_outputdir, default=default_outputdir)
+
+    if not os.access(outputdir, os.R_OK):
+        logging.error('Permission Denied: %s is not readable' % outputdir)
+        raise
+
+    if not os.access(outputdir, os.W_OK):
+        logging.error('Permission Denied: %s is not allowed to be written.' % outputdir)
+        raise
+
     if not os.path.exists(outputdir):
         os.mkdir(outputdir)
 
