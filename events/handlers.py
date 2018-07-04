@@ -4,11 +4,13 @@ import copy
 import logging
 import logging.handlers
 import datetime
+from os.path import splitext
 
 from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr
-from seafevents.events.db import save_user_activity, \
-        save_file_audit_event, save_file_update_event, save_perm_audit_event
+from seafevents.events.db import save_file_audit_event, save_file_update_event, \
+        save_perm_audit_event, save_user_activity, save_filehistory
+from seafevents.app.config import appconfig
 from change_file_path import ChangeFilePathHandler
 
 changer = ChangeFilePathHandler()
@@ -68,6 +70,14 @@ def RepoUpdateEventHandler(session, msg):
                 time = datetime.datetime.utcfromtimestamp(msg.ctime)
                 if added_files or deleted_files or added_dirs or deleted_dirs or \
                         modified_files or renamed_files or moved_files or renamed_dirs or moved_dirs:
+
+                    records = generate_base_records(added_files, deleted_files,
+                            added_dirs, deleted_dirs, modified_files, renamed_files,
+                            moved_files, renamed_dirs, moved_dirs, commit, repo_id,
+                            parent, time)
+
+                    if appconfig.fh.enabled:
+                        save_records_to_filehistory(session, records)
 
                     records = generate_activity_records(added_files, deleted_files,
                             added_dirs, deleted_dirs, modified_files, renamed_files,
@@ -233,6 +243,161 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
         record['path'] = record['path'].rstrip('/') if record['path'] != '/' else '/'
 
     return records
+
+def generate_base_records(added_files, deleted_files, added_dirs,
+        deleted_dirs, modified_files, renamed_files, moved_files, renamed_dirs,
+        moved_dirs, commit, repo_id, parent, time):
+
+    OP_CREATE = 'create'
+    OP_DELETE = 'delete'
+    OP_EDIT = 'edit'
+    OP_RENAME = 'rename'
+    OP_MOVE = 'move'
+    OP_RECOVER = 'recover'
+
+    OBJ_FILE = 'file'
+    OBJ_DIR = 'dir'
+
+    repo = seafile_api.get_repo(repo_id)
+    base_record = {
+        'commit_id': commit.commit_id,
+        'timestamp': time,
+        'repo_id': repo_id,
+        'op_user': commit.creator_name,
+        'repo_name': repo.repo_name
+    }
+    records = []
+
+    for de in added_files:
+        record = copy.copy(base_record)
+        op_type = ''
+        if commit.description.encode('utf-8').startswith('Reverted'):
+            op_type = OP_RECOVER
+        else:
+            op_type = OP_CREATE
+        record['op_type'] = op_type
+        record['obj_id'] = de.obj_id
+        record['obj_type'] = OBJ_FILE
+        record['path'] = de.path
+        record['size'] = de.size
+        records.append(record)
+
+    for de in deleted_files:
+        record = copy.copy(base_record)
+        record['op_type'] = OP_DELETE
+        record['obj_id'] = de.obj_id
+        record['obj_type'] = OBJ_FILE
+        record['size'] = de.size
+        record['path'] = de.path
+        records.append(record)
+
+    for de in added_dirs:
+        record = copy.copy(base_record)
+        op_type = ''
+        if commit.description.encode('utf-8').startswith('Recovered'):
+            op_type = OP_RECOVER
+        else:
+            op_type = OP_CREATE
+        record['op_type'] = op_type
+        record['obj_id'] = de.obj_id
+        record['obj_type'] = OBJ_DIR
+        record['path'] = de.path
+        records.append(record)
+
+    for de in deleted_dirs:
+        record = copy.copy(base_record)
+        record['op_type'] = OP_DELETE
+        record['obj_id'] = de.obj_id
+        record['obj_type'] = OBJ_DIR
+        record['path'] = de.path
+        records.append(record)
+
+    for de in modified_files:
+        record = copy.copy(base_record)
+        op_type = ''
+        if commit.description.encode('utf-8').startswith('Reverted'):
+            op_type = OP_RECOVER
+        else:
+            op_type = OP_EDIT
+        record['op_type'] = op_type
+        record['obj_id'] = de.obj_id
+        record['obj_type'] = OBJ_FILE
+        record['path'] = de.path
+        record['size'] = de.size
+        records.append(record)
+
+    for de in renamed_files:
+        record = copy.copy(base_record)
+        record['op_type'] = OP_RENAME
+        record['obj_id'] = de.obj_id
+        record['obj_type'] = OBJ_FILE
+        record['path'] = de.new_path
+        record['size'] = de.size
+        record['old_path'] = de.path
+        records.append(record)
+
+    for de in moved_files:
+        record = copy.copy(base_record)
+        record['op_type'] = OP_MOVE
+        record['obj_id'] = de.obj_id
+        record['obj_type'] = OBJ_FILE
+        record['path'] = de.new_path
+        record['size'] = de.size
+        record['old_path'] = de.path
+        records.append(record)
+
+    for de in renamed_dirs:
+        record = copy.copy(base_record)
+        record['op_type'] = OP_RENAME
+        record['obj_id'] = de.obj_id
+        record['obj_type'] = OBJ_DIR
+        record['path'] = de.new_path
+        record['size'] = de.size
+        record['old_path'] = de.path
+        records.append(record)
+
+    for de in moved_dirs:
+        record = copy.copy(base_record)
+        record['op_type'] = OP_MOVE
+        record['obj_id'] = de.obj_id
+        record['obj_type'] = OBJ_DIR
+        record['path'] = de.new_path
+        record['size'] = de.size
+        record['old_path'] = de.path
+        records.append(record)
+
+    for record in records:
+        if record.has_key('old_path'):
+            record['old_path'] = record['old_path'].rstrip('/')
+        record['path'] = record['path'].rstrip('/') if record['path'] != '/' else '/'
+
+    return records
+
+def save_records_to_filehistory(session, records):
+    if not isinstance(records, list):
+        return
+    for record in records:
+        if should_record(record):
+            save_filehistory(session, record)
+
+def should_record(record):
+    """ return True if record['path'] is a specified office file
+    """
+    if not appconfig.fh.enabled:
+        return False
+
+    suffixs = appconfig.fh.suffix
+    if not suffixs or not isinstance(suffixs, basestring):
+        return False
+
+    if record['obj_type'] != 'file':
+        return False
+
+    filename, suffix = splitext(record['path'])
+    if suffix[1:] in appconfig.fh.suffix_list:
+        return True
+
+    return False
 
 def FileUpdateEventHandler(session, msg):
     elements = msg.body.split('\t')

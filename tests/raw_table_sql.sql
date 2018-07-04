@@ -35,7 +35,7 @@ CREATE TABLE `admin_log_adminlog` (
   PRIMARY KEY (`id`),
   KEY `admin_log_adminlog_email_7213c993` (`email`),
   KEY `admin_log_adminlog_operation_4bad7bd1` (`operation`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -705,7 +705,7 @@ CREATE TABLE `share_extrasharepermission` (
   PRIMARY KEY (`id`),
   KEY `share_extrasharepermission_repo_id_23cc10fc` (`repo_id`),
   KEY `share_extrasharepermission_share_to_823c16cb` (`share_to`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -788,7 +788,7 @@ CREATE TABLE `sysadmin_extra_userloginlog` (
   PRIMARY KEY (`id`),
   KEY `sysadmin_extra_userloginlog_username_5748b9e3` (`username`),
   KEY `sysadmin_extra_userloginlog_login_date_c171d790` (`login_date`)
-) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -991,8 +991,9 @@ CREATE TABLE `Activity` (
   `commit_id` varchar(40) DEFAULT NULL,
   `path` text NOT NULL,
   `detail` text NOT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8;
+  PRIMARY KEY (`id`),
+  KEY `ix_Activity_timestamp` (`timestamp`)
+) ENGINE=InnoDB AUTO_INCREMENT=39 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -1038,11 +1039,12 @@ CREATE TABLE `FileHistory` (
   `path` text NOT NULL,
   `repo_id_path_md5` varchar(32) DEFAULT NULL,
   `size` bigint(20) NOT NULL,
+  `detail` text,
   PRIMARY KEY (`id`),
   KEY `ix_FileHistory_repo_id_path_md5` (`repo_id_path_md5`),
   KEY `ix_FileHistory_timestamp` (`timestamp`),
   KEY `ix_FileHistory_file_uuid` (`file_uuid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=95 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -1070,6 +1072,21 @@ CREATE TABLE `FileUpdate` (
   KEY `idx_file_update_repo_org_eid` (`repo_id`,`org_id`,`eid`),
   KEY `ix_FileUpdate_timestamp` (`timestamp`),
   KEY `idx_file_update_orgid_eid` (`org_id`,`eid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `FileUploadRecord` (
+  `eid` int(11) NOT NULL AUTO_INCREMENT,
+  `repo_id` varchar(36) DEFAULT NULL,
+  `parent_path` text NOT NULL,
+  `repo_id_parent_path_md5` varchar(32) DEFAULT NULL,
+  `filename` varchar(1024) DEFAULT NULL,
+  `user` varchar(255) DEFAULT NULL,
+  `upload_time` datetime DEFAULT NULL,
+  PRIMARY KEY (`eid`),
+  KEY `ix_FileUploadRecord_repo_id` (`repo_id`),
+  KEY `ix_FileUploadRecord_repo_id_parent_path_md5` (`repo_id_parent_path_md5`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1102,16 +1119,15 @@ CREATE TABLE `TotalStorageStat` (
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `UserActivity` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `org_id` int(11) DEFAULT NULL,
   `username` varchar(255) NOT NULL,
   `activity_id` int(11) DEFAULT NULL,
   `timestamp` datetime NOT NULL,
   PRIMARY KEY (`id`),
   KEY `activity_id` (`activity_id`),
-  KEY `idx_username_timestamp` (`username`,`timestamp`),
   KEY `ix_UserActivity_timestamp` (`timestamp`),
+  KEY `idx_username_timestamp` (`username`,`timestamp`),
   CONSTRAINT `useractivity_ibfk_1` FOREIGN KEY (`activity_id`) REFERENCES `Activity` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=45 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -1134,7 +1150,7 @@ CREATE TABLE `UserEvent` (
   KEY `ix_UserEvent_username` (`username`),
   KEY `ix_UserEvent_eid` (`eid`),
   CONSTRAINT `userevent_ibfk_1` FOREIGN KEY (`eid`) REFERENCES `Event` (`uuid`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=31 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;

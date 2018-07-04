@@ -16,7 +16,20 @@ class AppConfig(object):
         else:
             return ''
 
+
 appconfig = AppConfig()
+
+def exception_catch(conf_module):
+    """Catch exceptions for functions and log them
+    """
+    def func_wrapper(func):
+        def wrapper(*args, **kwargs):
+            try:
+                func(*args, **kwargs)
+            except Exception as e:
+                logging.info('%s module configuration loading failed: %s' % (conf_module, e))
+        return wrapper
+    return func_wrapper
 
 def load_config(config_file):
     # seafevent config file
@@ -26,7 +39,9 @@ def load_config(config_file):
     load_env_config()
     load_publish_config(config)
     load_statistics_config(config)
+    load_file_history_config(config)
 
+@exception_catch('env')
 def load_env_config():
     # get central config dir
     appconfig.central_confdir = ""
@@ -47,11 +62,12 @@ def load_env_config():
     elif 'CCNET_CONF_DIR' in os.environ:
         appconfig.ccnet_conf_path = os.path.join(os.environ['CCNET_CONF_DIR'], 'ccnet.conf')
 
+@exception_catch('publish')
 def load_publish_config(config):
     appconfig.publish_enabled = False
     try:
         appconfig.publish_enabled = config.getboolean('EVENTS PUBLISH', 'enabled')
-    except:
+    except Exception as e:
         # prevent hasn't EVENTS PUBLISH section.
         pass
     if appconfig.publish_enabled:
@@ -69,9 +85,10 @@ def load_publish_config(config):
             if config.has_option(appconfig.publish_mq_type, 'password'):
                 appconfig.publish_mq_password = config.get(appconfig.publish_mq_type,
                                                            'password')
-        except:
+        except Exception as e:
             appconfig.publish_enabled = False
 
+@exception_catch('statistics')
 def load_statistics_config(config):
     appconfig.statistics = AppConfig()
     appconfig.statistics.enabled = False
@@ -80,3 +97,17 @@ def load_statistics_config(config):
             appconfig.statistics.enabled = config.getboolean('STATISTICS', 'enabled')
     except Exception as e:
         logging.info(e)
+
+@exception_catch('file history')
+def load_file_history_config(config):
+    appconfig.fh = AppConfig()
+    appconfig.fh.enabled =  False
+    if config.has_option('FILE HISTORY', 'enabled'):
+        appconfig.fh.enabled = config.getboolean('FILE HISTORY', 'enabled')
+    if appconfig.fh.enabled:
+        appconfig.fh.suffix = config.get('FILE HISTORY', 'suffix')
+        suffix = appconfig.fh.suffix.rstrip(',')
+        appconfig.fh.suffix_list = suffix.split(',') if suffix else []
+        logging.info('The file with the following suffix will be recorded into the file history: %s' % suffix)
+    else:
+        logging.info('Disenabled File History Features.')

@@ -2,8 +2,9 @@
 
 import json
 import uuid
+import hashlib
 
-from sqlalchemy import Column, Integer, String, DateTime, Text, Index
+from sqlalchemy import Column, Integer, String, DateTime, Text, Index, BigInteger
 from sqlalchemy import ForeignKey, Sequence
 
 from seafevents.db import Base
@@ -117,6 +118,43 @@ class UserEvent(Base):
         else:
             return "UserEvent<user = %s, event id = %s>" % \
                 (self.username, self.eid)
+
+class FileHistory(Base):
+    __tablename__ = 'FileHistory'
+
+    id = Column(Integer, Sequence('user_event_eid_seq'), primary_key=True)
+    op_type = Column(String(length=128), nullable=False)
+    op_user = Column(String(length=255), nullable=False)
+    timestamp = Column(DateTime, nullable=False, index=True)
+
+    repo_id = Column(String(length=36), nullable=False)
+    commit_id = Column(String(length=40))
+    file_id =  Column(String(length=40), nullable=False)
+    file_uuid = Column(String(length=32), index=True)
+    path = Column(Text, nullable=False)
+    repo_id_path_md5 = Column(String(length=32), index=True)
+    size = Column(BigInteger, nullable=False)
+    detail = Column(Text)
+
+    def __init__(self, record):
+        self.op_type = record['op_type']
+        self.op_user = record['op_user']
+        self.timestamp = record['timestamp']
+        self.repo_id = record['repo_id']
+        self.commit_id = record.get('commit_id', None)
+        self.file_id = record.get('obj_id')
+        self.file_uuid = record.get('file_uuid')
+        self.path = record['path']
+        self.repo_id_path_md5 = hashlib.md5((self.repo_id + self.path)).hexdigest()
+        self.size = record.get('size')
+
+        detail = {}
+        detail_keys = ['old_path', 'days']
+        for k in detail_keys:
+            if record.has_key(k) and record.get(k, None) is not None:
+                detail[k] = record.get(k, None)
+
+        self.detail = json.dumps(detail)
 
 class FileAudit(Base):
     __tablename__ = 'FileAudit'

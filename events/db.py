@@ -1,11 +1,14 @@
 import json
+import time
 import logging
 import datetime
+import hashlib
 
 from sqlalchemy import desc
+from sqlalchemy.sql import exists
 
 from .models import Event, UserEvent, FileAudit, FileUpdate, PermAudit, \
-        Activity, UserActivity
+        Activity, UserActivity, FileHistory
 
 logger = logging.getLogger('seafevents')
 
@@ -51,13 +54,13 @@ def _get_user_events(session, org_id, username, start, limit):
     if limit <= 0:
         raise RuntimeError('limit must be positive')
 
-    q = session.query(Event).filter(UserEvent.username==username)
+    q = session.query(Event).filter(UserEvent.username == username)
     if org_id > 0:
-        q = q.filter(UserEvent.org_id==org_id)
+        q = q.filter(UserEvent.org_id == org_id)
     elif org_id < 0:
-        q = q.filter(UserEvent.org_id<=0)
+        q = q.filter(UserEvent.org_id <= 0)
 
-    q = q.filter(UserEvent.eid==Event.uuid).order_by(desc(UserEvent.id)).slice(start, start + limit)
+    q = q.filter(UserEvent.eid == Event.uuid).order_by(desc(UserEvent.id)).slice(start, start + limit)
 
     # select Event.etype, Event.timestamp, UserEvent.username from UserEvent, Event where UserEvent.username=username and UserEvent.org_id <= 0 and UserEvent.eid = Event.uuid order by UserEvent.id desc limit 0, 15;
 
@@ -99,6 +102,26 @@ def _get_user_activities(session, username, start, limit):
 def get_user_activities(session, username, start, limit):
     return _get_user_activities(session, username, start, limit)
 
+def get_file_history(session, repo_id, path, start, limit):
+    repo_id_path_md5 = hashlib.md5((repo_id + path)).hexdigest()
+    current_item = session.query(FileHistory).filter(FileHistory.repo_id_path_md5 == repo_id_path_md5)\
+            .order_by(desc(FileHistory.timestamp)).first()
+
+    events = []
+    total_count = 0
+    if current_item:
+        total_count = session.query(FileHistory).filter(FileHistory.file_uuid == current_item.file_uuid).count()
+        q = session.query(FileHistory).filter(FileHistory.file_uuid == current_item.file_uuid)\
+                .order_by(desc(FileHistory.timestamp)).slice(start, start + limit + 1)
+
+        # select Event.etype, Event.timestamp, UserEvent.username from UserEvent, Event where UserEvent.username=username and UserEvent.org_id <= 0 and UserEvent.eid = Event.uuid order by UserEvent.id desc limit 0, 15;
+        events = q.all()
+        if events and len(events) == limit + 1:
+            next_start = start + limit
+            events = events[:-1]
+
+    return events, total_count
+
 def not_include_all_keys(record, keys):
     return any(record.get(k, None) is None for k in keys)
 
@@ -110,6 +133,45 @@ def save_user_activity(session, record):
     for username in record['related_users']:
         user_activity = UserActivity(username, activity.id, record['timestamp'])
         session.add(user_activity)
+    session.commit()
+
+def query_prev_record(session, record):
+    if record['op_type'] == 'create':
+        return None
+
+    if record['op_type'] in ['rename', 'move']:
+        repo_id_path_md5 = hashlib.md5((record['repo_id'] + record['old_path'])).hexdigest()
+    else:
+        repo_id_path_md5 = hashlib.md5((record['repo_id'] + record['path'])).hexdigest()
+
+    q = session.query(FileHistory)
+    prev_item = q.filter(FileHistory.repo_id_path_md5 == repo_id_path_md5).order_by(desc(FileHistory.timestamp)).first()
+
+    # The restore operation may not be the last record to be restored, so you need to switch to the last record
+    if record['op_type'] == 'recover':
+        q = session.query(FileHistory)
+        prev_item = q.filter(FileHistory.file_uuid == prev_item.file_uuid).order_by(desc(FileHistory.timestamp)).first()
+
+    return prev_item
+
+def save_filehistory(session, record):
+    # use same file_uuid if prev item already exists, otherwise new one
+    prev_item = query_prev_record(session, record)
+    if prev_item:
+        if record['path'] != prev_item.path and record['op_type'] == 'recover':
+            pass
+        else:
+            record['file_uuid'] = prev_item.file_uuid
+
+    if not record.has_key('file_uuid'):
+        file_uuid = hashlib.md5(record['repo_id'] + record['path'] + str(time.time())).hexdigest()
+        # avoid hash conflict
+        while session.query(exists().where(FileHistory.file_uuid == file_uuid)).scalar():
+            file_uuid = hashlib.md5(record['repo_id'] + record['path'] + str(time.time())).hexdigest()
+        record['file_uuid'] = file_uuid
+
+    filehistory = FileHistory(record)
+    session.add(filehistory)
     session.commit()
 
 def _save_user_events(session, org_id, etype, detail, usernames, timestamp):
