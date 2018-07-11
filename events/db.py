@@ -112,10 +112,9 @@ def _get_user_activities(session, org_id, username, start, limit):
         q = q.filter(UserActivity.org_id <= 0)
     q = q.filter(UserActivity.activity_id == Activity.id)
 
-    total_count = q.count()
     events = q.order_by(desc(UserActivity.timestamp)).slice(start, start + limit).all()
 
-    return [ UserActivityDetail(ev, org_id=org_id, username=username) for ev in events ], total_count
+    return [ UserActivityDetail(ev, org_id=org_id, username=username) for ev in events ]
 
 def get_user_activities(session, username, start, limit):
     return _get_user_activities(session, -1, username, start, limit)
