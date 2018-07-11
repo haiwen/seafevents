@@ -267,3 +267,33 @@ class PermAudit(Base):
                    RepoID = %s, FilePath = %s, Permission = %s>" % \
                     (self.etype, self.from_user, self.to,
                      self.repo_id, self.file_path, self.permission)
+
+
+class FileUploadRecord(Base):
+    """this model is the same as alphaboxevents.evnets.models.FileUploadRecord
+    this model is for search only.
+    """
+    __tablename__ = 'FileUploadRecord'
+
+    eid = Column(Integer, Sequence('file_upload_record_eid_seq'), primary_key=True)
+    repo_id = Column(String(length=36), index=True)
+    parent_path = Column(Text, nullable=False)
+    repo_id_parent_path_md5 = Column(String(length=32), index=True)
+    filename = Column(String(length=1024))
+    user = Column(String(length=255))
+    upload_time = Column(DateTime)
+
+    __table_args__ = (Index('idx_repo_id_parent_path_filename',
+                            'repo_id_parent_path_md5', 'filename'),)
+
+    def __init__(self, repo_id, parent_path, repo_id_parent_path_md5, filename, user, upload_time):
+        self.repo_id = repo_id
+        self.parent_path = parent_path
+        self.repo_id_parent_path_md5 = repo_id_parent_path_md5
+        self.filename = filename
+        self.user = user
+        self.upload_time = upload_time
+
+    def __str__(self):
+        return "FileUploadRecord<repo_id: '%s', parent_path: '%s', filename: '%s', user: '%s'>" % \
+                (self.repo_id, self.parent_path, self.filename, self.user)
