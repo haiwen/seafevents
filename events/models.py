@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import json
 import uuid
 
@@ -5,6 +7,68 @@ from sqlalchemy import Column, Integer, String, DateTime, Text, Index
 from sqlalchemy import ForeignKey, Sequence
 
 from seafevents.db import Base
+
+class Activity(Base):
+    """
+    """
+    __tablename__ = 'Activity'
+
+    id = Column(Integer, Sequence('activity_seq'), primary_key=True)
+    op_type = Column(String(length=128), nullable=False)
+    op_user = Column(String(length=255), nullable=False)
+    obj_type = Column(String(length=128), nullable=False)
+    timestamp = Column(DateTime, nullable=False, index=True)
+
+    repo_id = Column(String(length=36), nullable=False)
+    commit_id = Column(String(length=40))
+    path = Column(Text, nullable=False)
+    detail = Column(Text, nullable=False)
+
+    def __init__(self, record):
+        self.op_type = record['op_type']
+        self.obj_type = record['obj_type']
+        self.repo_id = record['repo_id']
+        self.timestamp = record['timestamp']
+        self.op_user = record['op_user']
+        self.path = record['path']
+        self.commit_id = record.get('commit_id', None)
+
+
+        detail = {}
+        detail_keys = ['size', 'old_path', 'days', 'repo_name', 'obj_id', 'old_repo_name']
+        for k in detail_keys:
+            if record.has_key(k) and record.get(k, None) is not None:
+                detail[k] = record.get(k, None)
+
+        self.detail = json.dumps(detail)
+
+    def __str__(self):
+        return 'Activity<id: %s, type: %s, repo_id: %s>' % \
+            (self.id, self.op_type, self.repo_id)
+
+
+class UserActivity(Base):
+    """
+    """
+    __tablename__ = 'UserActivity'
+
+    id = Column(Integer, Sequence('useractivity_seq'), primary_key=True)
+    username = Column(String(length=255), nullable=False)
+    activity_id = Column(Integer, ForeignKey('Activity.id', ondelete='CASCADE'))
+    timestamp = Column(DateTime, nullable=False, index=True)
+
+    __table_args__ = (Index('idx_username_timestamp',
+                            'username', 'timestamp'),)
+
+    def __init__(self, username, activity_id, timestamp):
+        self.username = username
+        self.activity_id = activity_id
+        self.timestamp = timestamp
+
+    def __str__(self):
+        return 'UserActivity<username: %s, activity id: %s>' % \
+                (self.username, self.activity_id)
+
 
 class Event(Base):
     """General class for events. Specific information is stored in json format
@@ -73,7 +137,7 @@ class FileAudit(Base):
                       Index('idx_file_audit_repo_org_eid',
                             'repo_id', 'org_id', 'eid'))
 
-    def __init__(self, timestamp, etype, user, ip, device, \
+    def __init__(self, timestamp, etype, user, ip, device,
                  org_id, repo_id, file_path):
         self.timestamp = timestamp
         self.etype = etype
@@ -86,14 +150,14 @@ class FileAudit(Base):
 
     def __str__(self):
         if self.org_id > 0:
-           return "FileAudit<EventType = %s, User = %s, IP = %s, Device = %s, \
+            return "FileAudit<EventType = %s, User = %s, IP = %s, Device = %s, \
                     OrgID = %s, RepoID = %s, FilePath = %s>" % \
-                    (self.etype, self.user, self.ip, self.device, \
+                    (self.etype, self.user, self.ip, self.device,
                      self.org_id, self.repo_id, self.file_path)
         else:
             return "FileAudit<EventType = %s, User = %s, IP = %s, Device = %s, \
                     RepoID = %s, FilePath = %s>" % \
-                    (self.etype, self.user, self.ip, self.device, \
+                    (self.etype, self.user, self.ip, self.device,
                      self.repo_id, self.file_path)
 
 class FileUpdate(Base):
@@ -123,12 +187,12 @@ class FileUpdate(Base):
 
     def __str__(self):
         if self.org_id > 0:
-           return "FileUpdate<User = %s, OrgID = %s, RepoID = %s, CommitID = %s \
-                   FileOper = %s>" % (self.user, self.org_id, self.repo_id, \
+            return "FileUpdate<User = %s, OrgID = %s, RepoID = %s, CommitID = %s \
+                   FileOper = %s>" % (self.user, self.org_id, self.repo_id,
                                       self.commit_id, self.file_oper)
         else:
             return "FileUpdate<User = %s, RepoID = %s, CommitID = %s, \
-                    FileOper = %s>" % (self.user, self.repo_id, \
+                    FileOper = %s>" % (self.user, self.repo_id,
                                        self.commit_id, self.file_oper)
 
 class PermAudit(Base):
@@ -150,7 +214,7 @@ class PermAudit(Base):
                       Index('idx_perm_audit_repo_org_eid',
                             'repo_id', 'org_id', 'eid'))
 
-    def __init__(self, timestamp, etype, from_user, to, org_id, repo_id, \
+    def __init__(self, timestamp, etype, from_user, to, org_id, repo_id,
                  file_path, permission):
         self.timestamp = timestamp
         self.etype = etype
@@ -163,12 +227,12 @@ class PermAudit(Base):
 
     def __str__(self):
         if self.org_id > 0:
-           return "PermAudit<EventType = %s, FromUser = %s, To = %s, \
+            return "PermAudit<EventType = %s, FromUser = %s, To = %s, \
                    OrgID = %s, RepoID = %s, FilePath = %s, Permission = %s>" % \
-                    (self.etype, self.from_user, self.to, self.org_id, \
+                    (self.etype, self.from_user, self.to, self.org_id,
                      self.repo_id, self.file_path, self.permission)
         else:
             return "PermAudit<EventType = %s, FromUser = %s, To = %s, \
                    RepoID = %s, FilePath = %s, Permission = %s>" % \
-                    (self.etype, self.from_user, self.to, \
+                    (self.etype, self.from_user, self.to,
                      self.repo_id, self.file_path, self.permission)

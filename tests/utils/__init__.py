@@ -34,3 +34,6 @@ class EventTest(unittest.TestCase):
             return res
         finally:
             session.close()
+
+    def get_session(self):
+        return get_db_session('TESTDB')
