@@ -69,7 +69,7 @@ def RepoUpdateEventHandler(session, msg):
                 if added_files or deleted_files or added_dirs or deleted_dirs or \
                         modified_files or renamed_files or moved_files or renamed_dirs or moved_dirs:
 
-                    records = generate_records(added_files, deleted_files,
+                    records = generate_activity_records(added_files, deleted_files,
                             added_dirs, deleted_dirs, modified_files, renamed_files,
                             moved_files, renamed_dirs, moved_dirs, commit, repo_id,
                             parent, users, time)
@@ -104,7 +104,7 @@ def save_records_to_activity(session, records):
         for record in records:
             save_user_activity(session, record)
 
-def generate_records(added_files, deleted_files, added_dirs,
+def generate_activity_records(added_files, deleted_files, added_dirs,
         deleted_dirs, modified_files, renamed_files, moved_files, renamed_dirs,
         moved_dirs, commit, repo_id, parent, related_users, time):
 
@@ -226,6 +226,11 @@ def generate_records(added_files, deleted_files, added_dirs,
         record['size'] = de.size
         record['old_path'] = de.path
         records.append(record)
+
+    for record in records:
+        if record.has_key('old_path'):
+            record['old_path'] = record['old_path'].rstrip('/')
+        record['path'] = record['path'].rstrip('/') if record['path'] != '/' else '/'
 
     return records
 
