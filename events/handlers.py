@@ -72,7 +72,7 @@ def RepoUpdateEventHandler(session, msg):
                     records = generate_records(added_files, deleted_files,
                             added_dirs, deleted_dirs, modified_files, renamed_files,
                             moved_files, renamed_dirs, moved_dirs, commit, repo_id,
-                            parent, org_id, users, time)
+                            parent, users, time)
 
                     save_records_to_activity(session, records)
                 else:
@@ -106,7 +106,7 @@ def save_records_to_activity(session, records):
 
 def generate_records(added_files, deleted_files, added_dirs,
         deleted_dirs, modified_files, renamed_files, moved_files, renamed_dirs,
-        moved_dirs, commit, repo_id, parent, org_id, related_users, time):
+        moved_dirs, commit, repo_id, parent, related_users, time):
 
     OP_CREATE = 'create'
     OP_DELETE = 'delete'
@@ -125,7 +125,6 @@ def generate_records(added_files, deleted_files, added_dirs,
         'repo_id': repo_id,
         'related_users': related_users,
         'op_user': commit.creator_name,
-        'org_id': org_id,
         'repo_name': repo.repo_name
     }
     records = []

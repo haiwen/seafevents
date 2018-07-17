@@ -17,7 +17,7 @@ class Activity(Base):
     op_type = Column(String(length=128), nullable=False)
     op_user = Column(String(length=255), nullable=False)
     obj_type = Column(String(length=128), nullable=False)
-    timestamp = Column(DateTime, nullable=False)
+    timestamp = Column(DateTime, nullable=False, index=True)
 
     repo_id = Column(String(length=36), nullable=False)
     commit_id = Column(String(length=40))
@@ -53,7 +53,6 @@ class UserActivity(Base):
     __tablename__ = 'UserActivity'
 
     id = Column(Integer, Sequence('useractivity_seq'), primary_key=True)
-    org_id = Column(Integer)
     username = Column(String(length=255), nullable=False)
     activity_id = Column(Integer, ForeignKey('Activity.id', ondelete='CASCADE'))
     timestamp = Column(DateTime, nullable=False, index=True)
@@ -61,8 +60,7 @@ class UserActivity(Base):
     __table_args__ = (Index('idx_username_timestamp',
                             'username', 'timestamp'),)
 
-    def __init__(self, org_id, username, activity_id, timestamp):
-        self.org_id = org_id
+    def __init__(self, username, activity_id, timestamp):
         self.username = username
         self.activity_id = activity_id
         self.timestamp = timestamp

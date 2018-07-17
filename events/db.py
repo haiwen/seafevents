@@ -1,5 +1,4 @@
 import json
-import hashlib
 import logging
 import datetime
 
@@ -21,21 +20,12 @@ class UserEventDetail(object):
         self.uuid = event.uuid
 
         dt = json.loads(event.detail)
-        self.fix_trailing_zero_bug(dt)
         for key in dt:
             self.__dict__[key] = dt[key]
 
-    def fix_trailing_zero_bug(self, dt):
-        '''Fix the errornous trailing zero byte in ccnet 9d99718d77e93fce77561c5437c67dc21724dd9a'''
-        if 'commit_id' in dt:
-            commit_id = dt['commit_id']
-            if commit_id[-1] == u'\x00':
-                dt['commit_id'] = commit_id[:-1]
-
 class UserActivityDetail(object):
     """Regular objects which can be used by seahub without worrying about ORM"""
-    def __init__(self, event, org_id=None, username=None):
-        self.org_id = org_id
+    def __init__(self, event, username=None):
         self.username = username
 
         self.id = event.id
@@ -43,19 +33,13 @@ class UserActivityDetail(object):
         self.op_user = event.op_user
         self.obj_type = event.obj_type
         self.repo_id = event.repo_id
-        self.commit_id = self.fix_trailing_zero_bug(event.commit_id)
+        self.commit_id = event.commit_id
         self.timestamp = event.timestamp
         self.path = event.path
 
         dt = json.loads(event.detail)
         for key in dt:
             self.__dict__[key] = dt[key]
-
-    def fix_trailing_zero_bug(self, commit_id):
-        '''Fix the errornous trailing zero byte in ccnet 9d99718d77e93fce77561c5437c67dc21724dd9a'''
-        if commit_id and commit_id[-1] == u'\x00':
-            return commit_id[:-1]
-        return commit_id
 
 # org_id > 0 --> get org events
 # org_id < 0 --> get non-org events
@@ -98,7 +82,7 @@ def delete_event(session, uuid):
     session.query(Event).filter(Event.uuid == uuid).delete()
     session.commit()
 
-def _get_user_activities(session, org_id, username, start, limit):
+def _get_user_activities(session, username, start, limit):
     if start < 0:
         raise RuntimeError('start must be non-negative')
 
@@ -106,55 +90,25 @@ def _get_user_activities(session, org_id, username, start, limit):
         raise RuntimeError('limit must be positive')
 
     q = session.query(Activity).filter(UserActivity.username == username)
-    if org_id > 0:
-        q = q.filter(UserActivity.org_id == org_id)
-    elif org_id < 0:
-        q = q.filter(UserActivity.org_id <= 0)
     q = q.filter(UserActivity.activity_id == Activity.id)
 
     events = q.order_by(desc(UserActivity.timestamp)).slice(start, start + limit).all()
 
-    return [ UserActivityDetail(ev, org_id=org_id, username=username) for ev in events ]
+    return [ UserActivityDetail(ev, username=username) for ev in events ]
 
 def get_user_activities(session, username, start, limit):
-    return _get_user_activities(session, -1, username, start, limit)
-
-def get_org_user_activities(session, org_id, username, start, limit):
-    return _get_user_activities(session, org_id, username, start, limit)
+    return _get_user_activities(session, username, start, limit)
 
 def not_include_all_keys(record, keys):
     return any(record.get(k, None) is None for k in keys)
 
-def is_valid_activity_record(record):
-    """ verify that activity record if is valided record
+def fix_record(record):
+    """ Complementary attributes
     """
-    required_key = ['op_type', 'obj_type', 'timestamp',
-            'repo_id', 'path', 'related_users']
-    if not_include_all_keys(record, required_key):
-        return False
-
     op_type = record['op_type']
     obj_type = record['obj_type']
-    if op_type == 'rename' and obj_type == 'repo':
-        required_key = ['old_repo_name', 'repo_name']
-        if not_include_all_keys(record, required_key):
-            return False
-
-    elif op_type == 'clean-up-trash' and obj_type == 'repo':
-        required_key = ['days']
-        if not_include_all_keys(record, required_key):
-            return False
-
-    elif op_type in ['rename', 'move'] and obj_type in ['file', 'dir']:
-        required_key = ['size', 'old_path']
-        if not_include_all_keys(record, required_key):
-            return False
+    if op_type in ['rename', 'move'] and obj_type in ['file', 'dir']:
         record['old_path'] = record['old_path'].rstrip('/')
-
-    elif obj_type == 'file':
-        required_key = ['size']
-        if not_include_all_keys(record, required_key):
-            return False
 
     # fill org_id to -1
     if not record.get('org_id', None):
@@ -162,18 +116,14 @@ def is_valid_activity_record(record):
 
     record['path'] = record['path'].rstrip('/') if record['path'] != '/' else '/'
 
-    return True
-
 def save_user_activity(session, record):
-    if not is_valid_activity_record(record):
-        logging.error('invalid activity record: %s' % record)
-        return
+    fix_record(record)
 
     activity = Activity(record)
     session.add(activity)
     session.commit()
     for username in record['related_users']:
-        user_activity = UserActivity(record['org_id'], username, activity.id, record['timestamp'])
+        user_activity = UserActivity(username, activity.id, record['timestamp'])
         session.add(user_activity)
     session.commit()
 
