@@ -30,7 +30,7 @@ import logging
 
 from .db import init_db_session_class
 
-from .events.db import get_user_events, get_org_user_events, get_user_activities, get_org_user_activities, delete_event, \
+from .events.db import get_user_events, get_org_user_events, get_user_activities, delete_event, \
         get_file_audit_events, get_file_update_events, get_perm_audit_events, \
         get_event_log_by_time, get_file_audit_events_by_path, save_user_events, \
         save_org_user_events, save_user_activity
