@@ -102,22 +102,7 @@ def get_user_activities(session, username, start, limit):
 def not_include_all_keys(record, keys):
     return any(record.get(k, None) is None for k in keys)
 
-def fix_record(record):
-    """ Complementary attributes
-    """
-    op_type = record['op_type']
-    obj_type = record['obj_type']
-    if op_type in ['rename', 'move'] and obj_type in ['file', 'dir']:
-        record['old_path'] = record['old_path'].rstrip('/')
-
-    # fill org_id to -1
-    if not record.get('org_id', None):
-        record['org_id'] = -1
-
-    record['path'] = record['path'].rstrip('/') if record['path'] != '/' else '/'
-
 def save_user_activity(session, record):
-    fix_record(record)
 
     activity = Activity(record)
     session.add(activity)
