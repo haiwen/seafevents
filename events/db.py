@@ -1,12 +1,14 @@
 # coding: utf-8
 
-import datetime
+import os
 import json
+import hashlib
 import logging
+import datetime
 
 from sqlalchemy import desc
 
-from .models import Event, UserEvent, FileAudit, FileUpdate, PermAudit
+from .models import Event, UserEvent, FileAudit, FileUpdate, PermAudit, FileUploadRecord
 
 logger = logging.getLogger('seafevents')
 
@@ -109,6 +111,17 @@ def save_file_update_event(session, timestamp, user, org_id, repo_id, \
     event = FileUpdate(timestamp, user, org_id, repo_id, commit_id, file_oper)
     session.add(event)
     session.commit()
+
+def get_file_upload_info(session, repo_id, path):
+    filename = os.path.basename(path)
+    if filename.endswith('/'):
+        filename = filename.rstrip('/')
+    parent_path = os.path.dirname(path)
+    repo_id_parent_path_md5 = hashlib.md5((repo_id + parent_path).encode('utf8')).hexdigest().decode('utf8')
+    q = session.query(FileUploadRecord)
+    q = q.filter(FileUploadRecord.repo_id_parent_path_md5 == repo_id_parent_path_md5)
+    q = q.filter(FileUploadRecord.filename == filename)
+    return q.first()
 
 def get_events(session, obj, username, org_id, repo_id, file_path, start, limit):
     if start < 0:
