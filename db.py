@@ -17,6 +17,18 @@ logger = logging.getLogger(__name__)
 Base = declarative_base()
 
 
+def get_alphabox_session(config_file):
+    config = ConfigParser.ConfigParser()
+    config.read(config_file)
+
+    section = 'ALPHABOXEVENTS DB'
+    host = config.get(section, 'host').lower()
+    port = config.get(section, 'port').lower()
+    username = config.get(section, 'username').lower()
+    password = config.get(section, 'password').lower()
+    name = config.get(section, 'name').lower()
+    return create_mysql_session(host, port, username, password, name)
+
 def create_mysql_session(host, port, username, passwd, dbname):
     db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
     # Add pool recycle, or mysql connection will be closed by mysqld if idle
