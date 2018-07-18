@@ -28,7 +28,7 @@ import os
 import ConfigParser
 import logging
 
-from .db import init_db_session_class
+from .db import init_db_session_class, get_alphabox_session
 
 from .events.db import get_user_events, get_org_user_events, delete_event, \
         get_file_audit_events, get_file_update_events, get_perm_audit_events, \
