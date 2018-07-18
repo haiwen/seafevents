@@ -23,10 +23,10 @@ def get_alphabox_session(config_file):
 
     section = 'ALPHABOXEVENTS DB'
     host = config.get(section, 'host').lower()
-    port = config.get(section, 'port').lower()
-    username = config.get(section, 'username').lower()
-    password = config.get(section, 'password').lower()
-    name = config.get(section, 'name').lower()
+    port = config.getint(section, 'port')
+    username = config.get(section, 'username')
+    password = config.get(section, 'password')
+    name = config.get(section, 'name')
     return create_mysql_session(host, port, username, password, name)
 
 def create_mysql_session(host, port, username, passwd, dbname):
