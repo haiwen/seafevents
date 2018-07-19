@@ -50,15 +50,17 @@ def RepoUpdateEventHandler(session, msg):
                 for m_dir in moved_dirs:
                     changer.update_db_records(repo_id, m_dir.path, m_dir.new_path, 1)
 
+    users = []
     org_id = get_org_id_by_repo_id(repo_id)
     if org_id > 0:
-        users_obj = seafile_api.org_get_shared_users_by_repo(org_id, repo_id)
+        users = seafile_api.org_get_shared_users_by_repo(org_id, repo_id)
         owner = seafile_api.get_org_repo_owner(repo_id)
     else:
-        users_obj = seafile_api.get_shared_users_by_repo(repo_id)
+        users = seafile_api.get_shared_users_by_repo(repo_id)
         owner = seafile_api.get_repo_owner(repo_id)
 
-    users = [e.user for e in users_obj] + [owner]
+    if owner not in users:
+        users = users + [owner]
     if not users:
         return
 
