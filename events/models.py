@@ -130,31 +130,24 @@ class FileHistory(Base):
     repo_id = Column(String(length=36), nullable=False)
     commit_id = Column(String(length=40))
     file_id =  Column(String(length=40), nullable=False)
-    file_uuid = Column(String(length=32), index=True)
+    file_uuid = Column(String(length=40), index=True)
     path = Column(Text, nullable=False)
     repo_id_path_md5 = Column(String(length=32), index=True)
     size = Column(BigInteger, nullable=False)
-    detail = Column(Text)
+    old_path = Column(Text, nullable=False)
 
     def __init__(self, record):
         self.op_type = record['op_type']
         self.op_user = record['op_user']
         self.timestamp = record['timestamp']
         self.repo_id = record['repo_id']
-        self.commit_id = record.get('commit_id', None)
+        self.commit_id = record.get('commit_id', '')
         self.file_id = record.get('obj_id')
         self.file_uuid = record.get('file_uuid')
         self.path = record['path']
-        self.repo_id_path_md5 = hashlib.md5((self.repo_id + self.path)).hexdigest()
+        self.repo_id_path_md5 = hashlib.md5((self.repo_id + self.path).encode('utf8')).hexdigest()
         self.size = record.get('size')
-
-        detail = {}
-        detail_keys = ['old_path', 'days']
-        for k in detail_keys:
-            if record.has_key(k) and record.get(k, None) is not None:
-                detail[k] = record.get(k, None)
-
-        self.detail = json.dumps(detail)
+        self.old_path = record.get('old_path', '')
 
 class FileAudit(Base):
     __tablename__ = 'FileAudit'

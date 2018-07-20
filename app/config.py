@@ -106,7 +106,7 @@ def load_file_history_config(config):
         appconfig.fh.enabled = config.getboolean('FILE HISTORY', 'enabled')
     if appconfig.fh.enabled:
         appconfig.fh.suffix = config.get('FILE HISTORY', 'suffix')
-        suffix = appconfig.fh.suffix.rstrip(',')
+        suffix = appconfig.fh.suffix.strip(',')
         appconfig.fh.suffix_list = suffix.split(',') if suffix else []
         logging.info('The file with the following suffix will be recorded into the file history: %s' % suffix)
     else:

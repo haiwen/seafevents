@@ -1,7 +1,7 @@
 import os
 import sys
 import mock
-import time
+import uuid
 import hashlib
 import logging
 import argparse
@@ -15,12 +15,12 @@ from seaserv import seafile_api, get_org_id_by_repo_id
 from seafobj import CommitDiffer, commit_mgr
 from seafevents.app.config import appconfig, load_config
 from seafevents.events.models import FileHistory
-from seafevents.events.handlers import generate_records, save_records_to_filehistory
+from seafevents.events.handlers import generate_filehistory_records, save_records_to_filehistory
 from seafevents.events.handlers import should_record
 
 
 def query_next_record(session, record):
-    repo_id_path_md5 = hashlib.md5((record['repo_id'] + record['path'])).hexdigest()
+    repo_id_path_md5 = hashlib.md5((record['repo_id'] + record['path']).encode('utf8')).hexdigest()
     q = session.query(FileHistory)
     q = q.filter(FileHistory.repo_id_path_md5 == repo_id_path_md5)
     unchanged_path_record = q.order_by(FileHistory.timestamp).first()
@@ -58,10 +58,10 @@ def save_filehistory(session, record):
             record['file_uuid'] = prev_item.file_uuid
 
     if not record.has_key('file_uuid'):
-        file_uuid = hashlib.md5(record['repo_id'] + record['path'] + str(time.time())).hexdigest()
+        file_uuid = uuid.uuid4()
         # avoid hash conflict
         while session.query(exists().where(FileHistory.file_uuid == file_uuid)).scalar():
-            file_uuid = hashlib.md5(record['repo_id'] + record['path'] + str(time.time())).hexdigest()
+            file_uuid = uuid.uuid4()
         record['file_uuid'] = file_uuid
 
     filehistory = FileHistory(record)
@@ -130,17 +130,17 @@ class RestoreUnrecordHistory(object):
                 differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id,
                                       True, True)
                 added_files, deleted_files, added_dirs, deleted_dirs, modified_files,\
-                        renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
+                        renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff_to_unicode()
 
                 time = datetime.datetime.utcfromtimestamp(commit.ctime)
                 session = scoped_session(self._db_session_class)
 
                 if added_files or deleted_files or added_dirs or deleted_dirs or \
                         modified_files or renamed_files or moved_files or renamed_dirs or moved_dirs:
-                    records = generate_records(added_files, deleted_files,
+                    records = generate_filehistory_records(added_files, deleted_files,
                             added_dirs, deleted_dirs, modified_files, renamed_files,
                             moved_files, renamed_dirs, moved_dirs, commit, repo_id,
-                            parent, org_id, users, time)
+                            parent, time)
 
                     with mock.patch('seafevents.events.handlers.save_filehistory', side_effect=save_filehistory):
                         if appconfig.fh.enabled:
@@ -192,12 +192,12 @@ class RestoreUnrecordHistory(object):
                 k += 1
         else:
             # keeping _current_commit_position zero will restore all activity records of the repo
-            start_commit_position = self._current_commit_position
             commit_objs = seafile_api.get_commit_list(repo_id, self._current_commit_position, 1)
             current_commit_id = [e.id for e in commit_objs][0]
             self._last_commit_id = current_commit_id
             self.diff_and_update(repo_id, current_commit_id, org_id, users)
 
+        start_commit_position = self._current_commit_position
         count_offest = 0
         while True:
             # get last commit and another commits

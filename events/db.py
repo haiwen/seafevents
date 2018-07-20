@@ -1,5 +1,5 @@
 import json
-import time
+import uuid
 import logging
 import datetime
 import hashlib
@@ -103,7 +103,7 @@ def get_user_activities(session, username, start, limit):
     return _get_user_activities(session, username, start, limit)
 
 def get_file_history(session, repo_id, path, start, limit):
-    repo_id_path_md5 = hashlib.md5((repo_id + path)).hexdigest()
+    repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
     current_item = session.query(FileHistory).filter(FileHistory.repo_id_path_md5 == repo_id_path_md5)\
             .order_by(desc(FileHistory.timestamp)).first()
 
@@ -140,9 +140,9 @@ def query_prev_record(session, record):
         return None
 
     if record['op_type'] in ['rename', 'move']:
-        repo_id_path_md5 = hashlib.md5((record['repo_id'] + record['old_path'])).hexdigest()
+        repo_id_path_md5 = hashlib.md5((record['repo_id'] + record['old_path']).encode('utf8')).hexdigest()
     else:
-        repo_id_path_md5 = hashlib.md5((record['repo_id'] + record['path'])).hexdigest()
+        repo_id_path_md5 = hashlib.md5((record['repo_id'] + record['path']).encode('utf8')).hexdigest()
 
     q = session.query(FileHistory)
     prev_item = q.filter(FileHistory.repo_id_path_md5 == repo_id_path_md5).order_by(desc(FileHistory.timestamp)).first()
@@ -164,10 +164,10 @@ def save_filehistory(session, record):
             record['file_uuid'] = prev_item.file_uuid
 
     if not record.has_key('file_uuid'):
-        file_uuid = hashlib.md5(record['repo_id'] + record['path'] + str(time.time())).hexdigest()
+        file_uuid = uuid.uuid4()
         # avoid hash conflict
         while session.query(exists().where(FileHistory.file_uuid == file_uuid)).scalar():
-            file_uuid = hashlib.md5(record['repo_id'] + record['path'] + str(time.time())).hexdigest()
+            file_uuid = uuid.uuid4()
         record['file_uuid'] = file_uuid
 
     filehistory = FileHistory(record)

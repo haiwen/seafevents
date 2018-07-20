@@ -50,18 +50,12 @@ class ChangeFilePathHandler(object):
                                            self.db_user, self.db_passwd, self.db_name)
         self.Session = scoped_session(self.MysqlSession)
 
-    def trans_to_unicode(self, str_list):
-        return [ e.decode('utf-8') for e in str_list]
-
 
     def update_db_records(self, dst_repo_id, path, new_path, is_dir, src_repo_id=None):
         if not dst_repo_id or not path or not new_path:
             logging.warning('Failed to change file uuid map, bad args')
             return
 
-        dst_repo_id, path, new_path = self.trans_to_unicode([dst_repo_id, path, new_path])
-        if src_repo_id:
-            src_repo_id = self.trans_to_unicode([src_repo_id])
         self.change_file_uuid_map(dst_repo_id, path, new_path, is_dir, src_repo_id)
         self.change_share_file_path(dst_repo_id, path, new_path, is_dir, src_repo_id)
         self.change_upload_share_file_path(dst_repo_id, path, new_path, is_dir, src_repo_id)

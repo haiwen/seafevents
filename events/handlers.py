@@ -1,6 +1,8 @@
 # coding: utf-8
 
+import os
 import copy
+import stat
 import logging
 import logging.handlers
 import datetime
@@ -23,6 +25,10 @@ def RepoUpdateEventHandler(session, msg):
 
     repo_id = elements[1]
     commit_id = elements[2]
+    if isinstance(repo_id, str):
+        repo_id = repo_id.decode('utf8')
+    if isinstance(commit_id, str):
+        commit_id = commit_id.decode('utf8')
 
     commit = commit_mgr.load_commit(repo_id, 1, commit_id)
     if commit is None:
@@ -37,7 +43,7 @@ def RepoUpdateEventHandler(session, msg):
             differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id,
                                   True, True)
             added_files, deleted_files, added_dirs, deleted_dirs, modified_files,\
-                    renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
+                    renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff_to_unicode()
 
             if renamed_files or renamed_dirs or moved_files or moved_dirs:
                 for r_file in renamed_files:
@@ -71,7 +77,7 @@ def RepoUpdateEventHandler(session, msg):
                 if added_files or deleted_files or added_dirs or deleted_dirs or \
                         modified_files or renamed_files or moved_files or renamed_dirs or moved_dirs:
 
-                    records = generate_base_records(added_files, deleted_files,
+                    records = generate_filehistory_records(added_files, deleted_files,
                             added_dirs, deleted_dirs, modified_files, renamed_files,
                             moved_files, renamed_dirs, moved_dirs, commit, repo_id,
                             parent, time)
@@ -244,7 +250,28 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
 
     return records
 
-def generate_base_records(added_files, deleted_files, added_dirs,
+def list_file_in_dir(repo_id, dir_ents, op_type):
+    files = []
+    while True:
+        try:
+            d = dir_ents.pop()
+        except IndexError:
+            break
+        else:
+            ents = seafile_api.list_dir_by_dir_id(repo_id, d.obj_id)
+            for ent in ents:
+                if op_type not in ['rename', 'move']:
+                    ent.path = os.path.join(d.path, ent.obj_name)
+                else:
+                    ent.new_path = os.path.join(d.new_path, ent.obj_name)
+                    ent.path = os.path.join(d.path, ent.obj_name)
+                if stat.S_ISDIR(ent.mode):
+                    dir_ents.append(ent)
+                else:
+                    files.append(ent)
+    return files
+
+def generate_filehistory_records(added_files, deleted_files, added_dirs,
         deleted_dirs, modified_files, renamed_files, moved_files, renamed_dirs,
         moved_dirs, commit, repo_id, parent, time):
 
@@ -263,113 +290,66 @@ def generate_base_records(added_files, deleted_files, added_dirs,
         'commit_id': commit.commit_id,
         'timestamp': time,
         'repo_id': repo_id,
-        'op_user': commit.creator_name,
-        'repo_name': repo.repo_name
+        'op_user': commit.creator_name
     }
     records = []
 
+    added_files.extend(list_file_in_dir(repo_id, added_dirs, 'add'))
     for de in added_files:
         record = copy.copy(base_record)
         op_type = ''
-        if commit.description.encode('utf-8').startswith('Reverted'):
+        logging.info(commit.description)
+        if commit.description.startswith(u'Reverted') or commit.description.startswith('Recovered'):
             op_type = OP_RECOVER
         else:
             op_type = OP_CREATE
         record['op_type'] = op_type
         record['obj_id'] = de.obj_id
-        record['obj_type'] = OBJ_FILE
-        record['path'] = de.path
+        record['path'] = de.path.rstrip('/')
         record['size'] = de.size
         records.append(record)
 
+    deleted_files.extend(list_file_in_dir(repo_id, deleted_dirs, 'delete'))
     for de in deleted_files:
         record = copy.copy(base_record)
         record['op_type'] = OP_DELETE
         record['obj_id'] = de.obj_id
-        record['obj_type'] = OBJ_FILE
         record['size'] = de.size
-        record['path'] = de.path
-        records.append(record)
-
-    for de in added_dirs:
-        record = copy.copy(base_record)
-        op_type = ''
-        if commit.description.encode('utf-8').startswith('Recovered'):
-            op_type = OP_RECOVER
-        else:
-            op_type = OP_CREATE
-        record['op_type'] = op_type
-        record['obj_id'] = de.obj_id
-        record['obj_type'] = OBJ_DIR
-        record['path'] = de.path
-        records.append(record)
-
-    for de in deleted_dirs:
-        record = copy.copy(base_record)
-        record['op_type'] = OP_DELETE
-        record['obj_id'] = de.obj_id
-        record['obj_type'] = OBJ_DIR
-        record['path'] = de.path
+        record['path'] = de.path.rstrip('/')
         records.append(record)
 
     for de in modified_files:
         record = copy.copy(base_record)
         op_type = ''
-        if commit.description.encode('utf-8').startswith('Reverted'):
+        if commit.description.startswith(u'Reverted'):
             op_type = OP_RECOVER
         else:
             op_type = OP_EDIT
         record['op_type'] = op_type
         record['obj_id'] = de.obj_id
-        record['obj_type'] = OBJ_FILE
-        record['path'] = de.path
+        record['path'] = de.path.rstrip('/')
         record['size'] = de.size
         records.append(record)
 
+    renamed_files.extend(list_file_in_dir(repo_id, renamed_dirs, 'rename'))
     for de in renamed_files:
         record = copy.copy(base_record)
         record['op_type'] = OP_RENAME
         record['obj_id'] = de.obj_id
-        record['obj_type'] = OBJ_FILE
-        record['path'] = de.new_path
+        record['path'] = de.new_path.rstrip('/')
         record['size'] = de.size
-        record['old_path'] = de.path
+        record['old_path'] = de.path.rstrip('/')
         records.append(record)
 
+    moved_files.extend(list_file_in_dir(repo_id, moved_dirs, 'move'))
     for de in moved_files:
         record = copy.copy(base_record)
         record['op_type'] = OP_MOVE
         record['obj_id'] = de.obj_id
-        record['obj_type'] = OBJ_FILE
-        record['path'] = de.new_path
+        record['path'] = de.new_path.rstrip('/')
         record['size'] = de.size
-        record['old_path'] = de.path
+        record['old_path'] = de.path.rstrip('/')
         records.append(record)
-
-    for de in renamed_dirs:
-        record = copy.copy(base_record)
-        record['op_type'] = OP_RENAME
-        record['obj_id'] = de.obj_id
-        record['obj_type'] = OBJ_DIR
-        record['path'] = de.new_path
-        record['size'] = de.size
-        record['old_path'] = de.path
-        records.append(record)
-
-    for de in moved_dirs:
-        record = copy.copy(base_record)
-        record['op_type'] = OP_MOVE
-        record['obj_id'] = de.obj_id
-        record['obj_type'] = OBJ_DIR
-        record['path'] = de.new_path
-        record['size'] = de.size
-        record['old_path'] = de.path
-        records.append(record)
-
-    for record in records:
-        if record.has_key('old_path'):
-            record['old_path'] = record['old_path'].rstrip('/')
-        record['path'] = record['path'].rstrip('/') if record['path'] != '/' else '/'
 
     return records
 
@@ -384,13 +364,6 @@ def should_record(record):
     """ return True if record['path'] is a specified office file
     """
     if not appconfig.fh.enabled:
-        return False
-
-    suffixs = appconfig.fh.suffix
-    if not suffixs or not isinstance(suffixs, basestring):
-        return False
-
-    if record['obj_type'] != 'file':
         return False
 
     filename, suffix = splitext(record['path'])
