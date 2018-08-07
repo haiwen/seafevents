@@ -20,18 +20,13 @@ class Statistics(Thread):
 
     def run(self):
         if self.is_enabled():
-            session = appconfig.session_cls()
-            seaf_session = appconfig.seaf_session_cls()
             event = Event()
             logging.info("Starting data statistics.")
             while True:
-                TotalStorageCounter(session, seaf_session).start_count()
-                FileOpsCounter(session).start_count()
-                TrafficInfoCounter(session).start_count()
+                TotalStorageCounter().start_count()
+                FileOpsCounter().start_count()
+                TrafficInfoCounter().start_count()
                 event.wait(3600)
-
-            session.close() # should never be reached #
-            seaf_session.close() # should never be reached #
 
 class UpdateLoginRecordTask(Thread):
     """ Run every thirty minutes, Handle 1000 tasks at a time. 

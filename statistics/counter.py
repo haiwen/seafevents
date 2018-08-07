@@ -34,8 +34,8 @@ def save_traffic_info(session, timestamp, user_name, repo_id, oper, size):
         traffic_info[time_str][(org_id, user_name, oper)] += size
 
 class FileOpsCounter(object):
-    def __init__(self, session):
-        self.edb_session = session
+    def __init__(self):
+        self.edb_session = appconfig.session_cls()
 
     def start_count(self):
         added = 0
@@ -55,14 +55,14 @@ class FileOpsCounter(object):
             q = self.edb_session.query(FileOpsStat.timestamp).filter(
                                        FileOpsStat.timestamp==s_timestamp)
             if q.first():
-                self.edb_session.rollback()
+                self.edb_session.close()
                 return
 
             q = self.edb_session.query(FileUpdate.timestamp, FileUpdate.file_oper).filter(
                                        FileUpdate.timestamp.between(
                                        s_timestamp, e_timestamp))
         except Exception as e:
-            self.edb_session.rollback()
+            self.edb_session.close()
             logging.warning('query error : %s.', e)
             return
 
@@ -77,14 +77,14 @@ class FileOpsCounter(object):
                                        FileAudit.timestamp.between(
                                        s_timestamp, e_timestamp))
         except Exception as e:
-            self.edb_session.rollback()
+            self.edb_session.close()
             logging.warning('query error : %s.', e)
             return
     
         visited = q.first()[0]
 
         if added==0 and deleted==0 and visited ==0:
-            self.edb_session.rollback()
+            self.edb_session.close()
             return
 
         if added:
@@ -98,11 +98,12 @@ class FileOpsCounter(object):
             self.edb_session.add(new_record)
 
         self.edb_session.commit()
+        self.edb_session.close()
 
 class TotalStorageCounter(object):
-    def __init__(self, session, seaf_session):
-        self.edb_session = session
-        self.seafdb_session = seaf_session
+    def __init__(self):
+        self.edb_session = appconfig.session_cls()
+        self.seafdb_session = appconfig.seaf_session_cls()
 
     def start_count(self):
         try:
@@ -113,7 +114,7 @@ class TotalStorageCounter(object):
                                           RepoSize.repo_id==VirtualRepo.repo_id).filter(VirtualRepo.repo_id == None)
             size = q.first()[0]
         except Exception as e:
-            self.seafdb_session.rollback()
+            self.seafdb_session.close()
             logging.warning('Failed to get total storage occupation')
             return
 
@@ -124,8 +125,8 @@ class TotalStorageCounter(object):
         try:
             q = self.edb_session.query(TotalStorageStat).filter(TotalStorageStat.timestamp==timestamp)
         except Exception as e:
-            self.seafdb_session.rollback()
-            self.edb_session.rollback()
+            self.seafdb_session.close()
+            self.edb_session.close()
             logging.warning('query error : %s.', e)
 
         try:
@@ -136,12 +137,13 @@ class TotalStorageCounter(object):
                 self.edb_session.commit()
         except Exception as e:
             logging.warning('Failed to add record to TotalStorageStat: %s.', e)
-        self.seafdb_session.rollback()
-        self.edb_session.rollback()
+
+        self.seafdb_session.close()
+        self.edb_session.close()
 
 class TrafficInfoCounter(object):
-    def __init__(self, session):
-        self.edb_session = session
+    def __init__(self):
+        self.edb_session = appconfig.session_cls()
 
     def start_count(self):
         dt = datetime.utcnow()
@@ -169,7 +171,7 @@ class TrafficInfoCounter(object):
                 if q.first():
                     continue
             except Exception as e:
-                self.edb_session.rollback()
+                self.edb_session.close()
                 logging.warning('query error : %s.', e)
                 return
 
@@ -178,3 +180,4 @@ class TrafficInfoCounter(object):
 
         del traffic_info[last_hour_str]
         self.edb_session.commit()
+        self.edb_session.close()

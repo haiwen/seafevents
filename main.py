@@ -109,8 +109,6 @@ def main(background_tasks_only=False):
         events_listener_enabled = True
         background_tasks_enabled = False
 
-    background_tasks_enabled = True
-
     app = App(get_ccnet_dir(), args, events_listener_enabled=events_listener_enabled,
               background_tasks_enabled=background_tasks_enabled)
 
