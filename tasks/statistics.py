@@ -6,60 +6,38 @@ import sched, time
 from sqlalchemy.sql import text
 from sqlalchemy.orm.scoping import scoped_session
 from threading import Thread, Event
-from seafevents.statistics import Settings, TotalStorageCounter, FileOpsCounter
-from seafevents.statistics.db import login_records
+from seafevents.statistics import TotalStorageCounter, FileOpsCounter, TrafficInfoCounter
+from seafevents.statistics.counter import login_records
 from seafevents.app.config import appconfig
 
 
-class Statistics(object):
-    def __init__(self, config_file):
-        self.settings = Settings(config_file)
+class Statistics(Thread):
+    def __init__(self):
+        Thread.__init__(self)
 
     def is_enabled(self):
-        return self.settings.statistics_enabled
-
-    def start(self):
-        logging.info("Starting data statistics.")
-        if self.settings.statistics_enabled:
-            CountTotalStorage(self.settings).start()
-            CountFileOps(self.settings).start()
-
-class CountTotalStorage(Thread):
-    def __init__(self, settings):
-        Thread.__init__(self)
-        self.settings = settings
-        self.fininsh = Event()
+        return appconfig.enable_statistics
 
     def run(self):
-        while not self.fininsh.is_set():
-            if not self.fininsh.is_set():
-                TotalStorageCounter(self.settings).start_count()
-            self.fininsh.wait(3600)
+        if self.is_enabled():
+            session = appconfig.session_cls()
+            seaf_session = appconfig.seaf_session_cls()
+            event = Event()
+            logging.info("Starting data statistics.")
+            while True:
+                TotalStorageCounter(session, seaf_session).start_count()
+                FileOpsCounter(session).start_count()
+                TrafficInfoCounter(session).start_count()
+                event.wait(3600)
 
-    def cancel(self):
-        self.fininsh.set()
-
-class CountFileOps(Thread):
-    def __init__(self, settings):
-        Thread.__init__(self)
-        self.settings = settings
-        self.fininsh = Event()
-
-    def run(self):
-        while not self.fininsh.is_set():
-            if not self.fininsh.is_set():
-                FileOpsCounter(self.settings).start_count()
-            self.fininsh.wait(3600)
-
-    def cancel(self):
-        self.fininsh.set()
-
+            session.close() # should never be reached #
+            seaf_session.close() # should never be reached #
 
 class UpdateLoginRecordTask(Thread):
     """ Run every thirty minutes, Handle 1000 tasks at a time. 
     """
     def __init__(self):
-        self.session = appconfig.event_session
+        self.session = appconfig.session_cls
         super(UpdateLoginRecordTask, self).__init__()
         # time.time is timefunc, as the scheduling standard for the scheduler.
         # time.sleep is delayfunc, used to delay time until time up

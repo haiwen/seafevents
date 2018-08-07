@@ -5,110 +5,7 @@ import logging
 import logging.handlers
 
 from datetime import datetime
-from seaserv import get_repo_owner
-from seafevents.statistics.db import update_block_download_traffic, \
-        update_file_view_traffic, update_file_download_traffic, \
-        update_dir_download_traffic, update_hash_record
-
-LOG_ACCESS_INFO = False
-
-_cached_loggers = {}
-def get_logger(name, logfile):
-    if name in _cached_loggers:
-        return _cached_loggers[name]
-
-    logdir = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'stats-logs')
-    if not os.path.exists(logdir):
-        os.makedirs(logdir)
-    logfile = os.path.join(logdir, logfile)
-    logger = logging.getLogger(name)
-    handler = logging.handlers.TimedRotatingFileHandler(logfile, when='D', interval=1)
-    handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    logger.propagate = False
-
-    _cached_loggers[name] = logger
-
-    return logger
-
-def PutBlockEventHandler(session, msg):
-    elements = msg.body.split('\t')
-    if len(elements) != 5:
-        logging.warning("got bad message: %s", elements)
-        return
-
-    repo_id = elements[1]
-    peer_id = elements[2]
-    block_id = elements[3]
-    block_size = elements[4]
-
-    owner = get_repo_owner(repo_id)
-
-    if LOG_ACCESS_INFO:
-        blockdownload_logger = get_logger('block.download', 'block_download.log')
-        blockdownload_logger.info("%s %s %s %s %s" % (repo_id, owner, peer_id, block_id, block_size))
-
-    if owner:
-        update_block_download_traffic(session, owner, int(block_size))
-
-def FileViewEventHandler(session, msg):
-    elements = msg.body.split('\t')
-    if len(elements) != 5:
-        logging.warning("got bad message: %s", elements)
-        return
-
-    repo_id = elements[1]
-    shared_by = elements[2]
-    file_id = elements[3]
-    file_size = elements[4]
-
-    if LOG_ACCESS_INFO:
-        fileview_logger = get_logger('file.view', 'file_view.log')
-        fileview_logger.info('%s %s %s %s' % (repo_id, shared_by, file_id, file_size))
-
-    file_size = int(file_size)
-    if file_size > 0:
-        update_file_view_traffic(session, shared_by, int(file_size))
-
-def FileDownloadEventHandler(session, msg):
-    elements = msg.body.split('\t')
-    if len(elements) != 5:
-        logging.warning("got bad message: %s", elements)
-        return
-
-    repo_id = elements[1]
-    shared_by = elements[2]
-    file_id = elements[3]
-    file_size = elements[4]
-
-    if LOG_ACCESS_INFO:
-        filedownload_logger = get_logger('file.download', 'file_download.log')
-        filedownload_logger.info('%s %s %s %s' % (repo_id, shared_by, file_id, file_size))
-
-    file_size = int(file_size)
-    if file_size > 0:
-        update_file_download_traffic(session, shared_by, file_size)
-
-def DirDownloadEventHandler(session, msg):
-    elements = msg.body.split('\t')
-    if len(elements) != 5:
-        logging.warning("got bad message: %s", elements)
-        return
-
-    repo_id = elements[1]
-    shared_by = elements[2]
-    dir_id = elements[3]
-    dir_size = elements[4]
-
-    if LOG_ACCESS_INFO:
-        dirdownload_logger = get_logger('dir.download', 'dir_download.log')
-        dirdownload_logger.info('%s %s %s %s' % (repo_id, shared_by, dir_id, dir_size))
-
-    dir_size = int(dir_size)
-    if dir_size > 0:
-        update_dir_download_traffic(session, shared_by, dir_size)
+from counter import update_hash_record, save_traffic_info
 
 def UserLoginEventHandler(session, msg):
     elements = msg.body.split('\t')
@@ -122,9 +19,25 @@ def UserLoginEventHandler(session, msg):
 
     update_hash_record(session, username, _timestamp)
 
+def FileStatsEventHandler(session, msg):
+    elements = msg.body.split('\t')
+    if len(elements) != 4:
+        logging.warning("got bad message: %s", elements)
+        return
+
+    timestamp = datetime.utcfromtimestamp(msg.ctime)
+    oper = elements[0]
+    user_name = elements[1]
+    repo_id = elements[2]
+    size = long(elements[3])
+
+    save_traffic_info(session, timestamp, user_name, repo_id, oper, size)
+
 def register_handlers(handlers):
-    handlers.add_handler('seaf_server.event:put-block', PutBlockEventHandler)
-    handlers.add_handler('seahub.stats:file-view', FileViewEventHandler)
-    handlers.add_handler('seahub.stats:file-download', FileDownloadEventHandler)
-    handlers.add_handler('seahub.stats:dir-download', DirDownloadEventHandler)
     handlers.add_handler('seahub.stats:user-login', UserLoginEventHandler)
+    handlers.add_handler('seaf_server.stats:web-file-upload', FileStatsEventHandler)
+    handlers.add_handler('seaf_server.stats:web-file-download', FileStatsEventHandler)
+    handlers.add_handler('seaf_server.stats:link-file-upload', FileStatsEventHandler)
+    handlers.add_handler('seaf_server.stats:link-file-download', FileStatsEventHandler)
+    handlers.add_handler('seaf_server.stats:sync-file-upload', FileStatsEventHandler)
+    handlers.add_handler('seaf_server.stats:sync-file-download', FileStatsEventHandler)

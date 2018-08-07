@@ -10,11 +10,13 @@ from sqlalchemy.exc import DisconnectionError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import Pool
+from sqlalchemy.ext.automap import automap_base
 
 logger = logging.getLogger(__name__)
 
 ## base class of model classes in events.models and stats.models
 Base = declarative_base()
+SeafBase = automap_base()
 
 def create_mysql_session(host, port, username, passwd, dbname):
     db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
@@ -32,48 +34,57 @@ def create_mysql_session(host, port, username, passwd, dbname):
     Session = sessionmaker(bind=engine)
     return Session
 
-def create_engine_from_conf(config_file):
+def create_engine_from_conf(config_file, db = 'seafevent'):
     config = ConfigParser.ConfigParser()
     config.read(config_file)
 
     need_connection_pool_fix = True
 
-    backend = config.get('DATABASE', 'type')
+    db_sec = 'DATABASE'
+    user = 'username'
+    db_name = 'name'
+
+    if db == 'seafile':
+        db_sec = 'database'
+        user = 'user'
+        db_name = 'db_name'
+
+    backend = config.get(db_sec, 'type')
     if backend == 'sqlite' or backend == 'sqlite3':
-        path = config.get('DATABASE', 'path')
+        path = config.get(db_sec, 'path')
         if not os.path.isabs(path):
             path = os.path.join(os.path.dirname(config_file), path)
         db_url = "sqlite:///%s" % path
         logger.info('[seafevents] database: sqlite3, path: %s', path)
         need_connection_pool_fix = False
     elif backend == 'mysql':
-        if config.has_option('DATABASE', 'host'):
-            host = config.get('DATABASE', 'host').lower()
+        if config.has_option(db_sec, 'host'):
+            host = config.get(db_sec, 'host').lower()
         else:
             host = 'localhost'
 
-        if config.has_option('DATABASE', 'port'):
-            port = config.getint('DATABASE', 'port')
+        if config.has_option(db_sec, 'port'):
+            port = config.getint(db_sec, 'port')
         else:
             port = 3306
-        username = config.get('DATABASE', 'username')
-        passwd = config.get('DATABASE', 'password')
-        dbname = config.get('DATABASE', 'name')
+        username = config.get(db_sec, user)
+        passwd = config.get(db_sec, 'password')
+        dbname = config.get(db_sec, db_name)
         db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
         logger.info('[seafevents] database: mysql, name: %s', dbname)
     elif backend == 'oracle':
-        if config.has_option('DATABASE', 'host'):
-            host = config.get('DATABASE', 'host').lower()
+        if config.has_option(db_sec, 'host'):
+            host = config.get(db_sec, 'host').lower()
         else:
             host = 'localhost'
 
-        if config.has_option('DATABASE', 'port'):
-            port = config.getint('DATABASE', 'port')
+        if config.has_option(db_sec, 'port'):
+            port = config.getint(db_sec, 'port')
         else:
             port = 1521
-        username = config.get('DATABASE', 'username')
-        passwd = config.get('DATABASE', 'password')
-        service_name = config.get('DATABASE', 'service_name')
+        username = config.get(db_sec, user)
+        passwd = config.get(db_sec, 'password')
+        service_name = config.get(db_sec, 'service_name')
         db_url = "oracle://%s:%s@%s:%s/%s" % (username, quote_plus(passwd),
                 host, port, service_name)
 
@@ -94,15 +105,19 @@ def create_engine_from_conf(config_file):
 
     return engine
 
-def init_db_session_class(config_file):
+def init_db_session_class(config_file, db = 'seafevent'):
     """Configure Session class for mysql according to the config file."""
     try:
-        engine = create_engine_from_conf(config_file)
+        engine = create_engine_from_conf(config_file, db)
     except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
         raise RuntimeError("invalid config file %s", config_file)
 
-    # Create tables if not exists.
-    Base.metadata.create_all(engine)
+    if db != 'seafile':
+        # Create tables if not exists.
+        Base.metadata.create_all(engine)
+    else:
+        # reflect the tables
+        SeafBase.prepare(engine, reflect=True)
 
     Session = sessionmaker(bind=engine)
     return Session

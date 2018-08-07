@@ -67,3 +67,20 @@ class UserActivityStat(Base):
     def __init__(self, username, timestamp):
         self.username = username
         self.timestamp = timestamp
+
+class UserTraffic(Base):
+    __tablename__ = 'UserTraffic'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user = Column(String(length=255), nullable=False, index=True)
+    org_id = Column(Integer, index=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    op_type = Column(String(length=48), nullable=False, index=True)
+    size = Column(BigInteger, nullable=False)
+
+    def __init__(self, user, timestamp, op_type, size, org_id=0):
+        self.user = user
+        self.timestamp = timestamp
+        self.op_type = op_type
+        self.size = size
+        self.org_id = org_id
