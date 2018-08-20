@@ -119,8 +119,8 @@ def get_org_user_traffic_by_day(session, org_id, user, start, end, offset='+00:0
     start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
 
-    if op_type == 'upload' or op_type == 'download' or op_type == 'sync-download' \
-       or op_type == 'sync-upload' or op_type == 'link-upload' or op_type == 'link-download':
+    if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
+       or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':
         q = session.query(func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)).label("timestamp"),
                           func.sum(UserTraffic.size).label("size"),
                           UserTraffic.op_type).filter(UserTraffic.timestamp.between(
@@ -157,8 +157,8 @@ def get_user_traffic_by_day(session, user, start, end, offset='+00:00', op_type=
     start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
 
-    if op_type == 'upload' or op_type == 'download' or op_type == 'sync-download' \
-       or op_type == 'sync-upload' or op_type == 'link-upload' or op_type == 'link-download':
+    if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
+       or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':
         q = session.query(func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)).label("timestamp"),
                           func.sum(UserTraffic.size).label("size"),
                           UserTraffic.op_type).filter(UserTraffic.timestamp.between(
@@ -193,8 +193,8 @@ def get_org_traffic_by_day(session, org_id, start, end, offset='+00:00', op_type
     start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
 
-    if op_type == 'upload' or op_type == 'download' or op_type == 'sync-download' \
-       or op_type == 'sync-upload' or op_type == 'link-upload' or op_type == 'link-download':
+    if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
+       or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':
         q = session.query(func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)).label("timestamp"),
                           func.sum(UserTraffic.size).label("size"),
                           UserTraffic.op_type).filter(UserTraffic.timestamp.between(
@@ -231,8 +231,8 @@ def get_system_traffic_by_day(session, start, end, offset='+00:00', op_type='all
     start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
 
-    if op_type == 'upload' or op_type == 'download' or op_type == 'sync-download' \
-       or op_type == 'sync-upload' or op_type == 'link-upload' or op_type == 'link-download':
+    if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
+       or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':
         q = session.query(func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)).label("timestamp"),
                           func.sum(UserTraffic.size).label("size"),
                           UserTraffic.op_type).filter(UserTraffic.timestamp.between(
