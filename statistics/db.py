@@ -36,6 +36,9 @@ def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
     start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
 
+    # offset is not supported for now
+    offset='+00:00'
+
     q = session.query(func.date(func.convert_tz(UserActivityStat.timestamp, '+00:00', offset)).label("timestamp"),
                       func.count(distinct(UserActivityStat.username)).label("number")).filter(
                       UserActivityStat.timestamp.between(
@@ -119,6 +122,9 @@ def get_org_user_traffic_by_day(session, org_id, user, start, end, offset='+00:0
     start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
 
+    # offset is not supported for now
+    offset='+00:00'
+
     if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
        or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':
         q = session.query(func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)).label("timestamp"),
@@ -126,9 +132,9 @@ def get_org_user_traffic_by_day(session, org_id, user, start, end, offset='+00:0
                           UserTraffic.op_type).filter(UserTraffic.timestamp.between(
                           func.convert_tz(start_at_0, offset, '+00:00'),
                           func.convert_tz(end_at_23, offset, '+00:00')),
+                          UserTraffic.user==user,
                           UserTraffic.op_type==op_type,
-                          UserTraffic.org_id==org_id,
-                          UserTraffic.user==user).group_by(
+                          UserTraffic.org_id==org_id).group_by(
                           func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)),
                           UserTraffic.op_type).order_by("timestamp")
     elif op_type == 'all':
@@ -137,8 +143,8 @@ def get_org_user_traffic_by_day(session, org_id, user, start, end, offset='+00:0
                           UserTraffic.op_type).filter(UserTraffic.timestamp.between(
                           func.convert_tz(start_at_0, offset, '+00:00'),
                           func.convert_tz(end_at_23, offset, '+00:00')),
-                          UserTraffic.org_id==org_id,
-                          UserTraffic.user==user).group_by(
+                          UserTraffic.user==user,
+                          UserTraffic.org_id==org_id).group_by(
                           func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)),
                           UserTraffic.op_type).order_by("timestamp")
     else:
@@ -157,6 +163,9 @@ def get_user_traffic_by_day(session, user, start, end, offset='+00:00', op_type=
     start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
 
+    # offset is not supported for now
+    offset='+00:00'
+
     if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
        or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':
         q = session.query(func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)).label("timestamp"),
@@ -164,8 +173,8 @@ def get_user_traffic_by_day(session, user, start, end, offset='+00:00', op_type=
                           UserTraffic.op_type).filter(UserTraffic.timestamp.between(
                           func.convert_tz(start_at_0, offset, '+00:00'),
                           func.convert_tz(end_at_23, offset, '+00:00')),
-                          UserTraffic.op_type==op_type,
-                          UserTraffic.user==user).group_by(
+                          UserTraffic.user==user,
+                          UserTraffic.op_type==op_type).group_by(
                           func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)),
                           UserTraffic.op_type).order_by("timestamp")
     elif op_type == 'all':
@@ -192,6 +201,9 @@ def get_org_traffic_by_day(session, org_id, start, end, offset='+00:00', op_type
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+
+    # offset is not supported for now
+    offset='+00:00'
 
     if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
        or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':
@@ -230,6 +242,9 @@ def get_system_traffic_by_day(session, start, end, offset='+00:00', op_type='all
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+
+    # offset is not supported for now
+    offset='+00:00'
 
     if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
        or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':

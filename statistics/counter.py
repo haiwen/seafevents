@@ -1,6 +1,7 @@
 import os
 import logging
 import hashlib
+import time
 from ConfigParser import ConfigParser
 from datetime import timedelta
 from datetime import datetime
@@ -25,7 +26,7 @@ def save_traffic_info(session, timestamp, user_name, repo_id, oper, size):
     if not appconfig.enable_statistics:
         return
     org_id = get_org_id(repo_id)
-    time_str = timestamp.strftime('%Y-%m-%d %H:00:00')
+    time_str = timestamp.strftime('%Y-%m-%d')
     if not traffic_info.has_key(time_str):
         traffic_info[time_str] = {}
     if not traffic_info[time_str].has_key((org_id, user_name, oper)):
@@ -38,6 +39,8 @@ class FileOpsCounter(object):
         self.edb_session = appconfig.session_cls()
 
     def start_count(self):
+        logging.info('Start counting file operations..')
+        time_start = time.time()
         added = 0
         deleted = 0
         visited = 0
@@ -97,6 +100,9 @@ class FileOpsCounter(object):
             new_record = FileOpsStat(s_timestamp, 'Visited', visited)
             self.edb_session.add(new_record)
 
+        logging.info('Finish counting file operations in %s seconds, %d added, %d deleted, %d visited',
+                     str(time.time() - time_start), added, deleted, visited)
+
         self.edb_session.commit()
         self.edb_session.close()
 
@@ -106,6 +112,8 @@ class TotalStorageCounter(object):
         self.seafdb_session = appconfig.seaf_session_cls()
 
     def start_count(self):
+        logging.info('Start counting total storage..')
+        time_start = time.time()
         try:
             RepoSize = SeafBase.classes.RepoSize
             VirtualRepo= SeafBase.classes.VirtualRepo
@@ -135,6 +143,7 @@ class TotalStorageCounter(object):
                 newrecord = TotalStorageStat(timestamp, size)
                 self.edb_session.add(newrecord)
                 self.edb_session.commit()
+                logging.info('Finish counting total storage in %s seconds.', str(time.time() - time_start))
         except Exception as e:
             logging.warning('Failed to add record to TotalStorageStat: %s.', e)
 
@@ -146,38 +155,61 @@ class TrafficInfoCounter(object):
         self.edb_session = appconfig.session_cls()
 
     def start_count(self):
+        logging.info('Start counting traffic info..')
         dt = datetime.utcnow()
-        delta = timedelta(hours=1)
-        last_hour = (dt - delta)
-        last_hour_str = last_hour.strftime('%Y-%m-%d %H:00:00')
-        #last_hour_str = dt.strftime('%Y-%m-%d %H:00:00')
-        last_hour = datetime.strptime(last_hour_str, '%Y-%m-%d %H:%M:%S')
+        delta = timedelta(days=1)
 
-        if not traffic_info.has_key(last_hour_str):
-            return
+        yesterday = (dt - delta).date()
+        yesterday_str = yesterday.strftime('%Y-%m-%d')
+        today = dt.date()
+        today_str = today.strftime('%Y-%m-%d')
 
-        for row in traffic_info[last_hour_str]:
+        if traffic_info.has_key(yesterday_str):
+            time_start = time.time()
+            self.update_record(yesterday, yesterday_str)
+            logging.info('Traffic Counter: %d items has been recorded on %s, total time: %s seconds.' %\
+                         (len(traffic_info[yesterday_str]), yesterday_str, str(time.time() - time_start)))
+            del traffic_info[yesterday_str]
+
+        if traffic_info.has_key(today_str):
+            time_start = time.time()
+            self.update_record(today, today_str)
+            logging.info('Traffic Counter: %d items has been updated on %s, total time: %s seconds.' %\
+                         (len(traffic_info[today_str]), today_str, str(time.time() - time_start)))
+
+        try:
+            self.edb_session.commit()
+        except Exception as e:
+            logging.warning('Failed to update traffic info: %s.', e)
+        finally:
+            self.edb_session.close()
+
+    def update_record(self, date, date_str):
+        for row in traffic_info[date_str]:
             org_id = row[0]
             user = row[1]
             oper = row[2]
-            size = traffic_info[last_hour_str][row]
+            size = traffic_info[date_str][row]
 
             try:
-                q = self.edb_session.query(UserTraffic.timestamp).filter(
-                                           UserTraffic.timestamp==last_hour,
+                q = self.edb_session.query(UserTraffic.size).filter(
+                                           UserTraffic.timestamp==date,
                                            UserTraffic.org_id==org_id,
                                            UserTraffic.user==user,
                                            UserTraffic.op_type==oper)
-                if q.first():
-                    continue
+                result = q.first()
+                if result:
+                    size_in_db = result[0]
+                    self.edb_session.query(UserTraffic).filter(UserTraffic.timestamp==date,
+                                                               UserTraffic.org_id==org_id,
+                                                               UserTraffic.user==user,
+                                                               UserTraffic.op_type==oper).update(
+                                                               {"size": size + size_in_db})
+                else:
+                    new_record = UserTraffic(user, date, oper, size, org_id)
+                    self.edb_session.add(new_record)
+
+                traffic_info[date_str][row] = 0
             except Exception as e:
-                self.edb_session.close()
-                logging.warning('query error : %s.', e)
+                logging.warning('Failed to update traffic info: %s.', e)
                 return
-
-            new_record = UserTraffic(user, last_hour, oper, size, org_id)
-            self.edb_session.add(new_record)
-
-        del traffic_info[last_hour_str]
-        self.edb_session.commit()
-        self.edb_session.close()

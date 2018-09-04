@@ -1,5 +1,5 @@
 from seafevents.db import Base
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Index
 
 
 class TotalStorageStat(Base):
@@ -77,6 +77,8 @@ class UserTraffic(Base):
     timestamp = Column(DateTime, nullable=False, index=True)
     op_type = Column(String(length=48), nullable=False, index=True)
     size = Column(BigInteger, nullable=False)
+
+    __table_args__ = (Index('idx_traffic_time_user', 'timestamp', 'user'), )
 
     def __init__(self, user, timestamp, op_type, size, org_id=0):
         self.user = user

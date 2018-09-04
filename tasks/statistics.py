@@ -20,13 +20,49 @@ class Statistics(Thread):
 
     def run(self):
         if self.is_enabled():
-            event = Event()
             logging.info("Starting data statistics.")
-            while True:
-                TotalStorageCounter().start_count()
-                FileOpsCounter().start_count()
-                TrafficInfoCounter().start_count()
-                event.wait(3600)
+            CountTotalStorage().start()
+            CountFileOps().start()
+            CountTrafficInfo().start()
+
+class CountTotalStorage(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.fininsh = Event()
+
+    def run(self):
+        while not self.fininsh.is_set():
+            TotalStorageCounter().start_count()
+            self.fininsh.wait(3600)
+
+    def cancel(self):
+        self.fininsh.set()
+
+class CountFileOps(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.fininsh = Event()
+
+    def run(self):
+        while not self.fininsh.is_set():
+            FileOpsCounter().start_count()
+            self.fininsh.wait(3600)
+
+    def cancel(self):
+        self.fininsh.set()
+
+class CountTrafficInfo(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.fininsh = Event()
+
+    def run(self):
+        while not self.fininsh.is_set():
+            TrafficInfoCounter().start_count()
+            self.fininsh.wait(3600)
+
+    def cancel(self):
+        self.fininsh.set()
 
 class UpdateLoginRecordTask(Thread):
     """ Run every thirty minutes, Handle 1000 tasks at a time. 
