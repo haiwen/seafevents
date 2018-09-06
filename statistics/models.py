@@ -1,6 +1,6 @@
 from seafevents.db import Base
 from sqlalchemy import Column, Integer, BigInteger, String, DateTime
-
+from sqlalchemy.dialects.mysql import CHAR
 
 class TotalStorageStat(Base):
     __tablename__ = 'TotalStorageStat'
@@ -11,6 +11,38 @@ class TotalStorageStat(Base):
     def __init__(self, timestamp, total_size):
         self.timestamp = timestamp
         self.total_size = total_size
+
+class HistoryTotalStorageStat(Base):
+    __tablename__ = 'HistoryTotalStorageStat'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    repo_id = Column(CHAR(36), nullable=False, index=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    total_size = Column(BigInteger, nullable=False)
+
+    def __init__(self, repo_id, timestamp, total_size):
+        self.repo_id = repo_id
+        self.timestamp = timestamp
+        self.total_size = total_size
+
+class FileTypeStat(Base):
+    __tablename__ = 'FileTypeStat'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    repo_id = Column(CHAR(36), nullable=False, index=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    commit_id = Column(CHAR(40), nullable=False)
+    file_type = Column(String(length=16), nullable=False, index=True)
+    file_count = Column(BigInteger, nullable=False)
+
+    def __init__(self, repo_id, timestamp, commit_id, file_type, file_count):
+        self.repo_id = repo_id
+        self.timestamp = timestamp
+        self.commit_id = commit_id
+        self.file_type = file_type
+        self.file_count = file_count
 
 class FileOpsStat(Base):
     __tablename__ = 'FileOpsStat'

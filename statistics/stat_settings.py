@@ -85,3 +85,11 @@ class Settings(object):
                                         user=sdb_user, passwd=sdb_passwd,
                                         db=sdb_name, charset=sdb_charset)
         self.seafile_cursor = self.sdb_conn.cursor()
+
+    def get_storage_count_interval(self, config_file):
+        cfg = ConfigParser()
+        cfg.read(config_file)
+        if cfg.has_option('STATISTICS', 'storage_count_interval'):
+            storage_count_interval = cfg.get('STATISTICS', 'storage_count_interval')
+            print storage_count_interval
+            return storage_count_interval
