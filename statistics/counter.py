@@ -6,7 +6,7 @@ from ConfigParser import ConfigParser
 from datetime import timedelta
 from datetime import datetime
 from sqlalchemy import func
-from models import FileOpsStat, TotalStorageStat, UserTraffic
+from models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic
 from seafevents.events.models import FileUpdate
 from seafevents.events.models import FileAudit
 from seafevents.app.config import appconfig
@@ -185,11 +185,18 @@ class TrafficInfoCounter(object):
             self.edb_session.close()
 
     def update_record(self, date, date_str):
+        # org_delta format: org_delta[(org_id, oper)] = size
+        # Calculate each org traffic into org_delta, then update SysTraffic.
+        org_delta = {}
         for row in traffic_info[date_str]:
             org_id = row[0]
             user = row[1]
             oper = row[2]
             size = traffic_info[date_str][row]
+            if not org_delta.has_key((org_id, oper)):
+                org_delta[(org_id, oper)] = size
+            else:
+                org_delta[(org_id, oper)] += size
 
             try:
                 q = self.edb_session.query(UserTraffic.size).filter(
@@ -213,3 +220,28 @@ class TrafficInfoCounter(object):
             except Exception as e:
                 logging.warning('Failed to update traffic info: %s.', e)
                 return
+
+        # Update SysTraffic
+        for row in org_delta:
+            org_id = row[0]
+            oper = row[1]
+            size = org_delta[row]
+            try:
+                q = self.edb_session.query(SysTraffic.size).filter(
+                                           SysTraffic.timestamp==date,
+                                           SysTraffic.org_id==org_id,
+                                           SysTraffic.op_type==oper)
+                result = q.first()
+                if result:
+                    size_in_db = result[0]
+                    self.edb_session.query(SysTraffic).filter(SysTraffic.timestamp==date,
+                                                              SysTraffic.org_id==org_id,
+                                                              SysTraffic.op_type==oper).update(
+                                                              {"size": size + size_in_db})
+                else:
+                    new_record = SysTraffic(date, oper, size, org_id)
+                    self.edb_session.add(new_record)
+
+            except Exception as e:
+                logging.warning('Failed to update traffic info: %s.', e)
+

@@ -80,8 +80,25 @@ class UserTraffic(Base):
 
     __table_args__ = (Index('idx_traffic_time_user', 'timestamp', 'user'), )
 
-    def __init__(self, user, timestamp, op_type, size, org_id=0):
+    def __init__(self, user, timestamp, op_type, size, org_id):
         self.user = user
+        self.timestamp = timestamp
+        self.op_type = op_type
+        self.size = size
+        self.org_id = org_id
+
+class SysTraffic(Base):
+    __tablename__ = 'SysTraffic'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    org_id = Column(Integer, index=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    op_type = Column(String(length=48), nullable=False, index=True)
+    size = Column(BigInteger, nullable=False)
+
+    __table_args__ = (Index('idx_systraffic_time_org', 'timestamp', 'org_id'), )
+
+    def __init__(self, timestamp, op_type, size, org_id):
         self.timestamp = timestamp
         self.op_type = op_type
         self.size = size
