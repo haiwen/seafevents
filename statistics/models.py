@@ -67,3 +67,20 @@ class UserActivityStat(Base):
     def __init__(self, username, timestamp):
         self.username = username
         self.timestamp = timestamp
+
+class FileTypeStat(Base):
+    __tablename__ = 'FileTypeStat'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    repo_id = Column(String(length=37), nullable=False, index=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    commit_id = Column(String(length=41), nullable=False)
+    file_type = Column(String(length=16), nullable=False, index=True)
+    file_count = Column(Integer, nullable=False)
+
+    def __init__(self, repo_id, timestamp, commit_id, file_type, file_count):
+        self.repo_id = repo_id
+        self.timestamp = timestamp
+        self.commit_id = commit_id
+        self.file_type = file_type
+        self.file_count = file_count

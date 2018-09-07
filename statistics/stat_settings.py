@@ -22,6 +22,23 @@ class Settings(object):
             logging.warning('Failed to init db session class: %s', e)
             return
 
+        cfg = ConfigParser()
+        cfg.read(config_file)
+        if self.statistics_enabled:
+            self.count_all_file_types = False
+            self.type_list = []
+            if cfg.has_option('STATISTICS', 'file_types_to_count'):
+                file_types_to_count = cfg.get('STATISTICS', 'file_types_to_count').replace(' ', '')
+                if file_types_to_count == 'all':
+                    self.count_all_file_types = True
+                else:
+                    self.type_list = file_types_to_count.split(',')
+
+            if cfg.has_option('STATISTICS', 'file_types_count_interval'):
+                self.file_types_interval = cfg.getint('STATISTICS', 'file_types_count_interval') * 3600
+            else:
+                self.file_types_interval = 24 * 3600
+
     def init_seafile_db(self):
         try:
             cfg = ConfigParser()

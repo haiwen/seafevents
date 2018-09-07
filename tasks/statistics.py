@@ -6,7 +6,7 @@ import sched, time
 from sqlalchemy.sql import text
 from sqlalchemy.orm.scoping import scoped_session
 from threading import Thread, Event
-from seafevents.statistics import Settings, TotalStorageCounter, FileOpsCounter
+from seafevents.statistics import Settings, TotalStorageCounter, FileOpsCounter, FileTypesCounter
 from seafevents.statistics.db import login_records
 from seafevents.app.config import appconfig
 
@@ -23,6 +23,7 @@ class Statistics(object):
         if self.settings.statistics_enabled:
             CountTotalStorage(self.settings).start()
             CountFileOps(self.settings).start()
+            CountFileTypes(self.settings).start()
 
 class CountTotalStorage(Thread):
     def __init__(self, settings):
@@ -54,6 +55,19 @@ class CountFileOps(Thread):
     def cancel(self):
         self.fininsh.set()
 
+class CountFileTypes(Thread):
+    def __init__(self, settings):
+        Thread.__init__(self)
+        self.settings = settings
+        self.fininsh = Event()
+
+    def run(self):
+        while not self.fininsh.is_set():
+            FileTypesCounter(self.settings).start_count()
+            self.fininsh.wait(self.settings.file_types_interval)
+
+    def cancel(self):
+        self.fininsh.set()
 
 class UpdateLoginRecordTask(Thread):
     """ Run every thirty minutes, Handle 1000 tasks at a time. 
