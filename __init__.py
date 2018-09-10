@@ -34,9 +34,9 @@ from .events.db import get_user_events, get_org_user_events, delete_event, \
         get_file_audit_events, get_file_update_events, get_perm_audit_events, \
         get_event_log_by_time, get_file_audit_events_by_path
 from .events.db import save_user_events, save_org_user_events
-from .statistics.db import get_user_traffic_stat, get_user_traffic_list, \
-        get_file_ops_stats_by_day, get_user_activity_stats_by_day, \
-        get_total_storage_stats_by_day
+from .statistics.db import get_file_ops_stats_by_day, get_user_activity_stats_by_day, \
+        get_total_storage_stats_by_day, get_org_user_traffic_by_day, \
+        get_user_traffic_by_day, get_org_traffic_by_day, get_system_traffic_by_day
 from .virus_scanner import get_virus_record, handle_virus_record, \
         get_virus_record_by_id
 
