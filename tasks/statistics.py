@@ -2,11 +2,12 @@
 
 import logging
 import sched, time
+import ConfigParser
 
 from sqlalchemy.sql import text
 from sqlalchemy.orm.scoping import scoped_session
 from threading import Thread, Event
-from seafevents.statistics import Settings, TotalStorageCounter, FileOpsCounter
+from seafevents.statistics import Settings, TotalStorageCounter, FileOpsCounter, HistoryTotalStorageCounter
 from seafevents.statistics.db import login_records
 from seafevents.app.config import appconfig
 
@@ -14,7 +15,7 @@ from seafevents.app.config import appconfig
 class Statistics(object):
     def __init__(self, config_file):
         self.settings = Settings(config_file)
-
+        self.storage_count_interval = self.settings.get_storage_count_interval(config_file)
     def is_enabled(self):
         return self.settings.statistics_enabled
 
@@ -22,6 +23,7 @@ class Statistics(object):
         logging.info("Starting data statistics.")
         if self.settings.statistics_enabled:
             CountTotalStorage(self.settings).start()
+            CountHistoryTotalStorage(self.settings, self.storage_count_interval).start()
             CountFileOps(self.settings).start()
 
 class CountTotalStorage(Thread):
@@ -35,6 +37,23 @@ class CountTotalStorage(Thread):
             if not self.fininsh.is_set():
                 TotalStorageCounter(self.settings).start_count()
             self.fininsh.wait(3600)
+
+    def cancel(self):
+        self.fininsh.set()
+
+class CountHistoryTotalStorage(Thread):
+    def __init__(self, settings, storage_count_interval):
+        Thread.__init__(self)
+        self.settings = settings
+        self.fininsh = Event()
+        self.storage_count_interval = storage_count_interval
+
+    def run(self):
+        while not self.fininsh.is_set():
+            if not self.fininsh.is_set():
+                HistoryTotalStorageCounter(self.settings).start_count()
+            wait_time = int(self.storage_count_interval) * 3600
+            self.fininsh.wait(wait_time)
 
     def cancel(self):
         self.fininsh.set()
