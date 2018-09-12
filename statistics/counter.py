@@ -6,7 +6,8 @@ from ConfigParser import ConfigParser
 from datetime import timedelta
 from datetime import datetime
 from sqlalchemy import func
-from models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic
+from models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic,\
+                   MonthlyUserTraffic, MonthlySysTraffic
 from seafevents.events.models import FileUpdate
 from seafevents.events.models import FileAudit
 from seafevents.app.config import appconfig
@@ -155,33 +156,36 @@ class TrafficInfoCounter(object):
         self.edb_session = appconfig.session_cls()
 
     def start_count(self):
+        time_start = time.time()
         logging.info('Start counting traffic info..')
+
         dt = datetime.utcnow()
         delta = timedelta(days=1)
-
         yesterday = (dt - delta).date()
         yesterday_str = yesterday.strftime('%Y-%m-%d')
         today = dt.date()
         today_str = today.strftime('%Y-%m-%d')
 
         if traffic_info.has_key(yesterday_str):
-            time_start = time.time()
+            s_time = time.time()
             self.update_record(yesterday, yesterday_str)
-            logging.info('Traffic Counter: %d items has been recorded on %s, total time: %s seconds.' %\
-                         (len(traffic_info[yesterday_str]), yesterday_str, str(time.time() - time_start)))
+            logging.info('Traffic Counter: %d items has been recorded on %s, time: %s seconds.' %\
+                         (len(traffic_info[yesterday_str]), yesterday_str, str(time.time() - s_time)))
             del traffic_info[yesterday_str]
 
         if traffic_info.has_key(today_str):
-            time_start = time.time()
+            s_time = time.time()
             self.update_record(today, today_str)
-            logging.info('Traffic Counter: %d items has been updated on %s, total time: %s seconds.' %\
-                         (len(traffic_info[today_str]), today_str, str(time.time() - time_start)))
+            logging.info('Traffic Counter: %d items has been updated on %s, time: %s seconds.' %\
+                         (len(traffic_info[today_str]), today_str, str(time.time() - s_time)))
 
         try:
             self.edb_session.commit()
         except Exception as e:
             logging.warning('Failed to update traffic info: %s.', e)
         finally:
+            logging.info('Traffic counter finished, total time: %s seconds.' %\
+                        (str(time.time() - time_start)))
             self.edb_session.close()
 
     def update_record(self, date, date_str):
@@ -201,15 +205,15 @@ class TrafficInfoCounter(object):
             try:
                 q = self.edb_session.query(UserTraffic.size).filter(
                                            UserTraffic.timestamp==date,
-                                           UserTraffic.org_id==org_id,
                                            UserTraffic.user==user,
+                                           UserTraffic.org_id==org_id,
                                            UserTraffic.op_type==oper)
                 result = q.first()
                 if result:
                     size_in_db = result[0]
                     self.edb_session.query(UserTraffic).filter(UserTraffic.timestamp==date,
-                                                               UserTraffic.org_id==org_id,
                                                                UserTraffic.user==user,
+                                                               UserTraffic.org_id==org_id,
                                                                UserTraffic.op_type==oper).update(
                                                                {"size": size + size_in_db})
                 else:
@@ -245,3 +249,94 @@ class TrafficInfoCounter(object):
             except Exception as e:
                 logging.warning('Failed to update traffic info: %s.', e)
 
+class MonthlyTrafficCounter(object):
+    def __init__(self):
+        self.edb_session = appconfig.session_cls()
+
+    def start_count(self):
+        time_start = time.time()
+        logging.info('Start counting monthly traffic info..')
+
+        # Count traffic between first day of this month and today.
+        dt = datetime.utcnow()
+        today = dt.date()
+        delta = timedelta(days=dt.day - 1)
+        first_day = today - delta
+
+        # org_oper_size format: org_oper_size[(org_id, oper)] = size
+        # For counting each org's traffic.
+        org_oper_size = {}
+
+        user_item_count = 0
+        sys_item_count = 0
+
+        try:
+            # Get raw data from UserTraffic, then update MonthlyUserTraffic and MonthlySysTraffic.
+            q = self.edb_session.query(UserTraffic.user,
+                                       UserTraffic.org_id, UserTraffic.op_type,
+                                       func.sum(UserTraffic.size).label('size')).filter(
+                                       UserTraffic.timestamp.between(first_day, today)
+                                       ).group_by(UserTraffic.user, UserTraffic.org_id,
+                                       UserTraffic.op_type)
+            results = q.all()
+
+            # Update MonthlyUserTraffic.
+            for result in results:
+                user = result[0]
+                org_id = result[1]
+                oper = result[2]
+                size = result[3]
+
+                if org_oper_size.has_key((org_id, oper)):
+                    org_oper_size[(org_id, oper)] += size
+                else:
+                    org_oper_size[(org_id, oper)] = size
+
+                q = self.edb_session.query(MonthlyUserTraffic.size).filter(
+                                           MonthlyUserTraffic.timestamp==first_day,
+                                           MonthlyUserTraffic.user==user,
+                                           MonthlyUserTraffic.org_id==org_id,
+                                           MonthlyUserTraffic.op_type==oper)
+                if q.first():
+                    self.edb_session.query(MonthlyUserTraffic).filter(
+                                           MonthlyUserTraffic.timestamp==first_day,
+                                           MonthlyUserTraffic.user==user,
+                                           MonthlyUserTraffic.org_id==org_id,
+                                           MonthlyUserTraffic.op_type==oper).update(
+                                           {"size": size})
+                else:
+                    new_record = MonthlyUserTraffic(user, first_day, oper, size, org_id)
+                    self.edb_session.add(new_record)
+                user_item_count += 1
+
+            # Update MonthlySysTraffic.
+            for row in org_oper_size:
+                org_id = row[0]
+                oper = row[1]
+                size = org_oper_size[row]
+                q = self.edb_session.query(MonthlySysTraffic.size).filter(
+                                           MonthlySysTraffic.timestamp==first_day,
+                                           MonthlySysTraffic.org_id==org_id,
+                                           MonthlySysTraffic.op_type==oper)
+                if q.first():
+                    self.edb_session.query(MonthlySysTraffic).filter(
+                                           MonthlySysTraffic.timestamp==first_day,
+                                           MonthlySysTraffic.org_id==org_id,
+                                           MonthlySysTraffic.op_type==oper).update(
+                                           {"size": size})
+                else:
+                    new_record = MonthlySysTraffic(first_day, oper, size, org_id)
+                    self.edb_session.add(new_record)
+                sys_item_count += 1
+
+            try:
+                self.edb_session.commit()
+            except Exception as e:
+                logging.warning('Failed to update traffic info: %s.', e)
+            finally:
+                logging.info('Monthly traffic counter finished, update %d user items, %d org items, total time: %s seconds.' %\
+                            (user_item_count, sys_item_count, str(time.time() - time_start)))
+                self.edb_session.close()
+
+        except Exception as e:
+            logging.warning('Failed to update traffic info: %s.', e)
