@@ -33,10 +33,11 @@ def exception_catch(conf_module):
 
 def load_config(config_file):
     # seafevent config file
-    appconfig.event_session = init_db_session_class(config_file)
+    appconfig.session_cls = init_db_session_class(config_file)
     config = get_config(config_file)
 
     load_env_config()
+    appconfig.seaf_session_cls = init_db_session_class(appconfig.seaf_conf_path, db = 'seafile')
     load_publish_config(config)
     load_statistics_config(config)
     load_file_history_config(config)
@@ -90,11 +91,10 @@ def load_publish_config(config):
 
 @exception_catch('statistics')
 def load_statistics_config(config):
-    appconfig.statistics = AppConfig()
-    appconfig.statistics.enabled = False
+    appconfig.enable_statistics = False
     try:
         if config.has_option('STATISTICS', 'enabled'):
-            appconfig.statistics.enabled = config.getboolean('STATISTICS', 'enabled')
+            appconfig.enable_statistics = config.getboolean('STATISTICS', 'enabled')
     except Exception as e:
         logging.info(e)
 

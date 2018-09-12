@@ -48,7 +48,7 @@ class App(object):
         if self._bg_tasks_enabled:
             self._bg_tasks = BackgroundTasks(args.config_file)
 
-        if appconfig.statistics.enabled:
+        if appconfig.enable_statistics:
             self.update_login_record_task = UpdateLoginRecordTask()
 
         self._ccnet_session = None
@@ -104,7 +104,7 @@ class App(object):
         else:
             logging.info("Background task is disabled.")
 
-        if appconfig.statistics.enabled:
+        if appconfig.enable_statistics:
             self.update_login_record_task.start()
         else:
             logging.info("User login statistics is disabled.")
@@ -124,7 +124,7 @@ class BackgroundTasks(object):
         self._seahub_email_sender = SeahubEmailSender(self._app_config)
         self._ldap_syncer = LdapSyncer()
         self._virus_scanner = VirusScanner(os.environ['EVENTS_CONFIG_FILE'])
-        self._statistics = Statistics(os.environ['EVENTS_CONFIG_FILE'])
+        self._statistics = Statistics()
 
         self._office_converter = None
         if has_office_tools():

@@ -1,88 +1,46 @@
-import hashlib
-import logging
-
 from sqlalchemy import desc
 from sqlalchemy import func
 from sqlalchemy import distinct
 from datetime import datetime
 
-from seafevents.statistics import FileOpsStat, TotalStorageStat
-from seafevents.statistics.models import UserTrafficStat, UserActivityStat
+from models import UserActivityStat, UserTraffic, SysTraffic, \
+                   FileOpsStat, TotalStorageStat
 
-logger = logging.getLogger(__name__)
-login_records = {}
+from seaserv import seafile_api, get_org_id_by_repo_id
+from seafevents.app.config import appconfig
 
-def update_block_download_traffic(session, email, size):
-    update_traffic_common(session, email, size, UserTrafficStat.block_download, 'block_download')
+repo_org = {}
+is_org = -1
 
-def update_file_view_traffic(session, email, size):
-    update_traffic_common(session, email, size, UserTrafficStat.file_view, 'file_view')
+def get_org_id(repo_id):
+    global is_org
+    if is_org == -1:
+        org_conf = seafile_api.get_server_config_string('general', 'multi_tenancy')
+        if org_conf.lower() == 'true':
+            is_org = 1
+        else:
+            is_org = 0
+    if not is_org:
+        return 0
 
-def update_file_download_traffic(session, email, size):
-    update_traffic_common(session, email, size, UserTrafficStat.file_download, 'file_download')
-
-def update_dir_download_traffic(session, email, size):
-    update_traffic_common(session, email, size, UserTrafficStat.dir_download, 'dir_download')
-
-def update_traffic_common(session, email, size, type, name):
-    '''common code to update different types of traffic stat'''
-    if not isinstance(size, (int, long)) or size <= 0:
-        logging.warning('invalid %s update: size = %s', type, size)
-        return
-
-    month = datetime.now().strftime('%Y%m')
-
-    q = session.query(UserTrafficStat).filter_by(email=email, month=month)
-    n = q.update({ type: type + size })
-    if n != 1:
-        stat = UserTrafficStat(email, month, **{name:size})
-        session.add(stat)
-
-    session.commit()
-
-def update_hash_record(session, login_name, login_time):
-    time_str = login_time.strftime('%Y-%m-%d 01:01:01')
-    time_by_day = datetime.strptime(time_str,'%Y-%m-%d %H:%M:%S')
-    md5_key = hashlib.md5((login_name + time_str).encode('utf-8')).hexdigest()
-    login_records[md5_key] = (login_name, time_by_day)
-
-def get_user_traffic_stat(session, email, month=None):
-    '''Return the total traffic of a user in the given month. If month is not
-    supplied, defaults to the current month
-
-    '''
-    if month == None:
-        month = datetime.now().strftime('%Y%m')
-
-    rows = session.query(UserTrafficStat).filter_by(email=email, month=month).all()
-    if not rows:
-        return None
+    if not repo_org.has_key(repo_id):
+        org_id = get_org_id_by_repo_id(repo_id)
+        if org_id == -1:
+            org_id = 0
+        repo_org[repo_id] = org_id
     else:
-        stat = rows[0]
-        return stat.as_dict()
+        org_id = repo_org[repo_id]
 
-class UserTrafficDetail(object):
-    def __init__(self, username, traffic):
-        self.username = username
-        self.traffic = traffic
-
-def get_user_traffic_list(session, month, start, limit):
-    q = session.query(UserTrafficStat).filter(UserTrafficStat.month==month)
-    q = q.order_by(desc(UserTrafficStat.file_download + UserTrafficStat.dir_download + UserTrafficStat.file_view))
-    q = q.slice(start, start + limit)
-    rows = q.all()
-
-    if not rows:
-        return []
-    else:
-        ret = [ row.as_dict() for row in rows ]
-        return ret
+    return org_id
 
 def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+
+    # offset is not supported for now
+    offset='+00:00'
 
     q = session.query(func.date(func.convert_tz(UserActivityStat.timestamp, '+00:00', offset)).label("timestamp"),
                       func.count(distinct(UserActivityStat.username)).label("number")).filter(
@@ -160,3 +118,162 @@ def get_file_ops_stats_by_day(session, start, end, offset='+00:00'):
     for row in rows:
         ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.number)))
     return ret
+
+def get_org_user_traffic_by_day(session, org_id, user, start, end, offset='+00:00', op_type='all'):
+    start_str = start.strftime('%Y-%m-%d 00:00:00')
+    end_str = end.strftime('%Y-%m-%d 23:59:59')
+    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+
+    # offset is not supported for now
+    offset='+00:00'
+
+    if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
+       or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':
+        q = session.query(func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)).label("timestamp"),
+                          func.sum(UserTraffic.size).label("size"),
+                          UserTraffic.op_type).filter(UserTraffic.timestamp.between(
+                          func.convert_tz(start_at_0, offset, '+00:00'),
+                          func.convert_tz(end_at_23, offset, '+00:00')),
+                          UserTraffic.user==user,
+                          UserTraffic.op_type==op_type,
+                          UserTraffic.org_id==org_id).group_by(
+                          func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)),
+                          UserTraffic.op_type).order_by("timestamp")
+    elif op_type == 'all':
+        q = session.query(func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)).label("timestamp"),
+                          func.sum(UserTraffic.size).label("size"),
+                          UserTraffic.op_type).filter(UserTraffic.timestamp.between(
+                          func.convert_tz(start_at_0, offset, '+00:00'),
+                          func.convert_tz(end_at_23, offset, '+00:00')),
+                          UserTraffic.user==user,
+                          UserTraffic.org_id==org_id).group_by(
+                          func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)),
+                          UserTraffic.op_type).order_by("timestamp")
+    else:
+        return []
+
+    rows = q.all()
+    ret = []
+
+    for row in rows:
+        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.size)))
+    return ret
+
+def get_user_traffic_by_day(session, user, start, end, offset='+00:00', op_type='all'):
+    start_str = start.strftime('%Y-%m-%d 00:00:00')
+    end_str = end.strftime('%Y-%m-%d 23:59:59')
+    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+
+    # offset is not supported for now
+    offset='+00:00'
+
+    if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
+       or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':
+        q = session.query(func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)).label("timestamp"),
+                          func.sum(UserTraffic.size).label("size"),
+                          UserTraffic.op_type).filter(UserTraffic.timestamp.between(
+                          func.convert_tz(start_at_0, offset, '+00:00'),
+                          func.convert_tz(end_at_23, offset, '+00:00')),
+                          UserTraffic.user==user,
+                          UserTraffic.op_type==op_type).group_by(
+                          func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)),
+                          UserTraffic.op_type).order_by("timestamp")
+    elif op_type == 'all':
+        q = session.query(func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)).label("timestamp"),
+                          func.sum(UserTraffic.size).label("size"),
+                          UserTraffic.op_type).filter(UserTraffic.timestamp.between(
+                          func.convert_tz(start_at_0, offset, '+00:00'),
+                          func.convert_tz(end_at_23, offset, '+00:00')),
+                          UserTraffic.user==user).group_by(
+                          func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)),
+                          UserTraffic.op_type).order_by("timestamp")
+    else:
+        return []
+
+    rows = q.all()
+    ret = []
+
+    for row in rows:
+        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.size)))
+    return ret
+
+def get_org_traffic_by_day(session, org_id, start, end, offset='+00:00', op_type='all'):
+    start_str = start.strftime('%Y-%m-%d 00:00:00')
+    end_str = end.strftime('%Y-%m-%d 23:59:59')
+    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+
+    # offset is not supported for now
+    offset='+00:00'
+
+    if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
+       or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':
+        q = session.query(func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)).label("timestamp"),
+                          func.sum(SysTraffic.size).label("size"),
+                          SysTraffic.op_type).filter(SysTraffic.timestamp.between(
+                          func.convert_tz(start_at_0, offset, '+00:00'),
+                          func.convert_tz(end_at_23, offset, '+00:00')),
+                          SysTraffic.org_id==org_id,
+                          SysTraffic.op_type==op_type).group_by(
+                          SysTraffic.org_id,
+                          func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)),
+                          SysTraffic.op_type).order_by("timestamp")
+    elif op_type == 'all':
+        q = session.query(func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)).label("timestamp"),
+                          func.sum(SysTraffic.size).label("size"),
+                          SysTraffic.op_type).filter(SysTraffic.timestamp.between(
+                          func.convert_tz(start_at_0, offset, '+00:00'),
+                          func.convert_tz(end_at_23, offset, '+00:00')),
+                          SysTraffic.org_id==org_id).group_by(
+                          SysTraffic.org_id,
+                          func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)),
+                          SysTraffic.op_type).order_by("timestamp")
+    else:
+        return []
+
+    rows = q.all()
+    ret = []
+
+    for row in rows:
+        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.size)))
+    return ret
+
+def get_system_traffic_by_day(session, start, end, offset='+00:00', op_type='all'):
+    start_str = start.strftime('%Y-%m-%d 00:00:00')
+    end_str = end.strftime('%Y-%m-%d 23:59:59')
+    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+
+    # offset is not supported for now
+    offset='+00:00'
+
+    if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
+       or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':
+        q = session.query(func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)).label("timestamp"),
+                          func.sum(SysTraffic.size).label("size"),
+                          SysTraffic.op_type).filter(SysTraffic.timestamp.between(
+                          func.convert_tz(start_at_0, offset, '+00:00'),
+                          func.convert_tz(end_at_23, offset, '+00:00')),
+                          SysTraffic.op_type==op_type).group_by(
+                          func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)),
+                          SysTraffic.op_type).order_by("timestamp")
+    elif op_type == 'all':
+        q = session.query(func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)).label("timestamp"),
+                          func.sum(SysTraffic.size).label("size"),
+                          SysTraffic.op_type).filter(SysTraffic.timestamp.between(
+                          func.convert_tz(start_at_0, offset, '+00:00'),
+                          func.convert_tz(end_at_23, offset, '+00:00'))).group_by(
+                          func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)),
+                          SysTraffic.op_type).order_by("timestamp")
+    else:
+        return []
+
+    rows = q.all()
+    ret = []
+
+    for row in rows:
+        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.size)))
+    return ret
+
