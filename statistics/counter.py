@@ -18,6 +18,8 @@ login_records = {}
 traffic_info = {}
 
 def update_hash_record(session, login_name, login_time):
+    if not appconfig.enable_statistics:
+        return
     time_str = login_time.strftime('%Y-%m-%d 01:01:01')
     time_by_day = datetime.strptime(time_str,'%Y-%m-%d %H:%M:%S')
     md5_key = hashlib.md5((login_name + time_str).encode('utf-8')).hexdigest()
