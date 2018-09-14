@@ -12,7 +12,7 @@ def RepoUpdatePublishHandler(session, msg):
         logging.warning("got bad message: %s", elements)
         return
 
-    events_publisher.publish_event(msg.body)
+    events_publisher.publish_event("%s\t%s" % (msg.body, msg.ctime))
 
 
 def register_handlers(handlers):
