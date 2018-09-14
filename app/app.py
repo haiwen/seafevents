@@ -14,7 +14,7 @@ from seafevents.events_publisher.events_publisher import events_publisher
 from seafevents.utils.config import get_office_converter_conf
 from seafevents.utils import do_exit, ClientConnector, has_office_tools, get_config
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
-        VirusScanner, Statistics, UpdateLoginRecordTask, CountTrafficInfo
+        VirusScanner, Statistics, UpdateLoginRecordTask
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
@@ -50,7 +50,6 @@ class App(object):
 
         if appconfig.enable_statistics:
             self.update_login_record_task = UpdateLoginRecordTask()
-            self.count_traffic_task = CountTrafficInfo()
 
         self._ccnet_session = None
         self._sync_client = None
@@ -107,10 +106,8 @@ class App(object):
 
         if appconfig.enable_statistics:
             self.update_login_record_task.start()
-            self.count_traffic_task.start()
         else:
             logging.info("User login statistics is disabled.")
-            logging.info("Traffic statistics is disabled.")
 
         while True:
             self._serve()

@@ -6,8 +6,7 @@ import sched, time
 from sqlalchemy.sql import text
 from sqlalchemy.orm.scoping import scoped_session
 from threading import Thread, Event
-from seafevents.statistics import TotalStorageCounter, FileOpsCounter, TrafficInfoCounter,\
-                                  MonthlyTrafficCounter
+from seafevents.statistics import TotalStorageCounter, FileOpsCounter, TrafficInfoCounter
 from seafevents.statistics.counter import login_records
 from seafevents.app.config import appconfig
 
@@ -20,12 +19,11 @@ class Statistics(Thread):
         return appconfig.enable_statistics
 
     def run(self):
-        # These tasks should run at backend node server.
         if self.is_enabled():
             logging.info("Starting data statistics.")
             CountTotalStorage().start()
             CountFileOps().start()
-            CountMonthlyTrafficInfo().start()
+            CountTrafficInfo().start()
 
 class CountTotalStorage(Thread):
     def __init__(self):
@@ -54,7 +52,6 @@ class CountFileOps(Thread):
         self.fininsh.set()
 
 class CountTrafficInfo(Thread):
-    # This should run at frontend node server.
     def __init__(self):
         Thread.__init__(self)
         self.fininsh = Event()
@@ -67,21 +64,7 @@ class CountTrafficInfo(Thread):
     def cancel(self):
         self.fininsh.set()
 
-class CountMonthlyTrafficInfo(Thread):
-    def __init__(self):
-        Thread.__init__(self)
-        self.fininsh = Event()
-
-    def run(self):
-        while not self.fininsh.is_set():
-            MonthlyTrafficCounter().start_count()
-            self.fininsh.wait(3600)
-
-    def cancel(self):
-        self.fininsh.set()
-
 class UpdateLoginRecordTask(Thread):
-    # This should run at frontend node server.
     """ Run every thirty minutes, Handle 1000 tasks at a time. 
     """
     def __init__(self):
