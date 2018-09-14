@@ -72,13 +72,13 @@ class UserTraffic(Base):
     __tablename__ = 'UserTraffic'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user = Column(String(length=255), nullable=False, index=True)
+    user = Column(String(length=255), nullable=False)
     org_id = Column(Integer, index=True)
-    timestamp = Column(DateTime, nullable=False, index=True)
-    op_type = Column(String(length=48), nullable=False, index=True)
+    timestamp = Column(DateTime, nullable=False)
+    op_type = Column(String(length=48), nullable=False)
     size = Column(BigInteger, nullable=False)
 
-    __table_args__ = (Index('idx_traffic_time_user', 'timestamp', 'user'), )
+    __table_args__ = (Index('idx_traffic_time_user', 'timestamp', 'user', 'org_id'), )
 
     def __init__(self, user, timestamp, op_type, size, org_id):
         self.user = user
@@ -92,11 +92,47 @@ class SysTraffic(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     org_id = Column(Integer, index=True)
-    timestamp = Column(DateTime, nullable=False, index=True)
-    op_type = Column(String(length=48), nullable=False, index=True)
+    timestamp = Column(DateTime, nullable=False)
+    op_type = Column(String(length=48), nullable=False)
     size = Column(BigInteger, nullable=False)
 
     __table_args__ = (Index('idx_systraffic_time_org', 'timestamp', 'org_id'), )
+
+    def __init__(self, timestamp, op_type, size, org_id):
+        self.timestamp = timestamp
+        self.op_type = op_type
+        self.size = size
+        self.org_id = org_id
+
+class MonthlyUserTraffic(Base):
+    __tablename__ = 'MonthlyUserTraffic'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user = Column(String(length=255), nullable=False)
+    org_id = Column(Integer)
+    timestamp = Column(DateTime, nullable=False)
+    op_type = Column(String(length=48), nullable=False)
+    size = Column(BigInteger, nullable=False)
+
+    __table_args__ = (Index('idx_monthlyusertraffic_time_org_user', 'timestamp', 'user', 'org_id'), )
+
+    def __init__(self, user, timestamp, op_type, size, org_id):
+        self.user = user
+        self.timestamp = timestamp
+        self.op_type = op_type
+        self.size = size
+        self.org_id = org_id
+
+class MonthlySysTraffic(Base):
+    __tablename__ = 'MonthlySysTraffic'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    org_id = Column(Integer)
+    timestamp = Column(DateTime, nullable=False)
+    op_type = Column(String(length=48), nullable=False)
+    size = Column(BigInteger, nullable=False)
+
+    __table_args__ = (Index('idx_monthlysystraffic_time_org', 'timestamp', 'org_id'), )
 
     def __init__(self, timestamp, op_type, size, org_id):
         self.timestamp = timestamp
