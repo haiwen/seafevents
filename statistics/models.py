@@ -103,3 +103,55 @@ class SysTraffic(Base):
         self.op_type = op_type
         self.size = size
         self.org_id = org_id
+
+class MonthlyUserTraffic(Base):
+    __tablename__ = 'MonthlyUserTraffic'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user = Column(String(length=255), nullable=False)
+    org_id = Column(Integer)
+    timestamp = Column(DateTime, nullable=False)
+    web_file_upload = Column(BigInteger, nullable=False)
+    web_file_download = Column(BigInteger, nullable=False)
+    sync_file_upload = Column(BigInteger, nullable=False)
+    sync_file_download = Column(BigInteger, nullable=False)
+    link_file_upload = Column(BigInteger, nullable=False)
+    link_file_download = Column(BigInteger, nullable=False)
+
+    __table_args__ = (Index('idx_monthlyusertraffic_time_org_user', 'timestamp', 'user', 'org_id'), )
+
+    def __init__(self, user, org_id, timestamp, size_dict):
+        self.user = user
+        self.org_id = org_id
+        self.timestamp = timestamp
+        self.web_file_upload = size_dict['web_file_upload']
+        self.web_file_download = size_dict['web_file_download']
+        self.sync_file_upload = size_dict['sync_file_upload']
+        self.sync_file_download = size_dict['sync_file_download']
+        self.link_file_upload = size_dict['link_file_upload']
+        self.link_file_download = size_dict['link_file_download']
+
+class MonthlySysTraffic(Base):
+    __tablename__ = 'MonthlySysTraffic'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    org_id = Column(Integer)
+    timestamp = Column(DateTime, nullable=False)
+    web_file_upload = Column(BigInteger, nullable=False)
+    web_file_download = Column(BigInteger, nullable=False)
+    sync_file_upload = Column(BigInteger, nullable=False)
+    sync_file_download = Column(BigInteger, nullable=False)
+    link_file_upload = Column(BigInteger, nullable=False)
+    link_file_download = Column(BigInteger, nullable=False)
+
+    __table_args__ = (Index('idx_monthlysystraffic_time_org', 'timestamp', 'org_id'), )
+
+    def __init__(self, timestamp, org_id, size_dict):
+        self.timestamp = timestamp
+        self.org_id = org_id
+        self.web_file_upload = size_dict['web_file_upload']
+        self.web_file_download = size_dict['web_file_download']
+        self.sync_file_upload = size_dict['sync_file_upload']
+        self.sync_file_download = size_dict['sync_file_download']
+        self.link_file_upload = size_dict['link_file_upload']
+        self.link_file_download = size_dict['link_file_download']
