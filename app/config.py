@@ -79,6 +79,7 @@ def load_statistics_config(config):
         if config.has_option('STATISTICS', 'enabled'):
             appconfig.enable_statistics = config.getboolean('STATISTICS', 'enabled')
         if appconfig.enable_statistics:
+            # file type statistics
             appconfig.count_all_file_types = False
             appconfig.type_list = []
             if config.has_option('STATISTICS', 'file_types_to_count'):
@@ -88,9 +89,16 @@ def load_statistics_config(config):
                 else:
                     appconfig.type_list = file_types_to_count.split(',')
 
+            # interval: hour
             if config.has_option('STATISTICS', 'file_types_count_interval'):
                 appconfig.file_types_interval = config.getint('STATISTICS', 'file_types_count_interval') * 3600
             else:
                 appconfig.file_types_interval = 24 * 3600
+            # total storage(including history) statistics
+            # interval: hour
+            if config.has_option('STATISTICS', 'storage_count_interval'):
+                appconfig.storage_count_interval = config.getint('STATISTICS', 'storage_count_interval') * 3600
+            else:
+                appconfig.storage_count_interval = 1 * 3600
     except Exception as e:
         logging.info(e)
