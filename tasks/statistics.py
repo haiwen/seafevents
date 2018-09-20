@@ -2,12 +2,13 @@
 
 import logging
 import sched, time
+import ConfigParser
 
 from sqlalchemy.sql import text
 from sqlalchemy.orm.scoping import scoped_session
 from threading import Thread, Event
 from seafevents.statistics import TotalStorageCounter, FileOpsCounter, TrafficInfoCounter,\
-                                  MonthlyTrafficCounter, FileTypesCounter
+                                  MonthlyTrafficCounter, FileTypesCounter, HistoryTotalStorageCounter
 from seafevents.statistics.counter import login_records
 from seafevents.app.config import appconfig
 
@@ -24,6 +25,7 @@ class Statistics(Thread):
         if self.is_enabled():
             logging.info("Starting data statistics.")
             CountTotalStorage().start()
+            CountHistoryTotalStorage().start()
             CountFileOps().start()
             CountMonthlyTrafficInfo().start()
             CountFileTypes().start()
@@ -37,6 +39,19 @@ class CountTotalStorage(Thread):
         while not self.fininsh.is_set():
             TotalStorageCounter().start_count()
             self.fininsh.wait(3600)
+
+    def cancel(self):
+        self.fininsh.set()
+
+class CountHistoryTotalStorage(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.fininsh = Event()
+
+    def run(self):
+        while not self.fininsh.is_set():
+            HistoryTotalStorageCounter().start_count()
+            self.fininsh.wait(appconfig.storage_count_interval)
 
     def cancel(self):
         self.fininsh.set()

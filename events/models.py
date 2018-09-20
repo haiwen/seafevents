@@ -106,6 +106,7 @@ class FileUpdate(Base):
     repo_id = Column(String(length=36), nullable=False)
     commit_id = Column(String(length=40), nullable=False)
     file_oper = Column(Text, nullable=False)
+    device_name = Column(String(length=32), nullable=False)
     __table_args__ = (Index('idx_file_update_orgid_eid',
                             'org_id', 'eid'),
                       Index('idx_file_update_user_orgid_eid',
@@ -113,23 +114,24 @@ class FileUpdate(Base):
                       Index('idx_file_update_repo_org_eid',
                             'repo_id', 'org_id', 'eid'))
 
-    def __init__(self, timestamp, user, org_id, repo_id, commit_id, file_oper):
+    def __init__(self, timestamp, user, org_id, repo_id, commit_id, file_oper, device_name):
         self.timestamp = timestamp
         self.user = user
         self.org_id = org_id
         self.repo_id = repo_id
         self.commit_id = commit_id
         self.file_oper = file_oper
+        self.device_name = device_name
 
     def __str__(self):
         if self.org_id > 0:
-           return "FileUpdate<User = %s, OrgID = %s, RepoID = %s, CommitID = %s \
-                   FileOper = %s>" % (self.user, self.org_id, self.repo_id, \
-                                      self.commit_id, self.file_oper)
+            return "FileUpdate<User = %s, OrgID = %s, RepoID = %s, CommitID = %s \
+                    FileOper = %s, DeviceName = %s>" % (self.user, self.org_id, self.repo_id, \
+                                       self.commit_id, self.file_oper, self.device_name)
         else:
             return "FileUpdate<User = %s, RepoID = %s, CommitID = %s, \
-                    FileOper = %s>" % (self.user, self.repo_id, \
-                                       self.commit_id, self.file_oper)
+                    FileOper = %s, DeviceName = %s>" % (self.user, self.repo_id, \
+                                       self.commit_id, self.file_oper, self.device_name)
 
 class PermAudit(Base):
     __tablename__ = 'PermAudit'

@@ -7,13 +7,14 @@ from datetime import timedelta
 from datetime import datetime
 from sqlalchemy import func, desc
 from models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic,\
-                   MonthlyUserTraffic, MonthlySysTraffic, FileTypeStat
+                   MonthlyUserTraffic, MonthlySysTraffic, FileTypeStat, HistoryTotalStorageStat
 from seafevents.events.models import FileUpdate
 from seafevents.events.models import FileAudit
 from seafevents.app.config import appconfig
 from seafevents.db import SeafBase
 from db import get_org_id
 from seafobj import commit_mgr, CommitDiffer
+from seafobj.objstore_factory import SeafObjStoreFactory
 
 login_records = {}
 traffic_info = {}
@@ -529,3 +530,55 @@ class FileTypesCounter(object):
             self.edb_session.close()
             self.seafdb_session.close()
 
+class HistoryTotalStorageCounter(object):
+    def __init__(self):
+        self.edb_session = appconfig.session_cls()
+        self.seafdb_session = appconfig.seaf_session_cls()
+        self.objstore_factory = SeafObjStoreFactory()
+
+    def start_count(self):
+        blocks_obj_store = self.objstore_factory.get_obj_store('blocks')
+
+        try:
+            Repo = SeafBase.classes.Repo
+            VirtualRepo= SeafBase.classes.VirtualRepo
+
+            q = self.seafdb_session.query(Repo.repo_id).outerjoin(VirtualRepo,\
+                                          Repo.repo_id==VirtualRepo.repo_id).filter(VirtualRepo.repo_id == None)
+            results = q.all()
+        except Exception as e:
+            self.edb_session.close()
+            self.seafdb_session.close()
+            logging.warning('Failed to get repo_ids')
+            return
+
+        try:
+            for result in results:
+                repo_id = result[0]
+                block_obj_size = 0 
+
+                block_objs = blocks_obj_store.list_objs(repo_id)
+                for block_obj in block_objs:
+                    block_obj_size += block_obj[2]
+
+                dt = datetime.utcnow()
+                _timestamp = dt.strftime('%Y-%m-%d %H:00:00')
+                timestamp = datetime.strptime(_timestamp,'%Y-%m-%d %H:%M:%S')
+
+                q = self.edb_session.query(HistoryTotalStorageStat).filter(HistoryTotalStorageStat.repo_id==repo_id)
+
+                r = q.first()
+                if not r:
+                    newrecord = HistoryTotalStorageStat(repo_id, timestamp, block_obj_size)
+                    self.edb_session.add(newrecord)
+                elif r.timestamp != timestamp:
+                    self.edb_session.query(HistoryTotalStorageStat).filter(HistoryTotalStorageStat.repo_id==repo_id\
+                                           ).update({"timestamp": timestamp, "total_size": block_obj_size})
+
+            self.edb_session.commit()
+
+        except Exception as e:
+            logging.warning('Failed to add record to HistoryTotalStorageStat: %s.', e)
+            self.edb_session.close()
+            self.seafdb_session.close()
+            return

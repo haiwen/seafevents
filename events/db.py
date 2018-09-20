@@ -100,11 +100,11 @@ def save_org_user_events(session, org_id, etype, detail, usernames, timestamp):
     return _save_user_events(session, org_id, etype, detail, usernames, timestamp)
 
 def save_file_update_event(session, timestamp, user, org_id, repo_id, \
-                           commit_id, file_oper):
+                           commit_id, file_oper, device_name):
     if timestamp is None:
         timestamp = datetime.datetime.utcnow()
 
-    event = FileUpdate(timestamp, user, org_id, repo_id, commit_id, file_oper)
+    event = FileUpdate(timestamp, user, org_id, repo_id, commit_id, file_oper, device_name)
     session.add(event)
     session.commit()
 
