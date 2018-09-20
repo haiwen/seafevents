@@ -96,6 +96,20 @@ def load_statistics_config(config):
     try:
         if config.has_option('STATISTICS', 'enabled'):
             appconfig.enable_statistics = config.getboolean('STATISTICS', 'enabled')
+        if appconfig.enable_statistics:
+            appconfig.count_all_file_types = False
+            appconfig.type_list = []
+            if config.has_option('STATISTICS', 'file_types_to_count'):
+                file_types_to_count = config.get('STATISTICS', 'file_types_to_count').replace(' ', '')
+                if file_types_to_count == 'all':
+                    appconfig.count_all_file_types = True
+                else:
+                    appconfig.type_list = file_types_to_count.split(',')
+
+            if config.has_option('STATISTICS', 'file_types_count_interval'):
+                appconfig.file_types_interval = config.getint('STATISTICS', 'file_types_count_interval') * 3600
+            else:
+                appconfig.file_types_interval = 24 * 3600
     except Exception as e:
         logging.info(e)
 
