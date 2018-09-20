@@ -1,1 +1,1 @@
-from counter import TotalStorageCounter, FileOpsCounter, TrafficInfoCounter, MonthlyTrafficCounter
+from counter import TotalStorageCounter, FileOpsCounter, TrafficInfoCounter, MonthlyTrafficCounter, FileTypesCounter
