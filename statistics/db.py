@@ -16,22 +16,26 @@ def get_org_id(repo_id):
     global is_org
     if is_org == -1:
         org_conf = seafile_api.get_server_config_string('general', 'multi_tenancy')
-        if org_conf.lower() == 'true':
+        if not org_conf:
+            is_org = 0
+        elif org_conf.lower() == 'true':
             is_org = 1
         else:
             is_org = 0
     if not is_org:
-        return 0
+        return -1
 
     if not repo_org.has_key(repo_id):
         org_id = get_org_id_by_repo_id(repo_id)
-        if org_id == -1:
-            org_id = 0
         repo_org[repo_id] = org_id
     else:
         org_id = repo_org[repo_id]
 
     return org_id
+
+# sqlalchemy session.query(func.date(timestamp)) returns datetime.date,
+# we return datetime.datetime in our apis, convert datetime.date to datetime.datetime:
+# date->str->datetime: datetime.strptime(str(row.timestamp),'%Y-%m-%d')
 
 def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
