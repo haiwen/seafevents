@@ -17,6 +17,8 @@ login_records = {}
 traffic_info = {}
 
 def update_hash_record(session, login_name, login_time):
+    if not appconfig.enable_statistics:
+        return
     time_str = login_time.strftime('%Y-%m-%d 01:01:01')
     time_by_day = datetime.strptime(time_str,'%Y-%m-%d %H:%M:%S')
     md5_key = hashlib.md5((login_name + time_str).encode('utf-8')).hexdigest()
@@ -155,6 +157,7 @@ class TrafficInfoCounter(object):
         self.edb_session = appconfig.session_cls()
 
     def start_count(self):
+        time_start = time.time()
         logging.info('Start counting traffic info..')
         dt = datetime.utcnow()
         delta = timedelta(days=1)
@@ -165,23 +168,25 @@ class TrafficInfoCounter(object):
         today_str = today.strftime('%Y-%m-%d')
 
         if traffic_info.has_key(yesterday_str):
-            time_start = time.time()
+            s_time = time.time()
             self.update_record(yesterday, yesterday_str)
-            logging.info('Traffic Counter: %d items has been recorded on %s, total time: %s seconds.' %\
-                         (len(traffic_info[yesterday_str]), yesterday_str, str(time.time() - time_start)))
+            logging.info('Traffic Counter: %d items has been recorded on %s, time: %s seconds.' %\
+                        (len(traffic_info[yesterday_str]), yesterday_str, str(time.time() - s_time)))
             del traffic_info[yesterday_str]
 
         if traffic_info.has_key(today_str):
-            time_start = time.time()
+            s_time = time.time()
             self.update_record(today, today_str)
-            logging.info('Traffic Counter: %d items has been updated on %s, total time: %s seconds.' %\
-                         (len(traffic_info[today_str]), today_str, str(time.time() - time_start)))
+            logging.info('Traffic Counter: %d items has been updated on %s, time: %s seconds.' %\
+                        (len(traffic_info[today_str]), today_str, str(time.time() - s_time)))
 
         try:
             self.edb_session.commit()
         except Exception as e:
             logging.warning('Failed to update traffic info: %s.', e)
         finally:
+            logging.info('Traffic counter finished, total time: %s seconds.' %\
+                        (str(time.time() - time_start)))
             self.edb_session.close()
 
     def update_record(self, date, date_str):
@@ -201,22 +206,22 @@ class TrafficInfoCounter(object):
             try:
                 q = self.edb_session.query(UserTraffic.size).filter(
                                            UserTraffic.timestamp==date,
-                                           UserTraffic.org_id==org_id,
                                            UserTraffic.user==user,
+                                           UserTraffic.org_id==org_id,
                                            UserTraffic.op_type==oper)
                 result = q.first()
                 if result:
                     size_in_db = result[0]
                     self.edb_session.query(UserTraffic).filter(UserTraffic.timestamp==date,
-                                                               UserTraffic.org_id==org_id,
                                                                UserTraffic.user==user,
+                                                               UserTraffic.org_id==org_id,
                                                                UserTraffic.op_type==oper).update(
                                                                {"size": size + size_in_db})
                 else:
                     new_record = UserTraffic(user, date, oper, size, org_id)
                     self.edb_session.add(new_record)
 
-                traffic_info[date_str][row] = 0
+                traffic_info[date_str][row] -= size
             except Exception as e:
                 logging.warning('Failed to update traffic info: %s.', e)
                 return
