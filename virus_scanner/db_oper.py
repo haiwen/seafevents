@@ -1,8 +1,8 @@
 #coding: utf-8
 
-import logging
 from sqlalchemy.orm.scoping import scoped_session
 from models import VirusScanRecord, VirusFile
+from scan_settings import logger
 
 class DBOper(object):
     def __init__(self, settings):
@@ -16,7 +16,7 @@ class DBOper(object):
         try:
             import MySQLdb
         except ImportError:
-            logging.info('Failed to import MySQLdb module, stop virus scan.')
+            logger.info('Failed to import MySQLdb module, stop virus scan.')
             return
 
         try:
@@ -30,7 +30,7 @@ class DBOper(object):
 
             self.is_enable = True
         except Exception as e:
-            logging.info('Failed to init mysql db: %s, stop virus scan.' %  e)
+            logger.info('Failed to init mysql db: %s, stop virus scan.' %  e)
             if self.edb_session:
                 self.edb_session.close()
             if self.sdb_cursor:
@@ -59,7 +59,7 @@ class DBOper(object):
                 scan_commit_id = self.get_scan_commit_id(repo_id)
                 repo_list.append((repo_id, commit_id, scan_commit_id))
         except Exception as e:
-            logging.warning('Failed to fetch repo list from db: %s.', e)
+            logger.warning('Failed to fetch repo list from db: %s.', e)
             repo_list = None
 
         return repo_list
@@ -84,7 +84,7 @@ class DBOper(object):
             self.edb_session.commit()
             self.edb_session.remove()
         except Exception as e:
-            logging.warning('Failed to update virus scan record from db: %s.', e)
+            logger.warning('Failed to update virus scan record from db: %s.', e)
 
     def add_virus_record(self, records):
         try:
@@ -94,7 +94,7 @@ class DBOper(object):
             self.edb_session.remove()
             return 0
         except Exception as e:
-            logging.warning('Failed to add virus records to db: %s.', e)
+            logger.warning('Failed to add virus records to db: %s.', e)
             return -1
 
 def get_virus_record(session, repo_id, start, limit):
@@ -111,7 +111,7 @@ def get_virus_record(session, repo_id, start, limit):
         q = q.slice(start, start+limit)
         return q.all()
     except Exception as e:
-        logging.warning('Failed to get virus record from db: %s.', e)
+        logger.warning('Failed to get virus record from db: %s.', e)
         return None
 
 def handle_virus_record(session, vid):
@@ -122,7 +122,7 @@ def handle_virus_record(session, vid):
         session.commit()
         return 0
     except Exception as e:
-        logging.warning('Failed to handle virus record: %s.', e)
+        logger.warning('Failed to handle virus record: %s.', e)
         return -1
 
 def get_virus_record_by_id(session, vid):
@@ -130,5 +130,5 @@ def get_virus_record_by_id(session, vid):
         q = session.query(VirusFile).filter(VirusFile.vid==vid)
         return q.first()
     except Exception as e:
-        logging.warning('Failed to get virus record by id: %s.', e)
+        logger.warning('Failed to get virus record by id: %s.', e)
         return None

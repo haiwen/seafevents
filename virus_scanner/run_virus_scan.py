@@ -19,6 +19,9 @@ if __name__ == "__main__":
     }
     logging.basicConfig(**kw)
 
+    from scan_settings import logger
+    logger.setLevel(logging.DEBUG)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config-file',
                         default=os.path.join(os.path.abspath('..'), 'events.conf'),
@@ -31,4 +34,4 @@ if __name__ == "__main__":
     if setting.is_enabled():
         VirusScan(setting).start()
     else:
-        logging.info('Virus scan is disabled.')
+        logger.info('Virus scan is disabled.')
