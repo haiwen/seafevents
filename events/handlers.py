@@ -136,6 +136,7 @@ def register_handlers(handlers, enable_audit):
         handlers.add_handler('seaf_server.event:repo-update', FileUpdateEventHandler)
         handlers.add_handler('seaf_server.event:repo-download-sync', FileAuditEventHandler)
         handlers.add_handler('seaf_server.event:repo-upload-sync', FileAuditEventHandler)
+        handlers.add_handler('seaf_server.event:seadrive-download-file', FileAuditEventHandler)
 
         handlers.add_handler('seahub.audit:file-download-web', FileAuditEventHandler)
         handlers.add_handler('seahub.audit:file-download-api', FileAuditEventHandler)
