@@ -282,6 +282,7 @@ def get_system_traffic_by_day(session, start, end, offset='+00:00', op_type='all
         ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.size)))
     return ret
 
+"""
 def get_user_traffic_by_month(user, start, end):
     start_str = start.strftime('%Y-%m-01 00:00:00')
     end_str = end.strftime('%Y-%m-01 00:00:00')
@@ -377,6 +378,7 @@ def get_org_traffic_by_month(org_id, start, end):
         session.close()
 
     return ret
+"""
 
 def get_all_users_traffic_by_month(month, start=-1, limit=-1, order_by='user', org_id=-1):
     month_str = month.strftime('%Y-%m-01 00:00:00')
@@ -428,6 +430,7 @@ def get_all_users_traffic_by_month(month, start=-1, limit=-1, order_by='user', o
         for row in rows:
             d = row.__dict__
             d.pop('_sa_instance_state')
+            d.pop('id')
             ret.append(d)
 
     except Exception as e:
@@ -486,6 +489,7 @@ def get_all_orgs_traffic_by_month(month, start=-1, limit=-1, order_by='org_id'):
         for row in rows:
             d = row.__dict__
             d.pop('_sa_instance_state')
+            d.pop('id')
             ret.append(d)
 
     except Exception as e:
