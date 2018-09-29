@@ -498,3 +498,25 @@ def get_all_orgs_traffic_by_month(month, start=-1, limit=-1, order_by='org_id'):
         session.close()
 
     return ret
+
+def get_user_traffic_by_month (user, month):
+    month_str = month.strftime('%Y-%m-01 00:00:00')
+    _month = datetime.strptime(month_str,'%Y-%m-%d %H:%M:%S')
+
+    ret = {}
+    try:
+        session = appconfig.session_cls()
+        q = session.query(MonthlyUserTraffic).filter(MonthlyUserTraffic.timestamp==_month,
+                                                     MonthlyUserTraffic.user==user)
+        result = q.first()
+        if result:
+            d = result.__dict__
+            d.pop('_sa_instance_state')
+            d.pop('id')
+            ret = d
+    except Exception as e:
+        logging.warning('Failed to get user traffic by month: %s.', e)
+    finally:
+        session.close()
+
+    return ret
