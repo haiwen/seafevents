@@ -95,7 +95,7 @@ def FileUpdateEventHandler(session, msg):
        device_name = commit.device_name
 
     save_file_update_event(session, time, commit.creator_name, org_id,
-                           repo_id, commit_id, commit.desc, commit.device_name)
+                           repo_id, commit_id, commit.desc, device_name)
 
 def FileAuditEventHandler(session, msg):
     elements = msg.body.split('\t')
