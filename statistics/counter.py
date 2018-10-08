@@ -6,7 +6,8 @@ from ConfigParser import ConfigParser
 from datetime import timedelta
 from datetime import datetime
 from sqlalchemy import func
-from models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic
+from models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic,\
+                   MonthlyUserTraffic, MonthlySysTraffic
 from seafevents.events.models import FileUpdate
 from seafevents.events.models import FileAudit
 from seafevents.app.config import appconfig
@@ -159,9 +160,9 @@ class TrafficInfoCounter(object):
     def start_count(self):
         time_start = time.time()
         logging.info('Start counting traffic info..')
+
         dt = datetime.utcnow()
         delta = timedelta(days=1)
-
         yesterday = (dt - delta).date()
         yesterday_str = yesterday.strftime('%Y-%m-%d')
         today = dt.date()
@@ -193,6 +194,8 @@ class TrafficInfoCounter(object):
         # org_delta format: org_delta[(org_id, oper)] = size
         # Calculate each org traffic into org_delta, then update SysTraffic.
         org_delta = {}
+
+        # Update UserTraffic
         for row in traffic_info[date_str]:
             org_id = row[0]
             user = row[1]
@@ -250,3 +253,120 @@ class TrafficInfoCounter(object):
             except Exception as e:
                 logging.warning('Failed to update traffic info: %s.', e)
 
+class MonthlyTrafficCounter(object):
+    def __init__(self):
+        self.edb_session = appconfig.session_cls()
+
+    def start_count(self):
+        time_start = time.time()
+        logging.info('Start counting monthly traffic info..')
+
+        # Count traffic between first day of this month and today.
+        dt = datetime.utcnow()
+        today = dt.date()
+        delta = timedelta(days=dt.day - 1)
+        first_day = today - delta
+
+        self.user_item_count = 0
+        self.sys_item_count = 0
+
+        try:
+            # Get raw data from UserTraffic, then update MonthlyUserTraffic and MonthlySysTraffic.
+            q = self.edb_session.query(UserTraffic.user,
+                                       UserTraffic.org_id, UserTraffic.op_type,
+                                       func.sum(UserTraffic.size).label('size')).filter(
+                                       UserTraffic.timestamp.between(first_day, today)
+                                       ).group_by(UserTraffic.user, UserTraffic.org_id,
+                                       UserTraffic.op_type).order_by(UserTraffic.user)
+            results = q.all()
+
+            # The raw data is ordered by 'user', and also we count monthly data by user
+            # format: user_size_dict[(username, org_id)] = {'web-file-upload': 10, 'web-file-download': 0...}
+            last_key = ()
+            cur_key = ()
+            user_size_dict = {}
+            init_size_dict = {'web_file_upload': 0, 'web_file_download': 0, 'sync_file_download': 0, \
+                              'sync_file_upload':0, 'link_file_upload': 0, 'link_file_download': 0}
+
+            org_size_dict = {}
+
+            # Update MonthlyUserTraffic.
+            for result in results:
+                user = result.user
+                org_id = result.org_id
+                size = result.size
+                # op_type in UserTraffic uses '-', convert to '_'
+                oper = result.op_type.replace('-', '_')
+
+                cur_key = (user, org_id)
+                if not user_size_dict.has_key(cur_key):
+                    user_size_dict[cur_key] = init_size_dict.copy()
+                user_size_dict[cur_key][oper] += size
+
+                # We reached a new user, update last user's data if exists.
+                if cur_key != last_key:
+                    if not last_key:
+                        last_key = cur_key
+                    else:
+                        self.update_monthly_user_traffic_record (last_key[0], last_key[1], first_day, user_size_dict[last_key])
+                        del user_size_dict[last_key]
+                last_key = cur_key
+
+                # Count org data
+                if not org_size_dict.has_key(org_id):
+                    org_size_dict[org_id] = init_size_dict.copy()
+                    org_size_dict[org_id][oper] = size
+                else:
+                    org_size_dict[org_id][oper] += size
+
+            # The above loop would miss a user, update it
+            if user_size_dict.has_key(cur_key):
+                self.update_monthly_user_traffic_record (cur_key[0], cur_key[1], first_day, user_size_dict[cur_key])
+                del user_size_dict[cur_key]
+
+            # Update MonthlySysTraffic.
+            for org_id in org_size_dict:
+                self.update_monthly_org_traffic_record(org_id, first_day, org_size_dict[org_id])
+
+            try:
+                self.edb_session.commit()
+            except Exception as e:
+                logging.warning('Failed to commit monthly traffic info: %s.', e)
+            finally:
+                logging.info('Monthly traffic counter finished, update %d user items, %d org items, total time: %s seconds.' %\
+                            (self.user_item_count, self.sys_item_count, str(time.time() - time_start)))
+                self.edb_session.close()
+
+        except Exception as e:
+            logging.warning('Failed to update monthly traffic info: %s.', e)
+            self.edb_session.close()
+
+    def update_monthly_user_traffic_record(self, user, org_id, timestamp, size_dict):
+        q = self.edb_session.query(MonthlyUserTraffic.user).filter(
+                                   MonthlyUserTraffic.timestamp==timestamp,
+                                   MonthlyUserTraffic.user==user,
+                                   MonthlyUserTraffic.org_id==org_id)
+        if q.first():
+            self.edb_session.query(MonthlyUserTraffic).filter(
+                                   MonthlyUserTraffic.timestamp==timestamp,
+                                   MonthlyUserTraffic.user==user,
+                                   MonthlyUserTraffic.org_id==org_id).update(
+                                   size_dict)
+        else:
+            new_record = MonthlyUserTraffic(user, org_id, timestamp, size_dict)
+            self.edb_session.add(new_record)
+        self.user_item_count += 1
+
+    def update_monthly_org_traffic_record(self, org_id, timestamp, size_dict):
+        q = self.edb_session.query(MonthlySysTraffic.org_id).filter(
+                                   MonthlySysTraffic.timestamp==timestamp,
+                                   MonthlySysTraffic.org_id==org_id)
+        if q.first():
+            self.edb_session.query(MonthlySysTraffic).filter(
+                                   MonthlySysTraffic.timestamp==timestamp,
+                                   MonthlySysTraffic.org_id==org_id).update(
+                                   size_dict)
+        else:
+            new_record = MonthlySysTraffic(timestamp, org_id, size_dict)
+            self.edb_session.add(new_record)
+        self.sys_item_count += 1
