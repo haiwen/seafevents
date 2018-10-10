@@ -16,6 +16,7 @@ from seafevents.db import SeafBase
 from db import get_org_id
 from seafobj import commit_mgr, CommitDiffer
 from seafobj.objstore_factory import SeafObjStoreFactory
+from seafobj.exceptions import GetObjectError
 
 # This is a throwaway variable to deal with a python bug
 throwaway = datetime.strptime('20110101','%Y%m%d')
@@ -596,13 +597,14 @@ class FileTypesCounter(object):
                         continue
                     record = FileTypeStat(repo_id, now, commit_id, file_type, delta_files[file_type])
                     self.edb_session.add(record)
-            except IOError as e:
-                logging.warning('Failed to count file types for repo %.8s: %s, %s', repo_id, commit_id, e)
+                logging.info('FileTypesCounter: updated repo %.8s.', repo_id)
+            except GetObjectError as e:
+                logging.warning('FileTypesCounter: %s', e)
                 continue
             except Exception as e:
                 self.edb_session.close()
                 self.seafdb_session.close()
-                logging.warning('query error : %s.', e)
+                logging.warning('FileTypesCounter query error : %s.', e)
                 return
 
         try:
