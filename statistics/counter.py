@@ -15,6 +15,7 @@ from seafevents.db import SeafBase
 from db import get_org_id
 from seafobj import commit_mgr, CommitDiffer
 from seafobj.objstore_factory import SeafObjStoreFactory
+from seafobj.exceptions import GetObjectError
 
 login_records = {}
 traffic_info = {}
@@ -73,7 +74,7 @@ class FileOpsCounter(object):
                                        s_timestamp, e_timestamp))
         except Exception as e:
             self.edb_session.close()
-            logging.warning('query error : %s.', e)
+            logging.warning('FileOpsCounter query error : %s.', e)
             return
 
         rows = q.all()
@@ -88,7 +89,7 @@ class FileOpsCounter(object):
                                        s_timestamp, e_timestamp))
         except Exception as e:
             self.edb_session.close()
-            logging.warning('query error : %s.', e)
+            logging.warning('FileOpsCounter query error : %s.', e)
             return
     
         visited = q.first()[0]
@@ -142,7 +143,7 @@ class TotalStorageCounter(object):
         except Exception as e:
             self.seafdb_session.close()
             self.edb_session.close()
-            logging.warning('query error : %s.', e)
+            logging.warning('TotalStorageCounter query error : %s.', e)
 
         try:
             r = q.first()
@@ -512,13 +513,14 @@ class FileTypesCounter(object):
                         continue
                     record = FileTypeStat(repo_id, now, commit_id, file_type, delta_files[file_type])
                     self.edb_session.add(record)
-            except IOError as e:
-                logging.warning('Failed to count file types for repo %.8s: %s, %s', repo_id, commit_id, e)
+                logging.info('FileTypesCounter: updated repo %.8s.', repo_id)
+            except GetObjectError as e:
+                logging.warning('FileTypesCounter: %s', e)
                 continue
             except Exception as e:
                 self.edb_session.close()
                 self.seafdb_session.close()
-                logging.warning('query error : %s.', e)
+                logging.warning('FileTypesCounter query error : %s.', e)
                 return
 
         try:
