@@ -17,6 +17,9 @@ from seafobj import commit_mgr, CommitDiffer
 from seafobj.objstore_factory import SeafObjStoreFactory
 from seafobj.exceptions import GetObjectError
 
+# This is a throwaway variable to deal with a python bug
+throwaway = datetime.strptime('20110101','%Y%m%d')
+
 login_records = {}
 traffic_info = {}
 
@@ -123,8 +126,8 @@ class TotalStorageCounter(object):
         logging.info('Start counting total storage..')
         time_start = time.time()
         try:
-            RepoSize = SeafBase.classes.RepoSize
-            VirtualRepo= SeafBase.classes.VirtualRepo
+            RepoSize = SeafBase.classes.reposize
+            VirtualRepo= SeafBase.classes.virtualrepo
 
             q = self.seafdb_session.query(func.sum(RepoSize.size).label("size")).outerjoin(VirtualRepo,\
                                           RepoSize.repo_id==VirtualRepo.repo_id).filter(VirtualRepo.repo_id == None)
@@ -405,8 +408,8 @@ class FileTypesCounter(object):
         self.type_list = appconfig.type_list
         self.count_all_file_types = appconfig.count_all_file_types
         try:
-            Branch = SeafBase.classes.Branch
-            VirtualRepo= SeafBase.classes.VirtualRepo
+            Branch = SeafBase.classes.branch
+            VirtualRepo= SeafBase.classes.virtualrepo
 
             q = self.seafdb_session.query(Branch.repo_id, Branch.commit_id).outerjoin(VirtualRepo,\
                                           Branch.repo_id==VirtualRepo.repo_id).filter(
@@ -542,8 +545,8 @@ class HistoryTotalStorageCounter(object):
         blocks_obj_store = self.objstore_factory.get_obj_store('blocks')
 
         try:
-            Repo = SeafBase.classes.Repo
-            VirtualRepo= SeafBase.classes.VirtualRepo
+            Repo = SeafBase.classes.repo
+            VirtualRepo= SeafBase.classes.virtualrepo
 
             q = self.seafdb_session.query(Repo.repo_id).outerjoin(VirtualRepo,\
                                           Repo.repo_id==VirtualRepo.repo_id).filter(VirtualRepo.repo_id == None)
