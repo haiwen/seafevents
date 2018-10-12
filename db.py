@@ -105,6 +105,9 @@ def create_engine_from_conf(config_file, db = 'seafevent'):
 
     return engine
 
+def classname_for_table(base, tablename, table):
+    return str(tablename).lower()
+
 def init_db_session_class(config_file, db = 'seafevent'):
     """Configure Session class for mysql according to the config file."""
     try:
