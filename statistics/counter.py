@@ -489,8 +489,8 @@ class FileTypesCounter(object):
         self.type_list = appconfig.type_list
         self.count_all_file_types = appconfig.count_all_file_types
         try:
-            Branch = SeafBase.classes.Branch
-            VirtualRepo= SeafBase.classes.VirtualRepo
+            Branch = SeafBase.classes.branch
+            VirtualRepo= SeafBase.classes.virtualrepo
 
             q = self.seafdb_session.query(Branch.repo_id, Branch.commit_id).outerjoin(VirtualRepo,\
                                           Branch.repo_id==VirtualRepo.repo_id).filter(
@@ -626,8 +626,8 @@ class HistoryTotalStorageCounter(object):
         blocks_obj_store = self.objstore_factory.get_obj_store('blocks')
 
         try:
-            Repo = SeafBase.classes.Repo
-            VirtualRepo= SeafBase.classes.VirtualRepo
+            Repo = SeafBase.classes.repo
+            VirtualRepo= SeafBase.classes.virtualrepo
 
             q = self.seafdb_session.query(Repo.repo_id).outerjoin(VirtualRepo,\
                                           Repo.repo_id==VirtualRepo.repo_id).filter(VirtualRepo.repo_id == None)
