@@ -1,6 +1,5 @@
 #coding: utf-8
 
-import logging
 import os
 import tempfile
 import subprocess
@@ -9,6 +8,7 @@ from db_oper import DBOper
 from commit_differ import CommitDiffer
 from thread_pool import ThreadPool
 from seafevents.utils import get_python_executable
+from scan_settings import logger
 
 class ScanTask(object):
     def __init__(self, repo_id, head_commit_id, scan_commit_id):
@@ -37,7 +37,7 @@ class VirusScan(object):
             repo_id, head_commit_id, scan_commit_id = row
 
             if head_commit_id == scan_commit_id:
-                logging.debug('No change occur for repo %.8s, skip virus scan.',
+                logger.debug('No change occur for repo %.8s, skip virus scan.',
                               repo_id)
                 continue
 
@@ -63,12 +63,12 @@ class VirusScan(object):
             scan_files = differ.diff()
 
             if len(scan_files) == 0:
-                logging.debug('No change occur for repo %.8s, skip virus scan.',
+                logger.debug('No change occur for repo %.8s, skip virus scan.',
                               scan_task.repo_id)
                 self.db_oper.update_vscan_record(scan_task.repo_id, scan_task.head_commit_id)
                 return
             else:
-                logging.info('Start to scan virus for repo %.8s.', scan_task.repo_id)
+                logger.info('Start to scan virus for repo %.8s.', scan_task.repo_id)
 
             vnum = 0
             nvnum = 0
@@ -83,16 +83,16 @@ class VirusScan(object):
                 ret = self.scan_file_virus(scan_task.repo_id, fid, fpath)
 
                 if ret == 0:
-                    logging.debug('File %s virus scan by %s: OK.',
+                    logger.debug('File %s virus scan by %s: OK.',
                                   fpath, self.settings.scan_cmd)
                     nvnum += 1
                 elif ret == 1:
-                    logging.info('File %s virus scan by %s: Found virus.',
+                    logger.info('File %s virus scan by %s: Found virus.',
                                  fpath, self.settings.scan_cmd)
                     vnum += 1
                     vrecords.append((scan_task.repo_id, scan_task.head_commit_id, fpath))
                 else:
-                    logging.debug('File %s virus scan by %s: Failed.',
+                    logger.debug('File %s virus scan by %s: Failed.',
                                   fpath, self.settings.scan_cmd)
                     nfailed += 1
 
@@ -105,11 +105,11 @@ class VirusScan(object):
                 if ret == 0:
                     self.db_oper.update_vscan_record(scan_task.repo_id, scan_task.head_commit_id)
 
-            logging.info('Virus scan for repo %.8s finished: %d virus, %d non virus, %d failed.',
+            logger.info('Virus scan for repo %.8s finished: %d virus, %d non virus, %d failed.',
                          scan_task.repo_id, vnum, nvnum, nfailed)
 
         except Exception as e:
-            logging.warning('Failed to scan virus for repo %.8s: %s.',
+            logger.warning('Failed to scan virus for repo %.8s: %s.',
                             scan_task.repo_id, e)
 
     def scan_file_virus(self, repo_id, file_id, file_path):
@@ -126,7 +126,7 @@ class VirusScan(object):
             return self.parse_scan_result(ret_code)
 
         except Exception as e:
-            logging.warning('Virus scan for file %s encounter error: %s.',
+            logger.warning('Virus scan for file %s encounter error: %s.',
                             file_path, e)
             return -1
         finally:
@@ -158,13 +158,13 @@ class VirusScan(object):
 
     def should_scan_file(self, fpath, fsize):
         if fsize >= self.settings.scan_size_limit << 20:
-            logging.debug('File %s size exceed %sM, skip virus scan.' %
+            logger.debug('File %s size exceed %sM, skip virus scan.' %
                           (fpath, self.settings.scan_size_limit))
             return False
 
         ext = os.path.splitext(fpath)[1].lower()
         if ext in self.settings.scan_skip_ext:
-            logging.debug('File %s type in scan skip list, skip virus scan.' %
+            logger.debug('File %s type in scan skip list, skip virus scan.' %
                           fpath)
             return False
 

@@ -2,7 +2,7 @@
 
 from threading import Thread
 import Queue
-import logging
+from scan_settings import logger
 
 class Worker(Thread):
     def __init__(self, do_work, task_queue):
@@ -18,7 +18,7 @@ class Worker(Thread):
                     break
                 self.do_work(task)
             except Exception as e:
-                logging.warning('Failed to execute task: %s' % e)
+                logger.warning('Failed to execute task: %s' % e)
             finally:
                 self.task_queue.task_done()
 

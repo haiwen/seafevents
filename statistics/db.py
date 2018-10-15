@@ -1,10 +1,11 @@
+import logging
 from sqlalchemy import desc
 from sqlalchemy import func
 from sqlalchemy import distinct
 from datetime import datetime
 
 from models import UserActivityStat, UserTraffic, SysTraffic, \
-                   FileOpsStat, TotalStorageStat
+                   FileOpsStat, TotalStorageStat, MonthlyUserTraffic, MonthlySysTraffic
 
 from seaserv import seafile_api, get_org_id_by_repo_id
 from seafevents.app.config import appconfig
@@ -281,3 +282,241 @@ def get_system_traffic_by_day(session, start, end, offset='+00:00', op_type='all
         ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.size)))
     return ret
 
+"""
+def get_user_traffic_by_month(user, start, end):
+    start_str = start.strftime('%Y-%m-01 00:00:00')
+    end_str = end.strftime('%Y-%m-01 00:00:00')
+    start_date = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
+    end_date = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+
+    ret = []
+    try:
+        session = appconfig.session_cls()
+        q = session.query(MonthlyUserTraffic).filter(MonthlyUserTraffic.timestamp.between(
+                          start_date, end_date),
+                          MonthlyUserTraffic.user==user).order_by(
+                          MonthlyUserTraffic.timestamp, MonthlyUserTraffic.user)
+
+        rows = q.all()
+
+        for row in rows:
+            d = row.__dict__
+            d.pop('_sa_instance_state')
+            ret.append(d)
+
+    except Exception as e:
+        logging.warning('Failed to get user traffic by month: %s.', e)
+    finally:
+        session.close()
+
+    return ret
+
+def get_system_traffic_by_month(start, end):
+    start_str = start.strftime('%Y-%m-01 00:00:00')
+    end_str = end.strftime('%Y-%m-01 00:00:00')
+    start_date = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
+    end_date = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+
+    ret = []
+    try:
+        session = appconfig.session_cls()
+        q = session.query(MonthlySysTraffic.timestamp,
+                          func.sum(MonthlySysTraffic.web_file_upload).label('web_file_upload'),
+                          func.sum(MonthlySysTraffic.web_file_download).label('web_file_download'),
+                          func.sum(MonthlySysTraffic.link_file_upload).label('link_file_upload'),
+                          func.sum(MonthlySysTraffic.link_file_download).label('link_file_download'),
+                          func.sum(MonthlySysTraffic.sync_file_upload).label('sync_file_upload'),
+                          func.sum(MonthlySysTraffic.sync_file_download).label('sync_file_download')
+                          ).filter(MonthlySysTraffic.timestamp.between(
+                          start_date, end_date)).group_by(MonthlySysTraffic.timestamp).order_by(
+                          MonthlySysTraffic.timestamp)
+
+        rows = q.all()
+
+        for row in rows:
+            d = {"timestamp": row.timestamp,
+                 "web_file_upload": long(row.web_file_upload),
+                 "web_file_download": long(row.web_file_download),
+                 "link_file_upload": long(row.link_file_upload),
+                 "link_file_download": long(row.link_file_download),
+                 "sync_file_upload": long(row.sync_file_upload),
+                 "sync_file_download": long(row.sync_file_download)}
+            ret.append(d)
+
+    except Exception as e:
+        logging.warning('Failed to get system traffic by month: %s.', e)
+    finally:
+        session.close()
+
+    return ret
+
+def get_org_traffic_by_month(org_id, start, end):
+    start_str = start.strftime('%Y-%m-01 00:00:00')
+    end_str = end.strftime('%Y-%m-01 00:00:00')
+    start_date = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
+    end_date = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+
+    ret = []
+    try:
+        session = appconfig.session_cls()
+        q = session.query(MonthlySysTraffic).filter(
+                          MonthlySysTraffic.timestamp.between(
+                          start_date, end_date),
+                          MonthlySysTraffic.org_id==org_id).order_by(
+                          MonthlySysTraffic.timestamp)
+
+        rows = q.all()
+
+        for row in rows:
+            d = row.__dict__
+            d.pop('_sa_instance_state')
+            ret.append(d)
+
+    except Exception as e:
+        logging.warning('Failed to get org traffic by month: %s.', e)
+    finally:
+        session.close()
+
+    return ret
+"""
+
+def get_all_users_traffic_by_month(month, start=-1, limit=-1, order_by='user', org_id=-1):
+    month_str = month.strftime('%Y-%m-01 00:00:00')
+    _month = datetime.strptime(month_str,'%Y-%m-%d %H:%M:%S')
+
+    ret = []
+    try:
+        session = appconfig.session_cls()
+        q = session.query(MonthlyUserTraffic).filter(
+                          MonthlySysTraffic.timestamp==_month,
+                          MonthlySysTraffic.org_id==org_id)
+        if order_by == 'user':
+            q = q.order_by(MonthlyUserTraffic.user)
+        elif order_by == 'user_desc':
+            q = q.order_by(desc(MonthlyUserTraffic.user))
+        elif order_by == 'web_file_upload':
+            q = q.order_by(MonthlyUserTraffic.web_file_upload)
+        elif order_by == 'web_file_upload_desc':
+            q = q.order_by(desc(MonthlyUserTraffic.web_file_upload))
+        elif order_by == 'web_file_download':
+            q = q.order_by(MonthlyUserTraffic.web_file_download)
+        elif order_by == 'web_file_download_desc':
+            q = q.order_by(desc(MonthlyUserTraffic.web_file_download))
+        elif order_by == 'link_file_upload':
+            q = q.order_by(MonthlyUserTraffic.link_file_upload)
+        elif order_by == 'link_file_upload_desc':
+            q = q.order_by(desc(MonthlyUserTraffic.link_file_upload))
+        elif order_by == 'link_file_download':
+            q = q.order_by(MonthlyUserTraffic.link_file_download)
+        elif order_by == 'link_file_download_desc':
+            q = q.order_by(desc(MonthlyUserTraffic.link_file_download))
+        elif order_by == 'sync_file_upload':
+            q = q.order_by(MonthlyUserTraffic.sync_file_upload)
+        elif order_by == 'sync_file_upload_desc':
+            q = q.order_by(desc(MonthlyUserTraffic.sync_file_upload))
+        elif order_by == 'sync_file_download':
+            q = q.order_by(MonthlyUserTraffic.sync_file_download)
+        elif order_by == 'sync_file_download_desc':
+            q = q.order_by(desc(MonthlyUserTraffic.sync_file_download))
+        else:
+            logging.warning("Failed to get all users traffic by month, unkown order_by '%s'.", order_by)
+            session.close()
+            return []
+
+        if start>=0 and limit>0:
+            q = q.slice(start, start + limit)
+        rows = q.all()
+
+        for row in rows:
+            d = row.__dict__
+            d.pop('_sa_instance_state')
+            d.pop('id')
+            ret.append(d)
+
+    except Exception as e:
+        logging.warning('Failed to get all users traffic by month: %s.', e)
+    finally:
+        session.close()
+
+    return ret
+
+def get_all_orgs_traffic_by_month(month, start=-1, limit=-1, order_by='org_id'):
+    month_str = month.strftime('%Y-%m-01 00:00:00')
+    _month = datetime.strptime(month_str,'%Y-%m-%d %H:%M:%S')
+
+    ret = []
+    try:
+        session = appconfig.session_cls()
+        q = session.query(MonthlySysTraffic).filter(MonthlySysTraffic.timestamp==_month,
+                                                    MonthlySysTraffic.org_id>0)
+
+        if order_by == 'org_id':
+            q = q.order_by(MonthlySysTraffic.org_id)
+        elif order_by == 'org_id_desc':
+            q = q.order_by(desc(MonthlySysTraffic.org_id))
+        elif order_by == 'web_file_upload':
+            q = q.order_by(MonthlySysTraffic.web_file_upload)
+        elif order_by == 'web_file_upload_desc':
+            q = q.order_by(desc(MonthlySysTraffic.web_file_upload))
+        elif order_by == 'web_file_download':
+            q = q.order_by(MonthlySysTraffic.web_file_download)
+        elif order_by == 'web_file_download_desc':
+            q = q.order_by(desc(MonthlySysTraffic.web_file_download))
+        elif order_by == 'link_file_upload':
+            q = q.order_by(MonthlySysTraffic.link_file_upload)
+        elif order_by == 'link_file_upload_desc':
+            q = q.order_by(desc(MonthlySysTraffic.link_file_upload))
+        elif order_by == 'link_file_download':
+            q = q.order_by(MonthlySysTraffic.link_file_download)
+        elif order_by == 'link_file_download_desc':
+            q = q.order_by(desc(MonthlySysTraffic.link_file_download))
+        elif order_by == 'sync_file_upload':
+            q = q.order_by(MonthlySysTraffic.sync_file_upload)
+        elif order_by == 'sync_file_upload_desc':
+            q = q.order_by(desc(MonthlySysTraffic.sync_file_upload))
+        elif order_by == 'sync_file_download':
+            q = q.order_by(MonthlySysTraffic.sync_file_download)
+        elif order_by == 'sync_file_download_desc':
+            q = q.order_by(desc(MonthlySysTraffic.sync_file_download))
+        else:
+            logging.warning("Failed to get all orgs traffic by month, unkown order_by '%s'.", order_by)
+            return []
+
+        if start>=0 and limit>0:
+            q = q.slice(start, start + limit)
+        rows = q.all()
+
+        for row in rows:
+            d = row.__dict__
+            d.pop('_sa_instance_state')
+            d.pop('id')
+            ret.append(d)
+
+    except Exception as e:
+        logging.warning('Failed to get all users traffic by month: %s.', e)
+    finally:
+        session.close()
+
+    return ret
+
+def get_user_traffic_by_month (user, month):
+    month_str = month.strftime('%Y-%m-01 00:00:00')
+    _month = datetime.strptime(month_str,'%Y-%m-%d %H:%M:%S')
+
+    ret = {}
+    try:
+        session = appconfig.session_cls()
+        q = session.query(MonthlyUserTraffic).filter(MonthlyUserTraffic.timestamp==_month,
+                                                     MonthlyUserTraffic.user==user)
+        result = q.first()
+        if result:
+            d = result.__dict__
+            d.pop('_sa_instance_state')
+            d.pop('id')
+            ret = d
+    except Exception as e:
+        logging.warning('Failed to get user traffic by month: %s.', e)
+    finally:
+        session.close()
+
+    return ret
