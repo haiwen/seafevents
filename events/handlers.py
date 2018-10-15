@@ -9,7 +9,8 @@ import datetime
 from os.path import splitext
 
 from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
-from seafobj import CommitDiffer, commit_mgr
+from seafobj import CommitDiffer, commit_mgr, fs_mgr
+from seafobj.commit_differ import DiffEntry
 from seafevents.events.db import save_file_audit_event, save_file_update_event, \
         save_perm_audit_event, save_user_activity, save_filehistory
 from seafevents.app.config import appconfig
@@ -69,39 +70,29 @@ def RepoUpdateEventHandler(session, msg):
             if not users:
                 return
 
-            # skip merged commit
-            new_merge = False
-            if commit.second_parent_id is not None and commit.new_merge is True and commit.conflict is False:
-                new_merge = True
+            time = datetime.datetime.utcfromtimestamp(msg.ctime)
+            if added_files or deleted_files or added_dirs or deleted_dirs or \
+                    modified_files or renamed_files or moved_files or renamed_dirs or moved_dirs:
 
-            if not new_merge:
-                time = datetime.datetime.utcfromtimestamp(msg.ctime)
-                if added_files or deleted_files or added_dirs or deleted_dirs or \
-                        modified_files or renamed_files or moved_files or renamed_dirs or moved_dirs:
+                records = generate_filehistory_records(added_files, deleted_files,
+                        added_dirs, deleted_dirs, modified_files, renamed_files,
+                        moved_files, renamed_dirs, moved_dirs, commit, repo_id,
+                        parent, time)
 
-                    records = generate_filehistory_records(added_files, deleted_files,
-                            added_dirs, deleted_dirs, modified_files, renamed_files,
-                            moved_files, renamed_dirs, moved_dirs, commit, repo_id,
-                            parent, time)
+                if appconfig.fh.enabled:
+                    save_file_histories(session, records)
 
-                    if appconfig.fh.enabled:
-                        save_records_to_filehistory(session, records)
+                records = generate_activity_records(added_files, deleted_files,
+                        added_dirs, deleted_dirs, modified_files, renamed_files,
+                        moved_files, renamed_dirs, moved_dirs, commit, repo_id,
+                        parent, users, time)
 
-                    records = generate_activity_records(added_files, deleted_files,
-                            added_dirs, deleted_dirs, modified_files, renamed_files,
-                            moved_files, renamed_dirs, moved_dirs, commit, repo_id,
-                            parent, users, time)
+                save_user_activities(session, records)
+            else:
+                save_repo_rename_activity(session, commit, repo_id, parent, org_id, users, time)
 
-                    save_records_to_activity(session, records)
-                else:
-                    save_record(session, commit, repo_id, parent, org_id, users, time)
-
-def save_record(session, commit, repo_id, parent, org_id, related_users, time):
+def save_repo_rename_activity(session, commit, repo_id, parent, org_id, related_users, time):
     repo = seafile_api.get_repo(repo_id)
-    if org_id > 0:
-        repo_owner = seafile_api.get_org_repo_owner(repo_id)
-    else:
-        repo_owner = seafile_api.get_repo_owner(repo_id)
 
     record = {
         'op_type': 'rename',
@@ -117,7 +108,7 @@ def save_record(session, commit, repo_id, parent, org_id, related_users, time):
     }
     save_user_activity(session, record)
 
-def save_records_to_activity(session, records):
+def save_user_activities(session, records):
     if isinstance(records, list):
         for record in records:
             save_user_activity(session, record)
@@ -252,25 +243,32 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
 
     return records
 
-def list_file_in_dir(repo_id, dir_ents, op_type):
+def list_file_in_dir(repo_id, dirents, op_type):
+    _dirents = copy.copy(dirents)
     files = []
     while True:
         try:
-            d = dir_ents.pop()
+            d = _dirents.pop()
         except IndexError:
             break
         else:
-            ents = seafile_api.list_dir_by_dir_id(repo_id, d.obj_id)
-            for ent in ents:
-                if op_type not in ['rename', 'move']:
-                    ent.path = os.path.join(d.path, ent.obj_name)
-                else:
-                    ent.new_path = os.path.join(d.new_path, ent.obj_name)
-                    ent.path = os.path.join(d.path, ent.obj_name)
-                if stat.S_ISDIR(ent.mode):
-                    dir_ents.append(ent)
-                else:
-                    files.append(ent)
+            dir_obj = fs_mgr.load_seafdir(repo_id, 1, d.obj_id, ret_unicode=True)
+            new_path = None
+
+            file_list = dir_obj.get_files_list()
+            for _file in file_list:
+                if op_type in ['rename', 'move']:
+                    new_path = os.path.join(d.new_path, _file.name)
+                new_file = DiffEntry(os.path.join(d.path, _file.name), _file.id, _file.size, new_path)
+                files.append(new_file)
+
+            subdir_list = dir_obj.get_subdirs_list()
+            for _dir in subdir_list:
+                if op_type in ['rename', 'move']:
+                    new_path = os.path.join(d.new_path, _dir.name)
+                new_dir = DiffEntry(os.path.join(d.path, _dir.name), _dir.id, new_path=new_path)
+                _dirents.append(new_dir)
+
     return files
 
 def generate_filehistory_records(added_files, deleted_files, added_dirs,
@@ -296,8 +294,9 @@ def generate_filehistory_records(added_files, deleted_files, added_dirs,
     }
     records = []
 
-    added_files.extend(list_file_in_dir(repo_id, added_dirs, 'add'))
-    for de in added_files:
+    _added_files = copy.copy(added_files)
+    _added_files.extend(list_file_in_dir(repo_id, added_dirs, 'add'))
+    for de in _added_files:
         record = copy.copy(base_record)
         op_type = ''
         logging.info(commit.description)
@@ -311,8 +310,9 @@ def generate_filehistory_records(added_files, deleted_files, added_dirs,
         record['size'] = de.size
         records.append(record)
 
-    deleted_files.extend(list_file_in_dir(repo_id, deleted_dirs, 'delete'))
-    for de in deleted_files:
+    _deleted_files = copy.copy(deleted_files)
+    _deleted_files.extend(list_file_in_dir(repo_id, deleted_dirs, 'delete'))
+    for de in _deleted_files:
         record = copy.copy(base_record)
         record['op_type'] = OP_DELETE
         record['obj_id'] = de.obj_id
@@ -333,8 +333,9 @@ def generate_filehistory_records(added_files, deleted_files, added_dirs,
         record['size'] = de.size
         records.append(record)
 
-    renamed_files.extend(list_file_in_dir(repo_id, renamed_dirs, 'rename'))
-    for de in renamed_files:
+    _renamed_files = copy.copy(renamed_files)
+    _renamed_files.extend(list_file_in_dir(repo_id, renamed_dirs, 'rename'))
+    for de in _renamed_files:
         record = copy.copy(base_record)
         record['op_type'] = OP_RENAME
         record['obj_id'] = de.obj_id
@@ -343,8 +344,9 @@ def generate_filehistory_records(added_files, deleted_files, added_dirs,
         record['old_path'] = de.path.rstrip('/')
         records.append(record)
 
-    moved_files.extend(list_file_in_dir(repo_id, moved_dirs, 'move'))
-    for de in moved_files:
+    _moved_files = copy.copy(moved_files)
+    _moved_files.extend(list_file_in_dir(repo_id, moved_dirs, 'move'))
+    for de in _moved_files:
         record = copy.copy(base_record)
         record['op_type'] = OP_MOVE
         record['obj_id'] = de.obj_id
@@ -355,7 +357,7 @@ def generate_filehistory_records(added_files, deleted_files, added_dirs,
 
     return records
 
-def save_records_to_filehistory(session, records):
+def save_file_histories(session, records):
     if not isinstance(records, list):
         return
     for record in records:
