@@ -388,8 +388,8 @@ def get_all_users_traffic_by_month(month, start=-1, limit=-1, order_by='user', o
     try:
         session = appconfig.session_cls()
         q = session.query(MonthlyUserTraffic).filter(
-                          MonthlySysTraffic.timestamp==_month,
-                          MonthlySysTraffic.org_id==org_id)
+                          MonthlyUserTraffic.timestamp==_month,
+                          MonthlyUserTraffic.org_id==org_id)
         if order_by == 'user':
             q = q.order_by(MonthlyUserTraffic.user)
         elif order_by == 'user_desc':
