@@ -424,7 +424,9 @@ class FileTypesCounter(object):
 
         now = datetime.utcnow()
 
+        trans_count = 0
         for result in results:
+            trans_count += 1
             repo_id = result.repo_id
             commit_id = result.commit_id
             try:
@@ -516,6 +518,12 @@ class FileTypesCounter(object):
                         continue
                     record = FileTypeStat(repo_id, now, commit_id, file_type, delta_files[file_type])
                     self.edb_session.add(record)
+
+                # commit every 100 items.
+                if trans_count >= 100:
+                    self.edb_session.commit()
+                    trans_count = 0
+
                 logging.info('FileTypesCounter: updated repo %.8s.', repo_id)
             except GetObjectError as e:
                 logging.warning('FileTypesCounter: %s', e)
@@ -557,8 +565,10 @@ class HistoryTotalStorageCounter(object):
             logging.warning('Failed to get repo_ids')
             return
 
+        trans_count = 0
         try:
             for result in results:
+                trans_count += 1
                 repo_id = result[0]
                 block_obj_size = 0 
 
@@ -579,6 +589,11 @@ class HistoryTotalStorageCounter(object):
                 elif r.timestamp != timestamp:
                     self.edb_session.query(HistoryTotalStorageStat).filter(HistoryTotalStorageStat.repo_id==repo_id\
                                            ).update({"timestamp": timestamp, "total_size": block_obj_size})
+
+                # commit every 100 items.
+                if trans_count >= 100:
+                    self.edb_session.commit()
+                    trans_count = 0
 
             self.edb_session.commit()
 
