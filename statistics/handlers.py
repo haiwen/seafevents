@@ -9,15 +9,15 @@ from counter import update_hash_record, save_traffic_info
 
 def UserLoginEventHandler(session, msg):
     elements = msg.body.split('\t')
-    if len(elements) != 3:
+    if len(elements) != 4:
         logging.warning("got bad message: %s", elements)
         return
     username = elements[1]
     timestamp = elements[2]
-    #agent = elements[3]
+    org_id = elements[3]
     _timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
 
-    update_hash_record(session, username, _timestamp)
+    update_hash_record(session, username, _timestamp, org_id)
 
 def FileStatsEventHandler(session, msg):
     elements = msg.body.split('\t')

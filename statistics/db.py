@@ -60,18 +60,56 @@ def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
         ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.number))
     return ret
 
-def _get_total_storage_stats(session, start, end, offset='+00:00'):
-    q = session.query(func.convert_tz(TotalStorageStat.timestamp, '+00:00', offset).label("timestamp"),
-                      TotalStorageStat.total_size).filter(
-                      TotalStorageStat.timestamp.between(
-                      func.convert_tz(start, offset, '+00:00'),
-                      func.convert_tz(end, offset, '+00:00'))).order_by("timestamp")
-
-    rows = q.all()
+def get_org_user_activity_stats_by_day(org_id, start, end):
+    start_str = start.strftime('%Y-%m-%d 00:00:00')
+    end_str = end.strftime('%Y-%m-%d 23:59:59')
+    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
     ret = []
+    try:
+        session = appconfig.session_cls()
+        q = session.query(UserActivityStat.timestamp.label("timestamp"),
+                          func.count(UserActivityStat.username).label("number"))
+        q = q.filter(UserActivityStat.timestamp.between(start_at_0, end_at_23),
+                     UserActivityStat.org_id==org_id).group_by(
+                     "timestamp").order_by("timestamp")
+        rows = q.all()
 
-    for row in rows:
-        ret.append((row.timestamp, row.total_size))
+        for row in rows:
+            timestamp = row.timestamp
+            num = row.number
+            ret.append({"timestamp":timestamp, "number":num})
+    except Exception as e:
+        logging.warning('Failed to get org-user activities by day: %s.', e)
+    finally:
+        session.close()
+
+    return ret
+
+def _get_total_storage_stats(start, end, offset='+00:00', org_id=0):
+    ret = []
+    try:
+        session = appconfig.session_cls()
+        q = session.query(func.convert_tz(TotalStorageStat.timestamp, '+00:00', offset).label("timestamp"),
+                          TotalStorageStat.total_size)
+        if org_id == 0:
+            q = q.filter(TotalStorageStat.timestamp.between(
+                         func.convert_tz(start, offset, '+00:00'),
+                         func.convert_tz(end, offset, '+00:00'))).order_by("timestamp")
+        else:
+            q = q.filter(TotalStorageStat.timestamp.between(
+                         func.convert_tz(start, offset, '+00:00'),
+                         func.convert_tz(end, offset, '+00:00')),
+                         TotalStorageStat.org_id==org_id).order_by("timestamp")
+        rows = q.all()
+
+        for row in rows:
+            ret.append((row.timestamp, row.total_size))
+    except Exception as e:
+        logging.warning('Failed to get total storage: %s.', e)
+    finally:
+        session.close()
+
     return ret
 
 def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
@@ -80,8 +118,8 @@ def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
     start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
 
-    rets = _get_total_storage_stats (session, start_at_0, end_at_23, offset)
-    rets.reverse()
+    results = _get_total_storage_stats (start_at_0, end_at_23, offset)
+    results.reverse()
 
     '''
     Traverse data from end to start,
@@ -89,19 +127,45 @@ def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
     '''
 
     last_date = None
-    res = []
-    for ret in rets:
-        cur_time = ret[0]
-        cur_num = ret[1]
+    ret = []
+    for result in results:
+        cur_time = result[0]
+        cur_num = result[1]
         cur_date = datetime.date (cur_time)
         if cur_date != last_date or last_date == None:
-            res.append((datetime.strptime(str(cur_date),'%Y-%m-%d'), cur_num))
-            last_date = cur_date
-        else:
+            ret.append((datetime.strptime(str(cur_date),'%Y-%m-%d'), cur_num))
             last_date = cur_date
 
-    res.reverse()
-    return res
+    ret.reverse()
+    return ret
+
+def get_org_storage_stats_by_day(org_id, start, end, offset='+00:00'):
+    start_str = start.strftime('%Y-%m-%d 00:00:00')
+    end_str = end.strftime('%Y-%m-%d 23:59:59')
+    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+
+    results = _get_total_storage_stats (start_at_0, end_at_23, offset, org_id)
+    results.reverse()
+
+    '''
+    Traverse data from end to start,
+    record the last piece of data in each day.
+    '''
+
+    last_date = None
+    ret = []
+    for result in results:
+        cur_time = result[0]
+        cur_num = result[1]
+        cur_date = datetime.date (cur_time)
+        if cur_date != last_date or last_date == None:
+            ret.append({"timestamp":datetime.strptime(str(cur_date),'%Y-%m-%d'),\
+                        "number" : cur_num})
+            last_date = cur_date
+    ret.reverse()
+
+    return ret
 
 def get_file_ops_stats_by_day(session, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
@@ -122,6 +186,39 @@ def get_file_ops_stats_by_day(session, start, end, offset='+00:00'):
 
     for row in rows:
         ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.number)))
+    return ret
+
+def get_org_file_ops_stats_by_day(org_id, start, end, offset='+00:00'):
+    start_str = start.strftime('%Y-%m-%d 00:00:00')
+    end_str = end.strftime('%Y-%m-%d 23:59:59')
+    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+    ret = []
+
+    try:
+        session = appconfig.session_cls()
+        q = session.query(func.date(func.convert_tz(FileOpsStat.timestamp, '+00:00', offset)).label("timestamp"),
+                          func.sum(FileOpsStat.number).label("number"),
+                          FileOpsStat.op_type)
+        q = q.filter(FileOpsStat.timestamp.between(
+                     func.convert_tz(start_at_0, offset, '+00:00'),
+                     func.convert_tz(end_at_23, offset, '+00:00')),
+                     FileOpsStat.org_id==org_id)
+        q = q.group_by(func.date(func.convert_tz(FileOpsStat.timestamp, '+00:00', offset)),
+                       FileOpsStat.op_type).order_by("timestamp")
+
+        rows = q.all()
+
+        for row in rows:
+            timestamp = datetime.strptime(str(row.timestamp),'%Y-%m-%d')
+            op_type = row.op_type
+            num = long(row.number)
+            ret.append({"timestamp":timestamp, "op_type":op_type, "number":num})
+    except Exception as e:
+        logging.warning('Failed to get org-file operations data: %s.', e)
+    finally:
+        session.close()
+
     return ret
 
 def get_org_user_traffic_by_day(session, org_id, user, start, end, offset='+00:00', op_type='all'):

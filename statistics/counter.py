@@ -6,6 +6,7 @@ from ConfigParser import ConfigParser
 from datetime import timedelta
 from datetime import datetime
 from sqlalchemy import func
+from sqlalchemy.sql import text
 from models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic,\
                    MonthlyUserTraffic, MonthlySysTraffic
 from seafevents.events.models import FileUpdate
@@ -14,16 +15,19 @@ from seafevents.app.config import appconfig
 from seafevents.db import SeafBase
 from db import get_org_id
 
+# This is a throwaway variable to deal with a python bug
+throwaway = datetime.strptime('20110101','%Y%m%d')
+
 login_records = {}
 traffic_info = {}
 
-def update_hash_record(session, login_name, login_time):
+def update_hash_record(session, login_name, login_time, org_id):
     if not appconfig.enable_statistics:
         return
-    time_str = login_time.strftime('%Y-%m-%d 01:01:01')
+    time_str = login_time.strftime('%Y-%m-%d 00:00:00')
     time_by_day = datetime.strptime(time_str,'%Y-%m-%d %H:%M:%S')
     md5_key = hashlib.md5((login_name + time_str).encode('utf-8')).hexdigest()
-    login_records[md5_key] = (login_name, time_by_day)
+    login_records[md5_key] = (login_name, time_by_day, org_id)
 
 def save_traffic_info(session, timestamp, user_name, repo_id, oper, size):
     if not appconfig.enable_statistics:
@@ -57,6 +61,11 @@ class FileOpsCounter(object):
 
         s_timestamp = datetime.strptime(start,'%Y-%m-%d %H:%M:%S')
         e_timestamp = datetime.strptime(end,'%Y-%m-%d %H:%M:%S')
+
+        total_added = total_deleted = total_visited = 0
+        org_added = {}
+        org_deleted = {}
+        org_visited = {}
         try:
             q = self.edb_session.query(FileOpsStat.timestamp).filter(
                                        FileOpsStat.timestamp==s_timestamp)
@@ -64,47 +73,57 @@ class FileOpsCounter(object):
                 self.edb_session.close()
                 return
 
-            q = self.edb_session.query(FileUpdate.timestamp, FileUpdate.file_oper).filter(
+            # Select 'Added', 'Deleted' info from FileUpdate
+            q = self.edb_session.query(FileUpdate.org_id, FileUpdate.timestamp, FileUpdate.file_oper).filter(
                                        FileUpdate.timestamp.between(
                                        s_timestamp, e_timestamp))
-        except Exception as e:
-            self.edb_session.close()
-            logging.warning('query error : %s.', e)
-            return
+            rows = q.all()
+            for row in rows:
+                org_id = row.org_id
+                if 'Added' in row.file_oper:
+                    total_added += 1
+                    if not org_added.has_key(org_id):
+                        org_added[org_id] = 1
+                    else:
+                        org_added[org_id] += 1
+                elif 'Deleted' in row.file_oper or 'Removed' in row.file_oper:
+                    total_deleted += 1
+                    if not org_deleted.has_key(org_id):
+                        org_deleted[org_id] = 1
+                    else:
+                        org_deleted[org_id] += 1
 
-        rows = q.all()
-        for row in rows:
-            if 'Added' in row.file_oper:
-                added += 1
-            elif 'Deleted' in row.file_oper or 'Removed' in row.file_oper:
-                deleted += 1
-        try:
-            q = self.edb_session.query(func.count(FileAudit.eid)).filter(
+            # Select 'Visited' info from FileAudit
+            q = self.edb_session.query(FileAudit.org_id, func.count(FileAudit.eid)).filter(
                                        FileAudit.timestamp.between(
-                                       s_timestamp, e_timestamp))
+                                       s_timestamp, e_timestamp)).group_by(FileAudit.org_id)
+            rows = q.all()
+            for row in rows:
+                org_id = row.org_id
+                total_visited += row.visited
+                if not org_visited.has_key(org_id):
+                    org_visited[org_id] += 1
+                else:
+                    org_visited[org_id] = 1
         except Exception as e:
             self.edb_session.close()
-            logging.warning('query error : %s.', e)
-            return
-    
-        visited = q.first()[0]
-
-        if added==0 and deleted==0 and visited ==0:
-            self.edb_session.close()
+            logging.warning('[FileOpsCounter] query error : %s.', e)
             return
 
-        if added:
-            new_record = FileOpsStat(s_timestamp, 'Added', added)
-            self.edb_session.add(new_record)
-        if deleted:
-            new_record = FileOpsStat(s_timestamp, 'Deleted', deleted)
-            self.edb_session.add(new_record)
-        if visited:
-            new_record = FileOpsStat(s_timestamp, 'Visited', visited)
+        for k, v in org_added.iteritems():
+            new_record = FileOpsStat(k, s_timestamp, 'Added', v)
             self.edb_session.add(new_record)
 
-        logging.info('Finish counting file operations in %s seconds, %d added, %d deleted, %d visited',
-                     str(time.time() - time_start), added, deleted, visited)
+        for k, v in org_deleted.iteritems():
+            new_record = FileOpsStat(k, s_timestamp, 'Deleted', v)
+            self.edb_session.add(new_record)
+
+        for k, v in org_visited.iteritems():
+            new_record = FileOpsStat(k, s_timestamp, 'Visited', v)
+            self.edb_session.add(new_record)
+
+        logging.info('[FileOpsCounter] Finish counting file operations in %s seconds, %d added, %d deleted, %d visited',
+                     str(time.time() - time_start), total_added, total_deleted, total_visited)
 
         self.edb_session.commit()
         self.edb_session.close()
@@ -120,13 +139,24 @@ class TotalStorageCounter(object):
         try:
             RepoSize = SeafBase.classes.RepoSize
             VirtualRepo= SeafBase.classes.VirtualRepo
+            OrgRepo = SeafBase.classes.OrgRepo
 
-            q = self.seafdb_session.query(func.sum(RepoSize.size).label("size")).outerjoin(VirtualRepo,\
-                                          RepoSize.repo_id==VirtualRepo.repo_id).filter(VirtualRepo.repo_id == None)
-            size = q.first()[0]
+            q = self.seafdb_session.query(func.sum(RepoSize.size).label("size"),
+                                          OrgRepo.org_id).outerjoin(VirtualRepo,\
+                                          RepoSize.repo_id==VirtualRepo.repo_id).outerjoin(OrgRepo,\
+                                          RepoSize.repo_id==OrgRepo.repo_id).filter(\
+                                          VirtualRepo.repo_id == None).group_by(OrgRepo.org_id)
+            results = q.all()
         except Exception as e:
             self.seafdb_session.close()
-            logging.warning('Failed to get total storage occupation')
+            self.edb_session.close()
+            logging.warning('[TotalStorageCounter] Failed to get total storage occupation: %s', e)
+            return
+
+        if not results:
+            self.seafdb_session.close()
+            self.edb_session.close()
+            logging.info('[TotalStorageCounter] No results from seafile-db.')
             return
 
         dt = datetime.utcnow()
@@ -134,21 +164,25 @@ class TotalStorageCounter(object):
         timestamp = datetime.strptime(_timestamp,'%Y-%m-%d %H:%M:%S')
 
         try:
-            q = self.edb_session.query(TotalStorageStat).filter(TotalStorageStat.timestamp==timestamp)
-        except Exception as e:
-            self.seafdb_session.close()
-            self.edb_session.close()
-            logging.warning('query error : %s.', e)
+            for result in results:
+                org_id = result.org_id
+                org_size = result.size
+                if not org_id:
+                    org_id = -1
 
-        try:
-            r = q.first()
-            if not r:
-                newrecord = TotalStorageStat(timestamp, size)
-                self.edb_session.add(newrecord)
-                self.edb_session.commit()
-                logging.info('Finish counting total storage in %s seconds.', str(time.time() - time_start))
+                q = self.edb_session.query(TotalStorageStat).filter(\
+                                           TotalStorageStat.org_id==org_id,
+                                           TotalStorageStat.timestamp==timestamp)
+                r = q.first()
+                if not r:
+                    newrecord = TotalStorageStat(org_id, timestamp, org_size)
+                    self.edb_session.add(newrecord)
+
+            self.edb_session.commit()
+            logging.info('[TotalStorageCounter] Finish counting total storage in %s seconds.',\
+                         str(time.time() - time_start))
         except Exception as e:
-            logging.warning('Failed to add record to TotalStorageStat: %s.', e)
+            logging.warning('[TotalStorageCounter] Failed to add record to TotalStorageStat: %s.', e)
 
         self.seafdb_session.close()
         self.edb_session.close()
@@ -201,6 +235,8 @@ class TrafficInfoCounter(object):
             user = row[1]
             oper = row[2]
             size = traffic_info[date_str][row]
+            if size == 0:
+                continue
             if not org_delta.has_key((org_id, oper)):
                 org_delta[(org_id, oper)] = size
             else:
@@ -370,3 +406,51 @@ class MonthlyTrafficCounter(object):
             new_record = MonthlySysTraffic(timestamp, org_id, size_dict)
             self.edb_session.add(new_record)
         self.sys_item_count += 1
+
+class UserActivityCounter(object):
+    def __init__(self):
+        self.edb_session = appconfig.session_cls()
+
+    def start_count(self):
+        logging.info('Start counting user activity info..')
+        ret = 0
+        try:
+            while True:
+                all_keys = login_records.keys()
+                if len(all_keys) > 300:
+                    keys = all_keys[:300]
+                    self.update_login_record(keys)
+                else:
+                    keys = all_keys
+                    self.update_login_record(keys)
+                    break
+            self.edb_session.commit()
+            logging.info("[UserActivityCounter] update %s items." % len(all_keys))
+        except Exception as e:
+            logging.warning('[UserActivityCounter] Failed to update user activity info: %s.', e)
+        finally:
+            self.edb_session.close()
+
+    def update_login_record(self, keys):
+        """ example:
+                cmd: 'REPLACE INTO UserActivityStat values (:key1, :name1, :tim1), (:key2, :name2, :time2)'
+                data: {key1: xxx, name1: xxx, time1: xxx, key2: xxx, name2: xxx, time2: xxx}
+        """
+        l = len(keys)
+        if l <= 0:
+            return
+
+        cmd = "REPLACE INTO UserActivityStat (name_time_md5, username, timestamp, org_id) values"
+        cmd_extend = ''.join([' (:key' + str(i) +', :name'+ str(i) +', :time'+ str(i) + ', :org' + str(i) + '),'\
+                     for i in xrange(l)])[:-1]
+        cmd += cmd_extend
+        data = {}
+        for key in keys:
+            pop_data = login_records.pop(key)
+            i = str(keys.index(key))
+            data['key'+i] = key
+            data['name'+i] = pop_data[0]
+            data['time'+i] = pop_data[1]
+            data['org'+i] = pop_data[2]
+
+        self.edb_session.execute(text(cmd), data)

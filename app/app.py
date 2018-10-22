@@ -14,7 +14,7 @@ from seafevents.events_publisher.events_publisher import events_publisher
 from seafevents.utils.config import get_office_converter_conf
 from seafevents.utils import do_exit, ClientConnector, has_office_tools, get_config
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
-        VirusScanner, Statistics, UpdateLoginRecordTask, CountTrafficInfo
+        VirusScanner, Statistics, CountUserActivity, CountTrafficInfo
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
@@ -49,7 +49,7 @@ class App(object):
             self._bg_tasks = BackgroundTasks(args.config_file)
 
         if appconfig.enable_statistics:
-            self.update_login_record_task = UpdateLoginRecordTask()
+            self.update_login_record_task = CountUserActivity()
             self.count_traffic_task = CountTrafficInfo()
 
         self._ccnet_session = None
