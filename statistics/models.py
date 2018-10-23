@@ -5,25 +5,34 @@ from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Index
 class TotalStorageStat(Base):
     __tablename__ = 'TotalStorageStat'
 
-    timestamp = Column(DateTime, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, nullable=False)
     total_size = Column(BigInteger, nullable=False)
+    org_id = Column(Integer, nullable=False)
 
-    def __init__(self, timestamp, total_size):
+    __table_args__ = (Index('idx_storage_time_org', 'timestamp', 'org_id'), )
+
+    def __init__(self, org_id, timestamp, total_size):
         self.timestamp = timestamp
         self.total_size = total_size
+        self.org_id = org_id
 
 class FileOpsStat(Base):
     __tablename__ = 'FileOpsStat'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, nullable=False, index=True)
+    timestamp = Column(DateTime, nullable=False)
     op_type = Column(String(length=16), nullable=False)
     number = Column(Integer, nullable=False)
+    org_id = Column(Integer, nullable=False)
     
-    def __init__(self, timestamp, op_type, number):
+    __table_args__ = (Index('idx_file_ops_time_org', 'timestamp', 'org_id'), )
+
+    def __init__(self, org_id, timestamp, op_type, number):
         self.timestamp = timestamp
         self.op_type = op_type
         self.number = number
+        self.org_id = org_id
 
 class UserTrafficStat(Base):
     __tablename__ = 'UserTrafficStat'
@@ -60,13 +69,19 @@ file download: %s, dir download: %s>''' % (self.email, self.month, self.block_do
 class UserActivityStat(Base):
     __tablename__ = 'UserActivityStat'
 
-    name_time_md5 = Column(String(length=32), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name_time_md5 = Column(String(length=32), unique=True)
     username = Column(String(length=255))
     timestamp = Column(DateTime, nullable=False, index=True)
+    org_id = Column(Integer, nullable=False)
 
-    def __init__(self, username, timestamp):
+    __table_args__ = (Index('idx_activity_time_org', 'timestamp', 'org_id'), )
+
+    def __init__(self, name_time_md5, org_id, username, timestamp):
+        self.name_time_md5 = name_time_md5
         self.username = username
         self.timestamp = timestamp
+        self.org_id = org_id
 
 class UserTraffic(Base):
     __tablename__ = 'UserTraffic'
