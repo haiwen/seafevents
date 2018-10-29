@@ -6,15 +6,17 @@ import stat
 import logging
 import logging.handlers
 import datetime
+from datetime import timedelta
 from os.path import splitext
 
 from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
 from seafobj.commit_differ import DiffEntry
 from seafevents.events.db import save_file_audit_event, save_file_update_event, \
-        save_perm_audit_event, save_user_activity, save_filehistory
+        save_perm_audit_event, save_user_activity, save_filehistory, update_user_activity_timestamp
 from seafevents.app.config import appconfig
 from change_file_path import ChangeFilePathHandler
+from .models import Activity
 
 changer = ChangeFilePathHandler()
 
@@ -109,7 +111,23 @@ def save_repo_rename_activity(session, commit, repo_id, parent, org_id, related_
     save_user_activity(session, record)
 
 def save_user_activities(session, records):
-    if isinstance(records, list):
+    # If a file was edited many times by same user in 30 minutes, just update timestamp.
+    if len(records) == 1 and records[0]['op_type'] == 'edit':
+        record = records[0]
+        _timestamp = record['timestamp'] - timedelta(minutes=30)
+        q = session.query(Activity)
+        q = q.filter(Activity.repo_id==record['repo_id'],
+                     Activity.op_type==record['op_type'],
+                     Activity.op_user==record['op_user'],
+                     Activity.path==record['path'],
+                     Activity.timestamp > _timestamp)
+        row = q.first()
+        if row:
+            activity_id = row.id
+            update_user_activity_timestamp(session, activity_id, record)
+        else:
+            save_user_activity(session, record)
+    else:
         for record in records:
             save_user_activity(session, record)
 
