@@ -25,60 +25,60 @@ def print_search_result(records):
     else:
         logging.debug('No record found.')
 
-def search_login_attr(settings, config, ldap_conn):
-    logging.debug('Try to search login attribute [%s].' % settings.login_attr)
+def search_login_attr(config, ldap_conn):
+    logging.debug('Try to search login attribute [%s].' % config.login_attr)
     if config.user_filter != '':
         logging.debug('Using filter [%s].' % config.user_filter)
-        search_filter = '(&(%s=*)(%s))' % (settings.login_attr, config.user_filter)
+        search_filter = '(&(%s=*)(%s))' % (config.login_attr, config.user_filter)
     else:
-        search_filter = '(%s=*)' % settings.login_attr
+        search_filter = '(%s=*)' % config.login_attr
 
     base_dns = config.base_dn.split(';')
     for base_dn in base_dns:
         if base_dn == '':
             continue
-        if settings.use_page_result:
+        if config.use_page_result:
             logging.debug('Search paged result from dn [%s], and try to print ten records:' %  base_dn)
             users = ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
                                            search_filter,
-                                           [settings.login_attr])
+                                           [config.login_attr])
         else:
             logging.debug('Search result from dn [%s], and try to print ten records:' %  base_dn)
             users = ldap_conn.search(base_dn, SCOPE_SUBTREE,
                                      search_filter,
-                                     [settings.login_attr])
+                                     [config.login_attr])
         if users is None:
             logging.debug('Search failed, please check whether dn [%s] is valid.' % base_dn)
             continue
 
         print_search_result(users)
 
-def search_group(settings, config, ldap_conn):
+def search_group(config, ldap_conn):
     logging.debug('LDAP group sync is enabled, '
                   'try to search groups using group object class [%s].',
-                  settings.group_object_class)
+                  config.group_object_class)
 
     if config.group_filter != '':
         logging.debug('Using filter [%s].' % config.group_filter)
         search_filter = '(&(objectClass=%s)(%s))' % \
-                (settings.group_object_class,
+                (config.group_object_class,
                  config.group_filter)
     else:
-        search_filter = '(objectClass=%s)' % settings.group_object_class
+        search_filter = '(objectClass=%s)' % config.group_object_class
 
     base_dns = config.base_dn.split(';')
     for base_dn in base_dns:
         if base_dn == '':
             continue
 
-        if settings.use_page_result:
+        if config.use_page_result:
             logging.debug('Search paged result from dn [%s], and try to print ten records:' %  base_dn)
             groups = ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
-                                            search_filter, ['cn', settings.group_member_attr])
+                                            search_filter, ['cn', config.group_member_attr])
         else:
             logging.debug('Search result from dn [%s], and try to print ten records:' %  base_dn)
             groups = ldap_conn.search(base_dn, SCOPE_SUBTREE,
-                                      search_filter, ['cn', settings.group_member_attr])
+                                      search_filter, ['cn', config.group_member_attr])
 
         if groups is None:
             logging.debug('Search failed, please check whether dn [%s] is valid.' % base_dn)
@@ -89,17 +89,17 @@ def search_group(settings, config, ldap_conn):
 def test_ldap(settings):
     for config in settings.ldap_configs:
         logging.debug('Try to connect ldap server %s.', config.host)
-        ldap_conn = LdapConn(config.host, config.user_dn, config.passwd, settings.follow_referrals)
+        ldap_conn = LdapConn(config.host, config.user_dn, config.passwd, config.follow_referrals)
         ldap_conn.create_conn()
         if ldap_conn.conn is None:
             continue
         logging.debug('Connect ldap server [%s] success with user_dn [%s] password [*****].' %
                       (config.host, config.user_dn))
 
-        search_login_attr(settings, config, ldap_conn)
+        search_login_attr(config, ldap_conn)
 
-        if settings.enable_group_sync:
-            search_group(settings, config, ldap_conn)
+        if config.enable_group_sync:
+            search_group(config, ldap_conn)
 
         ldap_conn.unbind_conn()
         logging.debug('')
@@ -108,7 +108,6 @@ def run_ldap_sync(settings):
     if not settings.enable_sync():
         logging.debug('Both user and group sync are disabled, stop ldap sync.')
         return
-
     if settings.enable_group_sync:
         LdapGroupSync(settings).start()
 
@@ -129,11 +128,11 @@ if __name__ == '__main__':
 
     load_env_config()
 
-    setting = Settings(True if arg.test else False)
-    if not setting.has_base_info:
+    settings = Settings(True if arg.test else False)
+    if not settings.has_base_info:
         sys.exit()
 
     if arg.test:
-        test_ldap(setting)
+        test_ldap(settings)
     else:
-        run_ldap_sync(setting)
+        run_ldap_sync(settings)
