@@ -126,13 +126,19 @@ def not_include_all_keys(record, keys):
     return any(record.get(k, None) is None for k in keys)
 
 def save_user_activity(session, record):
-
     activity = Activity(record)
     session.add(activity)
     session.commit()
     for username in record['related_users']:
         user_activity = UserActivity(username, activity.id, record['timestamp'])
         session.add(user_activity)
+    session.commit()
+
+def update_user_activity_timestamp(session, activity_id, record):
+    q = session.query(Activity).filter(Activity.id==activity_id)
+    q = q.update({"timestamp": record["timestamp"]})
+    q = session.query(UserActivity).filter(UserActivity.activity_id==activity_id)
+    q = q.update({"timestamp": record["timestamp"]})
     session.commit()
 
 def query_prev_record(session, record):
