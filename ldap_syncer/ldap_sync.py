@@ -42,6 +42,7 @@ class LdapSync(Thread):
             for key in cur_ret.iterkeys():
                 if not ret.has_key(key):
                     ret[key] = cur_ret[key]
+                    ret[key].config = config
 
         return ret
 
