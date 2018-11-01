@@ -99,12 +99,12 @@ class FileOpsCounter(object):
                                        s_timestamp, e_timestamp)).group_by(FileAudit.org_id)
             rows = q.all()
             for row in rows:
-                org_id = row.org_id
-                total_visited += row.visited
+                org_id = row[0]
+                total_visited += row[1]
                 if not org_visited.has_key(org_id):
-                    org_visited[org_id] += 1
-                else:
                     org_visited[org_id] = 1
+                else:
+                    org_visited[org_id] += 1
         except Exception as e:
             self.edb_session.close()
             logging.warning('[FileOpsCounter] query error : %s.', e)
