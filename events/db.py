@@ -10,6 +10,8 @@ from sqlalchemy.sql import exists
 from .models import Event, UserEvent, FileAudit, FileUpdate, PermAudit, \
         Activity, UserActivity, FileHistory
 
+from seafevents.app.config import appconfig
+
 logger = logging.getLogger('seafevents')
 
 class UserEventDetail(object):
@@ -301,3 +303,26 @@ def get_event_log_by_time(session, log_type, tstart, tend):
     q = q.filter(obj.timestamp.between(datetime.datetime.utcfromtimestamp(tstart),
                                        datetime.datetime.utcfromtimestamp(tend)))
     return q.all()
+
+# If a file was moved or renamed, find the new file by old path.
+def get_new_file_path(repo_id, old_path):
+    ret = None
+    repo_id_path_md5 = hashlib.md5((repo_id + old_path).encode('utf8')).hexdigest()
+    try:
+        session = appconfig.session_cls()
+        q = session.query(FileHistory.file_uuid).filter(FileHistory.repo_id_path_md5==repo_id_path_md5)
+        q = q.order_by(desc(FileHistory.timestamp))
+        file_uuid = q.first()[0]
+        if not file_uuid:
+            session.close()
+            return None
+
+        q = session.query(FileHistory.path).filter(FileHistory.file_uuid==file_uuid)
+        q = q.order_by(desc(FileHistory.timestamp))
+        ret = q.first()[0]
+    except Exception as e:
+        logging.warning('Failed to get new file path for %.8s:%s: %s.', repo_id, old_path, e)
+    finally:
+        session.close()
+
+    return ret
