@@ -46,6 +46,9 @@ class UserActivityDetail(object):
         for key in dt:
             self.__dict__[key] = dt[key]
 
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
 # org_id > 0 --> get org events
 # org_id < 0 --> get non-org events
 # org_id = 0 --> get all events
@@ -103,6 +106,25 @@ def _get_user_activities(session, username, start, limit):
 
 def get_user_activities(session, username, start, limit):
     return _get_user_activities(session, username, start, limit)
+
+def _get_user_activities_by_timestamp(username, start, end):
+    events = []
+    try:
+        session = appconfig.session_cls()
+        q = session.query(Activity).filter(UserActivity.username == username,
+                                           UserActivity.timestamp.between(start, end))
+        q = q.filter(UserActivity.activity_id == Activity.id)
+
+        events = q.order_by(UserActivity.timestamp).all()
+    except Exception as e:
+        logging.warning('Failed to get activities of %s: %s.', username, e)
+    finally:
+        session.close()
+
+    return [ UserActivityDetail(ev, username=username) for ev in events ]
+
+def get_user_activities_by_timestamp(username, start, end):
+    return _get_user_activities_by_timestamp(username, start, end)
 
 def get_file_history(session, repo_id, path, start, limit):
     repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
