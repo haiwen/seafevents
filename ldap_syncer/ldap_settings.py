@@ -36,8 +36,10 @@ class LdapConfig(object):
         self.group_object_class = None
         self.group_member_attr = None
         self.user_attr_in_memberUid = None
-        self.import_group_structure = False
-        self.create_group_repo = False
+
+        self.create_department_library = False
+        self.sync_department_from_ou = False
+        self.default_department_quota = -2
 
 class Settings(object):
     def __init__(self, is_test=False):
@@ -48,6 +50,7 @@ class Settings(object):
         # Common configs which only take effect at [LDAP_SYNC] section.
         self.sync_interval = 0
         self.del_group_if_not_found = False
+        self.del_department_if_not_found = False
         self.enable_deactive_user = False
         self.activate_user = True
         self.import_new_user = True
@@ -107,6 +110,7 @@ class Settings(object):
     def read_common_config(self, is_test):
         self.sync_interval = self.get_option('LDAP_SYNC', 'SYNC_INTERVAL', int, 60)
         self.del_group_if_not_found = self.get_option('LDAP_SYNC', 'DEL_GROUP_IF_NOT_FOUND', bool, False)
+        self.del_department_if_not_found = self.get_option('LDAP_SYNC', 'DEL_DEPARTMENT_IF_NOT_FOUND', bool, False)
         self.enable_deactive_user = self.get_option('LDAP_SYNC', 'DEACTIVE_USER_IF_NOTFOUND', bool, False)
         self.activate_user = self.get_option('LDAP_SYNC', 'ACTIVATE_USER_WHEN_IMPORT', bool, True)
         self.import_new_user = self.get_option('LDAP_SYNC', 'IMPORT_NEW_USER', bool, True)
@@ -178,11 +182,17 @@ class Settings(object):
         ldap_config.group_member_attr = self.get_option(sync_sec,
                                                  'GROUP_MEMBER_ATTR',
                                                  dval='member')
-        ldap_config.import_group_structure = self.get_option(sync_sec, 'IMPORT_GROUP_STRUCTURE', bool, False)
-        ldap_config.create_group_repo = self.get_option(sync_sec, 'CREATE_GROUP_REPO', bool, False)
         ldap_config.user_object_class = self.get_option(sync_sec, 'USER_OBJECT_CLASS',
                                                  dval='person')
-
+        ldap_config.sync_department_from_ou = self.get_option(sync_sec,
+                                                       'SYNC_DEPARTMENT_FROM_OU',
+                                                       bool, False)
+        ldap_config.create_department_library = self.get_option(sync_sec,
+                                                         'CREATE_DEPARTMENT_LIBRARY',
+                                                         bool, False)
+        ldap_config.default_department_quota = self.get_option(sync_sec,
+                                                        'DEFAULT_DEPARTMENT_QUOTA',
+                                                        int, -2)
         '''
         posix groups store members in atrribute 'memberUid', however, the value of memberUid may be not a 'uid',
         so we make it configurable, default value is 'uid'.
