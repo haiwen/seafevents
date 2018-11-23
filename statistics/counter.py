@@ -195,8 +195,10 @@ class TrafficInfoCounter(object):
         # Calculate each org traffic into org_delta, then update SysTraffic.
         org_delta = {}
 
+        trans_count = 0
         # Update UserTraffic
         for row in traffic_info[date_str]:
+            trans_count += 1
             org_id = row[0]
             user = row[1]
             oper = row[2]
@@ -225,6 +227,11 @@ class TrafficInfoCounter(object):
                     self.edb_session.add(new_record)
 
                 traffic_info[date_str][row] -= size
+
+                # commit every 100 items.
+                if trans_count >= 100:
+                    self.edb_session.commit()
+                    trans_count = 0
             except Exception as e:
                 logging.warning('Failed to update traffic info: %s.', e)
                 return
@@ -290,8 +297,10 @@ class MonthlyTrafficCounter(object):
 
             org_size_dict = {}
 
+            trans_count = 0
             # Update MonthlyUserTraffic.
             for result in results:
+                trans_count += 1
                 user = result.user
                 org_id = result.org_id
                 size = result.size
@@ -318,6 +327,11 @@ class MonthlyTrafficCounter(object):
                     org_size_dict[org_id][oper] = size
                 else:
                     org_size_dict[org_id][oper] += size
+
+                # commit every 100 items.
+                if trans_count >= 100:
+                    self.edb_session.commit()
+                    trans_count = 0
 
             # The above loop would miss a user, update it
             if user_size_dict.has_key(cur_key):
