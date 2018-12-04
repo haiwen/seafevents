@@ -394,13 +394,14 @@ class LdapGroupSync(LdapSync):
                               (group_id, k, group_id))
                 self.agroup += 1
                 v.group_id = group_id
-                if v.is_department and v.config.create_department_library:
+                if v.is_department:
                     ret = seafile_api.set_group_quota(group_id, v.config.default_department_quota * 1000000)
                     if ret < 0:
                         logger.warning('Failed to set group [%s] quota.' % v.cn)
-                    ret = seafile_api.add_group_owned_repo(group_id, v.cn, None, 'rw')
-                    if not ret:
-                        logger.warning('Failed to create group owned repo for %s.' % v.cn)
+                    if v.config.create_department_library:
+                        ret = seafile_api.add_group_owned_repo(group_id, v.cn, None, 'rw')
+                        if not ret:
+                            logger.warning('Failed to create group owned repo for %s.' % v.cn)
 
                 for member in v.members:
                     ret = group_add_member(group_id, super_user, member)
