@@ -395,7 +395,9 @@ class LdapGroupSync(LdapSync):
                 self.agroup += 1
                 v.group_id = group_id
                 if v.is_department:
-                    ret = seafile_api.set_group_quota(group_id, v.config.default_department_quota * 1000000)
+                    if v.config.default_department_quota > 0:
+                        v.config.default_department_quota = v.config.default_department_quota * 1000000
+                    ret = seafile_api.set_group_quota(group_id, v.config.default_department_quota)
                     if ret < 0:
                         logger.warning('Failed to set group [%s] quota.' % v.cn)
                     if v.config.create_department_library:
