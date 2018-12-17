@@ -35,7 +35,7 @@ class AppArgParser(object):
 
         self._parser.add_argument(
             '--loglevel',
-            default='debug',
+            default='info',
         )
 
         self._parser.add_argument(
