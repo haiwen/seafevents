@@ -76,12 +76,11 @@ def RepoUpdateEventHandler(session, msg):
             if added_files or deleted_files or added_dirs or deleted_dirs or \
                     modified_files or renamed_files or moved_files or renamed_dirs or moved_dirs:
 
-                records = generate_filehistory_records(added_files, deleted_files,
-                        added_dirs, deleted_dirs, modified_files, renamed_files,
-                        moved_files, renamed_dirs, moved_dirs, commit, repo_id,
-                        parent, time)
-
                 if appconfig.fh.enabled:
+                    records = generate_filehistory_records(added_files, deleted_files,
+                                    added_dirs, deleted_dirs, modified_files, renamed_files,
+                                    moved_files, renamed_dirs, moved_dirs, commit, repo_id,
+                                    parent, time)
                     save_file_histories(session, records)
 
                 records = generate_activity_records(added_files, deleted_files,

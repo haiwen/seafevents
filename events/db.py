@@ -2,6 +2,7 @@ import json
 import uuid
 import logging
 import datetime
+from datetime import timedelta
 import hashlib
 
 from sqlalchemy import desc
@@ -165,6 +166,14 @@ def update_user_activity_timestamp(session, activity_id, record):
     q = q.update({"timestamp": record["timestamp"]})
     session.commit()
 
+def update_file_history_record(session, history_id, record):
+    q = session.query(FileHistory).filter(FileHistory.id==history_id)
+    q = q.update({"timestamp": record["timestamp"],
+                  "file_id": record["obj_id"],
+                  "commit_id": record["commit_id"],
+                  "size": record["size"]})
+    session.commit()
+
 def query_prev_record(session, record):
     if record['op_type'] == 'create':
         return None
@@ -188,6 +197,15 @@ def save_filehistory(session, record):
     # use same file_uuid if prev item already exists, otherwise new one
     prev_item = query_prev_record(session, record)
     if prev_item:
+        # If a file was edited many times in 10 minutes, just update timestamp.
+        dt = datetime.datetime.utcnow()
+        delta = timedelta(minutes=10)
+        if record['op_type'] == 'edit' and prev_item.op_type == 'edit' \
+                                       and prev_item.op_user == record['op_user'] \
+                                       and prev_item.timestamp > dt - delta:
+            update_file_history_record(session, prev_item.id, record)
+            return
+
         if record['path'] != prev_item.path and record['op_type'] == 'recover':
             pass
         else:
