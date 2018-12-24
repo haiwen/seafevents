@@ -6,6 +6,8 @@ import stat
 import logging
 import logging.handlers
 import datetime
+import httplib
+import urllib2
 from datetime import timedelta
 from os.path import splitext
 
@@ -92,6 +94,18 @@ def RepoUpdateEventHandler(session, msg):
                 save_user_activities(session, records)
             else:
                 save_repo_rename_activity(session, commit, repo_id, parent, org_id, users, time)
+
+            if appconfig.enable_collab_server:
+                send_message_to_collab_server(repo_id)
+
+def send_message_to_collab_server(repo_id):
+    url = '%s/api/repo-update' % appconfig.collab_server
+    form_data = 'repo_id=%s&key=%s' % (repo_id, appconfig.collab_key)
+    req = urllib2.Request(url, form_data)
+    resp = urllib2.urlopen(req)
+    ret_code = resp.getcode()
+    if ret_code != httplib.OK:
+        logging.warning('Failed to send message to collab_server %s', appconfig.collab_server)
 
 def save_repo_rename_activity(session, commit, repo_id, parent, org_id, related_users, time):
     repo = seafile_api.get_repo(repo_id)
