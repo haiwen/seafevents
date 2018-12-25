@@ -91,16 +91,17 @@ def _get_total_storage_stats(start, end, offset='+00:00', org_id=0):
     try:
         session = appconfig.session_cls()
         q = session.query(func.convert_tz(TotalStorageStat.timestamp, '+00:00', offset).label("timestamp"),
-                          TotalStorageStat.total_size)
+                          func.sum(TotalStorageStat.total_size).label("total_size"))
         if org_id == 0:
             q = q.filter(TotalStorageStat.timestamp.between(
                          func.convert_tz(start, offset, '+00:00'),
-                         func.convert_tz(end, offset, '+00:00'))).order_by("timestamp")
+                         func.convert_tz(end, offset, '+00:00')))
         else:
             q = q.filter(TotalStorageStat.timestamp.between(
                          func.convert_tz(start, offset, '+00:00'),
                          func.convert_tz(end, offset, '+00:00')),
-                         TotalStorageStat.org_id==org_id).order_by("timestamp")
+                         TotalStorageStat.org_id==org_id)
+        q = q.group_by("timestamp").order_by("timestamp")
         rows = q.all()
 
         for row in rows:
