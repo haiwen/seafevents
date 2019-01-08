@@ -167,19 +167,20 @@ class TrafficInfoCounter(object):
         yesterday_str = yesterday.strftime('%Y-%m-%d')
         today = dt.date()
         today_str = today.strftime('%Y-%m-%d')
+        local_traffic_info = traffic_info.copy()
+        traffic_info.clear()
 
-        if traffic_info.has_key(yesterday_str):
+        if local_traffic_info.has_key(yesterday_str):
             s_time = time.time()
-            self.update_record(yesterday, yesterday_str)
+            self.update_record(local_traffic_info, yesterday, yesterday_str)
             logging.info('Traffic Counter: %d items has been recorded on %s, time: %s seconds.' %\
-                        (len(traffic_info[yesterday_str]), yesterday_str, str(time.time() - s_time)))
-            del traffic_info[yesterday_str]
+                        (len(local_traffic_info[yesterday_str]), yesterday_str, str(time.time() - s_time)))
 
-        if traffic_info.has_key(today_str):
+        if local_traffic_info.has_key(today_str):
             s_time = time.time()
-            self.update_record(today, today_str)
+            self.update_record(local_traffic_info, today, today_str)
             logging.info('Traffic Counter: %d items has been updated on %s, time: %s seconds.' %\
-                        (len(traffic_info[today_str]), today_str, str(time.time() - s_time)))
+                        (len(local_traffic_info[today_str]), today_str, str(time.time() - s_time)))
 
         try:
             self.edb_session.commit()
@@ -189,20 +190,21 @@ class TrafficInfoCounter(object):
             logging.info('Traffic counter finished, total time: %s seconds.' %\
                         (str(time.time() - time_start)))
             self.edb_session.close()
+            del local_traffic_info
 
-    def update_record(self, date, date_str):
+    def update_record(self, local_traffic_info, date, date_str):
         # org_delta format: org_delta[(org_id, oper)] = size
         # Calculate each org traffic into org_delta, then update SysTraffic.
         org_delta = {}
 
         trans_count = 0
         # Update UserTraffic
-        for row in traffic_info[date_str]:
+        for row in local_traffic_info[date_str]:
             trans_count += 1
             org_id = row[0]
             user = row[1]
             oper = row[2]
-            size = traffic_info[date_str][row]
+            size = local_traffic_info[date_str][row]
             if not org_delta.has_key((org_id, oper)):
                 org_delta[(org_id, oper)] = size
             else:
@@ -225,8 +227,6 @@ class TrafficInfoCounter(object):
                 else:
                     new_record = UserTraffic(user, date, oper, size, org_id)
                     self.edb_session.add(new_record)
-
-                traffic_info[date_str][row] -= size
 
                 # commit every 100 items.
                 if trans_count >= 100:
