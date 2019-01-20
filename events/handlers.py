@@ -453,6 +453,30 @@ def PermAuditEventHandler(session, msg):
     save_perm_audit_event(session, timestamp, etype, from_user, to,
                           org_id, repo_id, file_path, perm)
 
+
+def ReviewStatusEventHandler(session, msg):
+
+    elements = msg.body.split('\t')
+    if len(elements) != 8:
+        logging.warning("got bad message: %s", elements)
+        return
+
+    record = dict()
+    record["timestamp"] = datetime.datetime.utcfromtimestamp(msg.ctime)
+    record["repo_id"] = elements[1]
+    repo = seafile_api.get_repo(elements[1])
+    record["repo_name"] = repo.name if repo else None
+    record["op_type"] = elements[0]
+    record["op_user"] = elements[2]
+    record["obj_type"] = elements[3].decode('utf-8')
+    record["path"] = elements[4].decode('utf-8')
+    record["review_id"] = elements[5]
+    record["old_path"] = elements[6]
+    record["related_users"] = [elements[7]]
+
+    save_user_activity(session, record)
+
+
 def register_handlers(handlers, enable_audit):
     handlers.add_handler('seaf_server.event:repo-update', RepoUpdateEventHandler)
     if enable_audit:
@@ -465,3 +489,6 @@ def register_handlers(handlers, enable_audit):
         handlers.add_handler('seahub.audit:file-download-api', FileAuditEventHandler)
         handlers.add_handler('seahub.audit:file-download-share-link', FileAuditEventHandler)
         handlers.add_handler('seahub.audit:perm-change', PermAuditEventHandler)
+        handlers.add_handler('seahub.review:open', ReviewStatusEventHandler)
+        handlers.add_handler('seahub.review:finished', ReviewStatusEventHandler)
+        handlers.add_handler('seahub.review:closed', ReviewStatusEventHandler)
