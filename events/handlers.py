@@ -472,7 +472,7 @@ def ReviewStatusEventHandler(session, msg):
     record["path"] = elements[4].decode('utf-8')
     record["review_id"] = elements[5]
     record["old_path"] = elements[6]
-    record["related_users"] = [elements[7]]
+    record["related_users"] = [elements[2], elements[7]]
 
     save_user_activity(session, record)
 
