@@ -9,6 +9,7 @@ import datetime
 from datetime import timedelta
 from os.path import splitext
 
+import seaserv
 from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
 from seafobj.commit_differ import DiffEntry
@@ -472,7 +473,7 @@ def ReviewStatusEventHandler(session, msg):
     record["path"] = elements[4].decode('utf-8')
     record["review_id"] = elements[5]
     record["old_path"] = elements[6]
-    record["related_users"] = [elements[2], elements[7]]
+    record["related_users"] = seaserv.get_related_users_by_repo(elements[1])
 
     save_user_activity(session, record)
 
