@@ -472,7 +472,22 @@ def ReviewStatusEventHandler(session, msg):
     record["path"] = elements[4].decode('utf-8')
     record["review_id"] = elements[5]
     record["old_path"] = elements[6]
-    record["related_users"] = [elements[7]]
+
+    users = []
+    org_id = get_org_id_by_repo_id(elements[1])
+    if org_id > 0:
+        users = seafile_api.org_get_shared_users_by_repo(org_id, elements[1])
+        owner = seafile_api.get_org_repo_owner(elements[1])
+    else:
+        users = seafile_api.get_shared_users_by_repo(elements[1])
+        owner = seafile_api.get_repo_owner(elements[1])
+
+    if owner not in users:
+        users = users + [owner]
+    if not users:
+        return
+
+    record["related_users"] = users
 
     save_user_activity(session, record)
 
