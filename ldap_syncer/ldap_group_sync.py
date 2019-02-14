@@ -151,7 +151,7 @@ class LdapGroupSync(LdapSync):
         # group member
         if attrs.has_key(config.group_member_attr):
             if grp_data.has_key(dn):
-                return None
+                return grp_data[dn].members
             for member in attrs[config.group_member_attr]:
                 mails = self.get_group_member_from_ldap(config, ldap_conn, member, grp_data, sort_list, base_dn)
                 if not mails:
