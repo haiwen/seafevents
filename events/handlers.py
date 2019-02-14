@@ -128,6 +128,8 @@ def save_user_activities(session, records):
             save_user_activity(session, record)
     else:
         for record in records:
+            if os.path.dirname(record['path']) == '/images/auto-upload':
+                continue
             save_user_activity(session, record)
 
 def generate_activity_records(added_files, deleted_files, added_dirs,
