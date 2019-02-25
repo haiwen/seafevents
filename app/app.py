@@ -14,7 +14,7 @@ from seafevents.events_publisher.events_publisher import events_publisher
 from seafevents.utils.config import get_office_converter_conf
 from seafevents.utils import do_exit, ClientConnector, has_office_tools, get_config
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
-        VirusScanner, Statistics, CountUserActivity, CountTrafficInfo
+        VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
@@ -128,6 +128,7 @@ class BackgroundTasks(object):
         self._ldap_syncer = LdapSyncer()
         self._virus_scanner = VirusScanner(os.environ['EVENTS_CONFIG_FILE'])
         self._statistics = Statistics()
+        self._content_scanner = ContentScanner(config_file)
 
         self._office_converter = None
         if has_office_tools():
@@ -171,6 +172,11 @@ class BackgroundTasks(object):
             self._statistics.start()
         else:
             logging.info('data statistics is disabled')
+
+        if self._content_scanner.is_enabled():
+            self._content_scanner.start(base)
+        else:
+            logging.info('content scan is disabled')
 
         if self._office_converter and self._office_converter.is_enabled():
             self._office_converter.start()
