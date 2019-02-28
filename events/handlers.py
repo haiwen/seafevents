@@ -18,8 +18,6 @@ from seafevents.app.config import appconfig
 from change_file_path import ChangeFilePathHandler
 from .models import Activity
 
-changer = ChangeFilePathHandler()
-
 def RepoUpdateEventHandler(session, msg):
     elements = msg.body.split('\t')
     if len(elements) != 3:
@@ -49,6 +47,7 @@ def RepoUpdateEventHandler(session, msg):
                     renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff_to_unicode()
 
             if renamed_files or renamed_dirs or moved_files or moved_dirs:
+                changer = ChangeFilePathHandler()
                 for r_file in renamed_files:
                     changer.update_db_records(repo_id, r_file.path, r_file.new_path, 0)
                 for r_dir in renamed_dirs:
@@ -57,6 +56,7 @@ def RepoUpdateEventHandler(session, msg):
                     changer.update_db_records(repo_id, m_file.path, m_file.new_path, 0)
                 for m_dir in moved_dirs:
                     changer.update_db_records(repo_id, m_dir.path, m_dir.new_path, 1)
+                changer.close_session()
 
             users = []
             org_id = get_org_id_by_repo_id(repo_id)
