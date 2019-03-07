@@ -41,6 +41,7 @@ def load_config(config_file):
     load_publish_config(config)
     load_statistics_config(config)
     load_file_history_config(config)
+    load_collab_server_config(config)
 
 @exception_catch('env')
 def load_env_config():
@@ -111,3 +112,13 @@ def load_file_history_config(config):
         logging.info('The file with the following suffix will be recorded into the file history: %s' % suffix)
     else:
         logging.info('Disenabled File History Features.')
+
+@exception_catch('collab server')
+def load_collab_server_config(config):
+    appconfig.enable_collab_server = False
+    if not config.has_option('COLLAB_SERVER', 'enabled'):
+        return
+    appconfig.enable_collab_server = config.getboolean('COLLAB_SERVER', 'enabled')
+    if appconfig.enable_collab_server:
+        appconfig.collab_server = config.get('COLLAB_SERVER', 'server_url')
+        appconfig.collab_key = config.get('COLLAB_SERVER', 'key')
