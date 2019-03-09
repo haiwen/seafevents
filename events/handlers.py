@@ -470,44 +470,6 @@ def PermAuditEventHandler(session, msg):
                           org_id, repo_id, file_path, perm)
 
 
-def ReviewStatusEventHandler(session, msg):
-
-    elements = msg.body.split('\t')
-    if len(elements) != 8:
-        logging.warning("got bad message: %s", elements)
-        return
-
-    record = dict()
-    record["timestamp"] = datetime.datetime.utcfromtimestamp(msg.ctime)
-    record["repo_id"] = elements[1]
-    repo = seafile_api.get_repo(elements[1])
-    record["repo_name"] = repo.name if repo else None
-    record["op_type"] = elements[0]
-    record["op_user"] = elements[2]
-    record["obj_type"] = elements[3].decode('utf-8')
-    record["path"] = elements[4].decode('utf-8')
-    record["review_id"] = elements[5]
-    record["old_path"] = elements[6]
-
-    users = []
-    org_id = get_org_id_by_repo_id(elements[1])
-    if org_id > 0:
-        users = seafile_api.org_get_shared_users_by_repo(org_id, elements[1])
-        owner = seafile_api.get_org_repo_owner(elements[1])
-    else:
-        users = seafile_api.get_shared_users_by_repo(elements[1])
-        owner = seafile_api.get_repo_owner(elements[1])
-
-    if owner not in users:
-        users = users + [owner]
-    if not users:
-        return
-
-    record["related_users"] = users
-
-    save_user_activity(session, record)
-
-
 def register_handlers(handlers, enable_audit):
     handlers.add_handler('seaf_server.event:repo-update', RepoUpdateEventHandler)
     if enable_audit:
@@ -520,6 +482,3 @@ def register_handlers(handlers, enable_audit):
         handlers.add_handler('seahub.audit:file-download-api', FileAuditEventHandler)
         handlers.add_handler('seahub.audit:file-download-share-link', FileAuditEventHandler)
         handlers.add_handler('seahub.audit:perm-change', PermAuditEventHandler)
-        handlers.add_handler('seahub.review:open', ReviewStatusEventHandler)
-        handlers.add_handler('seahub.review:finished', ReviewStatusEventHandler)
-        handlers.add_handler('seahub.review:closed', ReviewStatusEventHandler)
