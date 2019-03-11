@@ -470,6 +470,43 @@ def PermAuditEventHandler(session, msg):
                           org_id, repo_id, file_path, perm)
 
 
+def DraftPublishEventHandler(session, msg):
+
+    elements = msg.body.split('\t')
+    if len(elements) != 6:
+        logging.warning("got bad message: %s", elements)
+        return
+
+    record = dict()
+    record["timestamp"] = datetime.datetime.utcfromtimestamp(msg.ctime)
+    record["op_type"] = elements[0]
+    record["obj_type"] = elements[1]
+    record["repo_id"] = elements[2]
+    repo = seafile_api.get_repo(elements[2])
+    record["repo_name"] = repo.name if repo else ''
+    record["op_user"] = elements[3]
+    record["path"] = elements[4].decode('utf-8')
+    record["old_path"] = elements[5].decode('utf-8')
+
+    users = []
+    org_id = get_org_id_by_repo_id(elements[2])
+    if org_id > 0:
+        users.extend(seafile_api.org_get_shared_users_by_repo(org_id, elements[2]))
+        owner = seafile_api.get_org_repo_owner(elements[2])
+    else:
+        users.extend(seafile_api.get_shared_users_by_repo(elements[2]))
+        owner = seafile_api.get_repo_owner(elements[2])
+
+    if owner not in users:
+        users = users + [owner]
+    if not users:
+        return
+
+    record["related_users"] = users
+
+    save_user_activity(session, record)
+
+
 def register_handlers(handlers, enable_audit):
     handlers.add_handler('seaf_server.event:repo-update', RepoUpdateEventHandler)
     if enable_audit:
@@ -482,3 +519,4 @@ def register_handlers(handlers, enable_audit):
         handlers.add_handler('seahub.audit:file-download-api', FileAuditEventHandler)
         handlers.add_handler('seahub.audit:file-download-share-link', FileAuditEventHandler)
         handlers.add_handler('seahub.audit:perm-change', PermAuditEventHandler)
+        handlers.add_handler('seahub.draft:publish', DraftPublishEventHandler)
