@@ -6,6 +6,7 @@ from .statistics.db import get_file_ops_stats_by_day, get_user_activity_stats_by
      get_org_storage_stats_by_day, get_org_file_ops_stats_by_day, get_org_user_activity_stats_by_day
 
 from .events.db import get_new_file_path, get_user_activities_by_timestamp
+from .content_scanner.db import get_content_scan_results
 
 def init(config_file):
     if not appconfig.get('session_cls'):
