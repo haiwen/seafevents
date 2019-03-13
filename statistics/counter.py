@@ -62,10 +62,11 @@ class FileOpsCounter(object):
         s_timestamp = datetime.strptime(start,'%Y-%m-%d %H:%M:%S')
         e_timestamp = datetime.strptime(end,'%Y-%m-%d %H:%M:%S')
 
-        total_added = total_deleted = total_visited = 0
+        total_added = total_deleted = total_visited = total_modified = 0
         org_added = {}
         org_deleted = {}
         org_visited = {}
+        org_modified = {}
         try:
             q = self.edb_session.query(FileOpsStat.timestamp).filter(
                                        FileOpsStat.timestamp==s_timestamp)
@@ -73,7 +74,7 @@ class FileOpsCounter(object):
                 self.edb_session.close()
                 return
 
-            # Select 'Added', 'Deleted' info from FileUpdate
+            # Select 'Added', 'Deleted', 'Modified' info from FileUpdate
             q = self.edb_session.query(FileUpdate.org_id, FileUpdate.timestamp, FileUpdate.file_oper).filter(
                                        FileUpdate.timestamp.between(
                                        s_timestamp, e_timestamp))
@@ -92,6 +93,12 @@ class FileOpsCounter(object):
                         org_deleted[org_id] = 1
                     else:
                         org_deleted[org_id] += 1
+                elif 'Modified' in row.file_oper:
+                    total_modified += 1
+                    if not org_modified.has_key(org_id):
+                        org_modified[org_id] = 1
+                    else:
+                        org_modified[org_id] += 1
 
             # Select 'Visited' info from FileAudit
             q = self.edb_session.query(FileAudit.org_id, func.count(FileAudit.eid)).filter(
@@ -101,10 +108,8 @@ class FileOpsCounter(object):
             for row in rows:
                 org_id = row[0]
                 total_visited += row[1]
-                if not org_visited.has_key(org_id):
-                    org_visited[org_id] = 1
-                else:
-                    org_visited[org_id] += 1
+                org_visited[org_id] = row[1]
+
         except Exception as e:
             self.edb_session.close()
             logging.warning('[FileOpsCounter] query error : %s.', e)
@@ -122,8 +127,13 @@ class FileOpsCounter(object):
             new_record = FileOpsStat(k, s_timestamp, 'Visited', v)
             self.edb_session.add(new_record)
 
-        logging.info('[FileOpsCounter] Finish counting file operations in %s seconds, %d added, %d deleted, %d visited',
-                     str(time.time() - time_start), total_added, total_deleted, total_visited)
+        for k, v in org_modified.iteritems():
+            new_record = FileOpsStat(k, s_timestamp, 'Modified', v)
+            self.edb_session.add(new_record)
+
+        logging.info('[FileOpsCounter] Finish counting file operations in %s seconds, %d added, %d deleted, %d visited,'
+                     ' %d modified',
+                     str(time.time() - time_start), total_added, total_deleted, total_visited, total_modified)
 
         self.edb_session.commit()
         self.edb_session.close()
