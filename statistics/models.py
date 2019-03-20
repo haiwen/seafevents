@@ -178,14 +178,12 @@ class FileVisitedCount(Base):
     __tablename__ = 'FileVisitedCount'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, nullable=False, index=True)
-    repo_id = Column(String(length=36), nullable=False)
+    repo_id = Column(String(length=36), nullable=False, index=True)
     file_path = Column(Text, nullable=False)
     repo_id_file_path_md5 = Column(String(length=32), nullable=False, unique=True)
     counts = Column(Integer, nullable=False)
 
-    def __init__(self, timestamp, repo_id, file_path, counts):
-        self.timestamp = timestamp
+    def __init__(self, repo_id, file_path, counts):
         self.repo_id = repo_id
         self.file_path = file_path
         self.repo_id_file_path_md5 = hashlib.md5((self.repo_id + self.file_path).encode('utf8')).hexdigest()

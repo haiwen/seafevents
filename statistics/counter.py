@@ -487,41 +487,26 @@ class FileVisitedCounter(object):
 
     def start_count(self):
         logging.info('Start counting file visited counts.')
-        now_time = datetime.utcnow()
-        delta = timedelta(hours=1)
-        _start = (now_time - delta)
-
-        start = _start.strftime('%Y-%m-%d %H:00:00')
-        end = _start.strftime('%Y-%m-%d %H:59:59')
-
-        s_timestamp = datetime.strptime(start, '%Y-%m-%d %H:%M:%S')
-        e_timestamp = datetime.strptime(end, '%Y-%m-%d %H:%M:%S')
 
         try:
-            fvc_query = self.edb_session.query(FileVisitedCount.timestamp).filter(
-                                       FileVisitedCount.timestamp == s_timestamp)
-            if fvc_query.first():
-                self.edb_session.close()
-                return
-
             fa_query = self.edb_session.\
                 query(FileAudit.repo_id, FileAudit.file_path, func.count(FileAudit.eid)).\
-                filter(FileAudit.timestamp.between(s_timestamp, e_timestamp)).\
                 group_by(FileAudit.repo_id, FileAudit.file_path)
 
             rows = fa_query.all()
             for row in rows:
-                self.update_record(s_timestamp, row[0], row[1], row[2])
+                self.update_record(row[0], row[1], row[2])
 
             self.edb_session.commit()
             logging.info("[FileVisitedCounter] update %s items." % len(rows))
         except Exception as e:
+            self.edb_session.rollback()
             logging.warning('Failed to update file visited counts for : %s.', e)
             return
         finally:
             self.edb_session.close()
 
-    def update_record(self, timestamp, repo_id, file_path, counts):
+    def update_record(self, repo_id, file_path, counts):
         repo_id_file_path_md5 = hashlib.md5((repo_id + file_path).encode('utf8')).hexdigest()
 
         fvc_query = self.edb_session.query(FileVisitedCount.counts).\
@@ -529,8 +514,7 @@ class FileVisitedCounter(object):
 
         row = fvc_query.first()
         if row:
-            counts_in_db = row[0]
-            fvc_query.update({"timestamp": timestamp, "counts": counts + counts_in_db})
+            fvc_query.update({"counts": counts}, synchronize_session=False)
         else:
-            file_visited_count = FileVisitedCount(timestamp, repo_id, file_path, counts)
+            file_visited_count = FileVisitedCount(repo_id, file_path, counts)
             self.edb_session.add(file_visited_count)
