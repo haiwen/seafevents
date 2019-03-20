@@ -1,5 +1,7 @@
+import hashlib
+
 from seafevents.db import Base
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Index
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Index, Text
 
 
 class TotalStorageStat(Base):
@@ -170,3 +172,21 @@ class MonthlySysTraffic(Base):
         self.sync_file_download = size_dict['sync_file_download']
         self.link_file_upload = size_dict['link_file_upload']
         self.link_file_download = size_dict['link_file_download']
+
+
+class FileVisitedCount(Base):
+    __tablename__ = 'FileVisitedCount'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    repo_id = Column(String(length=36), nullable=False)
+    file_path = Column(Text, nullable=False)
+    repo_id_file_path_md5 = Column(String(length=32), nullable=False, unique=True)
+    counts = Column(Integer, nullable=False)
+
+    def __init__(self, timestamp, repo_id, file_path, counts):
+        self.timestamp = timestamp
+        self.repo_id = repo_id
+        self.file_path = file_path
+        self.repo_id_file_path_md5 = hashlib.md5((self.repo_id + self.file_path).encode('utf8')).hexdigest()
+        self.counts = counts

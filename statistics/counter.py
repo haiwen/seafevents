@@ -8,7 +8,7 @@ from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.sql import text
 from models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic,\
-                   MonthlyUserTraffic, MonthlySysTraffic
+                   MonthlyUserTraffic, MonthlySysTraffic, FileVisitedCount
 from seafevents.events.models import FileUpdate
 from seafevents.events.models import FileAudit
 from seafevents.app.config import appconfig
@@ -478,3 +478,59 @@ class UserActivityCounter(object):
             data['org'+i] = pop_data[2]
 
         self.edb_session.execute(text(cmd), data)
+
+
+class FileVisitedCounter(object):
+
+    def __init__(self):
+        self.edb_session = appconfig.session_cls()
+
+    def start_count(self):
+        logging.info('Start counting file visited counts.')
+        now_time = datetime.utcnow()
+        delta = timedelta(hours=1)
+        _start = (now_time - delta)
+
+        start = _start.strftime('%Y-%m-%d %H:00:00')
+        end = _start.strftime('%Y-%m-%d %H:59:59')
+
+        s_timestamp = datetime.strptime(start, '%Y-%m-%d %H:%M:%S')
+        e_timestamp = datetime.strptime(end, '%Y-%m-%d %H:%M:%S')
+
+        try:
+            fvc_query = self.edb_session.query(FileVisitedCount.timestamp).filter(
+                                       FileVisitedCount.timestamp == s_timestamp)
+            if fvc_query.first():
+                self.edb_session.close()
+                return
+
+            fa_query = self.edb_session.\
+                query(FileAudit.repo_id, FileAudit.file_path, func.count(FileAudit.eid)).\
+                filter(FileAudit.timestamp.between(s_timestamp, e_timestamp)).\
+                group_by(FileAudit.repo_id, FileAudit.file_path)
+
+            rows = fa_query.all()
+            for row in rows:
+                self.update_record(s_timestamp, row[0], row[1], row[2])
+
+            self.edb_session.commit()
+            logging.info("[FileVisitedCounter] update %s items." % len(rows))
+        except Exception as e:
+            logging.warning('Failed to update file visited counts for : %s.', e)
+            return
+        finally:
+            self.edb_session.close()
+
+    def update_record(self, timestamp, repo_id, file_path, counts):
+        repo_id_file_path_md5 = hashlib.md5((repo_id + file_path).encode('utf8')).hexdigest()
+
+        fvc_query = self.edb_session.query(FileVisitedCount.counts).\
+            filter(FileVisitedCount.repo_id_file_path_md5 == repo_id_file_path_md5)
+
+        row = fvc_query.first()
+        if row:
+            counts_in_db = row[0]
+            fvc_query.update({"timestamp": timestamp, "counts": counts + counts_in_db})
+        else:
+            file_visited_count = FileVisitedCount(timestamp, repo_id, file_path, counts)
+            self.edb_session.add(file_visited_count)

@@ -5,7 +5,7 @@ import sched, time
 
 from threading import Thread, Event
 from seafevents.statistics import TotalStorageCounter, FileOpsCounter, TrafficInfoCounter,\
-                                  MonthlyTrafficCounter, UserActivityCounter
+                                  MonthlyTrafficCounter, UserActivityCounter, FileVisitedCounter
 from seafevents.statistics.counter import login_records
 from seafevents.app.config import appconfig
 
@@ -24,6 +24,7 @@ class Statistics(Thread):
             CountTotalStorage().start()
             CountFileOps().start()
             CountMonthlyTrafficInfo().start()
+            CountFileVisited().start()
 
 class CountTotalStorage(Thread):
     def __init__(self):
@@ -87,6 +88,20 @@ class CountUserActivity(Thread):
     def run(self):
         while not self.fininsh.is_set():
             UserActivityCounter().start_count()
+            self.fininsh.wait(3600)
+
+    def cancel(self):
+        self.fininsh.set()
+
+
+class CountFileVisited(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.fininsh = Event()
+
+    def run(self):
+        while not self.fininsh.is_set():
+            FileVisitedCounter().start_count()
             self.fininsh.wait(3600)
 
     def cancel(self):

@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from sqlalchemy import desc
 from sqlalchemy import func
@@ -5,7 +6,7 @@ from sqlalchemy import distinct
 from datetime import datetime
 
 from models import UserActivityStat, UserTraffic, SysTraffic, \
-                   FileOpsStat, TotalStorageStat, MonthlyUserTraffic, MonthlySysTraffic
+                   FileOpsStat, TotalStorageStat, MonthlyUserTraffic, MonthlySysTraffic, FileVisitedCount
 
 from seaserv import seafile_api, get_org_id_by_repo_id
 from seafevents.app.config import appconfig
@@ -618,3 +619,22 @@ def get_user_traffic_by_month (user, month):
         session.close()
 
     return ret
+
+
+def get_file_visited_counts(repo_id, file_path):
+    session = appconfig.session_cls()
+
+    repo_id_file_path_md5 = hashlib.md5((repo_id + file_path).encode('utf8')).hexdigest()
+    visited_counts = 0
+
+    try:
+        fv_query = session.query(FileVisitedCount.counts).\
+                   filter(FileVisitedCount.repo_id_file_path_md5 == repo_id_file_path_md5)
+        row = fv_query.first()
+        visited_counts = row[0]
+    except Exception as e:
+        logging.warning('Failed to get file visited counts for : %s.', e)
+    finally:
+        session.close()
+
+    return visited_counts
