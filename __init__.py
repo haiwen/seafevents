@@ -43,6 +43,8 @@ from .statistics.db import get_file_ops_stats_by_day, get_user_activity_stats_by
 from .virus_scanner import get_virus_record, handle_virus_record, \
         get_virus_record_by_id
 
+from .content_scanner.db import get_content_scan_results
+
 from .utils import has_office_tools
 from .utils.config import get_office_converter_conf
 from .tasks import IndexUpdater

@@ -112,15 +112,25 @@ def init_db_session_class(config_file, db = 'seafevent'):
     except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
         raise RuntimeError("invalid config file %s", config_file)
 
-    if db != 'seafile':
-        # Create tables if not exists.
-        Base.metadata.create_all(engine)
-    else:
+    if db == 'seafile':
         # reflect the tables
         SeafBase.prepare(engine, reflect=True)
 
     Session = sessionmaker(bind=engine)
     return Session
+
+
+def create_db_tables():
+    # create seafevents tables if not exists.
+    config_file = os.environ.get('EVENTS_CONFIG_FILE')
+
+    try:
+        engine = create_engine_from_conf(config_file)
+    except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
+        raise RuntimeError("invalid config file %s", config_file)
+
+    Base.metadata.create_all(engine)
+
 
 # This is used to fix the problem of "MySQL has gone away" that happens when
 # mysql server is restarted or the pooled connections are closed by the mysql

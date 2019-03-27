@@ -7,6 +7,7 @@ import os
 
 
 from seafevents import is_audit_enabled
+from seafevents.db import create_db_tables
 from seafevents.utils import write_pidfile, get_config
 from seafevents.app.log import LogConfigurator
 from seafevents.app.app import App
@@ -92,6 +93,7 @@ def main(background_tasks_only=False):
     if args.pidfile:
         write_pidfile(args.pidfile)
 
+    create_db_tables()
     config = get_config(args.config_file)
     enable_audit = is_audit_enabled(config)
     init_message_handlers(enable_audit)
