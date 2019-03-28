@@ -1,3 +1,5 @@
+import logging
+
 from models import ContentScanResult
 from seafevents.app.config import appconfig
 
