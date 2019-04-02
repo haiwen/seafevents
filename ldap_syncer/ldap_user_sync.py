@@ -22,7 +22,7 @@ except:
 
 class LdapUser(object):
     def __init__(self, user_id, password, name, dept, uid, cemail,
-                 is_staff=0, is_active=1, role = ''):
+                 is_staff=0, is_active=1, role = '', is_manual_set = False):
         self.user_id = user_id
         self.password = password
         self.name = name
@@ -32,6 +32,7 @@ class LdapUser(object):
         self.is_staff = is_staff
         self.is_active = is_active
         self.role = role
+        self.is_manual_set = is_manual_set
 
 class LdapUserSync(LdapSync):
     def __init__(self, settings):
@@ -276,7 +277,9 @@ class LdapUserSync(LdapSync):
             user_data_db[user.email] = LdapUser(user.id, user.password, name, dept,
                                                 uid, cemail,
                                                 1 if user.is_staff else 0,
-                                                1 if user.is_active else 0)
+                                                1 if user.is_active else 0,
+                                                user.role,
+                                                user.is_manual_set)
 
         return user_data_db
 
@@ -411,7 +414,7 @@ class LdapUserSync(LdapSync):
         ret = 0
         if ldap_user.role:
             role = role_mapping(ldap_user.role)
-            ret = ccnet_api.update_role_emailuser(email, role)
+            ret = ccnet_api.update_role_emailuser(email, role, False)
 
             if ret == 0:
                 self.arole += 1
@@ -440,16 +443,18 @@ class LdapUserSync(LdapSync):
                 self.uuser += 1
         '''
         ret = 0
+
         if ldap_user.role:
             role = role_mapping(ldap_user.role)
-            ret = ccnet_api.update_role_emailuser(email, role)
+            if not db_user.is_manual_set and db_user.role != role:
+                ret = ccnet_api.update_role_emailuser(email, role, False)
 
-            if ret == 0:
-                self.urole += 1
-                #logger.debug('Update role [%s] for user [%s] success.' % (role, email))
+                if ret == 0:
+                    self.urole += 1
+                    #logger.debug('Update role [%s] for user [%s] success.' % (role, email))
 
-            if ret < 0:
-                logger.warning('Update role [%s] for user [%s] failed.' % (role, email))
+                if ret < 0:
+                    logger.warning('Update role [%s] for user [%s] failed.' % (role, email))
 
         if ldap_user.config.enable_extra_user_info_sync:
             self.update_profile(email, db_user, ldap_user)
