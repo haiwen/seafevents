@@ -60,8 +60,6 @@ class LdapGroupSync(LdapSync):
         return grp_data_db
 
     def get_data_from_ldap_by_server(self, config):
-        if not config.enable_group_sync:
-            return {}
         ldap_conn = LdapConn(config.host, config.user_dn, config.passwd, config.follow_referrals)
         ldap_conn.create_conn()
         if not ldap_conn.conn:
@@ -77,10 +75,11 @@ class LdapGroupSync(LdapSync):
         if config.sync_department_from_ou:
             department_data_ldap = self.get_ou_data(ldap_conn, config)
 
-        if config.group_object_class == 'posixGroup':
-            group_data_ldap = self.get_posix_group_data(ldap_conn, config)
-        else:
-            group_data_ldap = self.get_common_group_data(ldap_conn, config)
+        if config.enable_group_sync:
+            if config.group_object_class == 'posixGroup':
+                group_data_ldap = self.get_posix_group_data(ldap_conn, config)
+            else:
+                group_data_ldap = self.get_common_group_data(ldap_conn, config)
 
         ret_data_ldap = department_data_ldap.copy()
         ret_data_ldap.update(group_data_ldap)
@@ -123,7 +122,7 @@ class LdapGroupSync(LdapSync):
                     continue
                 # empty group
                 if not attrs.has_key(config.group_member_attr):
-                    grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None, [])
+                    grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None, [], None, 0, config.sync_group_as_department)
                     sort_list.append((group_dn, grp_data_ldap[group_dn]))
                     continue
                 if grp_data_ldap.has_key(group_dn):
@@ -157,7 +156,7 @@ class LdapGroupSync(LdapSync):
                 if not mails:
                     continue
                 all_mails.extend(mails)
-            grp_data[dn] = LdapGroup(attrs['cn'][0], None, sorted(set(all_mails)), parent_dn)
+            grp_data[dn] = LdapGroup(attrs['cn'][0], None, sorted(set(all_mails)), parent_dn, 0, config.sync_group_as_department)
             sort_list.append((dn, grp_data[dn]))
             return all_mails
         # user member
@@ -200,7 +199,7 @@ class LdapGroupSync(LdapSync):
                     continue
                 # empty group
                 if not attrs.has_key(config.group_member_attr):
-                    grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None, [])
+                    grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None, [], None, 0, config.sync_group_as_department)
                     continue
                 if grp_data_ldap.has_key(group_dn):
                     continue
@@ -212,7 +211,7 @@ class LdapGroupSync(LdapSync):
                     all_mails.extend(mails)
 
                 grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None,
-                                                    sorted(set(all_mails)))
+                                                    sorted(set(all_mails)), None, 0, config.sync_group_as_department)
                 sort_list.append((group_dn, grp_data_ldap[group_dn]))
 
         self.sort_list.extend(sort_list)

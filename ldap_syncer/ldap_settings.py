@@ -41,11 +41,14 @@ class LdapConfig(object):
         self.sync_department_from_ou = False
         self.default_department_quota = -2
 
+        self.sync_group_as_department = False
+
 class Settings(object):
     def __init__(self, is_test=False):
         # If any of ldap configs allows user-sync/group-sync, user-sync/group-sync task is allowed.
         self.enable_group_sync = False
         self.enable_user_sync = False
+        self.sync_department_from_ou = False
 
         # Common configs which only take effect at [LDAP_SYNC] section.
         self.sync_interval = 0
@@ -137,9 +140,12 @@ class Settings(object):
                 self.read_sync_user_config(ldap_config, ldap_sec, sync_sec)
                 self.enable_user_sync = True
 
-            if ldap_config.enable_group_sync:
+            if ldap_config.enable_group_sync or ldap_config.sync_department_from_ou:
                 self.read_sync_group_config(ldap_config, ldap_sec, sync_sec)
-                self.enable_group_sync = True
+                if ldap_config.enable_group_sync:
+                    self.enable_group_sync = True
+                if ldap_config.sync_department_from_ou:
+                    self.sync_department_from_ou = True
 
             self.ldap_configs.append(ldap_config)
 
@@ -171,7 +177,8 @@ class Settings(object):
                                                         bool, False)
         ldap_config.enable_user_sync = self.get_option(sync_sec, 'ENABLE_USER_SYNC',
                                                         bool, False)
-
+        ldap_config.sync_department_from_ou = self.get_option(sync_sec, 'SYNC_DEPARTMENT_FROM_OU',
+                                                              bool, False)
     def read_sync_group_config(self, ldap_config, ldap_sec, sync_sec):
         ldap_config.group_object_class = self.get_option(sync_sec, 'GROUP_OBJECT_CLASS', dval='group')
 
@@ -184,15 +191,16 @@ class Settings(object):
                                                  dval='member')
         ldap_config.user_object_class = self.get_option(sync_sec, 'USER_OBJECT_CLASS',
                                                  dval='person')
-        ldap_config.sync_department_from_ou = self.get_option(sync_sec,
-                                                       'SYNC_DEPARTMENT_FROM_OU',
-                                                       bool, False)
         ldap_config.create_department_library = self.get_option(sync_sec,
                                                          'CREATE_DEPARTMENT_LIBRARY',
                                                          bool, False)
         ldap_config.default_department_quota = self.get_option(sync_sec,
                                                         'DEFAULT_DEPARTMENT_QUOTA',
                                                         int, -2)
+
+        ldap_config.sync_group_as_department = self.get_option(sync_sec,
+                                                        'SYNC_GROUP_AS_DEPARTMENT',
+                                                        bool, False)
         '''
         posix groups store members in atrribute 'memberUid', however, the value of memberUid may be not a 'uid',
         so we make it configurable, default value is 'uid'.
@@ -223,7 +231,7 @@ class Settings(object):
         ldap_config.role_name_attr = self.get_option(sync_sec, 'ROLE_NAME_ATTR', dval='')
 
     def enable_sync(self):
-        return self.enable_user_sync or self.enable_group_sync
+        return self.enable_user_sync or self.enable_group_sync or self.sync_department_from_ou
 
     def get_option(self, section, key, dtype=None, dval=''):
         try:
