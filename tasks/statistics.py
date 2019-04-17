@@ -9,6 +9,15 @@ from seafevents.statistics import TotalStorageCounter, FileOpsCounter, TrafficIn
 from seafevents.statistics.counter import login_records
 from seafevents.app.config import appconfig
 
+def exception_catch(module):
+    def func_wrapper(func):
+        def wrapper(*args, **kwargs):
+            try:
+                func(*args, **kwargs)
+            except Exception as e:
+                logging.info('[Statistics] %s task is failed: %s' % (module, e))
+        return wrapper
+    return func_wrapper
 
 class Statistics(Thread):
     def __init__(self):
@@ -30,6 +39,7 @@ class CountTotalStorage(Thread):
         Thread.__init__(self)
         self.fininsh = Event()
 
+    @exception_catch('CountTotalStorage')
     def run(self):
         while not self.fininsh.is_set():
             TotalStorageCounter().start_count()
@@ -43,6 +53,7 @@ class CountFileOps(Thread):
         Thread.__init__(self)
         self.fininsh = Event()
 
+    @exception_catch('CountFileOps')
     def run(self):
         while not self.fininsh.is_set():
             FileOpsCounter().start_count()
@@ -57,6 +68,7 @@ class CountTrafficInfo(Thread):
         Thread.__init__(self)
         self.fininsh = Event()
 
+    @exception_catch('CountTrafficInfo')
     def run(self):
         while not self.fininsh.is_set():
             TrafficInfoCounter().start_count()
@@ -70,6 +82,7 @@ class CountMonthlyTrafficInfo(Thread):
         Thread.__init__(self)
         self.fininsh = Event()
 
+    @exception_catch('CountMonthlyTrafficInfo')
     def run(self):
         while not self.fininsh.is_set():
             MonthlyTrafficCounter().start_count()
