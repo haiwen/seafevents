@@ -439,6 +439,7 @@ class LdapUserSync(LdapSync):
                 logger.debug('Update user [%s] success.' % email)
                 self.uuser += 1
         '''
+        '''
         ret = 0
         if ldap_user.role:
             role = role_mapping(ldap_user.role)
@@ -450,6 +451,7 @@ class LdapUserSync(LdapSync):
 
             if ret < 0:
                 logger.warning('Update role [%s] for user [%s] failed.' % (role, email))
+        '''
 
         if ldap_user.config.enable_extra_user_info_sync:
             self.update_profile(email, db_user, ldap_user)
