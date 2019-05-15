@@ -120,20 +120,18 @@ class LdapGroupSync(LdapSync):
                 group_dn, attrs = result
                 if type(attrs) != dict:
                     continue
-                # empty group
-                if not attrs.has_key(config.group_member_attr):
-                    grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None, [], None, 0, config.sync_group_as_department)
-                    sort_list.append((group_dn, grp_data_ldap[group_dn]))
-                    continue
-                if grp_data_ldap.has_key(group_dn):
-                    continue
                 self.get_group_member_from_ldap(config, ldap_conn, group_dn, grp_data_ldap, sort_list, None)
-        sort_list.reverse()
-        self.sort_list.extend(sort_list)
+
+        self.sort_list.extend(grp_data_ldap.items())
 
         return grp_data_ldap
 
     def get_group_member_from_ldap(self, config, ldap_conn, base_dn, grp_data, sort_list, parent_dn):
+        if grp_data.has_key(base_dn):
+            if not grp_data[base_dn].parent_dn:
+                grp_data[base_dn].parent_dn = parent_dn
+            return grp_data[base_dn].members
+
         all_mails = []
         search_filter = '(|(objectClass=%s)(objectClass=%s))' % \
                          (config.group_object_class,
@@ -148,21 +146,19 @@ class LdapGroupSync(LdapSync):
         if type(attrs) != dict:
             return all_mails
         # group member
-        if attrs.has_key(config.group_member_attr):
-            if grp_data.has_key(dn):
-                return grp_data[dn].members
+        if attrs.has_key(config.group_member_attr) and attrs[config.group_member_attr] != ['']:
             for member in attrs[config.group_member_attr]:
                 mails = self.get_group_member_from_ldap(config, ldap_conn, member, grp_data, sort_list, base_dn)
                 if not mails:
                     continue
                 all_mails.extend(mails)
-            grp_data[dn] = LdapGroup(attrs['cn'][0], None, sorted(set(all_mails)), parent_dn, 0, config.sync_group_as_department)
-            sort_list.append((dn, grp_data[dn]))
-            return all_mails
         # user member
         elif attrs.has_key(config.login_attr):
             for mail in attrs[config.login_attr]:
                 all_mails.append(mail.lower())
+                return all_mails
+
+        grp_data[dn] = LdapGroup(attrs['cn'][0], None, sorted(set(all_mails)), parent_dn, 0, config.sync_group_as_department)
 
         return all_mails
 
@@ -304,6 +300,68 @@ class LdapGroupSync(LdapSync):
 
         return grp_data_ou
 
+    def create_and_add_group_to_db(self, dn_name, group, group_dn_db, group_data_ldap):
+        if group.is_department and group_dn_db.has_key(dn_name):
+           return group_dn_db[dn_name]
+
+        super_user= None
+        if group.is_department:
+            super_user = 'system admin'
+        else:
+            super_user = LdapGroupSync.get_super_user()
+
+        parent_id = 0
+        if not group.is_department:
+            parent_id = 0
+        else:
+            if not group.parent_dn:
+                parent_id = -1
+            elif group_dn_db.has_key(group.parent_dn):
+                parent_id =  group_dn_db[group.parent_dn]
+            else:
+                parent_group = group_data_ldap[group.parent_dn]
+                parent_id = self.create_and_add_group_to_db (group.parent_dn, parent_group, group_dn_db, group_data_ldap)
+
+        group_id = ccnet_api.create_group(group.cn, super_user, 'LDAP', parent_id)
+        if group_id < 0:
+            logger.warning('create ldap group [%s] failed.' % group.cn)
+            return
+
+        ret = add_group_dn_pair(group_id, dn_name)
+        if ret < 0:
+            logger.warning('add group dn pair %d<->%s failed.' % (group_id, dn_name))
+            # admin should remove created group manually in web
+            return
+        logger.debug('create group %d, and add dn pair %s<->%d success.' %
+                      (group_id, dn_name, group_id))
+        self.agroup += 1
+        group.group_id = group_id
+        if group.is_department:
+            if group.config.default_department_quota > 0:
+                quota_to_set = group.config.default_department_quota * 1000000
+            else:
+                quota_to_set = group.config.default_department_quota
+            ret = seafile_api.set_group_quota(group_id, quota_to_set)
+            if ret < 0:
+                logger.warning('Failed to set group [%s] quota.' % group.cn)
+            if group.config.create_department_library:
+                ret = seafile_api.add_group_owned_repo(group_id, group.cn, None, 'rw')
+                if not ret:
+                    logger.warning('Failed to create group owned repo for %s.' % group.cn)
+
+        for member in group.members:
+            ret = group_add_member(group_id, super_user, member)
+            if ret < 0:
+                logger.warning('add member %s to group %d failed.' %
+                                (member, group_id))
+                return
+            logger.debug('add member %s to group %d success.' %
+                          (member, group_id))
+
+        group_dn_db[dn_name] = group_id
+
+        return group_id
+
     def sync_data(self, data_db, data_ldap):
         dn_pairs = get_group_dn_pairs()
         if dn_pairs is None:
@@ -312,8 +370,12 @@ class LdapGroupSync(LdapSync):
 
         # grp_dn_pairs['dn_name'] = group_id
         grp_dn_pairs = {}
+        # grp_dn_db['dn_name'] = group_id
+        group_dn_db = {}
+
         for grp_dn in dn_pairs:
             grp_dn_pairs[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
+            group_dn_db[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
 
         # sync deleted group in ldap to db
         for k in grp_dn_pairs.iterkeys():
@@ -321,6 +383,7 @@ class LdapGroupSync(LdapSync):
                 deleted_group_id = grp_dn_pairs[k]
                 if (not data_db[deleted_group_id].is_department and self.settings.del_group_if_not_found) or \
                    (data_db[deleted_group_id].is_department and self.settings.del_department_if_not_found):
+                    grp_dn_db.pop(k)
                     ret = remove_group(grp_dn_pairs[k], '')
                     if ret < 0:
                         logger.warning('remove group %d failed.' % grp_dn_pairs[k])
@@ -364,56 +427,7 @@ class LdapGroupSync(LdapSync):
                     logger.debug('add member %s to group %d success.' %
                                   (member, group_id))
             else:
-                # add ldap group to db
-                if super_user is None:
-                    if v.is_department:
-                        super_user = 'system admin'
-                    else:
-                        super_user = LdapGroupSync.get_super_user()
-
-                parent_id = 0
-                if not v.is_department:
-                    parent_id = 0
-                else:
-                    if v.parent_dn:
-                        parent_id = data_ldap[v.parent_dn].group_id
-                    else:
-                        parent_id = -1
-                group_id = ccnet_api.create_group(v.cn, super_user, 'LDAP', parent_id)
-                if group_id < 0:
-                    logger.warning('create ldap group [%s] failed.' % v.cn)
-                    continue
-
-                ret = add_group_dn_pair(group_id, k)
-                if ret < 0:
-                    logger.warning('add group dn pair %d<->%s failed.' % (group_id, k))
-                    # admin should remove created group manually in web
-                    continue
-                logger.debug('create group %d, and add dn pair %s<->%d success.' %
-                              (group_id, k, group_id))
-                self.agroup += 1
-                v.group_id = group_id
-                if v.is_department:
-                    if v.config.default_department_quota > 0:
-                        quota_to_set = v.config.default_department_quota * 1000000
-                    else:
-                        quota_to_set = v.config.default_department_quota
-                    ret = seafile_api.set_group_quota(group_id, quota_to_set)
-                    if ret < 0:
-                        logger.warning('Failed to set group [%s] quota.' % v.cn)
-                    if v.config.create_department_library:
-                        ret = seafile_api.add_group_owned_repo(group_id, v.cn, None, 'rw')
-                        if not ret:
-                            logger.warning('Failed to create group owned repo for %s.' % v.cn)
-
-                for member in v.members:
-                    ret = group_add_member(group_id, super_user, member)
-                    if ret < 0:
-                        logger.warning('add member %s to group %d failed.' %
-                                        (member, group_id))
-                        continue
-                    logger.debug('add member %s to group %d success.' %
-                                  (member, group_id))
+                self.create_and_add_group_to_db(k, v, group_dn_db, data_ldap)
 
     @staticmethod
     def get_super_user():
