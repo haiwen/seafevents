@@ -102,16 +102,21 @@ def load_statistics_config(config):
 @exception_catch('file history')
 def load_file_history_config(config):
     appconfig.fh = AppConfig()
-    appconfig.fh.enabled =  False
     if config.has_option('FILE HISTORY', 'enabled'):
         appconfig.fh.enabled = config.getboolean('FILE HISTORY', 'enabled')
-    if appconfig.fh.enabled:
-        appconfig.fh.suffix = config.get('FILE HISTORY', 'suffix')
-        suffix = appconfig.fh.suffix.strip(',')
-        appconfig.fh.suffix_list = suffix.split(',') if suffix else []
-        logging.info('The file with the following suffix will be recorded into the file history: %s' % suffix)
+        if appconfig.fh.enabled:
+            appconfig.fh.suffix = config.get('FILE HISTORY', 'suffix')
+            suffix = appconfig.fh.suffix.strip(',')
+            appconfig.fh.suffix_list = suffix.split(',') if suffix else []
+            logging.info('The file with the following suffix will be recorded into the file history: %s' % suffix)
+        else:
+            logging.info('Disenabled File History Features.')
     else:
-        logging.info('Disenabled File History Features.')
+        appconfig.fh.enabled = True
+        suffix = 'md,txt,doc,docx,xls,xlsx,ppt,pptx'
+        appconfig.fh.suffix_list = suffix.split(',')
+        logging.info('The file with the following suffix will be recorded into the file history: %s' % suffix)
+
 
 @exception_catch('collab server')
 def load_collab_server_config(config):
