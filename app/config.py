@@ -113,7 +113,7 @@ def load_file_history_config(config):
             logging.info('Disenabled File History Features.')
     else:
         appconfig.fh.enabled = True
-        suffix = 'md, txt, doc, docx, xls, xlsx, ppt, pptx'
+        suffix = 'md,txt,doc,docx,xls,xlsx,ppt,pptx'
         appconfig.fh.suffix_list = suffix.split(',')
         logging.info('The file with the following suffix will be recorded into the file history: %s' % suffix)
 
