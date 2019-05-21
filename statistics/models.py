@@ -1,5 +1,5 @@
 from seafevents.db import Base
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Index
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Index, UniqueConstraint
 
 
 class TotalStorageStat(Base):

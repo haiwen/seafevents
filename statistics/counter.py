@@ -147,9 +147,9 @@ class TotalStorageCounter(object):
         logging.info('Start counting total storage..')
         time_start = time.time()
         try:
-            RepoSize = SeafBase.classes.RepoSize
-            VirtualRepo= SeafBase.classes.VirtualRepo
-            OrgRepo = SeafBase.classes.OrgRepo
+            RepoSize = SeafBase.classes.reposize
+            VirtualRepo= SeafBase.classes.virtualrepo
+            OrgRepo = SeafBase.classes.orgrepo
 
             q = self.seafdb_session.query(func.sum(RepoSize.size).label("size"),
                                           OrgRepo.org_id).outerjoin(VirtualRepo,\
