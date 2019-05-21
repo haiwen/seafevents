@@ -117,7 +117,7 @@ def init_db_session_class(config_file, db = 'seafevent'):
 
     if db == 'seafile':
         # reflect the tables
-        SeafBase.prepare(engine, reflect=True)
+        SeafBase.prepare(engine, reflect=True, classname_for_table=classname_for_table)
 
     Session = sessionmaker(bind=engine)
     return Session
@@ -132,7 +132,10 @@ def create_db_tables():
     except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
         raise RuntimeError("invalid config file %s", config_file)
 
-    Base.metadata.create_all(engine)
+    try:
+        Base.metadata.create_all(engine)
+    except Exception as e:
+        logger.info('Attempt to create a database failure: %s' % e)
 
 
 # This is used to fix the problem of "MySQL has gone away" that happens when

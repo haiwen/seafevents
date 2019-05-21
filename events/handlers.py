@@ -428,8 +428,13 @@ def FileUpdateEventHandler(session, msg):
 
     time = datetime.datetime.utcfromtimestamp(msg.ctime)
 
+    if commit.device_name is None:
+        device_name = 'web'
+    else:
+        device_name = commit.device_name
+
     save_file_update_event(session, time, commit.creator_name, org_id,
-                           repo_id, commit_id, commit.desc)
+                           repo_id, commit_id, commit.desc, device_name)
 
 def FileAuditEventHandler(session, msg):
     elements = msg.body.split('\t')

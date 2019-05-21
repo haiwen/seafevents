@@ -47,8 +47,8 @@ class ContentScan(object):
         seafdb_session = appconfig.seaf_session_cls()
 
         # Get repo list from seafile-db
-        Branch = SeafBase.classes.Branch
-        VirtualRepo= SeafBase.classes.VirtualRepo
+        Branch = SeafBase.classes.branch
+        VirtualRepo= SeafBase.classes.virtualrepo
         q = seafdb_session.query(Branch.repo_id, Branch.commit_id)
         q = q.outerjoin(VirtualRepo, Branch.repo_id==VirtualRepo.repo_id)
         q = q.filter(VirtualRepo.repo_id == None)
