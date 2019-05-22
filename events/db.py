@@ -91,25 +91,6 @@ def delete_event(session, uuid):
     session.query(Event).filter(Event.uuid == uuid).delete()
     session.commit()
 
-
-def _admin__get_one_user_activities(session, username, start, limit):
-    if start < 0:
-        raise RuntimeError('start must be non-negative')
-
-    if limit <= 0:
-        raise RuntimeError('limit must be positive')
-
-    q = session.query(Activity).filter(Activity.op_user == username)
-
-    events = q.order_by(desc(Activity.timestamp)).slice(start, start + limit).all()
-
-    return [UserActivityDetail(ev, username=username) for ev in events]
-
-
-def admin_get_one_user_activities(session, username, start, limit):
-    return _admin__get_one_user_activities(session, username, start, limit)
-
-
 def _get_user_activities(session, username, start, limit):
     if start < 0:
         raise RuntimeError('start must be non-negative')
