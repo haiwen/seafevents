@@ -5,10 +5,13 @@ import logging
 import hashlib
 
 from sqlalchemy.sql import text
-from seafevents.app.config import appconfig
+from seafevents.app.config import appconfig, load_config
 
 class ChangeFilePathHandler(object):
     def __init__(self):
+        if not appconfig.get('session_cls'):
+            config_file = os.environ.get('EVENTS_CONFIG_FILE')
+            load_config(config_file)
         self.session = appconfig.session_cls()
 
     def close_session(self):
