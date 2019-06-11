@@ -26,7 +26,6 @@ class LdapGroupSync(LdapSync):
         self.agroup = 0
         self.ugroup = 0
         self.dgroup = 0
-        self.sort_list = []
 
     def show_sync_result(self):
         logger.info('LDAP group sync result: add [%d]group, update [%d]group, delete [%d]group' %
@@ -39,8 +38,21 @@ class LdapGroupSync(LdapSync):
             logger.warning('get ldap groups from db failed.')
             return grp_data_db
 
+        dn_pairs = get_group_dn_pairs()
+        if dn_pairs is None:
+            logger.warning('get group dn pairs from db failed.')
+            return grp_data_db
+
         grp_data_db = {}
+        # grp_dn_hash[group_id] = 'dn_name'
+        grp_dn_hash = {}
+
+        for grp_dn in dn_pairs:
+            grp_dn_hash[grp_dn.group_id] = grp_dn.dn.encode('utf-8')
+
         for group in groups:
+            if not grp_dn_hash.has_key(group.id):
+                continue
             members = get_group_members(group.id)
             if members is None:
                 logger.warning('get members of group %d from db failed.' %
@@ -53,9 +65,9 @@ class LdapGroupSync(LdapSync):
                 nor_members.append(member.user_name)
 
             if (group.parent_group_id == 0):
-                grp_data_db[group.id] = LdapGroup(None, group.creator_name, sorted(nor_members))
+                grp_data_db[grp_dn_hash[group.id]] = LdapGroup(None, group.creator_name, sorted(nor_members), None, group.id)
             else:
-                grp_data_db[group.id] = LdapGroup(None, group.creator_name, sorted(nor_members), None, 0, True)
+                grp_data_db[grp_dn_hash[group.id]] = LdapGroup(None, group.creator_name, sorted(nor_members), None, group.id, True)
 
         return grp_data_db
 
@@ -98,7 +110,6 @@ class LdapGroupSync(LdapSync):
         else:
             search_filter = '(objectClass=%s)' % config.group_object_class
 
-        sort_list = []
         base_dns = config.base_dn.split(';')
         for base_dn in base_dns:
             if base_dn == '':
@@ -120,13 +131,11 @@ class LdapGroupSync(LdapSync):
                 group_dn, attrs = result
                 if type(attrs) != dict:
                     continue
-                self.get_group_member_from_ldap(config, ldap_conn, group_dn, grp_data_ldap, sort_list, None)
-
-        self.sort_list.extend(grp_data_ldap.items())
+                self.get_group_member_from_ldap(config, ldap_conn, group_dn, grp_data_ldap, None)
 
         return grp_data_ldap
 
-    def get_group_member_from_ldap(self, config, ldap_conn, base_dn, grp_data, sort_list, parent_dn):
+    def get_group_member_from_ldap(self, config, ldap_conn, base_dn, grp_data, parent_dn):
         if grp_data.has_key(base_dn):
             if not grp_data[base_dn].parent_dn:
                 grp_data[base_dn].parent_dn = parent_dn
@@ -148,7 +157,7 @@ class LdapGroupSync(LdapSync):
         # group member
         if attrs.has_key(config.group_member_attr) and attrs[config.group_member_attr] != ['']:
             for member in attrs[config.group_member_attr]:
-                mails = self.get_group_member_from_ldap(config, ldap_conn, member, grp_data, sort_list, base_dn)
+                mails = self.get_group_member_from_ldap(config, ldap_conn, member, grp_data, base_dn)
                 if not mails:
                     continue
                 all_mails.extend(mails)
@@ -172,7 +181,6 @@ class LdapGroupSync(LdapSync):
         else:
             search_filter = '(objectClass=%s)' % config.group_object_class
 
-        sort_list = []
         base_dns = config.base_dn.split(';')
         for base_dn in base_dns:
             if base_dn == '':
@@ -208,9 +216,7 @@ class LdapGroupSync(LdapSync):
 
                 grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None,
                                                     sorted(set(all_mails)), None, 0, config.sync_group_as_department)
-                sort_list.append((group_dn, grp_data_ldap[group_dn]))
 
-        self.sort_list.extend(sort_list)
         return grp_data_ldap
 
     def get_posix_group_member_from_ldap(self, config, ldap_conn, base_dn, member):
@@ -245,7 +251,6 @@ class LdapGroupSync(LdapSync):
             search_filter = '(|(objectClass=organizationalUnit)(objectClass=%s))' % config.user_object_class
 
         base_dns = config.base_dn.split(';')
-        sort_list = []
         grp_data_ou={}
         for base_dn in base_dns:
             if base_dn == '':
@@ -255,13 +260,11 @@ class LdapGroupSync(LdapSync):
             if e_idx == -1:
                 e_idx = len(base_dn)
             ou_name = base_dn[s_idx:e_idx]
-            self.get_ou_member (config, ldap_conn, base_dn, search_filter, sort_list, ou_name, None, grp_data_ou)
-        sort_list.reverse()
-        self.sort_list.extend(sort_list)
+            self.get_ou_member (config, ldap_conn, base_dn, search_filter, ou_name, None, grp_data_ou)
 
         return grp_data_ou
 
-    def get_ou_member(self, config, ldap_conn, base_dn, search_filter, sort_list, ou_name, parent_dn, grp_data_ou):
+    def get_ou_member(self, config, ldap_conn, base_dn, search_filter, ou_name, parent_dn, grp_data_ou):
         if config.use_page_result:
             results = ldap_conn.paged_search(base_dn, SCOPE_ONELEVEL,
                                              search_filter,
@@ -273,7 +276,6 @@ class LdapGroupSync(LdapSync):
         # empty ou
         if not results:
             group = LdapGroup(ou_name, None, [], parent_dn, 0, True)
-            sort_list.append((base_dn, group))
             grp_data_ou[base_dn] = group
             return
 
@@ -290,12 +292,11 @@ class LdapGroupSync(LdapSync):
             # ou
             if attrs.has_key('ou'):
                 self.get_ou_member (config, ldap_conn, member_dn, search_filter,
-                                    sort_list, attrs['ou'][0],
+                                    attrs['ou'][0],
                                     base_dn,
                                     grp_data_ou)
 
         group = LdapGroup(ou_name, None, sorted(set(mails)), parent_dn, 0, True)
-        sort_list.append((base_dn, group))
         grp_data_ou[base_dn] = group
 
         return grp_data_ou
@@ -362,72 +363,61 @@ class LdapGroupSync(LdapSync):
 
         return group_id
 
-    def sync_data(self, data_db, data_ldap):
-        dn_pairs = get_group_dn_pairs()
-        if dn_pairs is None:
-            logger.warning('get group dn pairs from db failed.')
-            return
+    def sync_del_group(self, deleted_group_dn, deleted_group, group_dn_db):
+        if (not deleted_group.is_department and self.settings.del_group_if_not_found) or \
+           (deleted_group.is_department and self.settings.del_department_if_not_found):
+            group_dn_db.pop(deleted_group_dn)
+            ret = remove_group(deleted_group.group_id, '')
+            if ret < 0:
+               logger.warning('remove group %d failed.' % deleted_group.group_id)
+               return
+            logger.debug('remove group %d success.' % deleted_group.group_id)
+            self.dgroup += 1
 
-        # grp_dn_pairs['dn_name'] = group_id
-        grp_dn_pairs = {}
-        # grp_dn_db['dn_name'] = group_id
+    def sync_update_group(self, group_dn, ldap_group, data_db):
+        group_id = data_db[group_dn].group_id
+        add_list, del_list = LdapGroupSync.diff_members(data_db[group_dn].members,
+                                                        ldap_group.members)
+        if len(add_list) > 0 or len(del_list) > 0:
+            self.ugroup += 1
+
+        for member in del_list:
+            ret = group_remove_member(group_id, data_db[group_dn].creator, member)
+            if ret < 0:
+                logger.warning('remove member %s from group %d failed.' %
+                               (member, group_id))
+                return
+            logger.debug('remove member %s from group %d success.' %
+                         (member, group_id))
+
+        for member in add_list:
+            ret = group_add_member(group_id, data_db[group_dn].creator, member)
+            if ret < 0:
+                logger.warning('add member %s to group %d failed.' %
+                               (member, group_id))
+                return
+            logger.debug('add member %s to group %d success.' %
+                         (member, group_id))
+
+    def sync_add_group(self, k, v, group_dn_db, data_ldap):
+        self.create_and_add_group_to_db(k, v, group_dn_db, data_ldap)
+
+    def sync_data(self, data_db, data_ldap):
+        # group_dn_db['dn_name'] = group_id
         group_dn_db = {}
 
-        for grp_dn in dn_pairs:
-            grp_dn_pairs[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
-            group_dn_db[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
-
-        # sync deleted group in ldap to db
-        for k in grp_dn_pairs.iterkeys():
+        for k, v in data_db.iteritems():
+            group_dn_db[k] = v.group_id
+            # sync deleted group in ldap to db
             if not data_ldap.has_key(k):
-                deleted_group_id = grp_dn_pairs[k]
-                if (not data_db[deleted_group_id].is_department and self.settings.del_group_if_not_found) or \
-                   (data_db[deleted_group_id].is_department and self.settings.del_department_if_not_found):
-                    grp_dn_db.pop(k)
-                    ret = remove_group(grp_dn_pairs[k], '')
-                    if ret < 0:
-                        logger.warning('remove group %d failed.' % grp_dn_pairs[k])
-                        continue
-                    logger.debug('remove group %d success.' % grp_dn_pairs[k])
-                    self.dgroup += 1
+                self.sync_del_group(k, v, group_dn_db)
 
         # sync undeleted group in ldap to db
-        super_user = None
-
-        # ldap_tups = [('dn_name', LdapGroup)...]
-        ldap_tups = self.sort_list
-
-        for k, v in ldap_tups:
-            if grp_dn_pairs.has_key(k):
-                v.group_id = grp_dn_pairs[k]
-                # group data lost in db
-                if not data_db.has_key(grp_dn_pairs[k]):
-                    continue
-                group_id = grp_dn_pairs[k]
-                add_list, del_list = LdapGroupSync.diff_members(data_db[group_id].members,
-                                                                v.members)
-                if len(add_list) > 0 or len(del_list) > 0:
-                    self.ugroup += 1
-
-                for member in del_list:
-                    ret = group_remove_member(group_id, data_db[group_id].creator, member)
-                    if ret < 0:
-                        logger.warning('remove member %s from group %d failed.' %
-                                        (member, group_id))
-                        continue
-                    logger.debug('remove member %s from group %d success.' %
-                                  (member, group_id))
-
-                for member in add_list:
-                    ret = group_add_member(group_id, data_db[group_id].creator, member)
-                    if ret < 0:
-                        logger.warning('add member %s to group %d failed.' %
-                                        (member, group_id))
-                        continue
-                    logger.debug('add member %s to group %d success.' %
-                                  (member, group_id))
+        for k, v in data_ldap.iteritems():
+            if data_db.has_key(k):
+                self.sync_update_group(k, v, data_db)
             else:
-                self.create_and_add_group_to_db(k, v, group_dn_db, data_ldap)
+                self.sync_add_group(k, v, group_dn_db, data_ldap)
 
     @staticmethod
     def get_super_user():
