@@ -30,6 +30,7 @@ class LdapConfig(object):
         self.dept_attr = None
         self.uid_attr = None
         self.cemail_attr = None
+        self.company_attr = None
         self.role_name_attr = None
 
         self.group_filter = None
@@ -100,8 +101,8 @@ class Settings(object):
 
         self.read_multi_server_configs(is_test, has_sync_section)
 
-        # If enable_extra_user_info_sync, uid_attr, cemail_attr were configed in any of ldap configs,
-        # load extra_user_info, uid_attr, cemail_attr from database to memory.
+        # If enable_extra_user_info_sync, uid_attr, cemail_attr, company_attr were configed in any of ldap configs,
+        # load extra_user_info, uid_attr, cemail_attr company_attr from database to memory.
         for config in self.ldap_configs:
             if config.enable_extra_user_info_sync == True:
                 self.load_extra_user_info_sync = True
@@ -109,6 +110,8 @@ class Settings(object):
                 self.load_uid_attr = True
             if config.cemail_attr != '':
                 self.load_cemail_attr = True
+            if config.company_attr != '':
+                self.load_company_attr = True
 
     def read_common_config(self, is_test):
         self.sync_interval = self.get_option('LDAP_SYNC', 'SYNC_INTERVAL', int, 60)
@@ -232,6 +235,7 @@ class Settings(object):
                                          dval='department')
         ldap_config.uid_attr = self.get_option(sync_sec, 'UID_ATTR')
         ldap_config.cemail_attr = self.get_option(sync_sec, 'CONTACT_EMAIL_ATTR')
+        ldap_config.company_attr = self.get_option(sync_sec, 'COMPANY_ATTR', dval='company')
         ldap_config.role_name_attr = self.get_option(sync_sec, 'ROLE_NAME_ATTR', dval='')
 
     def enable_sync(self):
