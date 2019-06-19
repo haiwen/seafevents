@@ -7,7 +7,7 @@ import datetime
 
 from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr
-from seafevents.events.db import save_user_activity, \
+from seafevents.events.db import save_user_activity, save_org_user_events, save_user_events, \
         save_file_audit_event, save_file_update_event, save_perm_audit_event
 from change_file_path import ChangeFilePathHandler
 
@@ -19,8 +19,12 @@ def RepoUpdateEventHandler(session, msg):
         logging.warning("got bad message: %s", elements)
         return
 
+    etype = 'repo-update'
     repo_id = elements[1]
     commit_id = elements[2]
+
+    detail = {'repo_id': repo_id,
+              'commit_id': commit_id}
 
     commit = commit_mgr.load_commit(repo_id, 1, commit_id)
     if commit is None:
@@ -77,6 +81,26 @@ def RepoUpdateEventHandler(session, msg):
                     save_records_to_activity(session, records)
                 else:
                     save_record(session, commit, repo_id, parent, org_id, users, time)
+
+    org_id = get_org_id_by_repo_id(repo_id)
+    if org_id > 0:
+        users = seafile_api.org_get_shared_users_by_repo(org_id, repo_id)
+        owner = seafile_api.get_org_repo_owner(repo_id)
+    else:
+        users = seafile_api.get_shared_users_by_repo(repo_id)
+        owner = seafile_api.get_repo_owner(repo_id)
+
+    if owner not in users:
+        users = users + [owner]
+    if not users:
+        return
+
+    time = datetime.datetime.utcfromtimestamp(msg.ctime)
+    if org_id > 0:
+        save_org_user_events(session, org_id, etype, detail, users, time)
+    else:
+        save_user_events(session, etype, detail, users, time)
+
 
 def save_record(session, commit, repo_id, parent, org_id, related_users, time):
     repo = seafile_api.get_repo(repo_id)
