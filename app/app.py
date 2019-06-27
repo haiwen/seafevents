@@ -14,7 +14,8 @@ from seafevents.events_publisher.events_publisher import events_publisher
 from seafevents.utils.config import get_office_converter_conf
 from seafevents.utils import do_exit, ClientConnector, has_office_tools, get_config
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
-        VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner
+        VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
+        WorkWinxinNoticeSender
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
@@ -129,6 +130,7 @@ class BackgroundTasks(object):
         self._virus_scanner = VirusScanner(os.environ['EVENTS_CONFIG_FILE'])
         self._statistics = Statistics()
         self._content_scanner = ContentScanner(config_file)
+        self._work_weixin_notice_sender = WorkWinxinNoticeSender(self._app_config)
 
         self._office_converter = None
         if has_office_tools():
@@ -148,6 +150,12 @@ class BackgroundTasks(object):
 
     def start(self, base):
         logging.info('Starting background tasks.')
+
+        if self._work_weixin_notice_sender.is_enabled():
+            self._work_weixin_notice_sender.start(base)
+        else:
+            logging.info('work weixin notice sender is disabled')
+
         if self._index_updater.is_enabled():
             self._index_updater.start(base)
         else:
