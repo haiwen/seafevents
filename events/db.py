@@ -199,7 +199,7 @@ def save_filehistory(session, record):
     if prev_item:
         # If a file was edited many times in a few minutes, just update timestamp.
         dt = datetime.datetime.utcnow()
-        delta = timedelta(minutes=appconfig.fh.interval)
+        delta = timedelta(minutes=appconfig.fh.threshold)
         if record['op_type'] == 'edit' and prev_item.op_type == 'edit' \
                                        and prev_item.op_user == record['op_user'] \
                                        and prev_item.timestamp > dt - delta:
