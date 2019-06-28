@@ -105,6 +105,7 @@ def load_file_history_config(config):
     if config.has_option('FILE HISTORY', 'enabled'):
         appconfig.fh.enabled = config.getboolean('FILE HISTORY', 'enabled')
         if appconfig.fh.enabled:
+            appconfig.fh.interval = config.get('FILE HISTORY', 'interval')
             appconfig.fh.suffix = config.get('FILE HISTORY', 'suffix')
             suffix = appconfig.fh.suffix.strip(',')
             appconfig.fh.suffix_list = suffix.split(',') if suffix else []
@@ -113,6 +114,7 @@ def load_file_history_config(config):
             logging.info('Disenabled File History Features.')
     else:
         appconfig.fh.enabled = True
+        appconfig.fh.interval = 5
         suffix = 'md,txt,doc,docx,xls,xlsx,ppt,pptx'
         appconfig.fh.suffix_list = suffix.split(',')
         logging.info('The file with the following suffix will be recorded into the file history: %s' % suffix)
