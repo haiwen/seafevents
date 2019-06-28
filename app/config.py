@@ -105,7 +105,7 @@ def load_file_history_config(config):
     if config.has_option('FILE HISTORY', 'enabled'):
         appconfig.fh.enabled = config.getboolean('FILE HISTORY', 'enabled')
         if appconfig.fh.enabled:
-            appconfig.fh.interval = config.get('FILE HISTORY', 'interval')
+            appconfig.fh.interval = int(config.get('FILE HISTORY', 'interval'))
             appconfig.fh.suffix = config.get('FILE HISTORY', 'suffix')
             suffix = appconfig.fh.suffix.strip(',')
             appconfig.fh.suffix_list = suffix.split(',') if suffix else []
