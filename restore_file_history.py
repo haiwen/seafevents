@@ -15,7 +15,7 @@ from seaserv import seafile_api, get_org_id_by_repo_id
 from seafobj import CommitDiffer, commit_mgr
 from seafevents.app.config import appconfig, load_config
 from seafevents.events.models import FileHistory
-from seafevents.events.handlers import generate_filehistory_records, save_records_to_filehistory
+from seafevents.events.handlers import generate_filehistory_records, save_file_histories
 from seafevents.events.handlers import should_record
 
 
@@ -144,7 +144,7 @@ class RestoreUnrecordHistory(object):
 
                     with mock.patch('seafevents.events.handlers.save_filehistory', side_effect=save_filehistory):
                         if appconfig.fh.enabled:
-                            save_records_to_filehistory(session, records)
+                            save_file_histories(session, records)
 
                 session.close()
                 self._current_commit_position += 1

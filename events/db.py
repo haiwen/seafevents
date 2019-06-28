@@ -197,9 +197,9 @@ def save_filehistory(session, record):
     # use same file_uuid if prev item already exists, otherwise new one
     prev_item = query_prev_record(session, record)
     if prev_item:
-        # If a file was edited many times in 10 minutes, just update timestamp.
+        # If a file was edited many times in a few minutes, just update timestamp.
         dt = datetime.datetime.utcnow()
-        delta = timedelta(minutes=10)
+        delta = timedelta(minutes=appconfig.fh.threshold)
         if record['op_type'] == 'edit' and prev_item.op_type == 'edit' \
                                        and prev_item.op_user == record['op_user'] \
                                        and prev_item.timestamp > dt - delta:
