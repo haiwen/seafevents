@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import sys
 import logging
 
 from ccnet.async import Timer
@@ -32,27 +33,15 @@ class WorkWinxinNoticeSender(object):
         """parse work weixin related options from config file
         """
         section_name = 'WORK WEIXIN'
-        key_enabled = 'enabled'
         key_seahub_dir = 'seahub_dir'
         key_interval = 'interval'
         default_interval = 60  # 1min
 
-        if not config.has_section(section_name):
-            return
-
-        # enabled
-        enabled = get_opt_from_conf_or_env(config, section_name,
-                                           key_enabled, default=False)
-        enabled = parse_bool(enabled)
-        logging.info('work weixin notice sender enabled: %s', enabled)
-
-        if not enabled:
-            return
-        self._enabled = True
-
         # seahub_dir
-        seahub_dir = get_opt_from_conf_or_env(config, section_name,
-                                              key_seahub_dir, 'SEAHUB_DIR')
+        seahub_dir = get_opt_from_conf_or_env(
+            config, section_name, key_seahub_dir, 'SEAHUB_DIR'
+        )
+
         if not seahub_dir:
             logging.critical('seahub_dir is not set')
             raise RuntimeError('seahub_dir is not set')
@@ -60,12 +49,29 @@ class WorkWinxinNoticeSender(object):
             logging.critical('seahub_dir %s does not exist' % seahub_dir)
             raise RuntimeError('seahub_dir does not exist')
 
-        logging.info('seahub_dir: %s', seahub_dir)
+        # enabled
+        sys.path.insert(0, seahub_dir)
+        try:
+            from seahub.settings import ENABLE_WORK_WEIXIN_NOTIFICATIONS
+
+            enabled = ENABLE_WORK_WEIXIN_NOTIFICATIONS
+            enabled = parse_bool(enabled)
+            logging.info('work weixin notice sender enabled: %s', enabled)
+        except ImportError:
+            logging.warning('No module named settings.')
+            enabled = False
+
+        if not enabled:
+            return
+        self._enabled = True
 
         # notice send interval
-        interval = get_opt_from_conf_or_env(config, section_name, key_interval,
-                                            default=default_interval).lower()
-        interval = parse_interval(interval, default_interval)
+        if config.has_section(section_name):
+            interval = get_opt_from_conf_or_env(config, section_name, key_interval,
+                                                default=default_interval).lower()
+            interval = parse_interval(interval, default_interval)
+        else:
+            interval = default_interval
 
         logging.info('work weixin notice send interval: %s sec', interval)
 
