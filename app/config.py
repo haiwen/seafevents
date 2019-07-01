@@ -105,7 +105,10 @@ def load_file_history_config(config):
     if config.has_option('FILE HISTORY', 'enabled'):
         appconfig.fh.enabled = config.getboolean('FILE HISTORY', 'enabled')
         if appconfig.fh.enabled:
-            appconfig.fh.threshold = int(config.get('FILE HISTORY', 'threshold'))
+            if config.has_option('FILE HISTORY', 'threshold'):
+                appconfig.fh.threshold = int(config.get('FILE HISTORY', 'threshold'))
+            else:
+                appconfig.fh.threshold = 5
             appconfig.fh.suffix = config.get('FILE HISTORY', 'suffix')
             suffix = appconfig.fh.suffix.strip(',')
             appconfig.fh.suffix_list = suffix.split(',') if suffix else []
