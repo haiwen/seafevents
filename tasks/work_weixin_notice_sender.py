@@ -37,10 +37,11 @@ class WorkWinxinNoticeSender(object):
         key_interval = 'interval'
         default_interval = 60  # 1min
 
+        if not config.has_section(section_name):
+            return
+
         # seahub_dir
-        seahub_dir = get_opt_from_conf_or_env(
-            config, section_name, key_seahub_dir, 'SEAHUB_DIR'
-        )
+        seahub_dir = os.environ.get('SEAHUB_DIR', '')
 
         if not seahub_dir:
             logging.critical('seahub_dir is not set')
@@ -56,9 +57,8 @@ class WorkWinxinNoticeSender(object):
 
             enabled = ENABLE_WORK_WEIXIN_NOTIFICATIONS
             enabled = parse_bool(enabled)
-            logging.info('work weixin notice sender enabled: %s', enabled)
-        except ImportError:
-            logging.warning('No module named settings.')
+        except ImportError as e:
+            logging.warning('Can not import seahub.settings: %s.' % e)
             enabled = False
 
         if not enabled:
