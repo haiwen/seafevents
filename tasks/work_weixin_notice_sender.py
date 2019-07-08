@@ -53,9 +53,9 @@ class WorkWinxinNoticeSender(object):
         # enabled
         sys.path.insert(0, seahub_dir)
         try:
-            from seahub.settings import ENABLE_WORK_WEIXIN_NOTIFICATIONS
+            from seahub.settings import ENABLE_WORK_WEIXIN
 
-            enabled = ENABLE_WORK_WEIXIN_NOTIFICATIONS
+            enabled = ENABLE_WORK_WEIXIN
             enabled = parse_bool(enabled)
         except ImportError as e:
             logging.warning('Can not import seahub.settings: %s.' % e)
