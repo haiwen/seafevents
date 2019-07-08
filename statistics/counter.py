@@ -248,7 +248,7 @@ class TrafficInfoCounter(object):
             org_id = row[0]
             user = row[1]
             oper = row[2]
-            size = traffic_info[date_str][row]
+            size = local_traffic_info[date_str][row]
             if size == 0:
                 continue
             if not org_delta.has_key((org_id, oper)):
