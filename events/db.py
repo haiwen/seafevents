@@ -130,14 +130,14 @@ def get_user_activities_by_timestamp(username, start, end):
 def get_file_history(session, repo_id, path, start, limit):
     repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
     current_item = session.query(FileHistory).filter(FileHistory.repo_id_path_md5 == repo_id_path_md5)\
-            .order_by(desc(FileHistory.timestamp)).first()
+        .order_by(desc(FileHistory.id)).first()
 
     events = []
     total_count = 0
     if current_item:
         total_count = session.query(FileHistory).filter(FileHistory.file_uuid == current_item.file_uuid).count()
         q = session.query(FileHistory).filter(FileHistory.file_uuid == current_item.file_uuid)\
-                .order_by(desc(FileHistory.timestamp)).slice(start, start + limit + 1)
+            .order_by(desc(FileHistory.id)).slice(start, start + limit + 1)
 
         # select Event.etype, Event.timestamp, UserEvent.username from UserEvent, Event where UserEvent.username=username and UserEvent.org_id <= 0 and UserEvent.eid = Event.uuid order by UserEvent.id desc limit 0, 15;
         events = q.all()
