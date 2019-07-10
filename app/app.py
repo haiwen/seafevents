@@ -15,7 +15,7 @@ from seafevents.utils.config import get_office_converter_conf
 from seafevents.utils import do_exit, ClientConnector, has_office_tools, get_config
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
-        WorkWinxinNoticeSender
+        WorkWinxinNoticeSender, FileUpdatesSender
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
@@ -131,6 +131,7 @@ class BackgroundTasks(object):
         self._statistics = Statistics()
         self._content_scanner = ContentScanner(config_file)
         self._work_weixin_notice_sender = WorkWinxinNoticeSender(self._app_config)
+        self._file_updates_sender = FileUpdatesSender()
 
         self._office_converter = None
         if has_office_tools():
@@ -150,6 +151,8 @@ class BackgroundTasks(object):
 
     def start(self, base):
         logging.info('Starting background tasks.')
+
+        self._file_updates_sender.start(base)
 
         if self._work_weixin_notice_sender.is_enabled():
             self._work_weixin_notice_sender.start(base)
