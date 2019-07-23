@@ -202,3 +202,33 @@ class FileUploadRecord(Base):
     def __str__(self):
         return "FileUploadRecord<repo_id: '%s', parent_path: '%s', filename: '%s', user: '%s'>" % \
                 (self.repo_id, self.parent_path, self.filename, self.user)
+
+
+class FileOperationRecord(Base):
+    """
+    this model is the same as alphaboxevents.evnets.models.FileOperationRecord.
+    this model is for search record only.
+    """
+    __tablename__ = 'file_operation_record'
+
+    id = Column(Integer, Sequence('file_operation_record_id_seq'), primary_key=True)
+    username = Column(String(length=255), nullable=False, index=True)
+    repo_id = Column(String(length=36), nullable=False, index=True)
+    path = Column(Text, nullable=False)
+    repo_id_path_md5 = Column(String(length=32), index=True)
+    other_path = Column(Text, nullable=False)
+    operation = Column(Text, nullable=False)
+    timestamp = Column(DateTime, nullable=False, index=True)
+
+    def __init__(self, username, repo_id, path, repo_id_parent_path_md5, other_path, operation, timestamp):
+        self.username = username
+        self.repo_id = repo_id
+        self.path = path
+        self.repo_id_path_md5 = repo_id_parent_path_md5
+        self.other_path = other_path
+        self.operation = operation
+        self.timestamp = timestamp
+
+    def __str__(self):
+        return "FileOperationRecord<username: '%s, repo_id: '%s', path: '%s', other_path: '%s', operation: '%s'>" \
+               % (self.username, self.repo_id, self.path, self.other_path, self.operation)
