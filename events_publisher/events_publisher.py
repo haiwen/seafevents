@@ -30,5 +30,15 @@ class EventsPublisher(object):
             logger.error(e)
             logger.error("Failed to publish event: %s " % event)
 
+    def publish_more_file_operations(self, event):
+        try:
+            if self.mq.publish('more-file-ops', event) > 0:
+                logger.debug('Publish event: %s' % event)
+            else:
+                logger.info("No one subscribed to more-file-ops channel, event (%s) has not been send." % event)
+        except Exception as e:
+            logger.error(e)
+            logger.error("Failed to publish event: %s " % event)
+
 
 events_publisher = EventsPublisher()

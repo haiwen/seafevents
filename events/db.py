@@ -8,7 +8,8 @@ import datetime
 
 from sqlalchemy import desc
 
-from .models import Event, UserEvent, FileAudit, FileUpdate, PermAudit, FileUploadRecord
+from .models import Event, UserEvent, FileAudit, FileUpdate, PermAudit, FileUploadRecord, \
+     FileOperationRecord
 
 logger = logging.getLogger('seafevents')
 
@@ -111,6 +112,27 @@ def save_file_update_event(session, timestamp, user, org_id, repo_id, \
     event = FileUpdate(timestamp, user, org_id, repo_id, commit_id, file_oper)
     session.add(event)
     session.commit()
+
+
+def get_file_operation_records(session, repo_id, path):
+    dt = datetime.datetime.utcnow()
+    end = dt.date()
+    delta = datetime.timedelta(days=31)
+    start = end - delta
+    repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest().decode('utf8')
+    q = session.query(FileOperationRecord).filter(
+        FileOperationRecord.repo_id_path_md5 == repo_id_path_md5
+    ).filter(FileOperationRecord.timestamp.between(start, end))
+
+    if q.first():
+        results = q.all()
+    else:
+        q = session.query(FileOperationRecord).filter(
+            FileOperationRecord.repo_id_path_md5 == repo_id_path_md5
+        ).order_by(desc(FileOperationRecord.id))
+        results = q.all()[:20]
+    return results
+
 
 def get_file_upload_info(session, repo_id, path):
     filename = os.path.basename(path)
