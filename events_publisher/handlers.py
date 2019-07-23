@@ -15,7 +15,7 @@ def MoreFileOperationsPublishHandler(session, msg):
             return
 
     if elements[0] == 'file-copy':
-        if len(elements) != 5:
+        if len(elements) != 6:
             logging.warning("got bad message: %s", elements)
             return
 
