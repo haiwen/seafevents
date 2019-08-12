@@ -59,7 +59,6 @@ class FileUpdatesSenderTimer(Timer):
     def send_file_updates(self):
         """send user file updates
         """
-        logging.info('Start to send file updates..')
 
         try:
             self._send_file_updates()
