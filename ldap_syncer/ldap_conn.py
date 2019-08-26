@@ -60,7 +60,7 @@ class LdapConn(object):
                                               attr_list, serverctrls=[ctrl])
                 rtype, rdata, rmsgid, ctrls = self.conn.result3(result)
             except ldap.LDAPError as e:
-                if type(e.message) == dict and e.message['desc'] == 'No such object':
+                if isinstance(e.message, dict) and e.message['desc'] == 'No such object':
                     pass
                 else:
                     logging.warning('Search failed for base dn(%s), filter(%s) '

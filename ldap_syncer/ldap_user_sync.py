@@ -342,7 +342,7 @@ class LdapUserSync(LdapSync):
 
         for pair in users:
             user_dn, attrs = pair
-            if type(attrs) != dict:
+            if not isinstance(attrs, dict):
                 continue
             if config.login_attr not in attrs:
                 continue

@@ -118,7 +118,7 @@ class LdapGroupSync(LdapSync):
 
             for result in results:
                 group_dn, attrs = result
-                if type(attrs) != dict:
+                if not isinstance(attrs, dict):
                     continue
                 self.get_group_member_from_ldap(config, ldap_conn, group_dn, grp_data_ldap, sort_list, None)
 
@@ -143,7 +143,7 @@ class LdapGroupSync(LdapSync):
             return []
 
         dn, attrs = result[0]
-        if type(attrs) != dict:
+        if not isinstance(attrs, dict):
             return all_mails
         # group member
         if config.group_member_attr in attrs and attrs[config.group_member_attr] != ['']:
@@ -191,7 +191,7 @@ class LdapGroupSync(LdapSync):
 
             for result in results:
                 group_dn, attrs = result
-                if type(attrs) != dict:
+                if not isinstance(attrs, dict):
                     continue
                 # empty group
                 if config.group_member_attr not in attrs:
@@ -228,7 +228,7 @@ class LdapGroupSync(LdapSync):
 
         for result in results:
             dn, attrs = result
-            if type(attrs) != dict:
+            if not isinstance(attrs, dict):
                 continue
             if config.login_attr in attrs:
                 for mail in attrs[config.login_attr]:
@@ -281,7 +281,7 @@ class LdapGroupSync(LdapSync):
         member_dn=''
         for pair in results:
             member_dn, attrs = pair
-            if type(attrs) != dict:
+            if not isinstance(attrs, dict):
                 continue
             # member
             if config.login_attr in attrs and ('ou=' in base_dn or 'OU=' in base_dn):
