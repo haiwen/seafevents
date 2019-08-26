@@ -466,7 +466,7 @@ class UserActivityCounter(object):
 
         cmd = "REPLACE INTO UserActivityStat (name_time_md5, username, timestamp, org_id) values"
         cmd_extend = ''.join([' (:key' + str(i) +', :name'+ str(i) +', :time'+ str(i) + ', :org' + str(i) + '),'\
-                     for i in xrange(l)])[:-1]
+                     for i in range(l)])[:-1]
         cmd += cmd_extend
         data = {}
         for key in keys:
