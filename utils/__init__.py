@@ -2,7 +2,7 @@ import os
 import sys
 import logging
 import atexit
-import ConfigParser
+import configparser
 import ccnet
 import time
 import subprocess
@@ -175,7 +175,7 @@ class ClientConnector(object):
         return self._client
 
 def get_config(config_file):
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     try:
         config.read(config_file)
     except Exception as e:

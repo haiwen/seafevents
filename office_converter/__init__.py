@@ -3,7 +3,7 @@ import sys
 import re
 import logging
 import tempfile
-import ConfigParser
+import configparser
 from pysearpc import searpc_server
 from ccnet.async import RpcServerProc
 

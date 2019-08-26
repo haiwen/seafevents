@@ -2,7 +2,7 @@
 
 import os
 import logging
-import ConfigParser
+import configparser
 
 from ccnet.async import Timer
 from seafevents.utils import get_config, get_python_executable, run

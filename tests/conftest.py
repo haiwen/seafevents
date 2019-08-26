@@ -1,6 +1,6 @@
 import os
 import sys
-import ConfigParser
+import configparser
 import subprocess
 
 from sqlalchemy import create_engine, text
@@ -123,7 +123,7 @@ def copy_db_from_seafevent_with_no_data():
             test_session.close()
 
 def get_db_session(section):
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.read('./db.cnf')
     if not config.has_section(section):
         sys.stdout.write("no section: %s" % section)
@@ -148,7 +148,7 @@ def get_db_session(section):
     return Session()
 
 def read_db_conf(section):
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.read('./db.cnf')
     if not config.has_section(section):
         sys.stdout.write("no section: %s" % section)

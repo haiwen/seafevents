@@ -6,7 +6,7 @@ import stat
 import logging
 import logging.handlers
 import datetime
-import httplib
+import http.client
 import urllib2
 from datetime import timedelta
 from os.path import splitext
@@ -103,7 +103,7 @@ def send_message_to_collab_server(repo_id):
     req = urllib2.Request(url, form_data)
     resp = urllib2.urlopen(req)
     ret_code = resp.getcode()
-    if ret_code != httplib.OK:
+    if ret_code != http.client.OK:
         logging.warning('Failed to send message to collab_server %s', appconfig.collab_server)
 
 def save_repo_rename_activity(session, commit, repo_id, parent, org_id, related_users, time):

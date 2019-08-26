@@ -2,7 +2,7 @@
 
 import os
 import logging
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 from seafevents.db import init_db_session_class
 from seafevents.app.config import appconfig
 from seafevents.utils.config import get_opt_from_conf_or_env, parse_bool

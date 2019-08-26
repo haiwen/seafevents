@@ -1,5 +1,5 @@
 import threading
-import Queue
+import queue
 import logging
 
 import seafevents.events.handlers as events_handlers
@@ -74,7 +74,7 @@ class EventsMQListener(object):
     # ]
 
     def __init__(self, events_conf):
-        self._events_queue = Queue.Queue()
+        self._events_queue = queue.Queue()
         self._db_session_class = init_db_session_class(events_conf)
         self._seafevents_thread = None
         self._mq_client = None

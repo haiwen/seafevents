@@ -1,5 +1,5 @@
 import os
-import ConfigParser
+import configparser
 import logging
 
 from urllib import quote_plus
@@ -35,7 +35,7 @@ def create_mysql_session(host, port, username, passwd, dbname):
     return Session
 
 def create_engine_from_conf(config_file, db = 'seafevent'):
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.read(config_file)
 
     need_connection_pool_fix = True

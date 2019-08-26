@@ -2,7 +2,7 @@
 #coding: utf-8
 
 import argparse
-import ConfigParser
+import configparser
 import os
 import logging
 from seafevents.app.log import LogConfigurator

@@ -2,7 +2,7 @@ import os
 import logging
 import hashlib
 import time
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 from datetime import timedelta
 from datetime import datetime
 from sqlalchemy import func

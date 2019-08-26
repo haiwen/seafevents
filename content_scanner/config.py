@@ -1,6 +1,6 @@
 import os
 import logging
-import ConfigParser
+import configparser
 from seafevents.db import init_db_session_class
 from seafevents.utils import get_config, do_exit
 

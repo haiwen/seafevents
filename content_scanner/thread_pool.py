@@ -1,7 +1,7 @@
 #coding: utf-8
 
 from threading import Thread
-import Queue
+import queue
 import logging
 from .config import appconfig
 from .ali_scan import AliScanner
@@ -33,7 +33,7 @@ class ThreadPool(object):
     def __init__(self, do_work, nworker=10):
         self.do_work = do_work
         self.nworker = nworker
-        self.task_queue = Queue.Queue()
+        self.task_queue = queue.Queue()
 
     def start(self):
         for i in xrange(self.nworker):

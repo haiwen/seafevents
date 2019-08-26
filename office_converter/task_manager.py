@@ -1,7 +1,7 @@
 # coding: utf-8
 
 import os
-import Queue
+import queue
 import tempfile
 import threading
 import urllib2
@@ -247,7 +247,7 @@ class Worker(threading.Thread):
         while True:
             try:
                 task = self._tasks_queue.get(timeout=1)
-            except Queue.Empty:
+            except queue.Empty:
                 continue
 
             self._handle_task(task)
@@ -274,7 +274,7 @@ class TaskManager(object):
         self._tasks_map_lock = threading.Lock()
 
         # tasks queue
-        self._tasks_queue = Queue.Queue()
+        self._tasks_queue = queue.Queue()
         self._workers = []
 
         # Things to be initialized in self.init()

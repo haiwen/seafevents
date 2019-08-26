@@ -1,7 +1,7 @@
 #coding: utf-8
 
 import logging
-import ConfigParser
+import configparser
 from seafevents.app.config import appconfig
 
 MAX_LDAP_NUM = 10
@@ -76,7 +76,7 @@ class Settings(object):
             return
 
         ccnet_conf_path = appconfig.ccnet_conf_path
-        self.parser = ConfigParser.ConfigParser()
+        self.parser = configparser.ConfigParser()
         self.parser.read(ccnet_conf_path)
 
         if not self.parser.has_section('LDAP'):
@@ -244,7 +244,7 @@ class Settings(object):
                 val = self.parser.getboolean(section, key) \
                         if dtype == bool else dtype(val)
                 return val
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             return dval
         except ValueError:
             return dval

@@ -2,7 +2,7 @@
 #coding: utf-8
 
 import argparse
-import ConfigParser
+import configparser
 import os
 import logging
 
@@ -63,7 +63,7 @@ def get_ccnet_dir():
 
 
 def is_cluster_enabled():
-    cfg = ConfigParser.ConfigParser()
+    cfg = configparser.ConfigParser()
     if 'SEAFILE_CENTRAL_CONF_DIR' in os.environ:
         confdir = os.environ['SEAFILE_CENTRAL_CONF_DIR']
     else:
