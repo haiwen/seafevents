@@ -54,7 +54,7 @@ def is_python3():
         m = re.match(r'LibreOffice (\d)\.(\d)', output)
         if not m:
             return False
-        major, minor = map(int, m.groups())
+        major, minor = list(map(int, m.groups()))
         if (major == 4 and minor >= 2) or major > 4:
             return True
 
