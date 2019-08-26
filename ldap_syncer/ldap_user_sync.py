@@ -157,7 +157,7 @@ class LdapUserSync(LdapSync):
     def add_dept(self, email, dept):
         try:
             self.cursor.execute('insert into profile_detailedprofile (user,department,telephone) '
-                                'values (%s,%s,%s)', (email, dept,''))
+                                'values (%s,%s,%s)', (email, dept, ''))
             if self.cursor.rowcount == 1:
                 logger.debug('Add dept %s to user %s successs.' %
                               (dept, email))

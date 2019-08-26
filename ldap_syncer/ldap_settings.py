@@ -209,7 +209,7 @@ class Settings(object):
         posix groups store members in atrribute 'memberUid', however, the value of memberUid may be not a 'uid',
         so we make it configurable, default value is 'uid'.
         '''
-        ldap_config.user_attr_in_memberUid = self.get_option(sync_sec, 'USER_ATTR_IN_MEMBERUID',dval='uid')
+        ldap_config.user_attr_in_memberUid = self.get_option(sync_sec, 'USER_ATTR_IN_MEMBERUID', dval='uid')
 
     def read_sync_user_config(self, ldap_config, ldap_sec, sync_sec):
         ldap_config.user_object_class = self.get_option(sync_sec, 'USER_OBJECT_CLASS',

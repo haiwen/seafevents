@@ -80,7 +80,7 @@ def get_user_events(session, username, start, limit):
 
 def get_org_user_events(session, org_id, username, start, limit):
     """Org version of get_user_events"""
-    return _get_user_events(session, org_id , username, start, limit)
+    return _get_user_events(session, org_id, username, start, limit)
 
 def get_user_all_events(session, username, start, limit):
     """Get all events of a user"""

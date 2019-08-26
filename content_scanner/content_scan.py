@@ -41,7 +41,7 @@ class ContentScan(object):
 
         dt = datetime.utcnow()
         dt_str = dt.strftime('%Y-%m-%d %H:%M:%S')
-        self.dt = datetime.strptime(dt_str,'%Y-%m-%d %H:%M:%S')
+        self.dt = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
 
         edb_session = appconfig.session_cls()
         seafdb_session = appconfig.seaf_session_cls()

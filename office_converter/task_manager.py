@@ -56,7 +56,7 @@ class ConvertTask(object):
         # fetched office document
         self.document = None
         # pdf output
-        self.pdf = '{0}.{1}'.format(os.path.join(pdf_dir, file_id),'pdf')
+        self.pdf = '{0}.{1}'.format(os.path.join(pdf_dir, file_id), 'pdf')
         # html output, each page of the document is converted to a separate
         # html file, and displayed in iframes on seahub
         self.htmldir = os.path.join(html_dir, file_id)

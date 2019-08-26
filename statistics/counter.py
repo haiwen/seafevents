@@ -16,7 +16,7 @@ from seafevents.db import SeafBase
 from .db import get_org_id
 
 # This is a throwaway variable to deal with a python bug
-throwaway = datetime.strptime('20110101','%Y%m%d')
+throwaway = datetime.strptime('20110101', '%Y%m%d')
 
 login_records = {}
 traffic_info = {}
@@ -25,7 +25,7 @@ def update_hash_record(session, login_name, login_time, org_id):
     if not appconfig.enable_statistics:
         return
     time_str = login_time.strftime('%Y-%m-%d 00:00:00')
-    time_by_day = datetime.strptime(time_str,'%Y-%m-%d %H:%M:%S')
+    time_by_day = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S')
     md5_key = hashlib.md5((login_name + time_str).encode('utf-8')).hexdigest()
     login_records[md5_key] = (login_name, time_by_day, org_id)
 
@@ -59,8 +59,8 @@ class FileOpsCounter(object):
         start = _start.strftime('%Y-%m-%d %H:00:00')
         end = _start.strftime('%Y-%m-%d %H:59:59')
 
-        s_timestamp = datetime.strptime(start,'%Y-%m-%d %H:%M:%S')
-        e_timestamp = datetime.strptime(end,'%Y-%m-%d %H:%M:%S')
+        s_timestamp = datetime.strptime(start, '%Y-%m-%d %H:%M:%S')
+        e_timestamp = datetime.strptime(end, '%Y-%m-%d %H:%M:%S')
 
         total_added = total_deleted = total_visited = total_modified = 0
         org_added = {}
@@ -171,7 +171,7 @@ class TotalStorageCounter(object):
 
         dt = datetime.utcnow()
         _timestamp = dt.strftime('%Y-%m-%d %H:00:00')
-        timestamp = datetime.strptime(_timestamp,'%Y-%m-%d %H:%M:%S')
+        timestamp = datetime.strptime(_timestamp, '%Y-%m-%d %H:%M:%S')
 
         try:
             for result in results:

@@ -222,7 +222,7 @@ class LdapGroupSync(LdapSync):
 
         results = ldap_conn.search(base_dn, SCOPE_SUBTREE,
                                    search_filter,
-                                   [config.login_attr,'cn'])
+                                   [config.login_attr, 'cn'])
         if not results:
             return []
 

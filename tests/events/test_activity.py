@@ -18,8 +18,8 @@ class AcvitityTest(EventTest):
         session.close()
 
         self.record = {
-            'op_type':'create',
-            'obj_type':'repo',
+            'op_type': 'create',
+            'obj_type': 'repo',
             'timestamp': datetime.datetime.utcnow(),
             'repo_id': 'fd62b808-63bf-4ab1-bdee-7fa4a94b85b5',
             'path': '/',

@@ -41,8 +41,8 @@ def get_org_id(repo_id):
 def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
-    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
-    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+    start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
 
     # offset is not supported for now
     offset='+00:00'
@@ -57,14 +57,14 @@ def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.number))
+        ret.append((datetime.strptime(str(row.timestamp), '%Y-%m-%d'), row.number))
     return ret
 
 def get_org_user_activity_stats_by_day(org_id, start, end):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
-    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
-    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+    start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
     ret = []
     try:
         session = appconfig.session_cls()
@@ -116,8 +116,8 @@ def _get_total_storage_stats(start, end, offset='+00:00', org_id=0):
 def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
-    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
-    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+    start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
 
     results = _get_total_storage_stats (start_at_0, end_at_23, offset)
     results.reverse()
@@ -134,7 +134,7 @@ def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
         cur_num = result[1]
         cur_date = datetime.date (cur_time)
         if cur_date != last_date or last_date == None:
-            ret.append((datetime.strptime(str(cur_date),'%Y-%m-%d'), cur_num))
+            ret.append((datetime.strptime(str(cur_date), '%Y-%m-%d'), cur_num))
             last_date = cur_date
 
     ret.reverse()
@@ -143,8 +143,8 @@ def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
 def get_org_storage_stats_by_day(org_id, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
-    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
-    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+    start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
 
     results = _get_total_storage_stats (start_at_0, end_at_23, offset, org_id)
     results.reverse()
@@ -161,7 +161,7 @@ def get_org_storage_stats_by_day(org_id, start, end, offset='+00:00'):
         cur_num = result[1]
         cur_date = datetime.date (cur_time)
         if cur_date != last_date or last_date == None:
-            ret.append({"timestamp":datetime.strptime(str(cur_date),'%Y-%m-%d'),\
+            ret.append({"timestamp":datetime.strptime(str(cur_date), '%Y-%m-%d'),\
                         "number" : cur_num})
             last_date = cur_date
     ret.reverse()
@@ -171,8 +171,8 @@ def get_org_storage_stats_by_day(org_id, start, end, offset='+00:00'):
 def get_file_ops_stats_by_day(session, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
-    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
-    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+    start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
 
     q = session.query(func.date(func.convert_tz(FileOpsStat.timestamp, '+00:00', offset)).label("timestamp"),
                       func.sum(FileOpsStat.number).label("number"),
@@ -186,14 +186,14 @@ def get_file_ops_stats_by_day(session, start, end, offset='+00:00'):
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, int(row.number)))
+        ret.append((datetime.strptime(str(row.timestamp), '%Y-%m-%d'), row.op_type, int(row.number)))
     return ret
 
 def get_org_file_ops_stats_by_day(org_id, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
-    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
-    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+    start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
     ret = []
 
     try:
@@ -211,7 +211,7 @@ def get_org_file_ops_stats_by_day(org_id, start, end, offset='+00:00'):
         rows = q.all()
 
         for row in rows:
-            timestamp = datetime.strptime(str(row.timestamp),'%Y-%m-%d')
+            timestamp = datetime.strptime(str(row.timestamp), '%Y-%m-%d')
             op_type = row.op_type
             num = int(row.number)
             ret.append({"timestamp":timestamp, "op_type":op_type, "number":num})
@@ -225,8 +225,8 @@ def get_org_file_ops_stats_by_day(org_id, start, end, offset='+00:00'):
 def get_org_user_traffic_by_day(session, org_id, user, start, end, offset='+00:00', op_type='all'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
-    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
-    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+    start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
 
     # offset is not supported for now
     offset='+00:00'
@@ -260,14 +260,14 @@ def get_org_user_traffic_by_day(session, org_id, user, start, end, offset='+00:0
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, int(row.size)))
+        ret.append((datetime.strptime(str(row.timestamp), '%Y-%m-%d'), row.op_type, int(row.size)))
     return ret
 
 def get_user_traffic_by_day(session, user, start, end, offset='+00:00', op_type='all'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
-    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
-    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+    start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
 
     # offset is not supported for now
     offset='+00:00'
@@ -299,14 +299,14 @@ def get_user_traffic_by_day(session, user, start, end, offset='+00:00', op_type=
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, int(row.size)))
+        ret.append((datetime.strptime(str(row.timestamp), '%Y-%m-%d'), row.op_type, int(row.size)))
     return ret
 
 def get_org_traffic_by_day(session, org_id, start, end, offset='+00:00', op_type='all'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
-    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
-    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+    start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
 
     # offset is not supported for now
     offset='+00:00'
@@ -340,14 +340,14 @@ def get_org_traffic_by_day(session, org_id, start, end, offset='+00:00', op_type
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, int(row.size)))
+        ret.append((datetime.strptime(str(row.timestamp), '%Y-%m-%d'), row.op_type, int(row.size)))
     return ret
 
 def get_system_traffic_by_day(session, start, end, offset='+00:00', op_type='all'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
-    start_at_0 = datetime.strptime(start_str,'%Y-%m-%d %H:%M:%S')
-    end_at_23 = datetime.strptime(end_str,'%Y-%m-%d %H:%M:%S')
+    start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
+    end_at_23 = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
 
     # offset is not supported for now
     offset='+00:00'
@@ -377,7 +377,7 @@ def get_system_traffic_by_day(session, start, end, offset='+00:00', op_type='all
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, int(row.size)))
+        ret.append((datetime.strptime(str(row.timestamp), '%Y-%m-%d'), row.op_type, int(row.size)))
     return ret
 
 """
@@ -480,7 +480,7 @@ def get_org_traffic_by_month(org_id, start, end):
 
 def get_all_users_traffic_by_month(month, start=-1, limit=-1, order_by='user', org_id=-1):
     month_str = month.strftime('%Y-%m-01 00:00:00')
-    _month = datetime.strptime(month_str,'%Y-%m-%d %H:%M:%S')
+    _month = datetime.strptime(month_str, '%Y-%m-%d %H:%M:%S')
 
     ret = []
     try:
@@ -540,7 +540,7 @@ def get_all_users_traffic_by_month(month, start=-1, limit=-1, order_by='user', o
 
 def get_all_orgs_traffic_by_month(month, start=-1, limit=-1, order_by='org_id'):
     month_str = month.strftime('%Y-%m-01 00:00:00')
-    _month = datetime.strptime(month_str,'%Y-%m-%d %H:%M:%S')
+    _month = datetime.strptime(month_str, '%Y-%m-%d %H:%M:%S')
 
     ret = []
     try:
@@ -599,7 +599,7 @@ def get_all_orgs_traffic_by_month(month, start=-1, limit=-1, order_by='org_id'):
 
 def get_user_traffic_by_month (user, month):
     month_str = month.strftime('%Y-%m-01 00:00:00')
-    _month = datetime.strptime(month_str,'%Y-%m-%d %H:%M:%S')
+    _month = datetime.strptime(month_str, '%Y-%m-%d %H:%M:%S')
 
     ret = {}
     try:
