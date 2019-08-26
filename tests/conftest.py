@@ -57,7 +57,7 @@ def apply_tables():
     try:
         subprocess.check_call(cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     except Exception as e:
-        print e.output
+        print(e.output)
 
 def delete_all_table_if_exists():
     session = None
