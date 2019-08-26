@@ -128,7 +128,7 @@ class Convertor(object):
 
         try:
             _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT, env=get_env_without_thirdpart())
-        except subprocess.CalledProcessError, e:
+        except subprocess.CalledProcessError as e:
             logging.warning('error when invoking libreoffice: %s', e.output)
             return False
         else:
@@ -153,7 +153,7 @@ class Convertor(object):
 
         try:
             _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT, env=get_env_without_thirdpart())
-        except subprocess.CalledProcessError, e:
+        except subprocess.CalledProcessError as e:
             logging.warning('error when invoking libreoffice: %s', e.output)
             return False
         else:
@@ -175,7 +175,7 @@ class Convertor(object):
         with self.lock:
             try:
                 _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT, env=get_env_without_thirdpart())
-            except subprocess.CalledProcessError, e:
+            except subprocess.CalledProcessError as e:
                 logging.warning('error when invoking libreoffice: %s', e.output)
                 return False
             else:
@@ -201,7 +201,7 @@ class Convertor(object):
         with self.lock:
             try:
                 _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT, env=get_env_without_thirdpart())
-            except subprocess.CalledProcessError, e:
+            except subprocess.CalledProcessError as e:
                 logging.warning('error when invoking libreoffice: %s', e.output)
                 return False
             else:

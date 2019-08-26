@@ -80,7 +80,8 @@ class IndexUpdater(object):
         index_office_pdf = False
         try:
             index_office_pdf = config.get(section_name, key_index_office_pdf)
-        except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
+        except ConfigParser.NoOptionError as xxx_todo_changeme:
+            ConfigParser.NoSectionError = xxx_todo_changeme
             pass
         else:
             index_office_pdf = index_office_pdf.lower()

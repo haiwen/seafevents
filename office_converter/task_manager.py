@@ -92,7 +92,7 @@ class ConvertTask(object):
                 logging.debug("removing temporary document %s", fn)
                 try:
                     os.remove(fn)
-                except OSError, e:
+                except OSError as e:
                     logging.warning('failed to remove temporary document %s: %s', fn, e)
 
         self._status = status
@@ -167,7 +167,7 @@ class Worker(threading.Thread):
 
             with open(tmpfile, 'wb') as fp:
                 fp.write(content)
-        except Exception, e:
+        except Exception as e:
             logging.warning('failed to write fetched document for task %s: %s', task, str(e))
             task.status = 'ERROR'
             task.error = 'failed to write fetched document to temporary file'
