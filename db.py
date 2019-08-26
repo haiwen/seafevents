@@ -2,7 +2,7 @@ import os
 import configparser
 import logging
 
-from urllib import quote_plus
+from urllib.parse import quote_plus
 
 from sqlalchemy import create_engine
 from sqlalchemy.event import contains as has_event_listener, listen as add_event_listener

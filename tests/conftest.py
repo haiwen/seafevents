@@ -6,7 +6,7 @@ import subprocess
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DisconnectionError
 from sqlalchemy.event import contains as has_event_listener, listen as add_event_listener
-from urllib import quote_plus
+from urllib.parse import quote_plus
 from pytest import yield_fixture
 from sqlalchemy.pool import Pool
 from sqlalchemy.orm import sessionmaker

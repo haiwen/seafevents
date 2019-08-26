@@ -4,7 +4,7 @@ import os
 import queue
 import tempfile
 import threading
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import logging
 import atexit
 import json
@@ -187,7 +187,7 @@ class Worker(threading.Thread):
         logging.debug('start to fetch task %s', task)
         file_response = None
         try:
-            file_response = urllib2.urlopen(task.url)
+            file_response = urllib.request.urlopen(task.url)
             content = file_response.read()
         except Exception as e:
             logging.warning('failed to fetch document of task %s (%s): %s', task, task.url, e)

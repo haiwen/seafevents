@@ -7,7 +7,7 @@ import logging
 import logging.handlers
 import datetime
 import http.client
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 from datetime import timedelta
 from os.path import splitext
 
@@ -100,8 +100,8 @@ def RepoUpdateEventHandler(session, msg):
 def send_message_to_collab_server(repo_id):
     url = '%s/api/repo-update' % appconfig.collab_server
     form_data = 'repo_id=%s&key=%s' % (repo_id, appconfig.collab_key)
-    req = urllib2.Request(url, form_data)
-    resp = urllib2.urlopen(req)
+    req = urllib.request.Request(url, form_data)
+    resp = urllib.request.urlopen(req)
     ret_code = resp.getcode()
     if ret_code != http.client.OK:
         logging.warning('Failed to send message to collab_server %s', appconfig.collab_server)
