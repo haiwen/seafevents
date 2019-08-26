@@ -7,13 +7,13 @@ from datetime import timedelta
 from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.sql import text
-from models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic,\
+from .models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic,\
                    MonthlyUserTraffic, MonthlySysTraffic
 from seafevents.events.models import FileUpdate
 from seafevents.events.models import FileAudit
 from seafevents.app.config import appconfig
 from seafevents.db import SeafBase
-from db import get_org_id
+from .db import get_org_id
 
 # This is a throwaway variable to deal with a python bug
 throwaway = datetime.strptime('20110101','%Y%m%d')

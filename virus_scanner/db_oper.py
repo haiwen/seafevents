@@ -1,8 +1,8 @@
 #coding: utf-8
 
 from sqlalchemy.orm.scoping import scoped_session
-from models import VirusScanRecord, VirusFile
-from scan_settings import logger
+from .models import VirusScanRecord, VirusFile
+from .scan_settings import logger
 
 class DBOper(object):
     def __init__(self, settings):

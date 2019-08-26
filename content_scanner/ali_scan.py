@@ -7,7 +7,7 @@ import json
 import uuid
 import datetime
 import logging
-from config import appconfig
+from .config import appconfig
 
 MAX_SIZE=25000
 

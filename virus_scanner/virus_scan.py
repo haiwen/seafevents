@@ -4,11 +4,11 @@ import os
 import tempfile
 import subprocess
 from seafobj import commit_mgr, fs_mgr, block_mgr
-from db_oper import DBOper
-from commit_differ import CommitDiffer
-from thread_pool import ThreadPool
+from .db_oper import DBOper
+from .commit_differ import CommitDiffer
+from .thread_pool import ThreadPool
 from seafevents.utils import get_python_executable
-from scan_settings import logger
+from .scan_settings import logger
 
 class ScanTask(object):
     def __init__(self, repo_id, head_commit_id, scan_commit_id):

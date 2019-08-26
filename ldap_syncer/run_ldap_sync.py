@@ -6,10 +6,10 @@ import sys
 import argparse
 from ldap import SCOPE_SUBTREE
 
-from ldap_settings import Settings
-from ldap_conn import LdapConn
-from ldap_group_sync import LdapGroupSync
-from ldap_user_sync import LdapUserSync
+from .ldap_settings import Settings
+from .ldap_conn import LdapConn
+from .ldap_group_sync import LdapGroupSync
+from .ldap_user_sync import LdapUserSync
 
 from seafevents.app.config import load_env_config
 

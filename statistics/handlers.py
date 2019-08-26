@@ -5,7 +5,7 @@ import logging
 import logging.handlers
 
 from datetime import datetime
-from counter import update_hash_record, save_traffic_info
+from .counter import update_hash_record, save_traffic_info
 
 def UserLoginEventHandler(session, msg):
     elements = msg.body.split('\t')

@@ -3,8 +3,8 @@
 from threading import Thread
 import Queue
 import logging
-from config import appconfig
-from ali_scan import AliScanner
+from .config import appconfig
+from .ali_scan import AliScanner
 
 class Worker(Thread):
     def __init__(self, do_work, task_queue):

@@ -8,8 +8,8 @@ from seaserv import get_ldap_groups, get_group_members, add_group_dn_pair, \
         get_group_dn_pairs, create_group, group_add_member, group_remove_member, \
         get_group, remove_group, get_super_users, ccnet_api, seafile_api
 from ldap import SCOPE_SUBTREE, SCOPE_BASE, SCOPE_ONELEVEL
-from ldap_conn import LdapConn
-from ldap_sync import LdapSync
+from .ldap_conn import LdapConn
+from .ldap_sync import LdapSync
 
 class LdapGroup(object):
     def __init__(self, cn, creator, members, parent_dn=None, group_id=0, is_department=False):

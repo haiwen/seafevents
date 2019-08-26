@@ -4,7 +4,7 @@ from sqlalchemy import func
 from sqlalchemy import distinct
 from datetime import datetime
 
-from models import UserActivityStat, UserTraffic, SysTraffic, \
+from .models import UserActivityStat, UserTraffic, SysTraffic, \
                    FileOpsStat, TotalStorageStat, MonthlyUserTraffic, MonthlySysTraffic
 
 from seaserv import seafile_api, get_org_id_by_repo_id

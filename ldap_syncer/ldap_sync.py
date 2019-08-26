@@ -3,7 +3,7 @@
 import logging
 from threading import Thread
 
-from ldap_conn import LdapConn
+from .ldap_conn import LdapConn
 
 class LdapSync(Thread):
     def __init__(self, settings):

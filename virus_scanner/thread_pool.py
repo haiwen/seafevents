@@ -2,7 +2,7 @@
 
 from threading import Thread
 import Queue
-from scan_settings import logger
+from .scan_settings import logger
 
 class Worker(Thread):
     def __init__(self, do_work, task_queue):

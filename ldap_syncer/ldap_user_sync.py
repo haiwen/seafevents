@@ -6,8 +6,8 @@ logger.setLevel(logging.DEBUG)
 
 from seaserv import get_ldap_users, add_ldap_user, update_ldap_user, \
         seafile_api, ccnet_api
-from ldap_conn import LdapConn
-from ldap_sync import LdapSync
+from .ldap_conn import LdapConn
+from .ldap_sync import LdapSync
 from ldap import SCOPE_SUBTREE
 
 def default_ldap_role_mapping(role):

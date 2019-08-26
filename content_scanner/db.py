@@ -1,6 +1,6 @@
 import logging
 
-from models import ContentScanResult
+from .models import ContentScanResult
 from seafevents.app.config import appconfig
 
 def get_content_scan_results(start=-1, limit=-1):

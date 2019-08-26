@@ -17,7 +17,7 @@ from seafobj.commit_differ import DiffEntry
 from seafevents.events.db import save_file_audit_event, save_file_update_event, \
         save_perm_audit_event, save_user_activity, save_filehistory, update_user_activity_timestamp
 from seafevents.app.config import appconfig
-from change_file_path import ChangeFilePathHandler
+from .change_file_path import ChangeFilePathHandler
 from .models import Activity
 
 def RepoUpdateEventHandler(session, msg):

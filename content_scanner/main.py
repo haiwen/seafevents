@@ -6,9 +6,9 @@ import ConfigParser
 import os
 import logging
 from seafevents.app.log import LogConfigurator
-from config import appconfig, load_config
-from models import ContentScanResult, ContentScanRecord
-from content_scan import ContentScan
+from .config import appconfig, load_config
+from .models import ContentScanResult, ContentScanRecord
+from .content_scan import ContentScan
 
 class AppArgParser(object):
     def __init__(self):
