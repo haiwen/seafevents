@@ -39,7 +39,7 @@ class LdapSync(Thread):
             # If get data from one server failed, then the result is failed
             if cur_ret is None:
                 return None
-            for key in cur_ret.iterkeys():
+            for key in cur_ret.keys():
                 if not ret.has_key(key):
                     ret[key] = cur_ret[key]
                     ret[key].config = config

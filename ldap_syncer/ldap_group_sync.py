@@ -122,7 +122,7 @@ class LdapGroupSync(LdapSync):
                     continue
                 self.get_group_member_from_ldap(config, ldap_conn, group_dn, grp_data_ldap, sort_list, None)
 
-        self.sort_list.extend(grp_data_ldap.items())
+        self.sort_list.extend(list(grp_data_ldap.items()))
 
         return grp_data_ldap
 
@@ -378,7 +378,7 @@ class LdapGroupSync(LdapSync):
             group_dn_db[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
 
         # sync deleted group in ldap to db
-        for k in grp_dn_pairs.iterkeys():
+        for k in grp_dn_pairs.keys():
             if not data_ldap.has_key(k):
                 deleted_group_id = grp_dn_pairs[k]
                 if (not data_db[deleted_group_id].is_department and self.settings.del_group_if_not_found) or \

@@ -168,7 +168,7 @@ class RestoreUnrecordHistory(object):
         users = [e.user for e in users_obj] + [owner]
 
         self._last_commit_id = None
-        if repo_id in self._history_repo.keys():
+        if repo_id in list(self._history_repo.keys()):
             commit_ids = self.get_repo_last_commits(repo_id)
             count = 0
             k = 0

@@ -115,19 +115,19 @@ class FileOpsCounter(object):
             logging.warning('[FileOpsCounter] query error : %s.', e)
             return
 
-        for k, v in org_added.iteritems():
+        for k, v in org_added.items():
             new_record = FileOpsStat(k, s_timestamp, 'Added', v)
             self.edb_session.add(new_record)
 
-        for k, v in org_deleted.iteritems():
+        for k, v in org_deleted.items():
             new_record = FileOpsStat(k, s_timestamp, 'Deleted', v)
             self.edb_session.add(new_record)
 
-        for k, v in org_visited.iteritems():
+        for k, v in org_visited.items():
             new_record = FileOpsStat(k, s_timestamp, 'Visited', v)
             self.edb_session.add(new_record)
 
-        for k, v in org_modified.iteritems():
+        for k, v in org_modified.items():
             new_record = FileOpsStat(k, s_timestamp, 'Modified', v)
             self.edb_session.add(new_record)
 
@@ -440,7 +440,7 @@ class UserActivityCounter(object):
         ret = 0
         try:
             while True:
-                all_keys = login_records.keys()
+                all_keys = list(login_records.keys())
                 if len(all_keys) > 300:
                     keys = all_keys[:300]
                     self.update_login_record(keys)
