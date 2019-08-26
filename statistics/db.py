@@ -186,7 +186,7 @@ def get_file_ops_stats_by_day(session, start, end, offset='+00:00'):
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.number)))
+        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, int(row.number)))
     return ret
 
 def get_org_file_ops_stats_by_day(org_id, start, end, offset='+00:00'):
@@ -213,7 +213,7 @@ def get_org_file_ops_stats_by_day(org_id, start, end, offset='+00:00'):
         for row in rows:
             timestamp = datetime.strptime(str(row.timestamp),'%Y-%m-%d')
             op_type = row.op_type
-            num = long(row.number)
+            num = int(row.number)
             ret.append({"timestamp":timestamp, "op_type":op_type, "number":num})
     except Exception as e:
         logging.warning('Failed to get org-file operations data: %s.', e)
@@ -260,7 +260,7 @@ def get_org_user_traffic_by_day(session, org_id, user, start, end, offset='+00:0
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.size)))
+        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, int(row.size)))
     return ret
 
 def get_user_traffic_by_day(session, user, start, end, offset='+00:00', op_type='all'):
@@ -299,7 +299,7 @@ def get_user_traffic_by_day(session, user, start, end, offset='+00:00', op_type=
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.size)))
+        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, int(row.size)))
     return ret
 
 def get_org_traffic_by_day(session, org_id, start, end, offset='+00:00', op_type='all'):
@@ -340,7 +340,7 @@ def get_org_traffic_by_day(session, org_id, start, end, offset='+00:00', op_type
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.size)))
+        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, int(row.size)))
     return ret
 
 def get_system_traffic_by_day(session, start, end, offset='+00:00', op_type='all'):
@@ -377,7 +377,7 @@ def get_system_traffic_by_day(session, start, end, offset='+00:00', op_type='all
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, long(row.size)))
+        ret.append((datetime.strptime(str(row.timestamp),'%Y-%m-%d'), row.op_type, int(row.size)))
     return ret
 
 """

@@ -336,7 +336,7 @@ def get_event_log_by_time(session, log_type, tstart, tend):
         logger.error('Invalid log_type parameter')
         raise RuntimeError('Invalid log_type parameter')
 
-    if not isinstance(tstart, (long, float)) or not isinstance(tend, (long, float)):
+    if not isinstance(tstart, (int, float)) or not isinstance(tend, (int, float)):
         logger.error('Invalid time range parameter')
         raise RuntimeError('Invalid time range parameter')
 

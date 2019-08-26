@@ -29,7 +29,7 @@ def FileStatsEventHandler(session, msg):
     oper = elements[0]
     user_name = elements[1]
     repo_id = elements[2]
-    size = long(elements[3])
+    size = int(elements[3])
 
     save_traffic_info(session, timestamp, user_name, repo_id, oper, size)
 

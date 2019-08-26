@@ -62,7 +62,7 @@ def parse_bool(v):
         return False
 
 def parse_interval(interval, default):
-    if isinstance(interval, (int, long)):
+    if isinstance(interval, (int, int)):
         return interval
 
     interval = interval.lower()
