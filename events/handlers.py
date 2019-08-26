@@ -333,7 +333,7 @@ def generate_filehistory_records(added_files, deleted_files, added_dirs,
         record = copy.copy(base_record)
         op_type = ''
         logging.info(commit.description)
-        if commit.description.startswith(u'Reverted') or commit.description.startswith('Recovered'):
+        if commit.description.startswith('Reverted') or commit.description.startswith('Recovered'):
             op_type = OP_RECOVER
         else:
             op_type = OP_CREATE
@@ -356,7 +356,7 @@ def generate_filehistory_records(added_files, deleted_files, added_dirs,
     for de in modified_files:
         record = copy.copy(base_record)
         op_type = ''
-        if commit.description.startswith(u'Reverted'):
+        if commit.description.startswith('Reverted'):
             op_type = OP_RECOVER
         else:
             op_type = OP_EDIT
