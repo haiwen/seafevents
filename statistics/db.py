@@ -26,7 +26,7 @@ def get_org_id(repo_id):
     if not is_org:
         return -1
 
-    if not repo_org.has_key(repo_id):
+    if repo_id not in repo_org:
         org_id = get_org_id_by_repo_id(repo_id)
         repo_org[repo_id] = org_id
     else:

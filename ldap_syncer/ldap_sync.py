@@ -40,7 +40,7 @@ class LdapSync(Thread):
             if cur_ret is None:
                 return None
             for key in cur_ret.keys():
-                if not ret.has_key(key):
+                if key not in ret:
                     ret[key] = cur_ret[key]
                     ret[key].config = config
 

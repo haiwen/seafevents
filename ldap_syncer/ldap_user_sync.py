@@ -344,9 +344,9 @@ class LdapUserSync(LdapSync):
             user_dn, attrs = pair
             if type(attrs) != dict:
                 continue
-            if not attrs.has_key(config.login_attr):
+            if config.login_attr not in attrs:
                 continue
-            if not attrs.has_key(config.pwd_change_attr):
+            if config.pwd_change_attr not in attrs:
                 password = ''
             else:
                 password = attrs[config.pwd_change_attr][0]
@@ -357,18 +357,18 @@ class LdapUserSync(LdapSync):
             cemail = None
             role = None
 
-            if not attrs.has_key(config.role_name_attr):
+            if config.role_name_attr not in attrs:
                 role = ''
             else:
                 role = attrs[config.role_name_attr][0]
 
             if config.enable_extra_user_info_sync:
-                if not attrs.has_key(config.first_name_attr):
+                if config.first_name_attr not in attrs:
                     first_name = ''
                 else:
                     first_name = attrs[config.first_name_attr][0]
 
-                if not attrs.has_key(config.last_name_attr):
+                if config.last_name_attr not in attrs:
                     last_name = ''
                 else:
                     last_name = attrs[config.last_name_attr][0]
@@ -378,19 +378,19 @@ class LdapUserSync(LdapSync):
                 else:
                     user_name = first_name + ' ' + last_name
 
-                if not attrs.has_key(config.dept_attr):
+                if config.dept_attr not in attrs:
                     dept = ''
                 else:
                     dept = attrs[config.dept_attr][0]
 
                 if config.uid_attr != '':
-                   if not attrs.has_key(config.uid_attr):
+                   if config.uid_attr not in attrs:
                        uid = ''
                    else:
                         uid = attrs[config.uid_attr][0]
 
                 if config.cemail_attr != '':
-                   if not attrs.has_key(config.cemail_attr):
+                   if config.cemail_attr not in attrs:
                        cemail = ''
                    else:
                        cemail = attrs[config.cemail_attr][0]
@@ -489,7 +489,7 @@ class LdapUserSync(LdapSync):
     def sync_data(self, data_db, data_ldap):
         # sync deleted user in ldap to db
         for k in data_db.keys():
-            if data_ldap and not data_ldap.has_key(k) and data_db[k].is_active == 1:
+            if data_ldap and k not in data_ldap and data_db[k].is_active == 1:
                 if self.settings.enable_deactive_user:
                     self.sync_del_user(data_db[k], k)
                 else:
@@ -498,7 +498,7 @@ class LdapUserSync(LdapSync):
 
         # sync undeleted user in ldap to db
         for k, v in data_ldap.items():
-            if data_db.has_key(k):
+            if k in data_db:
                 self.sync_update_user(v, data_db[k], k)
             else:
                 # add user to db

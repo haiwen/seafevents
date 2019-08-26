@@ -270,7 +270,7 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
         records.append(record)
 
     for record in records:
-        if record.has_key('old_path'):
+        if 'old_path' in record:
             record['old_path'] = record['old_path'].rstrip('/')
         record['path'] = record['path'].rstrip('/') if record['path'] != '/' else '/'
 

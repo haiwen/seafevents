@@ -57,7 +57,7 @@ def save_filehistory(session, record):
         else:
             record['file_uuid'] = prev_item.file_uuid
 
-    if not record.has_key('file_uuid'):
+    if 'file_uuid' not in record:
         file_uuid = uuid.uuid4()
         # avoid hash conflict
         while session.query(exists().where(FileHistory.file_uuid == file_uuid)).scalar():

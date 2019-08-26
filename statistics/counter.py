@@ -34,9 +34,9 @@ def save_traffic_info(session, timestamp, user_name, repo_id, oper, size):
         return
     org_id = get_org_id(repo_id)
     time_str = timestamp.strftime('%Y-%m-%d')
-    if not traffic_info.has_key(time_str):
+    if time_str not in traffic_info:
         traffic_info[time_str] = {}
-    if not traffic_info[time_str].has_key((org_id, user_name, oper)):
+    if (org_id, user_name, oper) not in traffic_info[time_str]:
         traffic_info[time_str][(org_id, user_name, oper)] = size
     else:
         traffic_info[time_str][(org_id, user_name, oper)] += size
@@ -83,19 +83,19 @@ class FileOpsCounter(object):
                 org_id = row.org_id
                 if 'Added' in row.file_oper:
                     total_added += 1
-                    if not org_added.has_key(org_id):
+                    if org_id not in org_added:
                         org_added[org_id] = 1
                     else:
                         org_added[org_id] += 1
                 elif 'Deleted' in row.file_oper or 'Removed' in row.file_oper:
                     total_deleted += 1
-                    if not org_deleted.has_key(org_id):
+                    if org_id not in org_deleted:
                         org_deleted[org_id] = 1
                     else:
                         org_deleted[org_id] += 1
                 elif 'Modified' in row.file_oper:
                     total_modified += 1
-                    if not org_modified.has_key(org_id):
+                    if org_id not in org_modified:
                         org_modified[org_id] = 1
                     else:
                         org_modified[org_id] += 1
@@ -214,13 +214,13 @@ class TrafficInfoCounter(object):
         local_traffic_info = traffic_info.copy()
         traffic_info.clear()
 
-        if local_traffic_info.has_key(yesterday_str):
+        if yesterday_str in local_traffic_info:
             s_time = time.time()
             self.update_record(local_traffic_info, yesterday, yesterday_str)
             logging.info('Traffic Counter: %d items has been recorded on %s, time: %s seconds.' %\
                         (len(local_traffic_info[yesterday_str]), yesterday_str, str(time.time() - s_time)))
 
-        if local_traffic_info.has_key(today_str):
+        if today_str in local_traffic_info:
             s_time = time.time()
             self.update_record(local_traffic_info, today, today_str)
             logging.info('Traffic Counter: %d items has been updated on %s, time: %s seconds.' %\
@@ -251,7 +251,7 @@ class TrafficInfoCounter(object):
             size = local_traffic_info[date_str][row]
             if size == 0:
                 continue
-            if not org_delta.has_key((org_id, oper)):
+            if (org_id, oper) not in org_delta:
                 org_delta[(org_id, oper)] = size
             else:
                 org_delta[(org_id, oper)] += size
@@ -354,7 +354,7 @@ class MonthlyTrafficCounter(object):
                 oper = result.op_type.replace('-', '_')
 
                 cur_key = (user, org_id)
-                if not user_size_dict.has_key(cur_key):
+                if cur_key not in user_size_dict:
                     user_size_dict[cur_key] = init_size_dict.copy()
                 user_size_dict[cur_key][oper] += size
 
@@ -368,7 +368,7 @@ class MonthlyTrafficCounter(object):
                 last_key = cur_key
 
                 # Count org data
-                if not org_size_dict.has_key(org_id):
+                if org_id not in org_size_dict:
                     org_size_dict[org_id] = init_size_dict.copy()
                     org_size_dict[org_id][oper] = size
                 else:
@@ -380,7 +380,7 @@ class MonthlyTrafficCounter(object):
                     trans_count = 0
 
             # The above loop would miss a user, update it
-            if user_size_dict.has_key(cur_key):
+            if cur_key in user_size_dict:
                 self.update_monthly_user_traffic_record (cur_key[0], cur_key[1], first_day, user_size_dict[cur_key])
                 del user_size_dict[cur_key]
 

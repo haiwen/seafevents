@@ -215,7 +215,7 @@ def save_filehistory(session, record):
         else:
             record['file_uuid'] = prev_item.file_uuid
 
-    if not record.has_key('file_uuid'):
+    if 'file_uuid' not in record:
         file_uuid = uuid.uuid4()
         # avoid hash conflict
         while session.query(exists().where(FileHistory.file_uuid == file_uuid)).scalar():
@@ -230,7 +230,7 @@ def _save_user_events(session, org_id, etype, detail, usernames, timestamp):
     if timestamp is None:
         timestamp = datetime.datetime.utcnow()
 
-    if org_id > 0 and not detail.has_key('org_id'):
+    if org_id > 0 and 'org_id' not in detail:
         detail['org_id'] = org_id
 
     event = Event(timestamp, etype, detail)

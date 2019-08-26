@@ -38,7 +38,7 @@ class Activity(Base):
         detail = {}
         detail_keys = ['size', 'old_path', 'days', 'repo_name', 'obj_id', 'old_repo_name']
         for k in detail_keys:
-            if record.has_key(k) and record.get(k, None) is not None:
+            if k in record and record.get(k, None) is not None:
                 detail[k] = record.get(k, None)
 
         self.detail = json.dumps(detail)
