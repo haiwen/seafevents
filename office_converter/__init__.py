@@ -20,7 +20,7 @@ __all__ = [
 
 FILE_ID_PATTERN = re.compile(r'^[0-9a-f]{40}$')
 def _valid_file_id(file_id):
-    if not isinstance(file_id, basestring):
+    if not isinstance(file_id, str):
         return False
     return FILE_ID_PATTERN.match(str(file_id)) is not None
 
