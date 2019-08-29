@@ -99,9 +99,11 @@ class DBOper(object):
 
 def get_virus_record(session, repo_id, start, limit):
     if start < 0:
+        logger.error('start must be non-negative')
         raise RuntimeError('start must be non-negative')
 
     if limit <= 0:
+        logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
 
     try:

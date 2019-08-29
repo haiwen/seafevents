@@ -55,9 +55,11 @@ class UserActivityDetail(object):
 # org_id = 0 --> get all events
 def _get_user_events(session, org_id, username, start, limit):
     if start < 0:
+        logger.error('start must be non-negative')
         raise RuntimeError('start must be non-negative')
 
     if limit <= 0:
+        logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
 
     q = session.query(Event).filter(UserEvent.username == username)
@@ -93,9 +95,11 @@ def delete_event(session, uuid):
 
 def _get_user_activities(session, username, start, limit):
     if start < 0:
+        logger.error('start must be non-negative')
         raise RuntimeError('start must be non-negative')
 
     if limit <= 0:
+        logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
 
     q = session.query(Activity).filter(UserActivity.username == username)
@@ -261,9 +265,11 @@ def save_file_update_event(session, timestamp, user, org_id, repo_id,
 
 def get_events(session, obj, username, org_id, repo_id, file_path, start, limit):
     if start < 0:
+        logger.error('start must be non-negative')
         raise RuntimeError('start must be non-negative')
 
     if limit <= 0:
+        logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
 
     q = session.query(obj)
@@ -327,9 +333,11 @@ def get_perm_audit_events(session, from_user, org_id, repo_id, start, limit):
 
 def get_event_log_by_time(session, log_type, tstart, tend):
     if log_type not in ('file_update', 'file_audit', 'perm_audit'):
+        logger.error('Invalid log_type parameter')
         raise RuntimeError('Invalid log_type parameter')
 
     if not isinstance(tstart, (long, float)) or not isinstance(tend, (long, float)):
+        logger.error('Invalid time range parameter')
         raise RuntimeError('Invalid time range parameter')
 
     if log_type == 'file_update':

@@ -3,6 +3,9 @@ import logging
 from seafevents.db import init_db_session_class
 from seafevents.utils import get_config
 
+logger = logging.getLogger(__name__)
+
+
 class AppConfig(object):
     def __init__(self):
         pass
@@ -27,7 +30,7 @@ def exception_catch(conf_module):
             try:
                 func(*args, **kwargs)
             except Exception as e:
-                logging.info('%s module configuration loading failed: %s' % (conf_module, e))
+                logger.info('%s module configuration loading failed: %s' % (conf_module, e))
         return wrapper
     return func_wrapper
 
@@ -76,6 +79,7 @@ def load_publish_config(config):
         try:
             appconfig.publish_mq_type = config.get('EVENTS PUBLISH', 'mq_type').upper()
             if appconfig.publish_mq_type != 'REDIS':
+                logger.error("Unknown database backend: %s" % config['publish_mq_type'])
                 raise RuntimeError("Unknown database backend: %s" % config['publish_mq_type'])
 
             appconfig.publish_mq_server = config.get(appconfig.publish_mq_type,
@@ -97,7 +101,7 @@ def load_statistics_config(config):
         if config.has_option('STATISTICS', 'enabled'):
             appconfig.enable_statistics = config.getboolean('STATISTICS', 'enabled')
     except Exception as e:
-        logging.info(e)
+        logger.info(e)
 
 @exception_catch('file history')
 def load_file_history_config(config):
@@ -112,15 +116,15 @@ def load_file_history_config(config):
             appconfig.fh.suffix = config.get('FILE HISTORY', 'suffix')
             suffix = appconfig.fh.suffix.strip(',')
             appconfig.fh.suffix_list = suffix.split(',') if suffix else []
-            logging.info('The file with the following suffix will be recorded into the file history: %s' % suffix)
+            logger.info('The file with the following suffix will be recorded into the file history: %s' % suffix)
         else:
-            logging.info('Disenabled File History Features.')
+            logger.info('Disenabled File History Features.')
     else:
         appconfig.fh.enabled = True
         appconfig.fh.threshold = 5
         suffix = 'md,txt,doc,docx,xls,xlsx,ppt,pptx'
         appconfig.fh.suffix_list = suffix.split(',')
-        logging.info('The file with the following suffix will be recorded into the file history: %s' % suffix)
+        logger.info('The file with the following suffix will be recorded into the file history: %s' % suffix)
 
 
 @exception_catch('collab server')
