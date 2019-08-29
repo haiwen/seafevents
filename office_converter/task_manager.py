@@ -12,15 +12,20 @@ import json
 from .convert import Convertor, ConvertorFatalError
 from .doctypes import EXCEL_TYPES
 
+logger = logging.getLogger(__name__)
+
+
 __all__ = ["task_manager"]
 
 def _checkdir_with_mkdir(dname):
     # If you do not have permission for /opt/seafile-office-output files, then false is returned event if the file exists.
     if os.path.exists(dname):
         if not os.path.isdir(dname):
+            logger.error("%s exists, but not a directory" % dname)
             raise RuntimeError("%s exists, but not a directory" % dname)
 
         if not os.access(dname, os.R_OK | os.W_OK):
+            logger.error("Access to %s denied" % dname)
             raise RuntimeError("Access to %s denied" % dname)
     else:
         try:

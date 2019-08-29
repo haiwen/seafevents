@@ -65,20 +65,24 @@ def is_office_converter_enabled(config):
 
 def get_office_converter_dir(config, file_type):
     if not has_office_tools():
+        logger.error('office converter is not enabled, because no office tool')
         raise RuntimeError('office converter is not enabled')
 
     conf = get_office_converter_conf(config)
     if not conf['enabled']:
+        logger.error('office converter is not enabled')
         raise RuntimeError('office conveter is not enabled')
 
     return os.path.join(conf['outputdir'], file_type)
 
 def get_office_converter_limit(config):
     if not has_office_tools():
+        logger.error('office converter is not enabled, because no office tool')
         raise RuntimeError('office converter is not enabled')
 
     conf = get_office_converter_conf(config)
     if not conf['enabled']:
+        logger.error('office converter is not enabled')
         raise RuntimeError('office conveter is not enabled')
 
     max_size = conf['max_size']

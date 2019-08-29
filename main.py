@@ -4,7 +4,7 @@
 import argparse
 import ConfigParser
 import os
-
+import logging
 
 from seafevents import is_audit_enabled
 from seafevents.db import create_db_tables
@@ -12,6 +12,8 @@ from seafevents.utils import write_pidfile, get_config
 from seafevents.app.log import LogConfigurator
 from seafevents.app.app import App
 from seafevents.app.mq_listener import init_message_handlers
+
+logger = logging.getLogger(__name__)
 
 
 class AppArgParser(object):
@@ -56,8 +58,8 @@ def get_ccnet_dir():
     try:
         return os.environ['CCNET_CONF_DIR']
     except KeyError:
+        logging.error('ccnet config dir is not set')
         raise RuntimeError('ccnet config dir is not set')
-
 
 
 def is_cluster_enabled():

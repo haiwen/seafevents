@@ -90,6 +90,7 @@ def create_engine_from_conf(config_file, db = 'seafevent'):
 
         logger.info('[seafevents] database: oracle, service_name: %s', service_name)
     else:
+        logger.error("Unknown database backend: %s" % backend)
         raise RuntimeError("Unknown database backend: %s" % backend)
 
     # Add pool recycle, or mysql connection will be closed by mysqld if idle
@@ -109,7 +110,8 @@ def init_db_session_class(config_file, db = 'seafevent'):
     """Configure Session class for mysql according to the config file."""
     try:
         engine = create_engine_from_conf(config_file, db)
-    except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
+        logger.error(e)
         raise RuntimeError("invalid config file %s", config_file)
 
     if db == 'seafile':
@@ -126,7 +128,8 @@ def create_db_tables():
 
     try:
         engine = create_engine_from_conf(config_file)
-    except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
+        logger.error(e)
         raise RuntimeError("invalid config file %s", config_file)
 
     Base.metadata.create_all(engine)
