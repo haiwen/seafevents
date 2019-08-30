@@ -1,20 +1,15 @@
 import os
-import sys
 import re
 import logging
-import tempfile
-import configparser
 from pysearpc import searpc_server
-from ccnet.async import RpcServerProc
 
 from .task_manager import task_manager
 from .rpc import OfficeConverterRpcClient, OFFICE_RPC_SERVICE_NAME
 from .doctypes import DOC_TYPES, PPT_TYPES, EXCEL_TYPES
 from seafevents.utils import has_office_tools
-from seafevents.utils.config import parse_max_size, parse_max_pages, parse_workers, parse_bool
 
 __all__ = [
-    'office_converter',
+    'OfficeConverter',
     'OfficeConverterRpcClient',
 ]
 
@@ -54,9 +49,9 @@ class OfficeConverter(object):
     def register_rpc(self, ccnet_client):
         '''Register office rpc service'''
         searpc_server.create_service(OFFICE_RPC_SERVICE_NAME)
-        ccnet_client.register_service(OFFICE_RPC_SERVICE_NAME,
-                                      'basic',
-                                      RpcServerProc)
+        # ccnet_client.register_service(OFFICE_RPC_SERVICE_NAME,
+        #                               'basic',
+        #                               RpcServerProc)
 
         searpc_server.register_function(OFFICE_RPC_SERVICE_NAME,
                                         self.query_convert_status)

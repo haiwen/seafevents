@@ -4,7 +4,7 @@ import os
 import queue
 import tempfile
 import threading
-import urllib.request, urllib.error, urllib.parse
+import urllib.request
 import logging
 import atexit
 import json
@@ -14,8 +14,8 @@ from .doctypes import EXCEL_TYPES
 
 logger = logging.getLogger(__name__)
 
-
 __all__ = ["task_manager"]
+
 
 def _checkdir_with_mkdir(dname):
     # If you do not have permission for /opt/seafile-office-output files, then false is returned event if the file exists.

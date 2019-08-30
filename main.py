@@ -1,19 +1,15 @@
 #!/usr/bin/env python
-#coding: utf-8
-
+# coding: utf-8
 import argparse
 import configparser
 import os
-import logging
 
 from seafevents import is_audit_enabled
 from seafevents.db import create_db_tables
 from seafevents.utils import write_pidfile, get_config
 from seafevents.app.log import LogConfigurator
 from seafevents.app.app import App
-from seafevents.app.mq_listener import init_message_handlers
-
-logger = logging.getLogger(__name__)
+from seafevents.app.mq_handler import init_message_handlers
 
 
 class AppArgParser(object):
@@ -54,13 +50,6 @@ class AppArgParser(object):
             help='try to reconnect to daemon when disconnected'
         )
 
-def get_ccnet_dir():
-    try:
-        return os.environ['CCNET_CONF_DIR']
-    except KeyError:
-        logging.error('ccnet config dir is not set')
-        raise RuntimeError('ccnet config dir is not set')
-
 
 def is_cluster_enabled():
     cfg = configparser.ConfigParser()
@@ -75,6 +64,7 @@ def is_cluster_enabled():
     else:
         return False
 
+
 def is_syslog_enabled(config):
     if config.has_option('Syslog', 'enabled'):
         try:
@@ -82,6 +72,7 @@ def is_syslog_enabled(config):
         except ValueError:
             return False
     return False
+
 
 def main(background_tasks_only=False):
     args = AppArgParser().parse_args()
@@ -103,23 +94,25 @@ def main(background_tasks_only=False):
     if is_syslog_enabled(config):
         app_logger.add_syslog_handler()
 
-    events_listener_enabled = True
+    events_handler_enabled = True
     background_tasks_enabled = True
 
     if background_tasks_only:
-        events_listener_enabled = False
+        events_handler_enabled = False
         background_tasks_enabled = True
     elif is_cluster_enabled():
-        events_listener_enabled = True
+        events_handler_enabled = True
         background_tasks_enabled = False
 
-    app = App(get_ccnet_dir(), args, events_listener_enabled=events_listener_enabled,
+    app = App(args, events_handler_enabled=events_handler_enabled,
               background_tasks_enabled=background_tasks_enabled)
 
     app.serve_forever()
 
+
 def run_background_tasks():
     main(background_tasks_only=True)
+
 
 if __name__ == '__main__':
     main()

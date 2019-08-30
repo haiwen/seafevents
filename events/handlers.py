@@ -2,12 +2,10 @@
 
 import os
 import copy
-import stat
 import logging
 import logging.handlers
 import datetime
-import http.client
-import urllib.request, urllib.error, urllib.parse
+from urllib import request
 from datetime import timedelta
 from os.path import splitext
 
@@ -21,17 +19,13 @@ from .change_file_path import ChangeFilePathHandler
 from .models import Activity
 
 def RepoUpdateEventHandler(session, msg):
-    elements = msg.body.split('\t')
+    elements = msg.split('\t')
     if len(elements) != 3:
         logging.warning("got bad message: %s", elements)
         return
 
     repo_id = elements[1]
     commit_id = elements[2]
-    if isinstance(repo_id, str):
-        repo_id = repo_id.decode('utf8')
-    if isinstance(commit_id, str):
-        commit_id = commit_id.decode('utf8')
 
     commit = commit_mgr.load_commit(repo_id, 1, commit_id)
     if commit is None:
@@ -46,7 +40,7 @@ def RepoUpdateEventHandler(session, msg):
             differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id,
                                   True, True)
             added_files, deleted_files, added_dirs, deleted_dirs, modified_files,\
-                    renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff_to_unicode()
+                renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
 
             if renamed_files or renamed_dirs or moved_files or moved_dirs:
                 changer = ChangeFilePathHandler()
@@ -74,7 +68,8 @@ def RepoUpdateEventHandler(session, msg):
             if not users:
                 return
 
-            time = datetime.datetime.utcfromtimestamp(msg.ctime)
+            # time = datetime.datetime.utcfromtimestamp(msg.ctime)
+            time = datetime.datetime.utcnow()
             if added_files or deleted_files or added_dirs or deleted_dirs or \
                     modified_files or renamed_files or moved_files or renamed_dirs or moved_dirs:
 
@@ -100,10 +95,10 @@ def RepoUpdateEventHandler(session, msg):
 def send_message_to_collab_server(repo_id):
     url = '%s/api/repo-update' % appconfig.collab_server
     form_data = 'repo_id=%s&key=%s' % (repo_id, appconfig.collab_key)
-    req = urllib.request.Request(url, form_data)
-    resp = urllib.request.urlopen(req)
+    req = request.Request(url, form_data)
+    resp = request.urlopen(req)
     ret_code = resp.getcode()
-    if ret_code != http.client.OK:
+    if ret_code != 200:
         logging.warning('Failed to send message to collab_server %s', appconfig.collab_server)
 
 def save_repo_rename_activity(session, commit, repo_id, parent, org_id, related_users, time):
@@ -174,7 +169,7 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
     for de in added_files:
         record = copy.copy(base_record)
         op_type = ''
-        if commit.description.encode('utf-8').startswith('Reverted'):
+        if commit.description.startswith('Reverted'):
             op_type = OP_RECOVER
         else:
             op_type = OP_CREATE
@@ -197,7 +192,7 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
     for de in added_dirs:
         record = copy.copy(base_record)
         op_type = ''
-        if commit.description.encode('utf-8').startswith('Recovered'):
+        if commit.description.startswith('Recovered'):
             op_type = OP_RECOVER
         else:
             op_type = OP_CREATE
@@ -218,7 +213,7 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
     for de in modified_files:
         record = copy.copy(base_record)
         op_type = ''
-        if commit.description.encode('utf-8').startswith('Reverted'):
+        if commit.description.startswith('Reverted'):
             op_type = OP_RECOVER
         else:
             op_type = OP_EDIT
@@ -285,7 +280,7 @@ def list_file_in_dir(repo_id, dirents, op_type):
         except IndexError:
             break
         else:
-            dir_obj = fs_mgr.load_seafdir(repo_id, 1, d.obj_id, ret_unicode=True)
+            dir_obj = fs_mgr.load_seafdir(repo_id, 1, d.obj_id)
             new_path = None
 
             file_list = dir_obj.get_files_list()
@@ -410,7 +405,7 @@ def should_record(record):
     return False
 
 def FileUpdateEventHandler(session, msg):
-    elements = msg.body.split('\t')
+    elements = msg.split('\t')
     if len(elements) != 3:
         logging.warning("got bad message: %s", elements)
         return
@@ -426,24 +421,26 @@ def FileUpdateEventHandler(session, msg):
         if commit is None:
             return
 
-    time = datetime.datetime.utcfromtimestamp(msg.ctime)
+    # time = datetime.datetime.utcfromtimestamp(msg.ctime)
+    time = datetime.datetime.utcnow()
 
     save_file_update_event(session, time, commit.creator_name, org_id,
                            repo_id, commit_id, commit.desc)
 
 def FileAuditEventHandler(session, msg):
-    elements = msg.body.split('\t')
+    elements = msg.split('\t')
     if len(elements) != 6:
         logging.warning("got bad message: %s", elements)
         return
 
-    timestamp = datetime.datetime.utcfromtimestamp(msg.ctime)
+    # timestamp = datetime.datetime.utcfromtimestamp(msg.ctime)
+    timestamp = datetime.datetime.utcnow()
     msg_type = elements[0]
     user_name = elements[1]
     ip = elements[2]
     user_agent = elements[3]
     repo_id = elements[4]
-    file_path = elements[5].decode('utf-8')
+    file_path = elements[5]
 
     org_id = get_org_id_by_repo_id(repo_id)
 
@@ -451,17 +448,18 @@ def FileAuditEventHandler(session, msg):
                           user_agent, org_id, repo_id, file_path)
 
 def PermAuditEventHandler(session, msg):
-    elements = msg.body.split('\t')
+    elements = msg.split('\t')
     if len(elements) != 7:
         logging.warning("got bad message: %s", elements)
         return
 
-    timestamp = datetime.datetime.utcfromtimestamp(msg.ctime)
+    # timestamp = datetime.datetime.utcfromtimestamp(msg.ctime)
+    timestamp = datetime.datetime.utcnow()
     etype = elements[1]
     from_user = elements[2]
     to = elements[3]
     repo_id = elements[4]
-    file_path = elements[5].decode('utf-8')
+    file_path = elements[5]
     perm = elements[6]
 
     org_id = get_org_id_by_repo_id(repo_id)
@@ -472,21 +470,22 @@ def PermAuditEventHandler(session, msg):
 
 def DraftPublishEventHandler(session, msg):
 
-    elements = msg.body.split('\t')
+    elements = msg.split('\t')
     if len(elements) != 6:
         logging.warning("got bad message: %s", elements)
         return
 
     record = dict()
-    record["timestamp"] = datetime.datetime.utcfromtimestamp(msg.ctime)
+    # record["timestamp"] = datetime.datetime.utcfromtimestamp(msg.ctime)
+    record["timestamp"] = datetime.datetime.utcnow()
     record["op_type"] = elements[0]
     record["obj_type"] = elements[1]
     record["repo_id"] = elements[2]
     repo = seafile_api.get_repo(elements[2])
     record["repo_name"] = repo.name if repo else ''
     record["op_user"] = elements[3]
-    record["path"] = elements[4].decode('utf-8')
-    record["old_path"] = elements[5].decode('utf-8')
+    record["path"] = elements[4]
+    record["old_path"] = elements[5]
 
     users = []
     org_id = get_org_id_by_repo_id(elements[2])

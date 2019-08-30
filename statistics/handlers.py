@@ -1,14 +1,13 @@
 # coding: utf-8
-
-import os
 import logging
 import logging.handlers
 
 from datetime import datetime
 from .counter import update_hash_record, save_traffic_info
 
+
 def UserLoginEventHandler(session, msg):
-    elements = msg.body.split('\t')
+    elements = msg.split('\t')
     if len(elements) != 4:
         logging.warning("got bad message: %s", elements)
         return
@@ -19,19 +18,22 @@ def UserLoginEventHandler(session, msg):
 
     update_hash_record(session, username, _timestamp, org_id)
 
+
 def FileStatsEventHandler(session, msg):
-    elements = msg.body.split('\t')
+    elements = msg.split('\t')
     if len(elements) != 4:
         logging.warning("got bad message: %s", elements)
         return
 
-    timestamp = datetime.utcfromtimestamp(msg.ctime)
+    # timestamp = datetime.utcfromtimestamp(msg.ctime)
+    timestamp = datetime.utcnow()
     oper = elements[0]
     user_name = elements[1]
     repo_id = elements[2]
     size = int(elements[3])
 
     save_traffic_info(session, timestamp, user_name, repo_id, oper, size)
+
 
 def register_handlers(handlers):
     handlers.add_handler('seahub.stats:user-login', UserLoginEventHandler)
