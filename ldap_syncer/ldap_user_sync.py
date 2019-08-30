@@ -128,7 +128,7 @@ class LdapUserSync(LdapSync):
                 val = ''
         except Exception as e:
             val = ''
-        return '' if not val else val.encode('utf8')
+        return '' if not val else val
 
     def add_profile(self, email, ldap_user):
         # list_in_address_book: django will not apply default value to mysql. it will be processed in ORM.

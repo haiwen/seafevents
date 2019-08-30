@@ -122,7 +122,7 @@ class ContentScan(object):
         differ = CommitDiffer(repo_id, version, last_root_id, new_root_id,
                               True, False)
         added_files, deleted_files, added_dirs, deleted_dirs, modified_files,\
-        renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff_to_unicode()
+        renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
 
         # Handle renamed, moved and deleted files.
         q = edb_session.query(ContentScanResult).filter(ContentScanResult.repo_id==repo_id)

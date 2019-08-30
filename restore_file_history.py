@@ -130,7 +130,7 @@ class RestoreUnrecordHistory(object):
                 differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id,
                                       True, True)
                 added_files, deleted_files, added_dirs, deleted_dirs, modified_files,\
-                        renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff_to_unicode()
+                        renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
 
                 time = datetime.datetime.utcfromtimestamp(commit.ctime)
                 session = scoped_session(self._db_session_class)
