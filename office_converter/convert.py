@@ -96,7 +96,7 @@ class Convertor(object):
         time.sleep(3)
         exists_args = ["ps", "-ef"]
         result = run(exists_args, output=subprocess.PIPE)
-        rows = result.stdout.read()
+        rows = result.stdout.read().decode('utf-8')
         if self.unoconv_py in rows:
             logging.info('unoconv process already start.')
         else:
