@@ -64,7 +64,8 @@ class LdapUserSync(LdapSync):
 
     def init_seahub_db(self):
         try:
-            import MySQLdb
+            import pymysql
+            pymysql.install_as_MySQLdb()
             import seahub_settings
         except ImportError as e:
             logger.warning('Failed to init seahub db: %s.' %  e)
@@ -93,7 +94,7 @@ class LdapUserSync(LdapSync):
         db_passwd = db_infos.get('PASSWORD')
 
         try:
-            self.db_conn = MySQLdb.connect(host=db_host, port=db_port,
+            self.db_conn = pymysql.connect(host=db_host, port=db_port,
                                            user=db_user, passwd=db_passwd,
                                            db=db_name, charset='utf8')
             self.db_conn.autocommit(True)

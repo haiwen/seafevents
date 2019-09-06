@@ -58,10 +58,10 @@ def save_filehistory(session, record):
             record['file_uuid'] = prev_item.file_uuid
 
     if 'file_uuid' not in record:
-        file_uuid = uuid.uuid4()
+        file_uuid = uuid.uuid4().__str__()
         # avoid hash conflict
         while session.query(exists().where(FileHistory.file_uuid == file_uuid)).scalar():
-            file_uuid = uuid.uuid4()
+            file_uuid = uuid.uuid4().__str__()
         record['file_uuid'] = file_uuid
 
     filehistory = FileHistory(record)

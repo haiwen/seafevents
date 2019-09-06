@@ -130,7 +130,7 @@ def get_db_session(section):
         return
 
     host, port, username, passwd, dbname = read_db_conf(section)
-    db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
+    db_url = "mysql+pymysql://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
     global SEAHUB_DBNAME, SEAFEVENTS_DBNAME, TEST_DBNAME
     if section == 'TESTDB':
         TEST_DBNAME = dbname
