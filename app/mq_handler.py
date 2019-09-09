@@ -34,12 +34,12 @@ class MessageHandler(object):
             funcs.append(func)
 
     def handle_message(self, session, channel, msg):
-        pos = msg.find('\t')
+        pos = msg.content.find('\t')
         if pos == -1:
             logger.warning("invalid message format: %s", msg)
             return
 
-        msg_type = channel + ':' + msg[:pos]
+        msg_type = channel + ':' + msg.content[:pos]
         if msg_type not in self._handlers:
             return
 

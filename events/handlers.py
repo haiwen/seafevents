@@ -19,7 +19,7 @@ from .change_file_path import ChangeFilePathHandler
 from .models import Activity
 
 def RepoUpdateEventHandler(session, msg):
-    elements = msg.split('\t')
+    elements = msg.content.split('\t')
     if len(elements) != 3:
         logging.warning("got bad message: %s", elements)
         return
@@ -68,8 +68,7 @@ def RepoUpdateEventHandler(session, msg):
             if not users:
                 return
 
-            # time = datetime.datetime.utcfromtimestamp(msg.ctime)
-            time = datetime.datetime.utcnow()
+            time = datetime.datetime.utcfromtimestamp(msg.ctime)
             if added_files or deleted_files or added_dirs or deleted_dirs or \
                     modified_files or renamed_files or moved_files or renamed_dirs or moved_dirs:
 
@@ -405,7 +404,7 @@ def should_record(record):
     return False
 
 def FileUpdateEventHandler(session, msg):
-    elements = msg.split('\t')
+    elements = msg.content.split('\t')
     if len(elements) != 3:
         logging.warning("got bad message: %s", elements)
         return
@@ -421,20 +420,18 @@ def FileUpdateEventHandler(session, msg):
         if commit is None:
             return
 
-    # time = datetime.datetime.utcfromtimestamp(msg.ctime)
-    time = datetime.datetime.utcnow()
+    time = datetime.datetime.utcfromtimestamp(msg.ctime)
 
     save_file_update_event(session, time, commit.creator_name, org_id,
                            repo_id, commit_id, commit.desc)
 
 def FileAuditEventHandler(session, msg):
-    elements = msg.split('\t')
+    elements = msg.content.split('\t')
     if len(elements) != 6:
         logging.warning("got bad message: %s", elements)
         return
 
-    # timestamp = datetime.datetime.utcfromtimestamp(msg.ctime)
-    timestamp = datetime.datetime.utcnow()
+    timestamp = datetime.datetime.utcfromtimestamp(msg.ctime)
     msg_type = elements[0]
     user_name = elements[1]
     ip = elements[2]
@@ -448,13 +445,12 @@ def FileAuditEventHandler(session, msg):
                           user_agent, org_id, repo_id, file_path)
 
 def PermAuditEventHandler(session, msg):
-    elements = msg.split('\t')
+    elements = msg.content.split('\t')
     if len(elements) != 7:
         logging.warning("got bad message: %s", elements)
         return
 
-    # timestamp = datetime.datetime.utcfromtimestamp(msg.ctime)
-    timestamp = datetime.datetime.utcnow()
+    timestamp = datetime.datetime.utcfromtimestamp(msg.ctime)
     etype = elements[1]
     from_user = elements[2]
     to = elements[3]
@@ -470,14 +466,13 @@ def PermAuditEventHandler(session, msg):
 
 def DraftPublishEventHandler(session, msg):
 
-    elements = msg.split('\t')
+    elements = msg.content.split('\t')
     if len(elements) != 6:
         logging.warning("got bad message: %s", elements)
         return
 
     record = dict()
-    # record["timestamp"] = datetime.datetime.utcfromtimestamp(msg.ctime)
-    record["timestamp"] = datetime.datetime.utcnow()
+    record["timestamp"] = datetime.datetime.utcfromtimestamp(msg.ctime)
     record["op_type"] = elements[0]
     record["obj_type"] = elements[1]
     record["repo_id"] = elements[2]
