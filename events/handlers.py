@@ -94,7 +94,7 @@ def RepoUpdateEventHandler(session, msg):
 def send_message_to_collab_server(repo_id):
     url = '%s/api/repo-update' % appconfig.collab_server
     form_data = 'repo_id=%s&key=%s' % (repo_id, appconfig.collab_key)
-    req = request.Request(url, parse.urlencode(form_data).encode('utf-8'))
+    req = request.Request(url, form_data.encode('utf-8'))
     resp = request.urlopen(req)
     ret_code = resp.getcode()
     if ret_code != 200:
