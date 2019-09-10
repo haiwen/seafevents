@@ -7,7 +7,7 @@ from .counter import update_hash_record, save_traffic_info
 
 
 def UserLoginEventHandler(session, msg):
-    elements = msg.split('\t')
+    elements = msg['content'].split('\t')
     if len(elements) != 4:
         logging.warning("got bad message: %s", elements)
         return

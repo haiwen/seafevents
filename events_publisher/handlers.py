@@ -8,7 +8,7 @@ def RepoUpdatePublishHandler(session, msg):
     if not appconfig.publish_enabled:
         return
 
-    elements = msg.split('\t')
+    elements = msg['content'].split('\t')
     if len(elements) != 3:
         logging.warning("got bad message: %s", elements)
         return
