@@ -31,7 +31,7 @@ def _check_output(*popenargs, **kwargs):
         if cmd is None:
             cmd = popenargs[0]
         error = subprocess.CalledProcessError(retcode, cmd)
-        error.output = output
+        error.output = output.decode('utf-8')
         raise error
     return output
 
