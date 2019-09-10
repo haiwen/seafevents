@@ -31,9 +31,10 @@ def _check_output(*popenargs, **kwargs):
         if cmd is None:
             cmd = popenargs[0]
         error = subprocess.CalledProcessError(retcode, cmd)
-        error.output = output.decode('utf-8')
+        error.output = output
         raise error
-    return output
+    return output.decode('utf-8')
+
 
 class ConvertorFatalError(Exception):
     """Fatal error when converting. Typically it means the libreoffice process
