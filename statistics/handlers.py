@@ -20,12 +20,12 @@ def UserLoginEventHandler(session, msg):
 
 
 def FileStatsEventHandler(session, msg):
-    elements = msg.content.split('\t')
+    elements = msg['content'].split('\t')
     if len(elements) != 4:
         logging.warning("got bad message: %s", elements)
         return
 
-    timestamp = datetime.utcfromtimestamp(msg.ctime)
+    timestamp = datetime.utcfromtimestamp(msg['ctime'])
     oper = elements[0]
     user_name = elements[1]
     repo_id = elements[2]
