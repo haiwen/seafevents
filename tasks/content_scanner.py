@@ -1,12 +1,12 @@
-#coding: UTF-8
+# coding: UTF-8
 
 import os
 import logging
-import ConfigParser
+from threading import Thread, Event
 
-from ccnet.async import Timer
 from seafevents.utils import get_config, get_python_executable, run
 from seafevents.utils.config import parse_bool, parse_interval, get_opt_from_conf_or_env
+
 
 class ContentScanner(object):
     def __init__(self, config_file):
@@ -38,37 +38,43 @@ class ContentScanner(object):
 
         self._logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'content_scan.log')
 
-    def start(self, ev_base):
+    def start(self):
         if not self.is_enabled():
             logging.warning('Can not start content scanner: it is not enabled!')
             return
 
         logging.info('content scanner is started, interval = %s sec', self._interval)
-        self._timer = ContentScanTimer(ev_base, self._interval,
-                                       self._config_file, self._logfile)
+        ContentScanTimer(self._interval, self._config_file, self._logfile).start()
 
     def is_enabled(self):
         return self._enabled
 
-class ContentScanTimer(Timer):
-    def __init__(self, ev_base, timeout, config_file, log_file):
-        Timer.__init__(self, ev_base, timeout)
+
+class ContentScanTimer(Thread):
+
+    def __init__(self, interval, config_file, log_file):
+        Thread.__init__(self)
+        self._interval = interval
         self._config_file = config_file
         self._logfile = log_file
+        self.finished = Event()
 
-    def callback(self):
-        self.scan_files()
+    def run(self):
+        while not self.finished.is_set():
+            self.finished.wait(self._interval)
+            if not self.finished.is_set():
+                logging.info('start to scan files')
+                try:
+                    cmd = [
+                        get_python_executable(),
+                        '-m', 'seafevents.content_scanner.main',
+                        '--logfile', self._logfile,
+                        '--config-file', self._config_file
+                    ]
+                    env = dict(os.environ)
+                    run(cmd, env=env)
+                except Exception as e:
+                    logging.exception('error when scan files: %s', e)
 
-    def scan_files(self):
-        logging.info('start to scan files')
-        try:
-            cmd = [
-                get_python_executable(),
-                '-m', 'seafevents.content_scanner.main',
-                '--logfile', self._logfile,
-                '--config-file', self._config_file
-            ]
-            env = dict(os.environ)
-            run(cmd, env=env)
-        except Exception as e:
-            logging.exception('error when scan files: %s', e)
+    def cancel(self):
+        self.finished.set()

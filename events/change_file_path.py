@@ -7,6 +7,9 @@ import hashlib
 from sqlalchemy.sql import text
 from seafevents.app.config import appconfig
 
+logger = logging.getLogger(__name__)
+
+
 class ChangeFilePathHandler(object):
     def __init__(self):
         self.session = appconfig.session_cls()
@@ -16,7 +19,7 @@ class ChangeFilePathHandler(object):
 
     def update_db_records(self, dst_repo_id, path, new_path, is_dir, src_repo_id=None):
         if not dst_repo_id or not path or not new_path:
-            logging.warning('Failed to change file uuid map, bad args')
+            logger.warning('Failed to change file uuid map, bad args')
             return
 
         self.change_file_uuid_map(dst_repo_id, path, new_path, is_dir, src_repo_id)
@@ -27,7 +30,7 @@ class ChangeFilePathHandler(object):
         try:
             self._change_share_file_path(repo_id, path, new_path, is_dir, src_repo_id)
         except Exception as e:
-            logging.warning('Failed to change share file path for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
+            logger.warning('Failed to change share file path for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
 
     def _change_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
         result = self.session.execute(text('select path from share_fileshare where repo_id=:repo_id and path like :path')
@@ -65,7 +68,7 @@ class ChangeFilePathHandler(object):
         try:
             self._change_file_uuid_map(repo_id, path, new_path, is_dir, src_repo_id)
         except Exception as e:
-            logging.warning('Failed to change file uuid map for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
+            logger.warning('Failed to change file uuid map for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
 
     def _change_file_uuid_map(self, repo_id, path, new_path, is_dir, src_repo_id = None):
         old_dir = os.path.split(path)[0]
@@ -121,13 +124,14 @@ class ChangeFilePathHandler(object):
 
     def md5_repo_id_parent_path(self, repo_id, parent_path):
         parent_path = parent_path.rstrip('/') if parent_path != '/' else '/'
-        return hashlib.md5((repo_id + parent_path).encode('utf-8')).hexdigest().decode('utf-8')
+        return hashlib.md5((repo_id + parent_path).encode('utf-8')).hexdigest()
 
     def change_upload_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
         try:
             self._change_upload_share_file_path(repo_id, path, new_path, is_dir, src_repo_id)
         except Exception as e:
-            logging.warning('Failed to change upload share file path for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
+            logger.warning('Failed to change upload share file path for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
+
     def _change_upload_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id):
         result = self.session.execute(text('select path from share_uploadlinkshare where repo_id=:repo_id and path like :dir'),
                                 {'repo_id': src_repo_id if src_repo_id else repo_id, 'dir': path + '%'})

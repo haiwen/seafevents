@@ -6,8 +6,8 @@ logger.setLevel(logging.DEBUG)
 
 from seaserv import get_ldap_users, add_ldap_user, update_ldap_user, \
         seafile_api, ccnet_api
-from ldap_conn import LdapConn
-from ldap_sync import LdapSync
+from .ldap_conn import LdapConn
+from .ldap_sync import LdapSync
 from ldap import SCOPE_SUBTREE
 
 def default_ldap_role_mapping(role):
@@ -64,7 +64,8 @@ class LdapUserSync(LdapSync):
 
     def init_seahub_db(self):
         try:
-            import MySQLdb
+            import pymysql
+            pymysql.install_as_MySQLdb()
             import seahub_settings
         except ImportError as e:
             logger.warning('Failed to init seahub db: %s.' %  e)
@@ -93,7 +94,7 @@ class LdapUserSync(LdapSync):
         db_passwd = db_infos.get('PASSWORD')
 
         try:
-            self.db_conn = MySQLdb.connect(host=db_host, port=db_port,
+            self.db_conn = pymysql.connect(host=db_host, port=db_port,
                                            user=db_user, passwd=db_passwd,
                                            db=db_name, charset='utf8')
             self.db_conn.autocommit(True)
@@ -128,7 +129,7 @@ class LdapUserSync(LdapSync):
                 val = ''
         except Exception as e:
             val = ''
-        return '' if not val else val.encode('utf8')
+        return '' if not val else val
 
     def add_profile(self, email, ldap_user):
         # list_in_address_book: django will not apply default value to mysql. it will be processed in ORM.
@@ -157,7 +158,7 @@ class LdapUserSync(LdapSync):
     def add_dept(self, email, dept):
         try:
             self.cursor.execute('insert into profile_detailedprofile (user,department,telephone) '
-                                'values (%s,%s,%s)', (email, dept,''))
+                                'values (%s,%s,%s)', (email, dept, ''))
             if self.cursor.rowcount == 1:
                 logger.debug('Add dept %s to user %s successs.' %
                               (dept, email))
@@ -342,11 +343,11 @@ class LdapUserSync(LdapSync):
 
         for pair in users:
             user_dn, attrs = pair
-            if type(attrs) != dict:
+            if not isinstance(attrs, dict):
                 continue
-            if not attrs.has_key(config.login_attr):
+            if config.login_attr not in attrs:
                 continue
-            if not attrs.has_key(config.pwd_change_attr):
+            if config.pwd_change_attr not in attrs:
                 password = ''
             else:
                 password = attrs[config.pwd_change_attr][0]
@@ -357,18 +358,18 @@ class LdapUserSync(LdapSync):
             cemail = None
             role = None
 
-            if not attrs.has_key(config.role_name_attr):
+            if config.role_name_attr not in attrs:
                 role = ''
             else:
                 role = attrs[config.role_name_attr][0]
 
             if config.enable_extra_user_info_sync:
-                if not attrs.has_key(config.first_name_attr):
+                if config.first_name_attr not in attrs:
                     first_name = ''
                 else:
                     first_name = attrs[config.first_name_attr][0]
 
-                if not attrs.has_key(config.last_name_attr):
+                if config.last_name_attr not in attrs:
                     last_name = ''
                 else:
                     last_name = attrs[config.last_name_attr][0]
@@ -378,19 +379,19 @@ class LdapUserSync(LdapSync):
                 else:
                     user_name = first_name + ' ' + last_name
 
-                if not attrs.has_key(config.dept_attr):
+                if config.dept_attr not in attrs:
                     dept = ''
                 else:
                     dept = attrs[config.dept_attr][0]
 
                 if config.uid_attr != '':
-                   if not attrs.has_key(config.uid_attr):
+                   if config.uid_attr not in attrs:
                        uid = ''
                    else:
                         uid = attrs[config.uid_attr][0]
 
                 if config.cemail_attr != '':
-                   if not attrs.has_key(config.cemail_attr):
+                   if config.cemail_attr not in attrs:
                        cemail = ''
                    else:
                        cemail = attrs[config.cemail_attr][0]
@@ -488,8 +489,8 @@ class LdapUserSync(LdapSync):
 
     def sync_data(self, data_db, data_ldap):
         # sync deleted user in ldap to db
-        for k in data_db.iterkeys():
-            if data_ldap and not data_ldap.has_key(k) and data_db[k].is_active == 1:
+        for k in data_db.keys():
+            if data_ldap and k not in data_ldap and data_db[k].is_active == 1:
                 if self.settings.enable_deactive_user:
                     self.sync_del_user(data_db[k], k)
                 else:
@@ -497,8 +498,8 @@ class LdapUserSync(LdapSync):
                                   'DEACTIVE_USER_IF_NOTFOUND option is not set, so not deactive it.' % k)
 
         # sync undeleted user in ldap to db
-        for k, v in data_ldap.iteritems():
-            if data_db.has_key(k):
+        for k, v in data_ldap.items():
+            if k in data_db:
                 self.sync_update_user(v, data_db[k], k)
             else:
                 # add user to db

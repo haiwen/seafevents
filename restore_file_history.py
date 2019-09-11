@@ -57,11 +57,11 @@ def save_filehistory(session, record):
         else:
             record['file_uuid'] = prev_item.file_uuid
 
-    if not record.has_key('file_uuid'):
-        file_uuid = uuid.uuid4()
+    if 'file_uuid' not in record:
+        file_uuid = uuid.uuid4().__str__()
         # avoid hash conflict
         while session.query(exists().where(FileHistory.file_uuid == file_uuid)).scalar():
-            file_uuid = uuid.uuid4()
+            file_uuid = uuid.uuid4().__str__()
         record['file_uuid'] = file_uuid
 
     filehistory = FileHistory(record)
@@ -130,7 +130,7 @@ class RestoreUnrecordHistory(object):
                 differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id,
                                       True, True)
                 added_files, deleted_files, added_dirs, deleted_dirs, modified_files,\
-                        renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff_to_unicode()
+                        renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
 
                 time = datetime.datetime.utcfromtimestamp(commit.ctime)
                 session = scoped_session(self._db_session_class)
@@ -168,7 +168,7 @@ class RestoreUnrecordHistory(object):
         users = [e.user for e in users_obj] + [owner]
 
         self._last_commit_id = None
-        if repo_id in self._history_repo.keys():
+        if repo_id in list(self._history_repo.keys()):
             commit_ids = self.get_repo_last_commits(repo_id)
             count = 0
             k = 0

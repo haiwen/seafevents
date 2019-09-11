@@ -25,7 +25,7 @@ event details:
 """
 
 import os
-import ConfigParser
+import configparser
 import logging
 
 from .db import init_db_session_class

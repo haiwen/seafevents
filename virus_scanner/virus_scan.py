@@ -4,11 +4,11 @@ import os
 import tempfile
 import subprocess
 from seafobj import commit_mgr, fs_mgr, block_mgr
-from db_oper import DBOper
-from commit_differ import CommitDiffer
-from thread_pool import ThreadPool
+from .db_oper import DBOper
+from .commit_differ import CommitDiffer
+from .thread_pool import ThreadPool
 from seafevents.utils import get_python_executable
-from scan_settings import logger
+from .scan_settings import logger
 
 class ScanTask(object):
     def __init__(self, repo_id, head_commit_id, scan_commit_id):
@@ -90,7 +90,6 @@ class VirusScan(object):
                     logger.info('File %s virus scan by %s: Found virus.',
                                  fpath, self.settings.scan_cmd)
                     vnum += 1
-                    fpath = fpath if isinstance(fpath, unicode) else fpath.decode('utf-8')
                     vrecords.append((scan_task.repo_id, scan_task.head_commit_id, fpath))
                 else:
                     logger.debug('File %s virus scan by %s: Failed.',

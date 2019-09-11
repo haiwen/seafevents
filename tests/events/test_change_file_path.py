@@ -33,7 +33,6 @@ class ChangeFilePathTest(EventTest):
               "('admin@admin.com', 'c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures_1/test/', '55d184bd303e458cac80', '2017-11-08 05:28:50.554830', 0)," +\
               "('admin@admin.com', 'c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures_1/中文/', '55d184bd303e458cac12', '2017-11-08 05:28:50.554830', 0)," +\
               "('admin@admin.com', 'c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures_backup/', '33f5446a3ded4c5ba5c2', '2017-11-08 05:28:50.554830', 0)"
-        sql = sql.decode('utf-8')
         self.exec_sql('TESTDB', sql, {})
         sql = "insert into share_fileshare(username, repo_id, path, token, ctime, view_cnt, s_type, permission) values" +  \
               "('admin@admin.com', 'c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures/', '6933639a376f42afa71b', '2017-11-08 05:28:50.554830', 0, 'd', 'view_download')," + \
@@ -46,7 +45,6 @@ class ChangeFilePathTest(EventTest):
               "('admin@admin.com', 'c89409c5-b52c-4469-91ba-b222a5d3efff', '/files/gir.jpg', '33f5446a3ded4c5ba583', '2017-11-08 05:28:50.554830', 0, 'd', 'view_download')," +\
               "('admin@admin.com', 'c89409c5-b52c-4469-91ba-b222a5d3efff', '/files/girls.jpg', '33f5446a3ded4c5ba594', '2017-11-08 05:28:50.554830', 0, 'd', 'view_download')," +\
               "('admin@admin.com', 'c89409c5-b52c-4469-91ba-b222a5d3efff', '/files/girls.jpg1', '33f5446a3ded4c5ba505', '2017-11-08 05:28:50.554830', 0, 'd', 'view_download')"
-        sql = sql.decode('utf-8')
         self.exec_sql('TESTDB', sql, {})
         sql = "insert into tags_fileuuidmap(uuid, repo_id, repo_id_parent_path_md5, parent_path, filename, is_dir) values" +  \
               "('26c313b0feb640a29a0606ac9cc99003', 'c89409c5-b52c-4469-91ba-b222a5d3efff', 'b3cdec4cd2d85605a1a219047dd80b3d', '/Pictures', '格莱美.jpg', 0)," + \
@@ -55,7 +53,6 @@ class ChangeFilePathTest(EventTest):
               "('26c313b0feb640a29a0606ac9cc99004', 'c89409c5-b52c-4469-91ba-b222a5d3efff', 'b3cdec4cd2d85605a1a219047dd80b33', '/Pictures编码', 'test.jpg', 0)," + \
               "('26c313b0feb640a29a0606ac9cc99005', 'c89409c5-b52c-4469-91ba-b222a5d3efff', 'b3cdec4cd2d85605a1a219047dd80b34', '/Pictures', '编码.jpg', 0)," + \
               "('26c313b0feb640a29a0606ac9cc99006', 'c89409c5-b52c-4469-91ba-b222a5d3efff', 'b3cdec4cd2d85605a1a219047dd80b35', '/Picture', 'test.jpg', 0)"
-        sql = sql.decode('utf-8')
         self.exec_sql('TESTDB', sql, {})
 
     def tearDown(self):

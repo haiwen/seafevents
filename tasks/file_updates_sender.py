@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
 import logging
+from threading import Thread, Event
 
-from ccnet.async import Timer
 from seafevents.utils import get_python_executable, run
 
 
@@ -38,42 +38,37 @@ class FileUpdatesSender(object):
         log_dir = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''))
         self._logfile = os.path.join(log_dir, 'file_updates_sender.log')
 
-    def start(self, ev_base):
+    def start(self):
         logging.info('Start file updates sender, interval = %s sec', self._interval)
 
-        self._timer = FileUpdatesSenderTimer(
-            ev_base, self._interval, self._seahub_dir, self._logfile
-        )
+        FileUpdatesSenderTimer(self._interval, self._seahub_dir, self._logfile).start()
 
 
-class FileUpdatesSenderTimer(Timer):
+class FileUpdatesSenderTimer(Thread):
 
-    def __init__(self, ev_base, timeout, seahub_dir, logfile):
-        Timer.__init__(self, ev_base, timeout)
+    def __init__(self, interval, seahub_dir, logfile):
+        Thread.__init__(self)
+        self._interval = interval
         self._seahub_dir = seahub_dir
         self._logfile = logfile
+        self.finished = Event()
 
-    def callback(self):
-        self.send_file_updates()
+    def run(self):
+        while not self.finished.is_set():
+            self.finished.wait(self._interval)
+            if not self.finished.is_set():
+                try:
+                    python_exec = get_python_executable()
+                    manage_py = os.path.join(self._seahub_dir, 'manage.py')
+                    cmd = [
+                        python_exec,
+                        manage_py,
+                        'send_file_updates',
+                    ]
+                    with open(self._logfile, 'a') as fp:
+                        run(cmd, cwd=self._seahub_dir, output=fp)
+                except Exception as e:
+                    logging.exception('send file updates email error: %s', e)
 
-    def send_file_updates(self):
-        """send user file updates
-        """
-
-        try:
-            self._send_file_updates()
-        except Exception as e:
-            logging.exception(e)
-
-    def _send_file_updates(self):
-        python_exec = get_python_executable()
-        manage_py = os.path.join(self._seahub_dir, 'manage.py')
-
-        cmd = [
-            python_exec,
-            manage_py,
-            'send_file_updates',
-        ]
-
-        with open(self._logfile, 'a') as fp:
-            run(cmd, cwd=self._seahub_dir, output=fp)
+    def cancel(self):
+        self.finished.set()

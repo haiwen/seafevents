@@ -1,13 +1,14 @@
 import os
 import logging
+from threading import Thread, Event
 
-from ccnet.async import Timer
 from seafevents.utils import get_python_executable, run
 from seafevents.utils.config import parse_bool, parse_interval, get_opt_from_conf_or_env
 
 __all__ = [
     'SeahubEmailSender',
 ]
+
 
 class SeahubEmailSender(object):
     def __init__(self, config):
@@ -69,50 +70,53 @@ class SeahubEmailSender(object):
         self._interval = interval
         self._seahubdir = seahubdir
 
-    def start(self, ev_base):
+    def start(self):
         if not self.is_enabled():
             logging.warning('Can not start seahub email sender: it is not enabled!')
             return
 
         logging.info('seahub email sender is started, interval = %s sec', self._interval)
-        self._timer = SendSeahubEmailTimer(ev_base, self._interval,
-                                           self._seahubdir, self._logfile)
+        SendSeahubEmailTimer(self._interval, self._seahubdir, self._logfile).start()
 
     def is_enabled(self):
         return self._enabled
 
-class SendSeahubEmailTimer(Timer):
-    def __init__(self, ev_base, timeout, seahubdir, logfile):
-        Timer.__init__(self, ev_base, timeout)
+
+class SendSeahubEmailTimer(Thread):
+
+    def __init__(self, interval, seahubdir, logfile):
+        Thread.__init__(self)
+        self._interval = interval
         self._seahubdir = seahubdir
         self._logfile = logfile
+        self.finished = Event()
 
-    def callback(self):
-        self.send_seahub_email()
+    def run(self):
+        while not self.finished.is_set():
+            self.finished.wait(self._interval)
+            if not self.finished.is_set():
+                logging.info('starts to send email')
+                try:
+                    python_exec = get_python_executable()
+                    manage_py = os.path.join(self._seahubdir, 'manage.py')
 
-    def _send_seahub_email(self):
-        python_exec = get_python_executable()
-        manage_py = os.path.join(self._seahubdir, 'manage.py')
-        cmd = [
-            python_exec,
-            manage_py,
-            'send_notices',
-        ]
-        with open(self._logfile, 'a') as fp:
-            run(cmd, cwd=self._seahubdir, output=fp)
+                    cmd = [
+                        python_exec,
+                        manage_py,
+                        'send_notices',
+                    ]
+                    with open(self._logfile, 'a') as fp:
+                        run(cmd, cwd=self._seahubdir, output=fp)
 
-        cmd = [
-            python_exec,
-            manage_py,
-            'send_queued_mail',
-        ]
-        with open(self._logfile, 'a') as fp:
-            run(cmd, cwd=self._seahubdir, output=fp)
+                    cmd = [
+                        python_exec,
+                        manage_py,
+                        'send_queued_mail',
+                    ]
+                    with open(self._logfile, 'a') as fp:
+                        run(cmd, cwd=self._seahubdir, output=fp)
+                except Exception as e:
+                    logging.exception('error when send email: %s', e)
 
-    def send_seahub_email(self):
-        '''Send seahub user notification emails'''
-        logging.info('starts to send email')
-        try:
-            self._send_seahub_email()
-        except Exception:
-            logging.exception('error when send email:')
+    def cancel(self):
+        self.finished.set()

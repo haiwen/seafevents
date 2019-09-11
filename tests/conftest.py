@@ -1,12 +1,12 @@
 import os
 import sys
-import ConfigParser
+import configparser
 import subprocess
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DisconnectionError
 from sqlalchemy.event import contains as has_event_listener, listen as add_event_listener
-from urllib import quote_plus
+from urllib.parse import quote_plus
 from pytest import yield_fixture
 from sqlalchemy.pool import Pool
 from sqlalchemy.orm import sessionmaker
@@ -57,7 +57,7 @@ def apply_tables():
     try:
         subprocess.check_call(cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     except Exception as e:
-        print e.output
+        print(e.output)
 
 def delete_all_table_if_exists():
     session = None
@@ -123,14 +123,14 @@ def copy_db_from_seafevent_with_no_data():
             test_session.close()
 
 def get_db_session(section):
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.read('./db.cnf')
     if not config.has_section(section):
         sys.stdout.write("no section: %s" % section)
         return
 
     host, port, username, passwd, dbname = read_db_conf(section)
-    db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
+    db_url = "mysql+pymysql://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
     global SEAHUB_DBNAME, SEAFEVENTS_DBNAME, TEST_DBNAME
     if section == 'TESTDB':
         TEST_DBNAME = dbname
@@ -148,7 +148,7 @@ def get_db_session(section):
     return Session()
 
 def read_db_conf(section):
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.read('./db.cnf')
     if not config.has_section(section):
         sys.stdout.write("no section: %s" % section)

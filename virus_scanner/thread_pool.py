@@ -1,8 +1,8 @@
 #coding: utf-8
 
 from threading import Thread
-import Queue
-from scan_settings import logger
+import queue
+from .scan_settings import logger
 
 class Worker(Thread):
     def __init__(self, do_work, task_queue):
@@ -26,10 +26,10 @@ class ThreadPool(object):
     def __init__(self, do_work, nworker=10):
         self.do_work = do_work
         self.nworker = nworker
-        self.task_queue = Queue.Queue()
+        self.task_queue = queue.Queue()
 
     def start(self):
-        for i in xrange(self.nworker):
+        for i in range(self.nworker):
             Worker(self.do_work, self.task_queue).start()
 
     def put_task(self, task):
@@ -38,5 +38,5 @@ class ThreadPool(object):
     def join(self):
         self.task_queue.join()
         # notify all thread to stop
-        for i in xrange(self.nworker):
+        for i in range(self.nworker):
             self.task_queue.put(None)

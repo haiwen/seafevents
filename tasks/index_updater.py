@@ -1,16 +1,17 @@
-#coding: UTF-8
+# coding: UTF-8
 
 import os
 import logging
-import ConfigParser
+import configparser
+from threading import Thread, Event
 
-from ccnet.async import Timer
 from seafevents.utils import get_python_executable, run
 from seafevents.utils.config import parse_bool, parse_interval, get_opt_from_conf_or_env
 
 __all__ = [
     'IndexUpdater',
 ]
+
 
 class IndexUpdater(object):
     def __init__(self, config):
@@ -28,7 +29,7 @@ class IndexUpdater(object):
         self._parse_config(config)
 
     def _parse_config(self, config):
-        '''Parse index update related parts of events.conf'''
+        """Parse index update related parts of events.conf"""
         section_name = 'INDEX FILES'
         key_enabled = 'enabled'
         key_seafesdir = 'seafesdir'
@@ -80,7 +81,7 @@ class IndexUpdater(object):
         index_office_pdf = False
         try:
             index_office_pdf = config.get(section_name, key_index_office_pdf)
-        except ConfigParser.NoOptionError, ConfigParser.NoSectionError:
+        except (configparser.NoOptionError, configparser.NoSectionError):
             pass
         else:
             index_office_pdf = index_office_pdf.lower()
@@ -117,56 +118,58 @@ class IndexUpdater(object):
         self._es_host = es_host
         self._es_port = es_port
 
-    def start(self, ev_base):
+    def start(self):
         if not self.is_enabled():
             logging.warning('Can not start index updater: it is not enabled!')
             return
 
         logging.info('search indexer is started, interval = %s sec', self._interval)
-        self._timer = IndexUpdateTimer(ev_base, self._interval,
-                                       self._seafesdir, self._index_office_pdf, self._logfile,
-                                       self._es_host, self._es_port)
+        IndexUpdateTimer(
+            self._interval, self._seafesdir, self._index_office_pdf,
+            self._logfile, self._es_host, self._es_port
+        ).start()
 
     def is_enabled(self):
         return self._enabled
 
-class IndexUpdateTimer(Timer):
-    _script_name = 'index_local.py'
-    def __init__(self, ev_base, timeout, seafesdir, index_office_pdf, logfile, es_host, es_port):
-        Timer.__init__(self, ev_base, timeout)
+
+class IndexUpdateTimer(Thread):
+
+    def __init__(self, interval, seafesdir, index_office_pdf, logfile, es_host, es_port):
+        Thread.__init__(self)
+        self._interval = interval
         self._seafesdir = seafesdir
         self._index_office_pdf = index_office_pdf
         self._logfile = logfile
         self._es_host = es_host
         self._es_port = es_port
+        self.finished = Event()
 
-    def callback(self):
-        self.index_files()
+    def run(self):
+        while not self.finished.is_set():
+            self.finished.wait(self._interval)
+            if not self.finished.is_set():
+                logging.info('starts to index files')
+                try:
+                    assert os.path.exists(self._seafesdir)
+                    cmd = [
+                        get_python_executable(),
+                        '-m', 'seafes.index_local',
+                        '--logfile', self._logfile,
+                        'update',
+                    ]
 
-    def index_files(self):
-        logging.info('starts to index files')
-        try:
-            self._update_file_index()
-        except Exception:
-            logging.exception('error when index files:')
+                    env = dict(os.environ)
+                    if self._index_office_pdf:
+                        env['SEAFES_INDEX_OFFICE_PDF'] = 'true'
 
-    def _update_file_index(self):
-        '''Invoking the index_local.py, log to ./index.log'''
-        assert os.path.exists(self._seafesdir)
-        script_path = os.path.join(self._seafesdir, self._script_name)
-        cmd = [
-            get_python_executable(),
-            '-m', 'seafes.index_local',
-            '--logfile', self._logfile,
-            'update',
-        ]
+                    if self._es_host:
+                        env['SEAFES_ES_HOST'] = self._es_host
+                        env['SEAFES_ES_PORT'] = str(self._es_port)
 
-        env = dict(os.environ)
-        if self._index_office_pdf:
-            env['SEAFES_INDEX_OFFICE_PDF'] = 'true'
+                    run(cmd, cwd=self._seafesdir, env=env)
+                except Exception as e:
+                    logging.exception('error when index files: %s', e)
 
-        if self._es_host:
-            env['SEAFES_ES_HOST'] = self._es_host
-            env['SEAFES_ES_PORT'] = str(self._es_port)
-
-        run(cmd, cwd=self._seafesdir, env=env)
+    def cancel(self):
+        self.finished.set()

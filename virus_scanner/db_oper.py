@@ -1,8 +1,8 @@
 #coding: utf-8
 
 from sqlalchemy.orm.scoping import scoped_session
-from models import VirusScanRecord, VirusFile
-from scan_settings import logger
+from .models import VirusScanRecord, VirusFile
+from .scan_settings import logger
 
 class DBOper(object):
     def __init__(self, settings):
@@ -14,15 +14,16 @@ class DBOper(object):
 
     def init_db(self, settings):
         try:
-            import MySQLdb
+            import pymysql
+            pymysql.install_as_MySQLdb()
         except ImportError:
-            logger.info('Failed to import MySQLdb module, stop virus scan.')
+            logger.info('Failed to import PyMySQL module, stop virus scan.')
             return
 
         try:
             self.edb_session = scoped_session(settings.session_cls)
 
-            self.sdb_conn = MySQLdb.connect(host=settings.sdb_host, port=settings.sdb_port,
+            self.sdb_conn = pymysql.connect(host=settings.sdb_host, port=settings.sdb_port,
                                             user=settings.sdb_user, passwd=settings.sdb_passwd,
                                             db=settings.sdb_name, charset=settings.sdb_charset)
             self.sdb_conn.autocommit(True)

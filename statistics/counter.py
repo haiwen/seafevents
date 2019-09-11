@@ -2,21 +2,21 @@ import os
 import logging
 import hashlib
 import time
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 from datetime import timedelta
 from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.sql import text
-from models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic,\
+from .models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic,\
                    MonthlyUserTraffic, MonthlySysTraffic
 from seafevents.events.models import FileUpdate
 from seafevents.events.models import FileAudit
 from seafevents.app.config import appconfig
 from seafevents.db import SeafBase
-from db import get_org_id
+from .db import get_org_id
 
 # This is a throwaway variable to deal with a python bug
-throwaway = datetime.strptime('20110101','%Y%m%d')
+throwaway = datetime.strptime('20110101', '%Y%m%d')
 
 login_records = {}
 traffic_info = {}
@@ -25,7 +25,7 @@ def update_hash_record(session, login_name, login_time, org_id):
     if not appconfig.enable_statistics:
         return
     time_str = login_time.strftime('%Y-%m-%d 00:00:00')
-    time_by_day = datetime.strptime(time_str,'%Y-%m-%d %H:%M:%S')
+    time_by_day = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S')
     md5_key = hashlib.md5((login_name + time_str).encode('utf-8')).hexdigest()
     login_records[md5_key] = (login_name, time_by_day, org_id)
 
@@ -34,9 +34,9 @@ def save_traffic_info(session, timestamp, user_name, repo_id, oper, size):
         return
     org_id = get_org_id(repo_id)
     time_str = timestamp.strftime('%Y-%m-%d')
-    if not traffic_info.has_key(time_str):
+    if time_str not in traffic_info:
         traffic_info[time_str] = {}
-    if not traffic_info[time_str].has_key((org_id, user_name, oper)):
+    if (org_id, user_name, oper) not in traffic_info[time_str]:
         traffic_info[time_str][(org_id, user_name, oper)] = size
     else:
         traffic_info[time_str][(org_id, user_name, oper)] += size
@@ -59,8 +59,8 @@ class FileOpsCounter(object):
         start = _start.strftime('%Y-%m-%d %H:00:00')
         end = _start.strftime('%Y-%m-%d %H:59:59')
 
-        s_timestamp = datetime.strptime(start,'%Y-%m-%d %H:%M:%S')
-        e_timestamp = datetime.strptime(end,'%Y-%m-%d %H:%M:%S')
+        s_timestamp = datetime.strptime(start, '%Y-%m-%d %H:%M:%S')
+        e_timestamp = datetime.strptime(end, '%Y-%m-%d %H:%M:%S')
 
         total_added = total_deleted = total_visited = total_modified = 0
         org_added = {}
@@ -83,19 +83,19 @@ class FileOpsCounter(object):
                 org_id = row.org_id
                 if 'Added' in row.file_oper:
                     total_added += 1
-                    if not org_added.has_key(org_id):
+                    if org_id not in org_added:
                         org_added[org_id] = 1
                     else:
                         org_added[org_id] += 1
                 elif 'Deleted' in row.file_oper or 'Removed' in row.file_oper:
                     total_deleted += 1
-                    if not org_deleted.has_key(org_id):
+                    if org_id not in org_deleted:
                         org_deleted[org_id] = 1
                     else:
                         org_deleted[org_id] += 1
                 elif 'Modified' in row.file_oper:
                     total_modified += 1
-                    if not org_modified.has_key(org_id):
+                    if org_id not in org_modified:
                         org_modified[org_id] = 1
                     else:
                         org_modified[org_id] += 1
@@ -115,19 +115,19 @@ class FileOpsCounter(object):
             logging.warning('[FileOpsCounter] query error : %s.', e)
             return
 
-        for k, v in org_added.iteritems():
+        for k, v in org_added.items():
             new_record = FileOpsStat(k, s_timestamp, 'Added', v)
             self.edb_session.add(new_record)
 
-        for k, v in org_deleted.iteritems():
+        for k, v in org_deleted.items():
             new_record = FileOpsStat(k, s_timestamp, 'Deleted', v)
             self.edb_session.add(new_record)
 
-        for k, v in org_visited.iteritems():
+        for k, v in org_visited.items():
             new_record = FileOpsStat(k, s_timestamp, 'Visited', v)
             self.edb_session.add(new_record)
 
-        for k, v in org_modified.iteritems():
+        for k, v in org_modified.items():
             new_record = FileOpsStat(k, s_timestamp, 'Modified', v)
             self.edb_session.add(new_record)
 
@@ -171,7 +171,7 @@ class TotalStorageCounter(object):
 
         dt = datetime.utcnow()
         _timestamp = dt.strftime('%Y-%m-%d %H:00:00')
-        timestamp = datetime.strptime(_timestamp,'%Y-%m-%d %H:%M:%S')
+        timestamp = datetime.strptime(_timestamp, '%Y-%m-%d %H:%M:%S')
 
         try:
             for result in results:
@@ -214,13 +214,13 @@ class TrafficInfoCounter(object):
         local_traffic_info = traffic_info.copy()
         traffic_info.clear()
 
-        if local_traffic_info.has_key(yesterday_str):
+        if yesterday_str in local_traffic_info:
             s_time = time.time()
             self.update_record(local_traffic_info, yesterday, yesterday_str)
             logging.info('Traffic Counter: %d items has been recorded on %s, time: %s seconds.' %\
                         (len(local_traffic_info[yesterday_str]), yesterday_str, str(time.time() - s_time)))
 
-        if local_traffic_info.has_key(today_str):
+        if today_str in local_traffic_info:
             s_time = time.time()
             self.update_record(local_traffic_info, today, today_str)
             logging.info('Traffic Counter: %d items has been updated on %s, time: %s seconds.' %\
@@ -251,7 +251,7 @@ class TrafficInfoCounter(object):
             size = local_traffic_info[date_str][row]
             if size == 0:
                 continue
-            if not org_delta.has_key((org_id, oper)):
+            if (org_id, oper) not in org_delta:
                 org_delta[(org_id, oper)] = size
             else:
                 org_delta[(org_id, oper)] += size
@@ -354,7 +354,7 @@ class MonthlyTrafficCounter(object):
                 oper = result.op_type.replace('-', '_')
 
                 cur_key = (user, org_id)
-                if not user_size_dict.has_key(cur_key):
+                if cur_key not in user_size_dict:
                     user_size_dict[cur_key] = init_size_dict.copy()
                 user_size_dict[cur_key][oper] += size
 
@@ -368,7 +368,7 @@ class MonthlyTrafficCounter(object):
                 last_key = cur_key
 
                 # Count org data
-                if not org_size_dict.has_key(org_id):
+                if org_id not in org_size_dict:
                     org_size_dict[org_id] = init_size_dict.copy()
                     org_size_dict[org_id][oper] = size
                 else:
@@ -380,7 +380,7 @@ class MonthlyTrafficCounter(object):
                     trans_count = 0
 
             # The above loop would miss a user, update it
-            if user_size_dict.has_key(cur_key):
+            if cur_key in user_size_dict:
                 self.update_monthly_user_traffic_record (cur_key[0], cur_key[1], first_day, user_size_dict[cur_key])
                 del user_size_dict[cur_key]
 
@@ -440,7 +440,7 @@ class UserActivityCounter(object):
         ret = 0
         try:
             while True:
-                all_keys = login_records.keys()
+                all_keys = list(login_records.keys())
                 if len(all_keys) > 300:
                     keys = all_keys[:300]
                     self.update_login_record(keys)
@@ -466,7 +466,7 @@ class UserActivityCounter(object):
 
         cmd = "REPLACE INTO UserActivityStat (name_time_md5, username, timestamp, org_id) values"
         cmd_extend = ''.join([' (:key' + str(i) +', :name'+ str(i) +', :time'+ str(i) + ', :org' + str(i) + '),'\
-                     for i in xrange(l)])[:-1]
+                     for i in range(l)])[:-1]
         cmd += cmd_extend
         data = {}
         for key in keys:

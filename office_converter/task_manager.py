@@ -1,10 +1,10 @@
 # coding: utf-8
 
 import os
-import Queue
+import queue
 import tempfile
 import threading
-import urllib2
+import urllib.request
 import logging
 import atexit
 import json
@@ -14,8 +14,8 @@ from .doctypes import EXCEL_TYPES
 
 logger = logging.getLogger(__name__)
 
-
 __all__ = ["task_manager"]
+
 
 def _checkdir_with_mkdir(dname):
     # If you do not have permission for /opt/seafile-office-output files, then false is returned event if the file exists.
@@ -56,7 +56,7 @@ class ConvertTask(object):
         # fetched office document
         self.document = None
         # pdf output
-        self.pdf = '{0}.{1}'.format(os.path.join(pdf_dir, file_id),'pdf')
+        self.pdf = '{0}.{1}'.format(os.path.join(pdf_dir, file_id), 'pdf')
         # html output, each page of the document is converted to a separate
         # html file, and displayed in iframes on seahub
         self.htmldir = os.path.join(html_dir, file_id)
@@ -92,7 +92,7 @@ class ConvertTask(object):
                 logging.debug("removing temporary document %s", fn)
                 try:
                     os.remove(fn)
-                except OSError, e:
+                except OSError as e:
                     logging.warning('failed to remove temporary document %s: %s', fn, e)
 
         self._status = status
@@ -167,7 +167,7 @@ class Worker(threading.Thread):
 
             with open(tmpfile, 'wb') as fp:
                 fp.write(content)
-        except Exception, e:
+        except Exception as e:
             logging.warning('failed to write fetched document for task %s: %s', task, str(e))
             task.status = 'ERROR'
             task.error = 'failed to write fetched document to temporary file'
@@ -187,7 +187,7 @@ class Worker(threading.Thread):
         logging.debug('start to fetch task %s', task)
         file_response = None
         try:
-            file_response = urllib2.urlopen(task.url)
+            file_response = urllib.request.urlopen(task.url)
             content = file_response.read()
         except Exception as e:
             logging.warning('failed to fetch document of task %s (%s): %s', task, task.url, e)
@@ -247,7 +247,7 @@ class Worker(threading.Thread):
         while True:
             try:
                 task = self._tasks_queue.get(timeout=1)
-            except Queue.Empty:
+            except queue.Empty:
                 continue
 
             self._handle_task(task)
@@ -274,7 +274,7 @@ class TaskManager(object):
         self._tasks_map_lock = threading.Lock()
 
         # tasks queue
-        self._tasks_queue = Queue.Queue()
+        self._tasks_queue = queue.Queue()
         self._workers = []
 
         # Things to be initialized in self.init()

@@ -3,7 +3,7 @@
 import logging
 from threading import Thread
 
-from ldap_conn import LdapConn
+from .ldap_conn import LdapConn
 
 class LdapSync(Thread):
     def __init__(self, settings):
@@ -39,8 +39,8 @@ class LdapSync(Thread):
             # If get data from one server failed, then the result is failed
             if cur_ret is None:
                 return None
-            for key in cur_ret.iterkeys():
-                if not ret.has_key(key):
+            for key in cur_ret.keys():
+                if key not in ret:
                     ret[key] = cur_ret[key]
                     ret[key].config = config
 

@@ -1,6 +1,6 @@
 import os
 import logging
-import ConfigParser
+import configparser
 import tempfile
 
 from seafevents.utils import has_office_tools
@@ -44,7 +44,7 @@ def get_opt_from_conf_or_env(config, section, key, env_key=None, default=None):
     '''
     try:
         return config.get(section, key)
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         if env_key is None:
             return default
         else:
@@ -62,7 +62,7 @@ def parse_bool(v):
         return False
 
 def parse_interval(interval, default):
-    if isinstance(interval, (int, long)):
+    if isinstance(interval, (int, int)):
         return interval
 
     interval = interval.lower()
@@ -115,7 +115,7 @@ def get_office_converter_conf(config):
     def get_option(key, default=None):
         try:
             value = config.get(section_name, key)
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             value = default
 
         return value

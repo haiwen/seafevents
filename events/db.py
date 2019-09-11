@@ -80,7 +80,7 @@ def get_user_events(session, username, start, limit):
 
 def get_org_user_events(session, org_id, username, start, limit):
     """Org version of get_user_events"""
-    return _get_user_events(session, org_id , username, start, limit)
+    return _get_user_events(session, org_id, username, start, limit)
 
 def get_user_all_events(session, username, start, limit):
     """Get all events of a user"""
@@ -215,11 +215,11 @@ def save_filehistory(session, record):
         else:
             record['file_uuid'] = prev_item.file_uuid
 
-    if not record.has_key('file_uuid'):
-        file_uuid = uuid.uuid4()
+    if 'file_uuid' not in record:
+        file_uuid = uuid.uuid4().__str__()
         # avoid hash conflict
         while session.query(exists().where(FileHistory.file_uuid == file_uuid)).scalar():
-            file_uuid = uuid.uuid4()
+            file_uuid = uuid.uuid4().__str__()
         record['file_uuid'] = file_uuid
 
     filehistory = FileHistory(record)
@@ -230,7 +230,7 @@ def _save_user_events(session, org_id, etype, detail, usernames, timestamp):
     if timestamp is None:
         timestamp = datetime.datetime.utcnow()
 
-    if org_id > 0 and not detail.has_key('org_id'):
+    if org_id > 0 and 'org_id' not in detail:
         detail['org_id'] = org_id
 
     event = Event(timestamp, etype, detail)
@@ -336,7 +336,7 @@ def get_event_log_by_time(session, log_type, tstart, tend):
         logger.error('Invalid log_type parameter')
         raise RuntimeError('Invalid log_type parameter')
 
-    if not isinstance(tstart, (long, float)) or not isinstance(tend, (long, float)):
+    if not isinstance(tstart, (int, float)) or not isinstance(tend, (int, float)):
         logger.error('Invalid time range parameter')
         raise RuntimeError('Invalid time range parameter')
 

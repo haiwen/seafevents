@@ -7,7 +7,7 @@ import json
 import uuid
 import datetime
 import logging
-from config import appconfig
+from .config import appconfig
 
 MAX_SIZE=25000
 
@@ -43,7 +43,7 @@ class AliScanner(object):
                 remain = None
 
             task2 = {"dataId": str(uuid.uuid1()),
-                     "content": scan_content,
+                     "content": scan_content.decode('utf-8'),
                      "time":datetime.datetime.now().microsecond
                     }
             self.request.set_content(HttpContentHelper.toValue({"tasks": [task2], "scenes": ["antispam"]}))

@@ -2,7 +2,7 @@ import os
 import sys
 import logging
 import atexit
-import ConfigParser
+import configparser
 import ccnet
 import time
 import subprocess
@@ -104,6 +104,8 @@ def _get_python_executable():
         return sys.executable
 
     try_list = [
+        'python3.7',
+        'python37',
         'python2.7',
         'python27',
         'python2.6',
@@ -156,29 +158,12 @@ def run_and_wait(argv, cwd=None, env=None, suppress_stdout=False, suppress_stder
     proc = run(argv, cwd, env, suppress_stdout, suppress_stderr, output)
     return proc.wait()
 
-class ClientConnector(object):
-    RECONNECT_CCNET_INTERVAL = 2
-
-    def __init__(self, client):
-        self._client = client
-
-    def connect_daemon_with_retry(self):
-        while True:
-            logging.info('try to connect to ccnet-server...')
-            try:
-                self._client.connect_daemon()
-                logging.info('connected to ccnet server')
-                break
-            except ccnet.NetworkError:
-                time.sleep(self.RECONNECT_CCNET_INTERVAL)
-
-        return self._client
 
 def get_config(config_file):
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     try:
         config.read(config_file)
-    except Exception, e:
+    except Exception as e:
         logging.critical('failed to read config file %s', e)
         do_exit(1)
 
