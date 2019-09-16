@@ -110,7 +110,7 @@ def init_db_session_class(config_file, db = 'seafevent'):
     """Configure Session class for mysql according to the config file."""
     try:
         engine = create_engine_from_conf(config_file, db)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
+    except (configparser.NoOptionError, configparser.NoSectionError) as e:
         logger.error(e)
         raise RuntimeError("invalid config file %s", config_file)
 
@@ -128,7 +128,7 @@ def create_db_tables():
 
     try:
         engine = create_engine_from_conf(config_file)
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
+    except (configparser.NoOptionError, configparser.NoSectionError) as e:
         logger.error(e)
         raise RuntimeError("invalid config file %s", config_file)
 
