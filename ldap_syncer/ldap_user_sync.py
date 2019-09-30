@@ -22,19 +22,19 @@ except:
     role_mapping = default_ldap_role_mapping
 
 class LdapUser(object):
-    def __init__(self, user_id, password, name, dept, uid, cemail,
-                 is_staff=0, is_active=1, role = '', is_manual_set = False, company = None):
+    def __init__(self, user_id, password, name, dept, company, uid, cemail,
+                 is_staff=0, is_active=1, role = '', is_manual_set = False):
         self.user_id = user_id
         self.password = password
         self.name = name
         self.dept = dept
+        self.company = company
         self.uid = uid
         self.cemail = cemail
         self.is_staff = is_staff
         self.is_active = is_active
         self.role = role
         self.is_manual_set = is_manual_set
-        self.company = company
 
 class LdapUserSync(LdapSync):
     def __init__(self, settings):
@@ -272,21 +272,19 @@ class LdapUserSync(LdapSync):
             if self.settings.load_extra_user_info_sync:
                 name = self.get_attr_val('profile_profile', 'nickname', user.email)
                 dept = self.get_attr_val('profile_detailedprofile', 'department', user.email)
+                company = self.get_attr_val('profile_detailedprofile', 'company', user.email)
                 if self.settings.load_uid_attr:
                     uid = self.get_attr_val('profile_profile', 'login_id', user.email)
                 if self.settings.load_cemail_attr:
                     cemail = self.get_attr_val('profile_profile', 'contact_email', user.email)
-                if self.settings.load_company_attr:
-                    company = self.get_attr_val('profile_detailedprofile', 'company', user.email)
 
 
             user_data_db[user.email] = LdapUser(user.id, user.password, name, dept,
-                                                uid, cemail,
+                                                company, uid, cemail,
                                                 1 if user.is_staff else 0,
                                                 1 if user.is_active else 0,
                                                 user.role,
-                                                user.is_manual_set,
-                                                company=company)
+                                                user.is_manual_set)
 
         return user_data_db
 
@@ -332,7 +330,6 @@ class LdapUserSync(LdapSync):
             search_attr.append(config.first_name_attr)
             search_attr.append(config.last_name_attr)
             search_attr.append(config.dept_attr)
-            search_attr.append(config.company_attr)
 
             if config.uid_attr != '':
                 search_attr.append(config.uid_attr)
@@ -404,15 +401,11 @@ class LdapUserSync(LdapSync):
                    else:
                        cemail = attrs[config.cemail_attr][0]
 
-                if not attrs.has_key(config.company_attr):
-                    company = ''
-                else:
-                    company = attrs[config.company_attr][0]
-
             email = attrs[config.login_attr][0].lower()
             user_name = None if user_name is None else user_name.strip()
-            user_data_ldap[email] = LdapUser(None, password, user_name, dept,
-                                             uid, cemail, role = role, company=company)
+            company = dept[0:5]
+            user_data_ldap[email] = LdapUser(None, password, user_name, dept, company,
+                                             uid, cemail, role = role)
 
         return user_data_ldap
 
