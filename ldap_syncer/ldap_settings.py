@@ -45,6 +45,11 @@ class LdapConfig(object):
         self.department_repo_permission = None
 
         self.sync_group_as_department = False
+<<<<<<< HEAD
+=======
+        self.department_repo_permission = None
+        self.department_name_attr = None
+>>>>>>> a119b99... Get department name from attr.
 
 class Settings(object):
     def __init__(self, is_test=False):
@@ -223,7 +228,14 @@ class Settings(object):
         posix groups store members in atrribute 'memberUid', however, the value of memberUid may be not a 'uid',
         so we make it configurable, default value is 'uid'.
         '''
+<<<<<<< HEAD
         ldap_config.user_attr_in_memberUid = self.get_option(sync_sec, 'USER_ATTR_IN_MEMBERUID', dval='uid')
+=======
+        ldap_config.user_attr_in_memberUid = self.get_option(sync_sec, 'USER_ATTR_IN_MEMBERUID',dval='uid')
+        ldap_config.department_name_attr = self.get_option(sync_sec, 'DEPT_NAME_ATTR')
+
+        ldap_config.department_repo_permission = self.get_option(sync_sec, 'DEPT_REPO_PERM' ,dval='rw')
+>>>>>>> a119b99... Get department name from attr.
 
     def read_sync_user_config(self, ldap_config, ldap_sec, sync_sec):
         ldap_config.user_object_class = self.get_option(sync_sec, 'USER_OBJECT_CLASS',
