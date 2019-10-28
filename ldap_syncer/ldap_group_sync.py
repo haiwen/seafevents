@@ -345,7 +345,8 @@ class LdapGroupSync(LdapSync):
             if ret < 0:
                 logger.warning('Failed to set group [%s] quota.' % group.cn)
             if group.config.create_department_library:
-                ret = seafile_api.add_group_owned_repo(group_id, group.cn, 'rw')
+                ret = seafile_api.add_group_owned_repo(group_id, group.cn,
+                                                       group.config.department_repo_permission)
                 if not ret:
                     logger.warning('Failed to create group owned repo for %s.' % group.cn)
 
