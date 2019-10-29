@@ -43,6 +43,7 @@ class LdapConfig(object):
 
         self.sync_group_as_department = False
         self.department_repo_permission = None
+        self.department_name_attr = None
 
 class Settings(object):
     def __init__(self, is_test=False):
@@ -211,6 +212,7 @@ class Settings(object):
         so we make it configurable, default value is 'uid'.
         '''
         ldap_config.user_attr_in_memberUid = self.get_option(sync_sec, 'USER_ATTR_IN_MEMBERUID',dval='uid')
+        ldap_config.department_name_attr = self.get_option(sync_sec, 'DEPT_NAME_ATTR')
 
         ldap_config.department_repo_permission = self.get_option(sync_sec, 'DEPT_REPO_PERM' ,dval='rw')
 
