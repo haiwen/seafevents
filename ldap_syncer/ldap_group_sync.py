@@ -12,8 +12,8 @@ from ldap_conn import LdapConn
 from ldap_sync import LdapSync
 
 class LdapGroup(object):
-    def __init__(self, cn, creator, members, parent_dn=None, group_id=0, is_department=False):
-        self.cn = cn
+    def __init__(self, name, creator, members, parent_dn=None, group_id=0, is_department=False):
+        self.name = name
         self.creator = creator
         self.members = members
         self.parent_dn = parent_dn
@@ -62,9 +62,9 @@ class LdapGroupSync(LdapSync):
                 nor_members.append(member.user_name)
 
             if (group.parent_group_id == 0):
-                grp_data_db[group.id] = LdapGroup(None, group.creator_name, sorted(nor_members))
+                grp_data_db[group.id] = LdapGroup(group.group_name, group.creator_name, sorted(nor_members))
             else:
-                grp_data_db[group.id] = LdapGroup(None, group.creator_name, sorted(nor_members), None, 0, True)
+                grp_data_db[group.id] = LdapGroup(group.group_name, group.creator_name, sorted(nor_members), None, 0, True)
 
         return grp_data_db
 
@@ -361,9 +361,9 @@ class LdapGroupSync(LdapSync):
                 parent_group = group_data_ldap[group.parent_dn]
                 parent_id = self.create_and_add_group_to_db (group.parent_dn, parent_group, group_dn_db, group_data_ldap)
 
-        group_id = ccnet_api.create_group(group.cn, super_user, 'LDAP', parent_id)
+        group_id = ccnet_api.create_group(group.name, super_user, 'LDAP', parent_id)
         if group_id < 0:
-            logger.warning('create ldap group [%s] failed.' % group.cn)
+            logger.warning('create ldap group [%s] failed.' % group.name)
             return
 
         ret = add_group_dn_pair(group_id, dn_name)
@@ -382,12 +382,12 @@ class LdapGroupSync(LdapSync):
                 quota_to_set = group.config.default_department_quota
             ret = seafile_api.set_group_quota(group_id, quota_to_set)
             if ret < 0:
-                logger.warning('Failed to set group [%s] quota.' % group.cn)
+                logger.warning('Failed to set group [%s] quota.' % group.name)
             if group.config.create_department_library:
-                ret = seafile_api.add_group_owned_repo(group_id, group.cn,
+                ret = seafile_api.add_group_owned_repo(group_id, group.name,
                                                        group.config.department_repo_permission)
                 if not ret:
-                    logger.warning('Failed to create group owned repo for %s.' % group.cn)
+                    logger.warning('Failed to create group owned repo for %s.' % group.name)
 
         for member in group.members:
             ret = group_add_member(group_id, super_user, member)
@@ -444,9 +444,14 @@ class LdapGroupSync(LdapSync):
                 if not data_db.has_key(grp_dn_pairs[k]):
                     continue
                 group_id = grp_dn_pairs[k]
+                name_changed = False
+                if v.name != data_db[group_id].name:
+                    ccnet_api.set_group_name(group_id, v.name)
+                    name_changed = True
+
                 add_list, del_list = LdapGroupSync.diff_members(data_db[group_id].members,
                                                                 v.members)
-                if len(add_list) > 0 or len(del_list) > 0:
+                if len(add_list) > 0 or len(del_list) > 0 or name_changed:
                     self.ugroup += 1
 
                 for member in del_list:
