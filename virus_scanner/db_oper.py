@@ -1,8 +1,8 @@
-#coding: utf-8
+# coding: utf-8
 
-from sqlalchemy.orm.scoping import scoped_session
 from .models import VirusScanRecord, VirusFile
 from .scan_settings import logger
+
 
 class DBOper(object):
     def __init__(self, settings):
@@ -21,7 +21,7 @@ class DBOper(object):
             return
 
         try:
-            self.edb_session = scoped_session(settings.session_cls)
+            self.edb_session = settings.session_cls()
 
             self.sdb_conn = pymysql.connect(host=settings.sdb_host, port=settings.sdb_port,
                                             user=settings.sdb_user, passwd=settings.sdb_passwd,
@@ -31,7 +31,7 @@ class DBOper(object):
 
             self.is_enable = True
         except Exception as e:
-            logger.info('Failed to init mysql db: %s, stop virus scan.' %  e)
+            logger.info('Failed to init mysql db: %s, stop virus scan.' % e)
             if self.edb_session:
                 self.edb_session.close()
             if self.sdb_cursor:
@@ -66,15 +66,15 @@ class DBOper(object):
         return repo_list
 
     def get_scan_commit_id(self, repo_id):
-        q = self.edb_session.query(VirusScanRecord).filter(VirusScanRecord.repo_id==repo_id)
+        q = self.edb_session.query(VirusScanRecord).filter(VirusScanRecord.repo_id == repo_id)
         r = q.first()
         scan_commit_id = r.scan_commit_id if r else None
-        self.edb_session.remove()
+        self.edb_session.close()
         return scan_commit_id
 
     def update_vscan_record(self, repo_id, scan_commit_id):
         try:
-            q = self.edb_session.query(VirusScanRecord).filter(VirusScanRecord.repo_id==repo_id)
+            q = self.edb_session.query(VirusScanRecord).filter(VirusScanRecord.repo_id == repo_id)
             r = q.first()
             if not r:
                 vrecord = VirusScanRecord(repo_id, scan_commit_id)
@@ -83,20 +83,21 @@ class DBOper(object):
                 r.scan_commit_id = scan_commit_id
 
             self.edb_session.commit()
-            self.edb_session.remove()
+            self.edb_session.close()
         except Exception as e:
             logger.warning('Failed to update virus scan record from db: %s.', e)
 
     def add_virus_record(self, records):
         try:
-            self.edb_session.add_all(VirusFile(repo_id, commit_id, file_path, 0) \
+            self.edb_session.add_all(VirusFile(repo_id, commit_id, file_path, 0)
                                      for repo_id, commit_id, file_path in records)
             self.edb_session.commit()
-            self.edb_session.remove()
+            self.edb_session.close()
             return 0
         except Exception as e:
             logger.warning('Failed to add virus records to db: %s.', e)
             return -1
+
 
 def get_virus_record(session, repo_id, start, limit):
     if start < 0:
@@ -110,16 +111,17 @@ def get_virus_record(session, repo_id, start, limit):
     try:
         q = session.query(VirusFile)
         if repo_id:
-            q = q.filter(VirusFile.repo_id==repo_id)
+            q = q.filter(VirusFile.repo_id == repo_id)
         q = q.slice(start, start+limit)
         return q.all()
     except Exception as e:
         logger.warning('Failed to get virus record from db: %s.', e)
         return None
 
+
 def handle_virus_record(session, vid):
     try:
-        q = session.query(VirusFile).filter(VirusFile.vid==vid)
+        q = session.query(VirusFile).filter(VirusFile.vid == vid)
         r = q.first()
         r.has_handle = 1
         session.commit()
@@ -128,9 +130,10 @@ def handle_virus_record(session, vid):
         logger.warning('Failed to handle virus record: %s.', e)
         return -1
 
+
 def get_virus_record_by_id(session, vid):
     try:
-        q = session.query(VirusFile).filter(VirusFile.vid==vid)
+        q = session.query(VirusFile).filter(VirusFile.vid == vid)
         return q.first()
     except Exception as e:
         logger.warning('Failed to get virus record by id: %s.', e)

@@ -14,7 +14,7 @@ class VirusScanner(object):
         return self.settings.is_enabled()
 
     def start(self):
-        logging.info("Starting virus scan.")
+        logging.info("Start virus scanner, interval = %s sec", self.settings.scan_interval*60)
         VirusScanTimer(self.settings).start()
 
 

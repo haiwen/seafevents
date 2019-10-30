@@ -5,8 +5,8 @@ import os
 import sys
 import logging
 import argparse
-from .scan_settings import Settings
-from .virus_scan import VirusScan
+from seafevents.virus_scanner.scan_settings import Settings
+from seafevents.virus_scanner.virus_scan import VirusScan
 
 from seafevents.app.config import load_env_config
 
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     }
     logging.basicConfig(**kw)
 
-    from .scan_settings import logger
+    from seafevents.virus_scanner.scan_settings import logger
     logger.setLevel(logging.DEBUG)
 
     parser = argparse.ArgumentParser()

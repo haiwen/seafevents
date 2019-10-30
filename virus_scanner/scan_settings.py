@@ -164,8 +164,8 @@ class Settings(object):
             logger.info('mysql db name is not set in seafile conf, disable virus scan.')
             return False
 
-        if cfg.has_option('database', 'CONNECTION_CHARSET'):
-            self.sdb_charset = cfg.get('database', 'CONNECTION_CHARSET')
+        if cfg.has_option('database', 'connection_charset'):
+            self.sdb_charset = cfg.get('database', 'connection_charset')
         if not self.sdb_charset:
             self.sdb_charset = 'utf8'
 
