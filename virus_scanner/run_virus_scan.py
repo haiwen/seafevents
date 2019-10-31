@@ -8,7 +8,7 @@ import argparse
 from seafevents.virus_scanner.scan_settings import Settings
 from seafevents.virus_scanner.virus_scan import VirusScan
 
-from seafevents.app.config import load_env_config
+from seafevents.app.config import load_config
 
 if __name__ == "__main__":
     kw = {
@@ -28,7 +28,7 @@ if __name__ == "__main__":
                         help='seafevents config file')
     args = parser.parse_args()
 
-    load_env_config()
+    load_config(args.config_file)
 
     setting = Settings(args.config_file)
     if setting.is_enabled():

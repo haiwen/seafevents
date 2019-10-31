@@ -22,12 +22,9 @@ class VirusScan(object):
         self.db_oper = DBOper(settings)
 
     def start(self):
-        if not self.db_oper.is_enabled():
-            return
-
         repo_list = self.db_oper.get_repo_list()
         if repo_list is None:
-            self.db_oper.close_db()
+            logger.debug("No repo, skip virus scan.")
             return
 
         thread_pool = ThreadPool(self.scan_virus, self.settings.threads)
@@ -44,8 +41,6 @@ class VirusScan(object):
             thread_pool.put_task(ScanTask(repo_id, head_commit_id, scan_commit_id))
 
         thread_pool.join()
-
-        self.db_oper.close_db()
 
     def scan_virus(self, scan_task):
         try:
