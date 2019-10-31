@@ -1,4 +1,4 @@
-#coding: utf-8
+# coding: utf-8
 
 import os
 import logging
@@ -6,8 +6,10 @@ from configparser import ConfigParser
 from seafevents.db import init_db_session_class
 from seafevents.app.config import appconfig
 from seafevents.utils.config import get_opt_from_conf_or_env, parse_bool
+
 logger = logging.getLogger('virus_scan')
 logger.setLevel(logging.INFO)
+
 
 class Settings(object):
     def __init__(self, config_file):
@@ -23,18 +25,11 @@ class Settings(object):
                               '.mkv']
         self.threads = 4
 
-        # seafile db config
-        self.sdb_host = None
-        self.sdb_port = 3306
-        self.sdb_user = None
-        self.sdb_passwd = None
-        self.sdb_name = None
-        self.sdb_charset = 'utf8'
-
         self.seahub_dir = None
         self.enable_send_mail = False
 
         self.session_cls = None
+        self.seaf_session_cls = None
 
         self.parse_config(config_file)
 
@@ -44,17 +39,15 @@ class Settings(object):
             seaf_conf = appconfig.seaf_conf_path
             cfg.read(seaf_conf)
         except Exception as e:
-            logger.warning('Failed to read seafile config, disable virus scan.')
+            logger.error('Failed to read seafile config, disable virus scan: %s', e)
             return
 
         if not self.parse_scan_config(cfg, seaf_conf):
             return
 
-        if not self.parse_sdb_config(cfg):
-            return
-
         try:
-            self.session_cls = init_db_session_class(config_file)
+            self.session_cls = appconfig.session_cls
+            self.seaf_session_cls = appconfig.seaf_session_cls
         except Exception as e:
             logger.warning('Failed to init db session class: %s', e)
             return
@@ -68,7 +61,7 @@ class Settings(object):
             self.scan_cmd = cfg.get('virus_scan', 'scan_command')
         if not self.scan_cmd:
             logger.info('[virus_scan] scan_command option is not found in %s, disable virus scan.' %
-                         seaf_conf)
+                        seaf_conf)
             return False
 
         vcode = None
@@ -122,52 +115,6 @@ class Settings(object):
                 self.threads = cfg.getint('virus_scan', 'threads')
             except ValueError:
                 pass
-
-        return True
-
-    def parse_sdb_config(self, cfg):
-        # seafile db config
-        db_type = None
-        if cfg.has_option('database', 'type'):
-            db_type = cfg.get('database', 'type')
-        if db_type != 'mysql':
-            logger.info('Seafile does not use mysql db, disable virus scan.')
-            return False
-
-        if cfg.has_option('database', 'host'):
-            self.sdb_host = cfg.get('database', 'host')
-        if not self.sdb_host:
-            logger.info('mysql db host is not set in seafile conf, disable virus scan.')
-            return False
-
-        if cfg.has_option('database', 'port'):
-            try:
-                self.sdb_port = cfg.getint('database', 'port')
-            except ValueError:
-                pass
-
-        if cfg.has_option('database', 'user'):
-            self.sdb_user = cfg.get('database', 'user')
-        if not self.sdb_user:
-            logger.info('mysql db user is not set in seafile conf, disable virus scan.')
-            return False
-
-        if cfg.has_option('database', 'password'):
-            self.sdb_passwd = cfg.get('database', 'password')
-        if not self.sdb_passwd:
-            logger.info('mysql db password is not set in seafile conf, disable virus scan.')
-            return False
-
-        if cfg.has_option('database', 'db_name'):
-            self.sdb_name = cfg.get('database', 'db_name')
-        if not self.sdb_name:
-            logger.info('mysql db name is not set in seafile conf, disable virus scan.')
-            return False
-
-        if cfg.has_option('database', 'CONNECTION_CHARSET'):
-            self.sdb_charset = cfg.get('database', 'CONNECTION_CHARSET')
-        if not self.sdb_charset:
-            self.sdb_charset = 'utf8'
 
         return True
 
