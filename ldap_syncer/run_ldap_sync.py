@@ -104,15 +104,15 @@ def test_ldap(settings):
         ldap_conn.unbind_conn()
         logging.debug('')
 
-def run_ldap_sync(settings):
+def run_ldap_sync(settings, sync_group_finish, sync_user_finish):
     if not settings.enable_sync():
         logging.debug('Both user and group sync are disabled, stop ldap sync.')
         return
     if settings.enable_group_sync or settings.sync_department_from_ou:
-        LdapGroupSync(settings).start()
+        LdapGroupSync(settings, sync_group_finish).start()
 
     if settings.enable_user_sync:
-        LdapUserSync(settings).start()
+        LdapUserSync(settings, sync_user_finish).start()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -135,4 +135,4 @@ if __name__ == '__main__':
     if arg.test:
         test_ldap(settings)
     else:
-        run_ldap_sync(settings)
+        run_ldap_sync(settings, None, None)

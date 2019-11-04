@@ -35,8 +35,8 @@ class LdapUser(object):
         self.is_manual_set = is_manual_set
 
 class LdapUserSync(LdapSync):
-    def __init__(self, settings):
-        LdapSync.__init__(self, settings)
+    def __init__(self, settings, finish):
+        LdapSync.__init__(self, settings, finish)
         self.auser = 0
         self.uuser = 0
         self.duser = 0

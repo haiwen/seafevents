@@ -6,13 +6,16 @@ from threading import Thread
 from ldap_conn import LdapConn
 
 class LdapSync(Thread):
-    def __init__(self, settings):
+    def __init__(self, settings, finish):
         Thread.__init__(self)
         self.settings = settings
+        self.finish = finish
 
     def run(self):
         self.start_sync()
         self.show_sync_result()
+        if self.finish:
+            self.finish.set()
 
     def show_sync_result(self):
         pass

@@ -21,8 +21,8 @@ class LdapGroup(object):
         self.is_department = is_department
 
 class LdapGroupSync(LdapSync):
-    def __init__(self, settings):
-        LdapSync.__init__(self, settings)
+    def __init__(self, settings, finish):
+        LdapSync.__init__(self, settings, finish)
         self.agroup = 0
         self.ugroup = 0
         self.dgroup = 0
