@@ -33,12 +33,8 @@ class WorkWinxinNoticeSender(object):
         """parse work weixin related options from config file
         """
         section_name = 'WORK WEIXIN'
-        key_seahub_dir = 'seahub_dir'
         key_interval = 'interval'
         default_interval = 60  # 1min
-
-        if not config.has_section(section_name):
-            return
 
         # seahub_dir
         seahub_dir = os.environ.get('SEAHUB_DIR', '')
