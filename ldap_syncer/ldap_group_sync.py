@@ -445,11 +445,12 @@ class LdapGroupSync(LdapSync):
                     continue
                 group_id = grp_dn_pairs[k]
                 name_changed = False
-                if v.name != data_db[group_id].name:
-                    ccnet_api.set_group_name(group_id, v.name)
+                ldap_group_name = v.name.decode('utf-8')
+                if ldap_group_name != data_db[group_id].name:
+                    ccnet_api.set_group_name(group_id, ldap_group_name)
                     name_changed = True
                     logger.debug('group %d name changed from %s to %s.' %
-                                  (group_id, data_db[group_id].name, v.name))
+                                  (group_id, data_db[group_id].name, ldap_group_name))
 
                 add_list, del_list = LdapGroupSync.diff_members(data_db[group_id].members,
                                                                 v.members)
