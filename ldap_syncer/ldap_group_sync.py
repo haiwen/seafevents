@@ -10,6 +10,7 @@ from seaserv import get_ldap_groups, get_group_members, add_group_dn_pair, \
 from ldap import SCOPE_SUBTREE, SCOPE_BASE, SCOPE_ONELEVEL
 from .ldap_conn import LdapConn
 from .ldap_sync import LdapSync
+from .utils import bytes2str
 
 class LdapGroup(object):
     def __init__(self, cn, creator, members, parent_dn=None, group_id=0, is_department=False):
@@ -115,6 +116,7 @@ class LdapGroupSync(LdapSync):
                                           [config.group_member_attr, 'cn'])
             if not results:
                 continue
+            results = bytes2str(results)
 
             for result in results:
                 group_dn, attrs = result
@@ -141,6 +143,7 @@ class LdapGroupSync(LdapSync):
                                    config.login_attr, 'cn'])
         if not result:
             return []
+        result = bytes2str(result)
 
         dn, attrs = result[0]
         if not isinstance(attrs, dict):
