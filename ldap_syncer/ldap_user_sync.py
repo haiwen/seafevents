@@ -8,6 +8,7 @@ from seaserv import get_ldap_users, add_ldap_user, update_ldap_user, \
         seafile_api, ccnet_api
 from .ldap_conn import LdapConn
 from .ldap_sync import LdapSync
+from .utils import bytes2str
 from ldap import SCOPE_SUBTREE
 
 def default_ldap_role_mapping(role):
@@ -340,6 +341,7 @@ class LdapUserSync(LdapSync):
                                      search_filter, search_attr)
         if users is None:
             return None
+        users = bytes2str(users)
 
         for pair in users:
             user_dn, attrs = pair
