@@ -1,26 +1,21 @@
 import os
 import re
 import logging
-from pysearpc import searpc_server
+import subprocess
 
-from .task_manager import task_manager
-from .rpc import OfficeConverterRpcClient, OFFICE_RPC_SERVICE_NAME
 from .doctypes import DOC_TYPES, PPT_TYPES, EXCEL_TYPES
 from seafevents.utils import has_office_tools
+from seafevents.utils import run, get_python_executable, get_env_without_thirdpart
 
 __all__ = [
     'OfficeConverter',
-    'OfficeConverterRpcClient',
 ]
 
 FILE_ID_PATTERN = re.compile(r'^[0-9a-f]{40}$')
-def _valid_file_id(file_id):
-    if not isinstance(file_id, str):
-        return False
-    return FILE_ID_PATTERN.match(str(file_id)) is not None
+logger = logging.getLogger(__name__)
+
 
 class OfficeConverter(object):
-    supported_doctypes = DOC_TYPES + PPT_TYPES + EXCEL_TYPES + ('pdf', )
 
     def __init__(self, conf):
         self._enabled = conf['enabled']
@@ -30,48 +25,52 @@ class OfficeConverter(object):
             self._num_workers = conf['workers']
             self._max_size = conf['max_size']
             self._max_pages = conf['max_pages']
-
-    def add_task(self, file_id, doctype, url):
-        if doctype not in self.supported_doctypes:
-            raise Exception('doctype "%s" is not supported' % doctype)
-
-        if not _valid_file_id(file_id):
-            raise Exception('invalid file id')
-
-        return task_manager.add_task(file_id, doctype, url)
-
-    def query_convert_status(self, file_id, doctype):
-        if not _valid_file_id(file_id):
-            raise Exception('invalid file id')
-
-        return task_manager.query_task_status(file_id, doctype)
-
-    def register_rpc(self, ccnet_client):
-        '''Register office rpc service'''
-        searpc_server.create_service(OFFICE_RPC_SERVICE_NAME)
-        # ccnet_client.register_service(OFFICE_RPC_SERVICE_NAME,
-        #                               'basic',
-        #                               RpcServerProc)
-
-        searpc_server.register_function(OFFICE_RPC_SERVICE_NAME,
-                                        self.query_convert_status)
-
-        searpc_server.register_function(OFFICE_RPC_SERVICE_NAME,
-                                        self.add_task)
+            self._convert_host = conf['host']
+            self._convert_port = conf['port']
+            self._logfile = os.path.join(os.path.dirname(__file__), 'conver_server.log')
+            self._convert_server_proc = None
+            self._convert_server_py = os.path.join(os.path.dirname(__file__), 'convert_server.py')
 
     def start(self):
-        pdf_dir = os.path.join(self._outputdir, 'pdf')
-        html_dir = os.path.join(self._outputdir, 'html')
-        task_manager.init(num_workers=self._num_workers,
-                          pdf_dir=pdf_dir,
-                          html_dir=html_dir,
-                          max_pages=self._max_pages)
-        task_manager.run()
+        convert_server_args = [
+            get_python_executable(),
+            self._convert_server_py,
+            '--outputdir',
+            self._outputdir,
+            '--workers',
+            self._num_workers,
+            '--max_pages',
+            self._max_pages,
+            '--host',
+            self._convert_host,
+            '--port',
+            self._convert_port,
+        ]
+
+        with open(self._logfile, 'a') as fp:
+            self._convert_server_proc = run(
+                convert_server_args, cwd=os.path.dirname(__file__),
+                env=get_env_without_thirdpart(), output=fp
+            )
+
+        exists_args = ["ps", "-ef"]
+        result = run(exists_args, output=subprocess.PIPE)
+        rows = result.stdout.read().decode('utf-8')
+        if self._convert_server_py in rows:
+            logging.info('http server process already start.')
+        else:
+            logging.warning('Failed to running http server process.')
 
         logging.info('office converter started')
 
     def stop(self):
-        task_manager.stop()
+        if self._convert_server_proc:
+            try:
+                self._convert_server_proc.terminate()
+            except Exception as e:
+                logger.error(e)
+                pass
+        logging.info('stop converter http server...')
 
     def is_enabled(self):
         if not has_office_tools():

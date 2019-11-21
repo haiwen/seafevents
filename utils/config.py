@@ -108,7 +108,13 @@ def get_office_converter_conf(config):
     key_max_size = 'max-size'
     default_max_size = 2 * 1024 * 1024
 
-    d = { 'enabled': False }
+    key_host = 'host'
+    default_host = '127.0.0.1'
+
+    key_port = 'port'
+    default_port = 6000
+
+    d = {'enabled': False}
     if not config.has_section(section_name):
         return d
 
@@ -159,14 +165,22 @@ def get_office_converter_conf(config):
     if max_pages != default_max_pages:
         max_pages = parse_max_pages(max_pages, default=default_max_pages)
 
+    # [ http server address ]
+    host = get_option(key_host, default=default_host)
+    port = get_option(key_port, default=default_port)
+
     logging.debug('office convert workers: %s', workers)
     logging.debug('office outputdir: %s', outputdir)
     logging.debug('office convert max pages: %s', max_pages)
     logging.debug('office convert max size: %s MB', max_size / 1024 / 1024)
+    logging.debug('office http server host: %s', host)
+    logging.debug('office http server port: %s', port)
 
     d['outputdir'] = outputdir
     d['workers'] = workers
     d['max_pages'] = max_pages
     d['max_size'] = max_size
+    d['host'] = host
+    d['port'] = port
 
     return d
