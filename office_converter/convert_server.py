@@ -1,6 +1,8 @@
 import os
 import re
 import socket
+import stat
+import mimetypes
 import argparse
 import logging
 import json
@@ -72,6 +74,28 @@ class ConverterRequestHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps(resp).encode())
             except Exception as e:
                 self.send_error(500, e)
+
+        elif path == '/get-converted-page':
+            full_path = args['full_path'][0]
+            if os.path.isdir(full_path):
+                self.send_error(404, "Directory indexes are not allowed here.")
+            if not os.path.exists(full_path):
+                self.send_error(404, '"%(path)s" does not exist' % {'path': full_path})
+
+            stat_obj = os.stat(full_path)
+            content_type, encoding = mimetypes.guess_type(full_path)
+            content_type = content_type or 'application/octet-stream'
+            self.send_response(200)
+            self.send_header("Content-type", content_type)
+            if stat.S_ISREG(stat_obj.st_mode):
+                self.send_header("Content-Length", stat_obj.st_size)
+            if encoding:
+                self.send_header("Content-Encoding", encoding)
+            self.end_headers()
+            with open(full_path, 'rb') as fp:
+                data = fp.read()
+                print(data)
+            self.wfile.write(data)
 
         else:
             self.send_error(400, 'path %s invalid.' % path)
