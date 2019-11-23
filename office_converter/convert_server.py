@@ -14,6 +14,10 @@ import jwt
 
 from seafevents.office_converter.task_manager import task_manager
 from seafevents.office_converter.doctypes import DOC_TYPES, PPT_TYPES, EXCEL_TYPES
+try:
+    from seahub.settings import SECRET_KEY
+except ImportError:
+    SECRET_KEY = None
 
 logger = logging.getLogger(__name__)
 FILE_ID_PATTERN = re.compile(r'^[0-9a-f]{40}$')
@@ -46,16 +50,16 @@ class ConverterRequestHandler(SimpleHTTPRequestHandler):
         if not token:
             self.send_error(403, 'Token invalid.')
         try:
-            jwt.decode(token, 'secret', algorithms=['HS256'])
-        except jwt.ExpiredSignatureError:
+            jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        except (jwt.ExpiredSignatureError, jwt.InvalidSignatureError):
             self.send_error(403, 'Token expired.')
 
-        path, args = parse.splitquery(self.path)
-        args = parse.parse_qs(args)
+        path, arguments = parse.splitquery(self.path)
+        arguments = parse.parse_qs(arguments)
         if path == '/add-task':
             try:
-                _check_type_and_file_id(args['file_id'][0], args['doctype'][0])
-                task_manager.add_task(args['file_id'][0], args['doctype'][0], args['raw_path'][0])
+                _check_type_and_file_id(arguments['file_id'][0], arguments['doctype'][0])
+                task_manager.add_task(arguments['file_id'][0], arguments['doctype'][0], arguments['raw_path'][0])
             except Exception as e:
                 self.send_error(500, e)
             self.send_response(200)
@@ -66,8 +70,8 @@ class ConverterRequestHandler(SimpleHTTPRequestHandler):
 
         elif path == '/query-status':
             try:
-                _valid_file_id(args['file_id'][0])
-                resp = task_manager.query_task_status(args['file_id'][0], args['doctype'][0])
+                _valid_file_id(arguments['file_id'][0])
+                resp = task_manager.query_task_status(arguments['file_id'][0], arguments['doctype'][0])
                 self.send_response(200)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
@@ -76,7 +80,14 @@ class ConverterRequestHandler(SimpleHTTPRequestHandler):
                 self.send_error(500, e)
 
         elif path == '/get-converted-page':
-            full_path = args['full_path'][0]
+            static_filename = arguments['static_filename'][0]
+            file_id = arguments['file_id'][0]
+            office_out_dir = os.path.join(args.outputdir, 'html')
+            filepath = os.path.join(file_id, static_filename)
+            if static_filename.endswith('.pdf'):
+                office_out_dir = os.path.join(args.outputdir, 'pdf')
+                filepath = static_filename
+            full_path = os.path.join(office_out_dir, filepath)
             if os.path.isdir(full_path):
                 self.send_error(404, "Directory indexes are not allowed here.")
             if not os.path.exists(full_path):
@@ -102,15 +113,6 @@ class ConverterRequestHandler(SimpleHTTPRequestHandler):
 
 
 def main():
-    # parse argument
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--outputdir', help='office converter host')
-    parser.add_argument('--workers', help='office converter host')
-    parser.add_argument('--max_pages', help='office converter host')
-    parser.add_argument('--host', help='office converter host')
-    parser.add_argument('--port', help='office converter port')
-    args = parser.parse_args()
-
     # start task_manager
     task_manager.init(
         num_workers=int(args.workers),
@@ -139,4 +141,13 @@ def main():
 
 
 if __name__ == '__main__':
+    # parse argument
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--outputdir', help='office converter host')
+    parser.add_argument('--workers', help='office converter host')
+    parser.add_argument('--max_pages', help='office converter host')
+    parser.add_argument('--host', help='office converter host')
+    parser.add_argument('--port', help='office converter port')
+    args = parser.parse_args()
+
     main()
