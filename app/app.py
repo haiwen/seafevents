@@ -7,7 +7,7 @@ from seafevents.app.config import appconfig, load_config
 from seafevents.app.mq_handler import EventsHandler
 from seafevents.events_publisher.events_publisher import events_publisher
 from seafevents.utils.config import get_office_converter_conf
-from seafevents.utils import do_exit, has_office_tools, get_config
+from seafevents.utils import has_office_tools, get_config
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
         WorkWinxinNoticeSender, FileUpdatesSender
@@ -127,3 +127,5 @@ class BackgroundTasks(object):
 
         if self._office_converter and self._office_converter.is_enabled():
             self._office_converter.start()
+        else:
+            logging.info('office converter is disabled')
