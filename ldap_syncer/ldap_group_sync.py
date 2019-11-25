@@ -1,5 +1,5 @@
 #coding: utf-8
-
+import os
 import logging
 logger = logging.getLogger('ldap_sync')
 logger.setLevel(logging.DEBUG)
@@ -29,6 +29,8 @@ class LdapGroupSync(LdapSync):
         self.dgroup = 0
         self.sort_list = []
 
+        self.ldap_grp_dn_to_ccnet_grp_id = {}
+
     def show_sync_result(self):
         logger.info('LDAP group sync result: add [%d]group, update [%d]group, delete [%d]group' %
                      (self.agroup, self.ugroup, self.dgroup))
@@ -57,7 +59,6 @@ class LdapGroupSync(LdapSync):
                 grp_data_db[group.id] = LdapGroup(None, group.creator_name, sorted(nor_members))
             else:
                 grp_data_db[group.id] = LdapGroup(None, group.creator_name, sorted(nor_members), None, 0, True)
-
         return grp_data_db
 
     def get_data_from_ldap_by_server(self, config):
@@ -84,6 +85,7 @@ class LdapGroupSync(LdapSync):
 
         ret_data_ldap = department_data_ldap.copy()
         ret_data_ldap.update(group_data_ldap)
+        ret_data_ldap = bytes2str(ret_data_ldap)
 
         ldap_conn.unbind_conn()
 
@@ -191,6 +193,7 @@ class LdapGroupSync(LdapSync):
                                           [config.group_member_attr, 'cn'])
             if not results:
                 continue
+            results = bytes2str(results)
 
             for result in results:
                 group_dn, attrs = result
@@ -226,6 +229,7 @@ class LdapGroupSync(LdapSync):
         results = ldap_conn.search(base_dn, SCOPE_SUBTREE,
                                    search_filter,
                                    [config.login_attr, 'cn'])
+        results = bytes2str(results)
         if not results:
             return []
 
@@ -325,7 +329,7 @@ class LdapGroupSync(LdapSync):
                 parent_group = group_data_ldap[group.parent_dn]
                 parent_id = self.create_and_add_group_to_db (group.parent_dn, parent_group, group_dn_db, group_data_ldap)
 
-        group_id = ccnet_api.create_group(group.cn, super_user, 'LDAP', parent_id)
+        group_id = ccnet_api.create_group(bytes2str(group.cn), super_user, 'LDAP', parent_id)
         if group_id < 0:
             logger.warning('create ldap group [%s] failed.' % group.cn)
             return
@@ -348,12 +352,12 @@ class LdapGroupSync(LdapSync):
             if ret < 0:
                 logger.warning('Failed to set group [%s] quota.' % group.cn)
             if group.config.create_department_library:
-                ret = seafile_api.add_group_owned_repo(group_id, group.cn, 'rw')
+                ret = seafile_api.add_group_owned_repo(group_id, bytes2str(group.cn), 'rw')
                 if not ret:
                     logger.warning('Failed to create group owned repo for %s.' % group.cn)
-
+        group = bytes2str(group)
         for member in group.members:
-            ret = group_add_member(group_id, super_user, member)
+            ret = group_add_member(group_id, super_user, bytes2str(member))
             if ret < 0:
                 logger.warning('add member %s to group %d failed.' %
                                 (member, group_id))
@@ -366,6 +370,8 @@ class LdapGroupSync(LdapSync):
         return group_id
 
     def sync_data(self, data_db, data_ldap):
+        data_db = bytes2str(data_db)
+        data_ldap = bytes2str(data_ldap)
         dn_pairs = get_group_dn_pairs()
         if dn_pairs is None:
             logger.warning('get group dn pairs from db failed.')
@@ -377,16 +383,20 @@ class LdapGroupSync(LdapSync):
         group_dn_db = {}
 
         for grp_dn in dn_pairs:
-            grp_dn_pairs[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
-            group_dn_db[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
+            # grp_dn_pairs[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
+            # group_dn_db[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
+            grp_dn_pairs[grp_dn.dn] = grp_dn.group_id
+            group_dn_db[grp_dn.dn] = grp_dn.group_id
+        group_dn_db = bytes2str(group_dn_db)
 
+        # self.ldap_grp_dn_to_ccnet_grp_id = grp_dn_pairs
         # sync deleted group in ldap to db
         for k in grp_dn_pairs.keys():
             if k not in data_ldap:
-                deleted_group_id = grp_dn_pairs[k]
+                deleted_group_id = str(grp_dn_pairs[k])
                 if (not data_db[deleted_group_id].is_department and self.settings.del_group_if_not_found) or \
                    (data_db[deleted_group_id].is_department and self.settings.del_department_if_not_found):
-                    grp_dn_db.pop(k)
+                    group_dn_db.pop(k)
                     ret = remove_group(grp_dn_pairs[k], '')
                     if ret < 0:
                         logger.warning('remove group %d failed.' % grp_dn_pairs[k])
@@ -399,6 +409,7 @@ class LdapGroupSync(LdapSync):
 
         # ldap_tups = [('dn_name', LdapGroup)...]
         ldap_tups = self.sort_list
+        ldap_tups = bytes2str(ldap_tups)
 
         for k, v in ldap_tups:
             if k in grp_dn_pairs:
@@ -420,7 +431,7 @@ class LdapGroupSync(LdapSync):
                         continue
                     logger.debug('remove member %s from group %d success.' %
                                   (member, group_id))
-
+                add_list = bytes2str(add_list)
                 for member in add_list:
                     ret = group_add_member(group_id, data_db[group_id].creator, member)
                     if ret < 0:

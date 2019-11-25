@@ -54,6 +54,7 @@ class LDAPSyncerTest(unittest.TestCase):
         ccnet_config_file = os.path.join(os.environ['CCNET_CONF_DIR'], 'ccnet.conf')
         self.config = configparser.ConfigParser()
         self.config.read(ccnet_config_file)
+        self.test_base_dn = 'OU=test-tmp-base-ou,dc=seafile,dc=ren'
 
         # connect to seahub db
         self.init_seahub_db()

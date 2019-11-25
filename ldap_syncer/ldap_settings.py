@@ -44,6 +44,9 @@ class LdapConfig(object):
 
         self.sync_group_as_department = False
 
+    # def __setitem__(self, key, value):
+    #     self[key] = value
+
 class Settings(object):
     def __init__(self, is_test=False):
         # If any of ldap configs allows user-sync/group-sync, user-sync/group-sync task is allowed.

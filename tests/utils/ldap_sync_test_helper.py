@@ -10,11 +10,10 @@ class LDAPSyncTestHelper:
     def __init__(self, config):
         os.environ['PYTHONPATH'] = '/usr/lib/python3/dist-packages:/usr/lib/python3.7/dist-packages:/usr/lib/python3.7/site-packages:/usr/local/lib/python3.7/dist-packages:/usr/local/lib/python3.7/site-packages:/data/dev/seahub/thirdpart:/data/dev/pyes/pyes:/data/dev/seahub-extra::/data/dev/portable-python-libevent/libevent:/data/dev/seafobj:/data/dev/seahub/seahub/:/data/dev/'
         self.host = config.get('LDAP', 'host')
-        self.base_dn = config.get('LDAP', 'base')
+        #self.base_dn = config.get('LDAP', 'base')
         self.user_dn = config.get('LDAP', 'user_dn')
         self.passwd = config.get('LDAP', 'password')
         self.follow_referrals = None
-        self.test_user_dn = ''
 
         self.conn = ldap.initialize(self.host, bytes_mode=False)
         try:
@@ -37,27 +36,21 @@ class LDAPSyncTestHelper:
         if self.conn:
             self.conn.unbind_s()
 
-    def add_test_user(self, cn='', email=''):
 
-        if not cn or not email:
+    def add_user(self, dn='', email=''):
+        if not dn or not email:
             return
         attrs = {}
-        attrs['givenName'] = [b'default_test_firstname']
-        attrs['sn'] = [b'default_test_lastname']
-        attrs['title'] = [b'Default']
-        attrs['mail'] = [b'default_test_contact_email']
-        attrs['department'] = [b'default_department_name']
         attrs['userPrincipalName'] = bytes(email, encoding='utf-8')  # necessary
         attrs['objectclass'] = [b'top', b'person', b'organizationalPerson', b'user']
-
-        test_user_dn = 'CN=' + cn + ',OU=ceshiyi,OU=ceshi,DC=seafile,DC=ren'
-
-        # Convert our dict to nice syntax for the add-function using modlist-module
         ldif = modlist.addModlist(attrs)
-        self.conn.add_s(test_user_dn, ldif)
+        try:
+            self.conn.add_s(dn, ldif)
+        except ldap.ALREADY_EXISTS:
+            self.conn.delete_s(dn)
+            self.conn.add_s(dn, ldif)
 
-    def update_test_user(self, cn, first_name='', last_name='', role='', contact_email='', department=''):
-        dn = 'CN=' + cn + ',OU=ceshiyi,OU=ceshi,DC=seafile,DC=ren'
+    def update_user(self, dn, first_name='', last_name='', role='', contact_email='', department=''):
         user = self.conn.search_s(dn, SCOPE_SUBTREE)
         old_attrs = user[0][1]
 
@@ -76,10 +69,10 @@ class LDAPSyncTestHelper:
         ldif = modlist.modifyModlist(old_attrs, attrs)
         self.conn.modify_s(dn, ldif)
 
-    def delete_test_user(self, cn):
-        if not cn:
+    def delete_user(self, dn):
+        if not dn:
             return
-        self.conn.delete_s('CN=' + cn + ',OU=ceshiyi,OU=ceshi,DC=seafile,DC=ren')
+        self.conn.delete_s(dn)
 
     def is_user_exist(self, cn):
         try:
@@ -87,3 +80,59 @@ class LDAPSyncTestHelper:
         except ldap.NO_SUCH_OBJECT:
             return False
         return True
+
+    def add_grp(self, grp_dn):
+        if not grp_dn:
+            return
+        attrs = {}
+        attrs['objectClass'] = [b'group', b'top']
+        ldif = modlist.addModlist(attrs)
+        self.conn.add_s(grp_dn, ldif)
+
+    def delete_grp(self, grp_dn):
+        try:
+            self.conn.delete_s(grp_dn)
+        except ldap.NO_SUCH_OBJECT:
+            return
+
+    def add_grp_to_grp(self, sub_grp_dn, parent_grp_dn):
+        parent_grp = self.conn.search_s(parent_grp_dn, SCOPE_SUBTREE)
+        sub_grp = self.conn.search_s(sub_grp_dn, SCOPE_SUBTREE)
+
+        parent_attrs, old_parent_attrs = parent_grp[0][1], copy.copy(parent_grp[0][1])
+
+        if 'member' in parent_attrs.keys():
+            parent_attrs['member'] += [bytes(sub_grp_dn, encoding="utf8")]
+        else:
+            parent_attrs['member'] = [bytes(sub_grp_dn, encoding="utf8")]
+
+        ldif = modlist.modifyModlist(old_parent_attrs, parent_attrs)
+        self.conn.modify_s(parent_grp_dn, ldif)
+
+    def add_user_to_grp(self, user_dn, grp_dn):
+        grp = self.conn.search_s(grp_dn, SCOPE_SUBTREE)
+        parent_attrs, old_parent_attrs = grp[0][1], copy.copy(grp[0][1])
+        if 'member' in parent_attrs.keys():
+            parent_attrs['member'] += [bytes(user_dn, encoding="utf8")]
+        else:
+            parent_attrs['member'] = [bytes(user_dn, encoding="utf8")]
+
+        ldif = modlist.modifyModlist(old_parent_attrs, parent_attrs)
+        self.conn.modify_s(grp_dn, ldif)
+
+    def add_ou(self, dn):
+        if not dn:
+            return
+        attrs = {}
+        attrs['objectClass'] = [b'top', b'organizationalUnit']
+        ldif = modlist.addModlist(attrs)
+        self.conn.add_s(dn, ldif)
+
+        return dn
+
+    def delete_ou(self, dn):
+        try:
+            self.conn.delete_s(dn)
+        except ldap.NO_SUCH_OBJECT:
+            return
+
