@@ -1,6 +1,4 @@
-import os
 from seafevents.ldap_syncer.ldap_group_sync import LdapGroupSync
-from seafevents.ldap_syncer.ldap_user_sync import LdapUserSync
 from seaserv import seafile_api, ccnet_api, get_group_dn_pairs
 from seafevents.tests.utils import LDAPSyncerTest
 from seafevents.tests.utils.utils import randstring
@@ -43,15 +41,60 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
 
     def sync(self):
         l_group_thread = LdapGroupSync(self.settings)
-        l_user_thread = LdapUserSync(self.settings)
         l_group_thread.start()
-        l_user_thread.start()
         l_group_thread.join()
-        l_user_thread.join()
 
     def dn2name(self, dn):
         names = dn.split(',')
         return names[0][3:]
+
+    def sync_group_with_user(self, g1_id, g2_id, g3_id, grp3_dn):
+        # test user with group
+        # test add user
+        user_cn, email = self.gen_test_user_cn_and_email()
+        user_dn = 'CN=' + user_cn + ',' + self.test_base_dn
+        self.ldap_helper.add_user(dn=user_dn, email=email)
+        self.ldap_helper.add_user_to_grp(user_dn, grp3_dn)
+        self.sync()
+        g3_members = ccnet_api.get_group_members(g3_id)
+        g2_members = ccnet_api.get_group_members(g2_id)
+        g1_members = ccnet_api.get_group_members(g1_id)
+
+        assert len(g3_members) == 1
+        for member in g3_members:
+            assert member.group_id == g3_id
+            assert member.user_name == email
+        assert len(g2_members) == 1
+        for member in g2_members:
+            assert member.group_id == g2_id
+            assert member.user_name == email
+        assert len(g1_members) == 1
+        for member in g1_members:
+            assert member.group_id == g1_id
+            assert member.user_name == email
+
+        # test delete user
+        self.ldap_helper.delete_user(dn=user_dn)
+        self.sync()
+        members = ccnet_api.get_group_members(g3_id)
+        assert len(members) == 0
+
+    def sync_ou_with_user(self, g3_id, ou3_dn):
+        user_cn, email = self.gen_test_user_cn_and_email()
+        user_dn = 'CN=' + user_cn + ',' + ou3_dn
+        self.ldap_helper.add_user(dn=user_dn, email=email)
+        self.sync()
+        g3_members = ccnet_api.get_group_members(g3_id)
+        assert len(g3_members) == 1
+        for member in g3_members:
+            assert member.group_id == g3_id
+            assert member.user_name == email
+
+        # test delete user
+        self.ldap_helper.delete_user(dn=user_dn)
+        self.sync()
+        members = ccnet_api.get_group_members(g3_id)
+        assert len(members) == 0
 
     def test_sync_group_as_group1(self):
         """
@@ -87,26 +130,12 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         assert g1.group_name == grp1_name
         assert g2.group_name == grp2_name
         assert g3.group_name == grp3_name
+        assert g3.parent_group_id != g2.id
+        assert g2.parent_group_id != g1.id
         assert g1.source == g2.source == g3.source == 'LDAP'
 
-        # test user with group
-        # test add user
-        user_cn, email = self.gen_test_user_cn_and_email()
-        user_dn = 'CN=' + user_cn + ',' + self.test_base_dn
-        self.ldap_helper.add_user(dn=user_dn, email=email)
-        self.ldap_helper.add_user_to_grp(user_dn, grp3_dn)
-        self.sync()
-        members = ccnet_api.get_group_members(g3_id)
-        assert members is not []
-        for member in members:
-            assert member.group_id == g3_id
-            assert member.user_name == email
-
-        # test delete user
-        self.ldap_helper.delete_user(dn=user_dn)
-        self.sync()
-        members = ccnet_api.get_group_members(g3_id)
-        assert members == []
+        # # test user with group
+        self.sync_group_with_user(g1_id, g2_id, g3_id, grp3_dn)
 
         # delete group -> sync -> test
         # delete parent in ldap, sub group will not be deleted
@@ -117,9 +146,7 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         g1 = ccnet_api.get_group(g1_id)
         g2 = ccnet_api.get_group(g2_id)
         g3 = ccnet_api.get_group(g3_id)
-        assert g1 == None
-        assert g2 == None
-        assert g3 == None
+        assert g1 == g2 == g3 == None
 
     def test_sync_group_as_group2(self):
         """
@@ -154,26 +181,12 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         assert g1.group_name == grp1_name
         assert g2.group_name == grp2_name
         assert g3.group_name == grp3_name
+        assert g3.parent_group_id != g2.id
+        assert g2.parent_group_id != g1.id
         assert g1.source == g2.source == g3.source == 'LDAP'
 
         # test user with group
-        # test add user
-        user_cn, email = self.gen_test_user_cn_and_email()
-        user_dn = 'CN=' + user_cn + ',' + self.test_base_dn
-        self.ldap_helper.add_user(dn=user_dn, email=email)
-        self.ldap_helper.add_user_to_grp(user_dn, grp3_dn)
-        self.sync()
-        members = ccnet_api.get_group_members(g3_id)
-        assert members is not []
-        for member in members:
-            assert member.group_id == g3_id
-            assert member.user_name == email
-
-        # test delete user
-        self.ldap_helper.delete_user(dn=user_dn)
-        self.sync()
-        members = ccnet_api.get_group_members(g3_id)
-        assert members == []
+        self.sync_group_with_user(g1_id, g2_id, g3_id, grp3_dn)
 
         # delete group -> sync -> test
         # delete parent in ldap, sub group will not be deleted
@@ -233,23 +246,7 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         assert g1.source == g2.source == g3.source == 'LDAP'
 
         # test user with group
-        # test add user
-        user_cn, email = self.gen_test_user_cn_and_email()
-        user_dn = 'CN=' + user_cn + ',' + self.test_base_dn
-        self.ldap_helper.add_user(dn=user_dn, email=email)
-        self.ldap_helper.add_user_to_grp(user_dn, grp3_dn)
-        self.sync()
-        members = ccnet_api.get_group_members(g3_id)
-        assert members is not []
-        for member in members:
-            assert member.group_id == g3_id
-            assert member.user_name == email
-
-        # test delete user
-        self.ldap_helper.delete_user(dn=user_dn)
-        self.sync()
-        members = ccnet_api.get_group_members(g3_id)
-        assert members == []
+        self.sync_group_with_user(g1_id, g2_id, g3_id, grp3_dn)
 
         # delete group -> sync -> test
         # delete parent in ldap, sub group will not be deleted
@@ -301,23 +298,7 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         assert g1.source == g2.source == g3.source == 'LDAP'
 
         # test user with group
-        # test add user
-        user_cn, email = self.gen_test_user_cn_and_email()
-        user_dn = 'CN=' + user_cn + ',' + self.test_base_dn
-        self.ldap_helper.add_user(dn=user_dn, email=email)
-        self.ldap_helper.add_user_to_grp(user_dn, grp3_dn)
-        self.sync()
-        members = ccnet_api.get_group_members(g3_id)
-        assert members is not []
-        for member in members:
-            assert member.group_id == g3_id
-            assert member.user_name == email
-
-        # test delete user
-        self.ldap_helper.delete_user(dn=user_dn)
-        self.sync()
-        members = ccnet_api.get_group_members(g3_id)
-        assert members == []
+        self.sync_group_with_user(g1_id, g2_id, g3_id, grp3_dn)
 
         # delete group -> sync -> test
         # delete parent in ldap, sub group will not be deleted
@@ -365,25 +346,12 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         assert g1.group_name == ou1_name
         assert g2.group_name == ou2_name
         assert g3.group_name == ou3_name
+        assert g3.parent_group_id == g2.id
+        assert g2.parent_group_id == g1.id
         assert g1.source == g2.source == g3.source == 'LDAP'
 
         # test user with group
-        # test add user
-        user_cn, email = self.gen_test_user_cn_and_email()
-        user_dn = 'CN=' + user_cn + ',' + ou3_dn
-        self.ldap_helper.add_user(dn=user_dn, email=email)
-        self.sync()
-        members = ccnet_api.get_group_members(g3_id)
-        assert members is not []
-        for member in members:
-            assert member.group_id == g3_id
-            assert member.user_name == email
-
-        # test delete user
-        self.ldap_helper.delete_user(dn=user_dn)
-        self.sync()
-        members = ccnet_api.get_group_members(g3_id)
-        assert members == []
+        self.sync_ou_with_user(g3_id, ou3_dn)
 
         # delete ou and test
         self.ldap_helper.delete_ou(ou3_dn)
@@ -423,25 +391,12 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         assert g1.group_name == ou1_name
         assert g2.group_name == ou2_name
         assert g3.group_name == ou3_name
+        assert g3.parent_group_id == g2.id
+        assert g2.parent_group_id == g1.id
         assert g1.source == g2.source == g3.source == 'LDAP'
 
         # test user with group
-        # test add user
-        user_cn, email = self.gen_test_user_cn_and_email()
-        user_dn = 'CN=' + user_cn + ',' + ou3_dn
-        self.ldap_helper.add_user(dn=user_dn, email=email)
-        self.sync()
-        members = ccnet_api.get_group_members(g3_id)
-        assert members is not []
-        for member in members:
-            assert member.group_id == g3_id
-            assert member.user_name == email
-
-        # test delete user
-        self.ldap_helper.delete_user(dn=user_dn)
-        self.sync()
-        members = ccnet_api.get_group_members(g3_id)
-        assert members == []
+        self.sync_ou_with_user(g3_id, ou3_dn)
 
         # delete ou and test
         self.ldap_helper.delete_ou(ou3_dn)

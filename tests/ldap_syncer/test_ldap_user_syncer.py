@@ -1,5 +1,4 @@
 from seafevents.ldap_syncer.ldap_user_sync import LdapUserSync
-from seafevents.ldap_syncer.ldap_group_sync import LdapGroupSync
 from seaserv import seafile_api, ccnet_api, get_group_dn_pairs
 from seafevents.tests.utils import LDAPSyncerTest
 from seafevents.tests.utils.utils import randstring
@@ -15,25 +14,7 @@ class LDAPUserSyncerTest(LDAPSyncerTest):
 
     def tearDown(self):
         super().tearDown()
-        self.build_name2id_dict()
-        base_dn_dpt_id = self.grp_name2id[self.dn2name(self.test_base_dn)]
         self.ldap_helper.delete_ou(self.test_base_dn)
-        ccnet_api.remove_group(base_dn_dpt_id)
-
-    def build_name2id_dict(self):
-        # prepare group_name to group_id dict for ccnet query
-        dn_to_id_list = get_group_dn_pairs()
-        self.grp_name2id = {}
-        for item in reversed(dn_to_id_list):
-            grp_id = item.group_id
-            name = self.dn2name(item.dn)
-            if (name not in self.grp_name2id.keys()) or \
-                    (name in self.grp_name2id.keys() and grp_id > self.grp_name2id[name]):
-                self.grp_name2id[name] = grp_id
-
-    def dn2name(self, dn):
-        names = dn.split(',')
-        return names[0][3:]
 
     def gen_test_user_cn_and_email(self):
         test_cn_suffix = 'a'
@@ -84,11 +65,8 @@ class LDAPUserSyncerTest(LDAPSyncerTest):
         assert user.role == 'Guest'
 
     def sync(self):
-        l_group_thread = LdapGroupSync(self.settings)
         l_user_thread = LdapUserSync(self.settings)
-        l_group_thread.start()
         l_user_thread.start()
-        l_group_thread.join()
         l_user_thread.join()
 
     def test_sync_user1(self):
