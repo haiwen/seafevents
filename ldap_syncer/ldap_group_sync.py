@@ -191,6 +191,7 @@ class LdapGroupSync(LdapSync):
                                           [config.group_member_attr, 'cn'])
             if not results:
                 continue
+            results = bytes2str(results)
 
             for result in results:
                 group_dn, attrs = result
@@ -226,6 +227,7 @@ class LdapGroupSync(LdapSync):
         results = ldap_conn.search(base_dn, SCOPE_SUBTREE,
                                    search_filter,
                                    [config.login_attr, 'cn'])
+        results = bytes2str(results)
         if not results:
             return []
 
@@ -273,6 +275,7 @@ class LdapGroupSync(LdapSync):
             results = ldap_conn.search(base_dn, SCOPE_ONELEVEL,
                                        search_filter,
                                        [config.login_attr, 'ou'])
+        results = bytes2str(results)
         # empty ou
         if not results:
             group = LdapGroup(ou_name, None, [], parent_dn, 0, True)
@@ -377,8 +380,10 @@ class LdapGroupSync(LdapSync):
         group_dn_db = {}
 
         for grp_dn in dn_pairs:
-            grp_dn_pairs[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
-            group_dn_db[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
+            # grp_dn_pairs[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
+            # group_dn_db[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
+            grp_dn_pairs[grp_dn.dn] = grp_dn.group_id
+            group_dn_db[grp_dn.dn] = grp_dn.group_id
 
         # sync deleted group in ldap to db
         for k in grp_dn_pairs.keys():
@@ -386,7 +391,7 @@ class LdapGroupSync(LdapSync):
                 deleted_group_id = grp_dn_pairs[k]
                 if (not data_db[deleted_group_id].is_department and self.settings.del_group_if_not_found) or \
                    (data_db[deleted_group_id].is_department and self.settings.del_department_if_not_found):
-                    grp_dn_db.pop(k)
+                    group_dn_db.pop(k)
                     ret = remove_group(grp_dn_pairs[k], '')
                     if ret < 0:
                         logger.warning('remove group %d failed.' % grp_dn_pairs[k])
