@@ -36,9 +36,6 @@ class WorkWinxinNoticeSender(object):
         key_interval = 'interval'
         default_interval = 60  # 1min
 
-        if not config.has_section(section_name):
-            return
-
         # seahub_dir
         seahub_dir = os.environ.get('SEAHUB_DIR', '')
 
