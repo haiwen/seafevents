@@ -1,4 +1,5 @@
 import os
+import sys
 import re
 import socket
 import stat
@@ -14,6 +15,10 @@ import jwt
 
 from seafevents.office_converter.task_manager import task_manager
 from seafevents.office_converter.doctypes import DOC_TYPES, PPT_TYPES, EXCEL_TYPES
+
+seahub_dir = os.environ.get('SEAHUB_DIR', '')
+sys.path.insert(0, seahub_dir)
+
 try:
     from seahub.settings import SECRET_KEY
 except ImportError:
@@ -51,8 +56,8 @@ class ConverterRequestHandler(SimpleHTTPRequestHandler):
             self.send_error(403, 'Token invalid.')
         try:
             jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-        except (jwt.ExpiredSignatureError, jwt.InvalidSignatureError):
-            self.send_error(403, 'Token expired.')
+        except (jwt.ExpiredSignatureError, jwt.InvalidSignatureError) as e:
+            self.send_error(403, e)
 
         path, arguments = parse.splitquery(self.path)
         arguments = parse.parse_qs(arguments)
