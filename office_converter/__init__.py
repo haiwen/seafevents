@@ -5,7 +5,7 @@ import subprocess
 
 from .doctypes import DOC_TYPES, PPT_TYPES, EXCEL_TYPES
 from seafevents.utils import has_office_tools
-from seafevents.utils import run, get_python_executable, get_env_without_thirdpart
+from seafevents.utils import run, get_python_executable
 
 __all__ = [
     'OfficeConverter',
@@ -49,8 +49,7 @@ class OfficeConverter(object):
 
         with open(self._logfile, 'a') as fp:
             self._convert_server_proc = run(
-                convert_server_args, cwd=os.path.dirname(__file__),
-                env=get_env_without_thirdpart(), output=fp
+                convert_server_args, cwd=os.path.dirname(__file__), output=fp
             )
 
         exists_args = ["ps", "-ef"]
