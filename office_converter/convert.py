@@ -7,8 +7,7 @@ import threading
 import re
 import logging
 
-from ..utils import get_python_executable, run, run_and_wait, find_in_path, \
-        get_env_without_thirdpart
+from ..utils import get_python_executable, run, run_and_wait, find_in_path
 
 __all__ = [
     "Convertor",
@@ -84,7 +83,7 @@ class Convertor(object):
 
     def start(self):
         args = [
-            self.get_uno_python(),
+            get_python_executable(),
             self.unoconv_py,
             '-vvv',
             '--pipe',
@@ -92,7 +91,7 @@ class Convertor(object):
             '-l',
         ]
 
-        self.proc = run(args, cwd=self.cwd, env=get_env_without_thirdpart())
+        self.proc = run(args, cwd=self.cwd)
 
         time.sleep(3)
         exists_args = ["ps", "-ef"]
@@ -116,7 +115,7 @@ class Convertor(object):
             return self.convert_to_pdf_fallback(doc_path, pdf_path)
 
         args = [
-            self.get_uno_python(),
+            get_python_executable(),
             self.unoconv_py,
             '-vvv',
             '--pipe',
@@ -128,7 +127,7 @@ class Convertor(object):
         ]
 
         try:
-            _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT, env=get_env_without_thirdpart())
+            _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             logging.warning('error when invoking libreoffice: %s', e.output)
             return False
@@ -140,7 +139,7 @@ class Convertor(object):
             return self.excel_to_html_fallback(doc_path, html_path)
 
         args = [
-            self.get_uno_python(),
+            get_python_executable(),
             self.unoconv_py,
             '-vvv',
             '-d', 'spreadsheet',
@@ -153,7 +152,7 @@ class Convertor(object):
         ]
 
         try:
-            _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT, env=get_env_without_thirdpart())
+            _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             logging.warning('error when invoking libreoffice: %s', e.output)
             return False
@@ -163,7 +162,7 @@ class Convertor(object):
 
     def excel_to_html_fallback(self, doc_path, html_path):
         args = [
-            self.get_uno_python(),
+            get_python_executable(),
             self.unoconv_py,
             '-vvv',
             '-d', 'spreadsheet',
@@ -175,7 +174,7 @@ class Convertor(object):
 
         with self.lock:
             try:
-                _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT, env=get_env_without_thirdpart())
+                _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
                 logging.warning('error when invoking libreoffice: %s', e.output)
                 return False
@@ -190,7 +189,7 @@ class Convertor(object):
 
         '''
         args = [
-            self.get_uno_python(),
+            get_python_executable(),
             self.unoconv_py,
             '-vvv',
             '-f', 'pdf',
@@ -201,7 +200,7 @@ class Convertor(object):
 
         with self.lock:
             try:
-                _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT, env=get_env_without_thirdpart())
+                _check_output(args, cwd=self.cwd, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
                 logging.warning('error when invoking libreoffice: %s', e.output)
                 return False
