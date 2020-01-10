@@ -410,7 +410,7 @@ class LdapGroupSync(LdapSync):
 
         # grp_dn_pairs['dn_name'] = group_id
         grp_dn_pairs = {}
-        # grp_dn_db['dn_name'] = group_id
+        # group_dn_db['dn_name'] = group_id
         group_dn_db = {}
 
         for grp_dn in dn_pairs:
@@ -423,7 +423,7 @@ class LdapGroupSync(LdapSync):
                 deleted_group_id = grp_dn_pairs[k]
                 if (not data_db[deleted_group_id].is_department and self.settings.del_group_if_not_found) or \
                    (data_db[deleted_group_id].is_department and self.settings.del_department_if_not_found):
-                    grp_dn_db.pop(k)
+                    group_dn_db.pop(k)
                     ret = remove_group(grp_dn_pairs[k], '')
                     if ret < 0:
                         logger.warning('remove group %d failed.' % grp_dn_pairs[k])
