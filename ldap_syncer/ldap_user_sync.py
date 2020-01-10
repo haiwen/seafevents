@@ -8,7 +8,6 @@ from seaserv import get_ldap_users, add_ldap_user, update_ldap_user, \
         seafile_api, ccnet_api
 from ldap_conn import LdapConn
 from ldap_sync import LdapSync
-from .utils import str2unicode
 from ldap import SCOPE_SUBTREE
 
 def default_ldap_role_mapping(role):
@@ -129,7 +128,7 @@ class LdapUserSync(LdapSync):
                 val = ''
         except Exception as e:
             val = ''
-        return '' if not val else val
+        return '' if not val else val.encode('utf8')
 
     def add_profile(self, email, ldap_user):
         # list_in_address_book: django will not apply default value to mysql. it will be processed in ORM.
@@ -341,7 +340,6 @@ class LdapUserSync(LdapSync):
         if users is None:
             return None
 
-        users = str2unicode(users)
         for pair in users:
             user_dn, attrs = pair
             if type(attrs) != dict:

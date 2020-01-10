@@ -10,7 +10,6 @@ from seaserv import get_ldap_groups, get_group_members, add_group_dn_pair, \
 from ldap import SCOPE_SUBTREE, SCOPE_BASE, SCOPE_ONELEVEL
 from ldap_conn import LdapConn
 from ldap_sync import LdapSync
-from .utils import str2unicode
 
 class LdapGroup(object):
     def __init__(self, name, creator, members, parent_dn=None, group_id=0, is_department=False):
@@ -125,7 +124,6 @@ class LdapGroupSync(LdapSync):
                                           [config.group_member_attr, 'cn'])
             if not results:
                 continue
-            results = str2unicode(results)
 
             for result in results:
                 group_dn, attrs = result
@@ -153,7 +151,6 @@ class LdapGroupSync(LdapSync):
                                    config.department_name_attr])
         if not result:
             return []
-        result = str2unicode(result)
 
         dn, attrs = result[0]
         if type(attrs) != dict:
@@ -206,7 +203,6 @@ class LdapGroupSync(LdapSync):
                                           [config.group_member_attr, 'cn', config.department_name_attr])
             if not results:
                 continue
-            results = str2unicode(results)
 
             for result in results:
                 group_dn, attrs = result
@@ -252,7 +248,6 @@ class LdapGroupSync(LdapSync):
                                    [config.login_attr,'cn'])
         if not results:
             return []
-        results = str2unicode(results)
 
         for result in results:
             dn, attrs = result
@@ -289,14 +284,13 @@ class LdapGroupSync(LdapSync):
                                       ['ou', config.department_name_attr])
 
             if not result:
-                name = str2unicode(ou_name)
+                name = ou_name
             else:
-                result = str2unicode(result)
                 dn, attrs = result[0]
                 if attrs.has_key('ou'):
                     name = self.get_department_name (config, attrs, attrs['ou'][0])
                 else:
-                    name = str2unicode(ou_name)
+                    name = ou_name
 
             self.get_ou_member (config, ldap_conn, base_dn, search_filter, sort_list, name, None, grp_data_ou)
 
@@ -323,7 +317,6 @@ class LdapGroupSync(LdapSync):
 
         mails = []
         member_dn=''
-        results = str2unicode(results)
         for pair in results:
             member_dn, attrs = pair
             if type(attrs) != dict:
@@ -421,8 +414,8 @@ class LdapGroupSync(LdapSync):
         group_dn_db = {}
 
         for grp_dn in dn_pairs:
-            grp_dn_pairs[grp_dn.dn] = grp_dn.group_id
-            group_dn_db[grp_dn.dn] = grp_dn.group_id
+            grp_dn_pairs[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
+            group_dn_db[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
 
         # sync deleted group in ldap to db
         for k in grp_dn_pairs.iterkeys():
