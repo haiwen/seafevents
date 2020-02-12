@@ -120,9 +120,9 @@ class VirusScan(object):
             for blk_id in seafile.blocks:
                 os.write(tfd, block_mgr.load_block(repo_id, 1, blk_id))
 
-            with open(os.devnull, 'w') as devnull:
-                ret_code = subprocess.call([self.settings.scan_cmd, tpath],
-                                           stdout=devnull, stderr=devnull)
+            logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'virus_scan.log')
+            with open(logfile, 'a') as fp:
+                ret_code = subprocess.call([self.settings.scan_cmd, tpath], stdout=fp, stderr=fp)
 
             return self.parse_scan_result(ret_code)
 
