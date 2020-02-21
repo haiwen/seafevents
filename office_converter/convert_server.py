@@ -103,6 +103,7 @@ class ConverterRequestHandler(SimpleHTTPRequestHandler):
             content_type = content_type or 'application/octet-stream'
             self.send_response(200)
             self.send_header("Content-type", content_type)
+            self.send_header("Last-Modified", self.date_time_string(stat_obj.st_mtime))
             if stat.S_ISREG(stat_obj.st_mode):
                 self.send_header("Content-Length", stat_obj.st_size)
             if encoding:
@@ -110,7 +111,6 @@ class ConverterRequestHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             with open(full_path, 'rb') as fp:
                 data = fp.read()
-                print(data)
             self.wfile.write(data)
 
         else:
