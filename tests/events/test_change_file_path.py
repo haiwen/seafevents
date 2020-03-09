@@ -3,8 +3,8 @@
 import os
 import sys
 import pytest
-from seafevents.events.change_file_path import ChangeFilePathHandler
-from seafevents.tests.utils import EventTest
+
+from seafevents.tests.utils import EventTest, ChangeFilePathHandler
 from seafevents.tests.conftest import read_db_conf
 
 

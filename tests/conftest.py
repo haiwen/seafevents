@@ -124,7 +124,7 @@ def copy_db_from_seafevent_with_no_data():
 
 def get_db_session(section):
     config = configparser.ConfigParser()
-    config.read('./db.cnf')
+    config.read('./db.conf')
     if not config.has_section(section):
         sys.stdout.write("no section: %s" % section)
         return
@@ -149,7 +149,7 @@ def get_db_session(section):
 
 def read_db_conf(section):
     config = configparser.ConfigParser()
-    config.read('./db.cnf')
+    config.read('./db.conf')
     if not config.has_section(section):
         sys.stdout.write("no section: %s" % section)
         return
