@@ -9,6 +9,7 @@ from seafevents.tests.utils import EventTest
 from seafevents.events.db import save_user_activity, get_user_activities
 from seafevents.events.models import Activity
 
+
 @pytest.mark.usefixtures("test_db")
 class AcvitityTest(EventTest):
     def setUp(self):
@@ -57,8 +58,11 @@ class AcvitityTest(EventTest):
 
         session = self.get_session()
         record = copy.copy(self.record)
-        del(record['related_users'])
-        save_user_activity(session, record)
+        del(record['op_type'])
+        try:
+            save_user_activity(session, record)
+        except KeyError:
+            pass
         session.close()
 
         session = self.get_session()
@@ -75,7 +79,7 @@ class AcvitityTest(EventTest):
         session = self.get_session()
         record = copy.copy(self.record)
         record['op_type'] = 'clear-up-trash'
-        record['days'] = 0
+        record['days'] = '0'
         save_user_activity(session, self.record)
         session.close()
 
@@ -86,7 +90,7 @@ class AcvitityTest(EventTest):
 
     def test_get_user_activites(self):
         session = self.get_session()
-        rows, total_count = get_user_activities(session, 'admin@admin.com', 0, 2)
+        rows = get_user_activities(session, 'admin@admin.com', 0, 2)
         self.assertEqual(len(rows), 0)
         session.close()
 
@@ -95,13 +99,13 @@ class AcvitityTest(EventTest):
         session.close()
 
         session = self.get_session()
-        rows, total_count = get_user_activities(session, 'admin@admin.com', 0, 2)
+        rows = get_user_activities(session, 'admin@admin.com', 0, 2)
         self.assertEqual(len(rows), 1)
         session.close()
 
     def test_get_user_activities_by_page(self):
         session = self.get_session()
-        rows, total_count = get_user_activities(session, 'admin@admin.com', 0, 2)
+        rows = get_user_activities(session, 'admin@admin.com', 0, 2)
         self.assertEqual(len(rows), 0)
         session.close()
 
@@ -126,17 +130,17 @@ class AcvitityTest(EventTest):
         session.close()
 
         session = self.get_session()
-        rows, total_count = get_user_activities(session, 'admin@admin.com', 0, 3)
+        rows = get_user_activities(session, 'admin@admin.com', 0, 3)
         self.assertEqual(len(rows), 3)
         self.assertEqual(rows[0].op_type, 'recover')
         session.close()
 
         session = self.get_session()
-        rows, total_count = get_user_activities(session, 'admin@admin.com', 0, 2)
+        rows = get_user_activities(session, 'admin@admin.com', 0, 2)
         self.assertEqual(len(rows), 2)
         session.close()
 
         session = self.get_session()
-        rows, total_count = get_user_activities(session, 'admin@admin.com', 1, 1)
+        rows = get_user_activities(session, 'admin@admin.com', 1, 1)
         self.assertEqual(len(rows), 1)
         session.close()

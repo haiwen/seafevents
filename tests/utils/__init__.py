@@ -2,13 +2,15 @@ import unittest
 import os
 import configparser
 import logging
-logger = logging.getLogger('ldap_sync_test')
-logger.setLevel(logging.DEBUG)
 
 from sqlalchemy import text
 
 from seafevents.ldap_syncer.ldap_settings import Settings
 from seafevents.tests.conftest import get_db_session
+from seafevents.tests.utils.events_test_helper import ChangeFilePathHandler, save_file_history
+
+logger = logging.getLogger('ldap_sync_test')
+logger.setLevel(logging.DEBUG)
 
 
 class EventTest(unittest.TestCase):

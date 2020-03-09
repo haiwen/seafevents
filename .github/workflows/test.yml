@@ -1,0 +1,46 @@
+name: Seafevents Test CI
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v1
+        with:
+          python-version: "3.6"
+
+      - name: apt install
+        run: |
+          sudo apt-get update --fix-missing
+          sudo apt-get install -y libevent-dev libcurl4-openssl-dev libglib2.0-dev
+          sudo apt-get install -y uuid-dev intltool libsqlite3-dev build-essential
+          sudo apt-get install -y libarchive-dev libtool libjansson-dev valac
+          sudo apt-get install -y libfuse-dev cmake re2c flex autoconf automake
+          sudo apt-get install -y libssl-dev libldap2-dev libonig-dev libxml2 libxml2-dev
+
+      - name: clone and build
+        run: |
+          git clone --depth=1 --branch=master https://github.com/haiwen/seafobj.git /tmp/seafobj
+
+          git clone --depth=1 --branch=master git://github.com/haiwen/seafile-test-deploy /tmp/seafile-test-deploy
+          cd /tmp/seafile-test-deploy && git fetch origin python3:python3 && git checkout python3 && ./bootstrap.sh
+
+      - name: pip install
+        run: |
+          cd /tmp/seafobj && pip install -r requirements.txt
+          cd $GITHUB_WORKSPACE && pip install -r test-requirements.txt
+
+      - name: create test database
+        run: |
+          mysqladmin -u root -proot create seafevents_test;
+
+      - name: run pytest
+        run: |
+          export PYTHONPATH=/usr/local/lib/python3.6/site-packages:/usr/local/lib/python3.6/dist-packages:/usr/lib/python3.6/site-packages:/usr/lib/python3.6/dist-packages:/tmp/libsearpc:/tmp/ccnet-server/python:/tmp/seafile-server/python:/tmp/seafobj:$PYTHONPATH
+          export CCNET_CONF_DIR=/tmp/ccnet SEAFILE_CONF_DIR=/tmp/seafile-data
+          cd tests
+          pytest -sv events

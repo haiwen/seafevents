@@ -5,9 +5,10 @@ import time
 import pytest
 import datetime
 
-from seafevents.tests.utils import EventTest
-from seafevents.events.db import save_filehistory, get_file_history
+from seafevents.tests.utils import EventTest, save_file_history
+from seafevents.events.db import get_file_history
 from seafevents.events.models import FileHistory
+
 
 @pytest.mark.usefixtures("test_db")
 class AcvitityTest(EventTest):
@@ -17,8 +18,8 @@ class AcvitityTest(EventTest):
         self.path = '/test.txt'
 
         self.record = {
-            'op_type':'create',
-            'obj_type':'file',
+            'op_type': 'create',
+            'obj_type': 'file',
             'timestamp': datetime.datetime.utcnow(),
             'repo_id': self.repo_id,
             'path': self.path,
@@ -46,7 +47,7 @@ class AcvitityTest(EventTest):
 
         session = self.get_session()
         record = copy.deepcopy(self.record)
-        save_filehistory(session, record)
+        save_file_history(session, record)
         session.close()
 
         time.sleep(2)
@@ -54,7 +55,7 @@ class AcvitityTest(EventTest):
         record = copy.deepcopy(self.record)
         record['op_type'] = 'edit'
         record['timestamp'] = datetime.datetime.utcnow()
-        save_filehistory(session, record)
+        save_file_history(session, record)
         session.close()
 
         session = self.get_session()
@@ -77,7 +78,7 @@ class AcvitityTest(EventTest):
 
         session = self.get_session()
         record = copy.deepcopy(self.record)
-        save_filehistory(session, record)
+        save_file_history(session, record)
         session.close()
 
         time.sleep(1)
@@ -88,7 +89,7 @@ class AcvitityTest(EventTest):
         record['path'] = renamed_path
         record['old_path'] = self.path
         record['timestamp'] = datetime.datetime.utcnow()
-        save_filehistory(session, record)
+        save_file_history(session, record)
         session.close()
         time.sleep(1)
 
@@ -97,7 +98,7 @@ class AcvitityTest(EventTest):
         new_file_path = '/test.md'
         record['path'] = new_file_path
         record['timestamp'] = datetime.datetime.utcnow()
-        save_filehistory(session, record)
+        save_file_history(session, record)
         session.close()
 
         session = self.get_session()
@@ -105,7 +106,7 @@ class AcvitityTest(EventTest):
         record['op_type'] = 'recover'
         record['path'] = self.path
         record['timestamp'] = datetime.datetime.utcnow()
-        save_filehistory(session, record)
+        save_file_history(session, record)
         session.close()
 
         session = self.get_session()
