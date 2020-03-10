@@ -123,6 +123,27 @@ class LdapUserSync(LdapSync):
 
 
     def add_profile(self, email, ldap_user):
+        # Since login_id and contact_email are unique, we need to delete any existing duplicate entries.
+        # Otherwise there may be entries in profile_profile tables that belong to deactivated user,
+        # causing failure to insert new entry with the same login_id or contact_email.
+        # For example, a user's email changed in LDAP. Then it will be deactivated and a new user will
+        # be created during LDAP sync.
+        if ldap_user.uid is not None and ldap_user.uid != '':
+            sql = 'delete from profile_profile where login_id=%s'
+            try:
+                self.cursor.execute(sql, [ldap_user.uid])
+            except:
+                logger.warning('Failed to delete duplicate profile for login_id %s: %s.',
+                               ldap_user.uid, e)
+
+        if ldap_user.cemail is not None and ldap_user.cemail != '':
+            sql = 'delete from profile_profile where contact_email=%s'
+            try:
+                self.cursor.execute(sql, [ldap_user.cemail])
+            except:
+                logger.warning('Failed to delete duplicate profile for contact_email %s: %s.',
+                               ldap_user.cemail, e)
+
         # list_in_address_book: django will not apply default value to mysql. it will be processed in ORM.
         field = 'user, nickname, intro, list_in_address_book'
         qmark = '%s, %s, %s, %s'
