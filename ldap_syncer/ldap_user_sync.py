@@ -131,6 +131,7 @@ class LdapUserSync(LdapSync):
         return '' if not val else val.encode('utf8')
 
     def add_profile(self, email, ldap_user):
+        # PingAn customization:
         # Since login_id and contact_email are unique, we need to delete any existing duplicate entries.
         # Otherwise there may be entries in profile_profile tables that belong to deactivated user,
         # causing failure to insert new entry with the same login_id or contact_email.
@@ -408,7 +409,7 @@ class LdapUserSync(LdapSync):
                    if not attrs.has_key(config.uid_attr):
                        uid = ''
                    else:
-                        uid = attrs[config.uid_attr][0]
+                       uid = attrs[config.uid_attr][0]
 
                 if config.cemail_attr != '':
                    if not attrs.has_key(config.cemail_attr):
@@ -449,20 +450,21 @@ class LdapUserSync(LdapSync):
             self.add_dept(email, ldap_user.dept)
 
     def sync_update_user(self, ldap_user, db_user, email):
-        '''
+        # PingAn customization: reactivate user when it's added back to AD.
         set_status = False
         if db_user.is_active == 0:
+            db_user.is_active = 1
             set_status = True
 
-        if ldap_user.password != db_user.password or set_status:
+        if set_status:
             rc = update_ldap_user(db_user.user_id, email, ldap_user.password,
                                   db_user.is_staff, db_user.is_active)
             if rc < 0:
-                logger.warning('Update user [%s] failed.' % email)
+                logger.warning('Activate user [%s] failed.' % email)
             else:
-                logger.debug('Update user [%s] success.' % email)
+                logger.debug('Activate user [%s] success.' % email)
                 self.uuser += 1
-        '''
+
         ret = 0
 
         if ldap_user.role:
