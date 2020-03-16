@@ -557,23 +557,42 @@ class LdapUserSync(LdapSync):
             self.del_profile(email)
             self.del_dept(email)
 
+    # Note: customized for PinaAn's requirements. Do not deactivate renamed users in ldap.
+    # The checking of rename is based on profile_profile.login_id database field and uid attribute.
     def sync_data(self, data_db, data_ldap):
-        # sync deleted user in ldap to db
+        # used to find renamed users
+        deleted_users = {}
+
+        # collect deleted users from ldap
         for k in data_db.iterkeys():
             if data_ldap and not data_ldap.has_key(k) and data_db[k].is_active == 1:
-                if self.settings.enable_deactive_user:
-                    self.sync_del_user(data_db[k], k)
-                else:
-                    logger.debug('User[%s] not found in ldap, '
-                                  'DEACTIVE_USER_IF_NOTFOUND option is not set, so not deactive it.' % k)
+                uid = data_db[k].uid
+                if uid is not None and uid != '':
+                    deleted_users[uid] = k
 
-        # sync undeleted user in ldap to db
+        # sync new and existing users from ldap to db
         for k, v in data_ldap.iteritems():
             if data_db.has_key(k):
                 self.sync_update_user(v, data_db[k], k)
             else:
+                # check whether it's a renamed user
+                # keep renamed users untouched
+                if v.uid is not None and v.uid != '' and v.uid in deleted_users:
+                    del deleted_users[v.uid]
+                    continue
+
                 # add user to db
                 if self.settings.import_new_user:
                     self.sync_add_user(v, k)
+
+        # deactivate users that are really deleted from ldap
+        for k,v in deleted_users.iteritems():
+            email = v
+            user = data_db[email]
+            if self.settings.enable_deactive_user:
+                self.sync_del_user(user, email)
+            else:
+                logger.debug('User[%s] not found in ldap, '
+                             'DEACTIVE_USER_IF_NOTFOUND option is not set, so not deactive it.' % email)
 
         self.close_seahub_db()
