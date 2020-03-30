@@ -70,7 +70,7 @@ class DBOper(object):
     def add_virus_record(self, records):
         session = self.edb_session()
         try:
-            session.add_all(VirusFile(repo_id, commit_id, file_path, 0)
+            session.add_all(VirusFile(repo_id, commit_id, file_path, 0, 0)
                             for repo_id, commit_id, file_path in records)
             session.commit()
             return 0
@@ -81,7 +81,7 @@ class DBOper(object):
             session.close()
 
 
-def get_virus_record(session, repo_id, start, limit):
+def get_virus_record(session, repo_id, has_handle, start, limit):
     if start < 0:
         logger.error('start must be non-negative')
         raise RuntimeError('start must be non-negative')
@@ -90,10 +90,16 @@ def get_virus_record(session, repo_id, start, limit):
         logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
 
+    if has_handle not in (True, False, None):
+        logger.error('has_handle must be True or False or None')
+        raise RuntimeError('has_handle must be True or False or None')
+
     try:
         q = session.query(VirusFile)
         if repo_id:
             q = q.filter(VirusFile.repo_id == repo_id)
+        if has_handle is not None:
+            q = q.filter(VirusFile.has_handle == has_handle)
         q = q.slice(start, start+limit)
         return q.all()
     except Exception as e:
@@ -110,6 +116,18 @@ def handle_virus_record(session, vid):
         return 0
     except Exception as e:
         logger.warning('Failed to handle virus record: %s.', e)
+        return -1
+
+
+def update_virus_record(session, vid, is_ignore):
+    try:
+        q = session.query(VirusFile).filter(VirusFile.vid == vid)
+        r = q.first()
+        r.has_ignore = is_ignore
+        session.commit()
+        return 0
+    except Exception as e:
+        logger.warning('Failed to ignore virus record: %s.', e)
         return -1
 
 
