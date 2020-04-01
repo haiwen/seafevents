@@ -11,3 +11,4 @@ restart.sh
 cscope.*
 stats-logs/
 *.cnf
+.idea/

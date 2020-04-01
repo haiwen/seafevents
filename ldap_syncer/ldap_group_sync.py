@@ -66,7 +66,7 @@ class LdapGroupSync(LdapSync):
         if not ldap_conn.conn:
             return None
 
-        # group dn <-> LdapGroup
+        # these three variables are dict of {group dn: LdapGroup} pairs
         ret_data_ldap = {}
         department_data_ldap = {}
         group_data_ldap = {}
@@ -122,13 +122,17 @@ class LdapGroupSync(LdapSync):
                 group_dn, attrs = result
                 if not isinstance(attrs, dict):
                     continue
-                self.get_group_member_from_ldap(config, ldap_conn, group_dn, grp_data_ldap, sort_list, None)
+                self.get_group_member_from_ldap(config, ldap_conn, group_dn, grp_data_ldap, sort_list, parent_dn=None)
 
         self.sort_list.extend(list(grp_data_ldap.items()))
 
         return grp_data_ldap
 
+
     def get_group_member_from_ldap(self, config, ldap_conn, base_dn, grp_data, sort_list, parent_dn):
+        """
+        grp_data is dict of {dn: LdapGroup} pairs, base_dn is suppose to be group dn
+        """
         if base_dn in grp_data:
             if not grp_data[base_dn].parent_dn:
                 grp_data[base_dn].parent_dn = parent_dn
@@ -141,6 +145,7 @@ class LdapGroupSync(LdapSync):
         result = ldap_conn.search(base_dn, SCOPE_BASE, search_filter,
                                   [config.group_member_attr,
                                    config.login_attr, 'cn'])
+
         if not result:
             return []
         result = bytes2str(result)
@@ -148,6 +153,39 @@ class LdapGroupSync(LdapSync):
         dn, attrs = result[0]
         if not isinstance(attrs, dict):
             return all_mails
+
+        # with range search, attrs' key will also become dirty
+        # e.g. attrs = {'member;range=0-99': [...], ...}
+        # so after all search, we add a new k-v pair to fix this problem
+        # notice that last attr member key is like member;range=200-*, last character is *
+        range = 100
+        count = 0
+        all_members = []
+        while True:
+            start = count * range + 1
+            end = start + range - 1
+            count += 1
+            member_attr_key_with_range = config.group_member_attr + ';range={}-{}'.format(start-1, end-1)
+            member_attr_key_with_range_last_one = member_attr_key_with_range[:-1] + '*'
+            result = ldap_conn.search(base_dn, SCOPE_BASE, search_filter,
+                                      [member_attr_key_with_range,
+                                       config.login_attr, 'cn'])
+            result = bytes2str(result)
+            current_loop_attrs = result[0][1]
+
+            if member_attr_key_with_range in current_loop_attrs:
+                all_members += current_loop_attrs[member_attr_key_with_range]
+            elif member_attr_key_with_range_last_one in current_loop_attrs:
+                all_members += current_loop_attrs[member_attr_key_with_range_last_one]
+                break
+            else:
+                break
+
+        # only group member need add member list if attrs
+        # all_members == [], means it's a user member
+        if all_members != []:
+            attrs[config.group_member_attr] = all_members
+
         # group member
         if config.group_member_attr in attrs and attrs[config.group_member_attr] != ['']:
             for member in attrs[config.group_member_attr]:
