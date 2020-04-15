@@ -36,6 +36,7 @@ class LdapConfig(object):
         self.group_filter = None
         self.group_object_class = None
         self.group_member_attr = None
+        self.use_group_member_range_query = False
         self.user_attr_in_memberUid = None
 
         self.create_department_library = False
@@ -211,6 +212,9 @@ class Settings(object):
 
         ldap_config.sync_group_as_department = self.get_option(sync_sec,
                                                         'SYNC_GROUP_AS_DEPARTMENT',
+                                                        bool, False)
+        ldap_config.use_group_member_range_query = self.get_option(sync_sec,
+                                                        'USE_GROUP_MEMBER_RANGE_QUERY',
                                                         bool, False)
         '''
         posix groups store members in atrribute 'memberUid', however, the value of memberUid may be not a 'uid',
