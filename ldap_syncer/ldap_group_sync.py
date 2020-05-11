@@ -10,14 +10,15 @@ from seaserv import get_ldap_groups, get_group_members, add_group_dn_pair, \
 from ldap import SCOPE_SUBTREE, SCOPE_BASE, SCOPE_ONELEVEL
 from .ldap_conn import LdapConn
 from .ldap_sync import LdapSync
-from .utils import bytes2str
+from .utils import bytes2str, add_group_uuid_pair, get_group_uuid_pairs
+
 
 class LdapGroup(object):
-    def __init__(self, cn, creator, members, parent_dn=None, group_id=0, is_department=False):
+    def __init__(self, cn, creator, members, parent_uuid=None, group_id=0, is_department=False):
         self.cn = cn
         self.creator = creator
         self.members = members
-        self.parent_dn = parent_dn
+        self.parent_uuid = parent_uuid
         self.group_id = group_id
         self.is_department = is_department
 
@@ -122,29 +123,22 @@ class LdapGroupSync(LdapSync):
                 group_dn, attrs = result
                 if not isinstance(attrs, dict):
                     continue
-                self.get_group_member_from_ldap(config, ldap_conn, group_dn, grp_data_ldap, sort_list, parent_dn=None)
+                self.get_group_member_from_ldap(config, ldap_conn, group_dn, grp_data_ldap, sort_list, parent_uuid=None)
 
         self.sort_list.extend(list(grp_data_ldap.items()))
 
         return grp_data_ldap
 
 
-    def get_group_member_from_ldap(self, config, ldap_conn, base_dn, grp_data, sort_list, parent_dn):
-        """
-        grp_data is dict of {dn: LdapGroup} pairs, base_dn is suppose to be group dn
-        """
-        if base_dn in grp_data:
-            if not grp_data[base_dn].parent_dn:
-                grp_data[base_dn].parent_dn = parent_dn
-            return grp_data[base_dn].members
+    def get_group_member_from_ldap(self, config, ldap_conn, base_dn, grp_data, sort_list, parent_uuid):
 
         all_mails = []
         search_filter = '(|(objectClass=%s)(objectClass=%s))' % \
                          (config.group_object_class,
                           config.user_object_class)
         result = ldap_conn.search(base_dn, SCOPE_BASE, search_filter,
-                                  [config.group_member_attr,
-                                   config.login_attr, 'cn'])
+                                  [config.login_attr, 'cn',
+                                   config.group_uuid_attr])
 
         if not result:
             return []
@@ -153,6 +147,12 @@ class LdapGroupSync(LdapSync):
         dn, attrs = result[0]
         if not isinstance(attrs, dict):
             return all_mails
+
+        group_uuid = attrs[config.group_uuid_attr][0]
+        if group_uuid in grp_data:
+            if not grp_data[group_uuid].parent_uuid:
+                grp_data[group_uuid].parent_uuid = parent_uuid
+            return grp_data[group_uuid].members
 
         if config.use_group_member_range_query:
             # with range search, attrs' key will also become dirty
@@ -167,16 +167,16 @@ class LdapGroupSync(LdapSync):
                 end = start + range - 1
                 count += 1
                 member_attr_key_with_range = config.group_member_attr + ';range={}-{}'.format(start-1, end-1)
-                member_attr_key_with_range_last_one = member_attr_key_with_range[:-1] + '*'
+                member_attr_key_with_range_last_one = member_attr_key_with_range.split('-')[0] + '-*'
                 result = ldap_conn.search(base_dn, SCOPE_BASE, search_filter,
-                                        [member_attr_key_with_range,
-                                        config.login_attr, 'cn'])
+                                        [member_attr_key_with_range])
                 result = bytes2str(result)
                 current_loop_attrs = result[0][1]
 
                 if member_attr_key_with_range in current_loop_attrs:
                     all_members += current_loop_attrs[member_attr_key_with_range]
                 elif member_attr_key_with_range_last_one in current_loop_attrs:
+
                     all_members += current_loop_attrs[member_attr_key_with_range_last_one]
                     break
                 else:
@@ -186,11 +186,17 @@ class LdapGroupSync(LdapSync):
             # all_members == [], means it's a user member
             if all_members != []:
                 attrs[config.group_member_attr] = all_members
+        else:
+            result = ldap_conn.search(base_dn, SCOPE_BASE, search_filter,
+                                      [config.group_member_attr])
+            result = bytes2str(result)
+            if config.group_member_attr in result[0][1]:
+                attrs[config.group_member_attr] = result[0][1][config.group_member_attr]
 
         # group member
         if config.group_member_attr in attrs and attrs[config.group_member_attr] != ['']:
             for member in attrs[config.group_member_attr]:
-                mails = self.get_group_member_from_ldap(config, ldap_conn, member, grp_data, sort_list, base_dn)
+                mails = self.get_group_member_from_ldap(config, ldap_conn, member, grp_data, sort_list, group_uuid)
                 if not mails:
                     continue
                 all_mails.extend(mails)
@@ -200,7 +206,7 @@ class LdapGroupSync(LdapSync):
                 all_mails.append(mail.lower())
                 return all_mails
 
-        grp_data[dn] = LdapGroup(attrs['cn'][0], None, sorted(set(all_mails)), parent_dn, 0, config.sync_group_as_department)
+        grp_data[group_uuid] = LdapGroup(attrs['cn'][0], None, sorted(set(all_mails)), parent_uuid, 0, config.sync_group_as_department)
 
         return all_mails
 
@@ -223,11 +229,11 @@ class LdapGroupSync(LdapSync):
             if config.use_page_result:
                 results = ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
                                                 search_filter,
-                                                [config.group_member_attr, 'cn'])
+                                                [config.group_member_attr, 'cn', config.group_uuid_attr])
             else:
                 results = ldap_conn.search(base_dn, SCOPE_SUBTREE,
                                           search_filter,
-                                          [config.group_member_attr, 'cn'])
+                                          [config.group_member_attr, 'cn', config.group_uuid_attr])
             if not results:
                 continue
             results = bytes2str(results)
@@ -236,11 +242,13 @@ class LdapGroupSync(LdapSync):
                 group_dn, attrs = result
                 if not isinstance(attrs, dict):
                     continue
+                group_uuid = attrs[config.group_uuid_attr][0]
+
                 # empty group
                 if config.group_member_attr not in attrs:
-                    grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None, [], None, 0, config.sync_group_as_department)
+                    grp_data_ldap[group_uuid] = LdapGroup(attrs['cn'][0], None, [], None, 0, config.sync_group_as_department)
                     continue
-                if group_dn in grp_data_ldap:
+                if group_uuid in grp_data_ldap:
                     continue
                 all_mails = []
                 for member in attrs[config.group_member_attr]:
@@ -249,9 +257,9 @@ class LdapGroupSync(LdapSync):
                         continue
                     all_mails.extend(mails)
 
-                grp_data_ldap[group_dn] = LdapGroup(attrs['cn'][0], None,
+                grp_data_ldap[group_uuid] = LdapGroup(attrs['cn'][0], None,
                                                     sorted(set(all_mails)), None, 0, config.sync_group_as_department)
-                sort_list.append((group_dn, grp_data_ldap[group_dn]))
+                sort_list.append((group_dn, grp_data_ldap[group_uuid]))
 
         self.sort_list.extend(sort_list)
         return grp_data_ldap
@@ -299,25 +307,36 @@ class LdapGroupSync(LdapSync):
             if e_idx == -1:
                 e_idx = len(base_dn)
             ou_name = base_dn[s_idx:e_idx]
-            self.get_ou_member (config, ldap_conn, base_dn, search_filter, sort_list, ou_name, None, grp_data_ou)
+
+
+            result = ldap_conn.search(base_dn, SCOPE_BASE,
+                                      search_filter,
+                                      ['ou', config.group_uuid_attr])
+            if not result:
+                continue
+            result = bytes2str(result)
+            dn, attrs = result[0]
+            group_uuid = attrs[config.group_uuid_attr][0]
+
+            self.get_ou_member (config, ldap_conn, base_dn, search_filter, sort_list, ou_name, group_uuid, None, grp_data_ou)
         sort_list.reverse()
         self.sort_list.extend(sort_list)
 
         return grp_data_ou
 
-    def get_ou_member(self, config, ldap_conn, base_dn, search_filter, sort_list, ou_name, parent_dn, grp_data_ou):
+    def get_ou_member(self, config, ldap_conn, base_dn, search_filter, sort_list, ou_name, group_uuid, parent_uuid, grp_data_ou):
         if config.use_page_result:
             results = ldap_conn.paged_search(base_dn, SCOPE_ONELEVEL,
                                              search_filter,
-                                             [config.login_attr, 'ou'])
+                                             [config.login_attr, 'ou', config.group_uuid_attr])
         else:
             results = ldap_conn.search(base_dn, SCOPE_ONELEVEL,
                                        search_filter,
-                                       [config.login_attr, 'ou'])
+                                       [config.login_attr, 'ou', config.group_uuid_attr])
         results = bytes2str(results)
         # empty ou
         if not results:
-            group = LdapGroup(ou_name, None, [], parent_dn, 0, True)
+            group = LdapGroup(ou_name, None, [], parent_uuid, 0, True)
             sort_list.append((base_dn, group))
             grp_data_ou[base_dn] = group
             return
@@ -339,15 +358,16 @@ class LdapGroupSync(LdapSync):
                                     base_dn,
                                     grp_data_ou)
 
-        group = LdapGroup(ou_name, None, sorted(set(mails)), parent_dn, 0, True)
-        sort_list.append((base_dn, group))
-        grp_data_ou[base_dn] = group
+        group = LdapGroup(ou_name, None, sorted(set(mails)), parent_uuid, 0, True)
+        sort_list.append((group_uuid, group))
+        grp_data_ou[group_uuid] = group
 
         return grp_data_ou
 
-    def create_and_add_group_to_db(self, dn_name, group, group_dn_db, group_data_ldap):
-        if group.is_department and dn_name in group_dn_db:
-           return group_dn_db[dn_name]
+
+    def create_and_add_group_to_db(self, group_uuid, group, grp_uuid_pairs, grp_data_ldap):
+        if group.is_department and group_uuid in grp_uuid_pairs:
+            return grp_uuid_pairs[group_uuid]
 
         super_user= None
         if group.is_department:
@@ -359,26 +379,27 @@ class LdapGroupSync(LdapSync):
         if not group.is_department:
             parent_id = 0
         else:
-            if not group.parent_dn:
+            if not group.parent_uuid:
                 parent_id = -1
-            elif group.parent_dn in group_dn_db:
-                parent_id =  group_dn_db[group.parent_dn]
+            elif group.parent_uuid in grp_uuid_pairs:
+                parent_id =  grp_uuid_pairs[group.parent_uuid]
             else:
-                parent_group = group_data_ldap[group.parent_dn]
-                parent_id = self.create_and_add_group_to_db (group.parent_dn, parent_group, group_dn_db, group_data_ldap)
+                parent_group = grp_data_ldap[group.parent_uuid]
+                parent_id = self.create_and_add_group_to_db (group.parent_uuid, parent_group, grp_uuid_pairs, grp_data_ldap)
 
         group_id = ccnet_api.create_group(group.cn, super_user, 'LDAP', parent_id)
         if group_id < 0:
             logger.warning('create ldap group [%s] failed.' % group.cn)
             return
 
-        ret = add_group_dn_pair(group_id, dn_name)
-        if ret < 0:
-            logger.warning('add group dn pair %d<->%s failed.' % (group_id, dn_name))
+        try:
+            add_group_uuid_pair(group_id, group_uuid)
+        except Exception:
+            logger.warning('add group uuid pair %d<->%s failed.' % (group_id, group_uuid))
             # admin should remove created group manually in web
             return
-        logger.debug('create group %d, and add dn pair %s<->%d success.' %
-                      (group_id, dn_name, group_id))
+        logger.debug('create group %d, and add uuid pair %s<->%d success.' %
+                      (group_id, group_uuid, group_id))
         self.agroup += 1
         group.group_id = group_id
         if group.is_department:
@@ -403,39 +424,35 @@ class LdapGroupSync(LdapSync):
             logger.debug('add member %s to group %d success.' %
                           (member, group_id))
 
-        group_dn_db[dn_name] = group_id
+        grp_uuid_pairs[group_uuid] = group_id
 
         return group_id
 
     def sync_data(self, data_db, data_ldap):
-        dn_pairs = get_group_dn_pairs()
-        if dn_pairs is None:
-            logger.warning('get group dn pairs from db failed.')
+        uuid_pairs = get_group_uuid_pairs()
+        if uuid_pairs is None:
+            logger.warning('get group uuid pairs from db failed.')
             return
 
-        # grp_dn_pairs['dn_name'] = group_id
-        grp_dn_pairs = {}
-        # grp_dn_db['dn_name'] = group_id
-        group_dn_db = {}
+        grp_uuid_pairs = {}
+        group_uuid_db = {}
 
-        for grp_dn in dn_pairs:
-            # grp_dn_pairs[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
-            # group_dn_db[grp_dn.dn.encode('utf-8')] = grp_dn.group_id
-            grp_dn_pairs[grp_dn.dn] = grp_dn.group_id
-            group_dn_db[grp_dn.dn] = grp_dn.group_id
+        for pair in uuid_pairs:
+            grp_uuid_pairs[pair['group_uuid']] = pair['group_id']
+            group_uuid_db[pair['group_uuid']] = pair['group_id']
 
         # sync deleted group in ldap to db
-        for k in grp_dn_pairs.keys():
+        for k in grp_uuid_pairs.keys():
             if k not in data_ldap:
-                deleted_group_id = grp_dn_pairs[k]
+                deleted_group_id = grp_uuid_pairs[k]
                 if (not data_db[deleted_group_id].is_department and self.settings.del_group_if_not_found) or \
                    (data_db[deleted_group_id].is_department and self.settings.del_department_if_not_found):
-                    group_dn_db.pop(k)
-                    ret = remove_group(grp_dn_pairs[k], '')
+                    group_uuid_db.pop(k)
+                    ret = remove_group(grp_uuid_pairs[k], '')
                     if ret < 0:
-                        logger.warning('remove group %d failed.' % grp_dn_pairs[k])
+                        logger.warning('remove group %d failed.' % grp_uuid_pairs[k])
                         continue
-                    logger.debug('remove group %d success.' % grp_dn_pairs[k])
+                    logger.debug('remove group %d success.' % grp_uuid_pairs[k])
                     self.dgroup += 1
 
         # sync undeleted group in ldap to db
@@ -445,12 +462,12 @@ class LdapGroupSync(LdapSync):
         ldap_tups = self.sort_list
 
         for k, v in ldap_tups:
-            if k in grp_dn_pairs:
-                v.group_id = grp_dn_pairs[k]
+            if k in grp_uuid_pairs:
+                v.group_id = grp_uuid_pairs[k]
                 # group data lost in db
-                if grp_dn_pairs[k] not in data_db:
+                if grp_uuid_pairs[k] not in data_db:
                     continue
-                group_id = grp_dn_pairs[k]
+                group_id = grp_uuid_pairs[k]
                 add_list, del_list = LdapGroupSync.diff_members(data_db[group_id].members,
                                                                 v.members)
                 if len(add_list) > 0 or len(del_list) > 0:
@@ -474,7 +491,7 @@ class LdapGroupSync(LdapSync):
                     logger.debug('add member %s to group %d success.' %
                                   (member, group_id))
             else:
-                self.create_and_add_group_to_db(k, v, group_dn_db, data_ldap)
+                self.create_and_add_group_to_db(k, v, group_uuid_db, data_ldap)
 
     @staticmethod
     def get_super_user():

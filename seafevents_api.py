@@ -7,6 +7,7 @@ from .statistics.db import get_file_ops_stats_by_day, get_user_activity_stats_by
 
 from .events.db import get_new_file_path, get_user_activities_by_timestamp
 from .content_scanner.db import get_content_scan_results
+from .ldap_syncer.utils import remove_ldap_group_uuid_pair_by_id
 
 def init(config_file):
     if not appconfig.get('session_cls'):

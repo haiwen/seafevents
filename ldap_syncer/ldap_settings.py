@@ -36,6 +36,7 @@ class LdapConfig(object):
         self.group_filter = None
         self.group_object_class = None
         self.group_member_attr = None
+        self.group_uuid_attr = None
         self.use_group_member_range_query = False
         self.user_attr_in_memberUid = None
 
@@ -201,6 +202,9 @@ class Settings(object):
         ldap_config.group_member_attr = self.get_option(sync_sec,
                                                  'GROUP_MEMBER_ATTR',
                                                  dval='member')
+        ldap_config.group_uuid_attr = self.get_option(sync_sec,
+                                               'GROUP_UUID_ATTR',
+                                                dval='objectGUID')
         ldap_config.user_object_class = self.get_option(sync_sec, 'USER_OBJECT_CLASS',
                                                  dval='person')
         ldap_config.create_department_library = self.get_option(sync_sec,

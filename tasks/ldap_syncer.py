@@ -26,7 +26,8 @@ class LdapSyncTimer(Thread):
     def run(self):
         from seafevents.ldap_syncer.run_ldap_sync import run_ldap_sync
         while not self.finished.is_set():
-            self.finished.wait(self.settings.sync_interval*60)
+            # self.finished.wait(self.settings.sync_interval*60)
+            self.finished.wait(5)
             if not self.finished.is_set():
                 run_ldap_sync(self.settings)
 
