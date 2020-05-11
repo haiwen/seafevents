@@ -42,6 +42,7 @@ class LdapConfig(object):
         self.create_department_library = False
         self.sync_department_from_ou = False
         self.default_department_quota = -2
+        self.department_repo_permission = None
 
         self.sync_group_as_department = False
 
@@ -206,6 +207,8 @@ class Settings(object):
         ldap_config.create_department_library = self.get_option(sync_sec,
                                                          'CREATE_DEPARTMENT_LIBRARY',
                                                          bool, False)
+        ldap_config.department_repo_permission = self.get_option(sync_sec, 'DEPT_REPO_PERM' ,dval='rw')
+
         ldap_config.default_department_quota = self.get_option(sync_sec,
                                                         'DEFAULT_DEPARTMENT_QUOTA',
                                                         int, -2)
