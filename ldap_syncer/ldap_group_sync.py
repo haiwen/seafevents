@@ -34,7 +34,7 @@ class LdapGroupSync(LdapSync):
                      (self.agroup, self.ugroup, self.dgroup))
 
     def get_department_name(self, config, attrs, default_name):
-        if attrs.has_key(config.department_name_attr) and \
+        if config.department_name_attr in attrs and \
            attrs[config.department_name_attr] and \
            len(attrs[config.department_name_attr][0]) <= 255:
             department_name = attrs[config.department_name_attr][0]
@@ -326,12 +326,13 @@ class LdapGroupSync(LdapSync):
             result = ldap_conn.search(base_dn, SCOPE_BASE,
                                       search_filter,
                                       ['ou', config.department_name_attr])
+            result = bytes2str(result)
 
             if not result:
                 name = ou_name
             else:
                 dn, attrs = result[0]
-                if attrs.has_key('ou'):
+                if 'ou' in attrs:
                     name = self.get_department_name (config, attrs, attrs['ou'][0])
                 else:
                     name = ou_name
@@ -358,6 +359,7 @@ class LdapGroupSync(LdapSync):
             sort_list.append((base_dn, group))
             grp_data_ou[base_dn] = group
             return
+        results = bytes2str(results)
 
         mails = []
         member_dn=''
