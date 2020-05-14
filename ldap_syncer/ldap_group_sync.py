@@ -10,7 +10,7 @@ from seaserv import get_ldap_groups, get_group_members, add_group_dn_pair, \
 from ldap import SCOPE_SUBTREE, SCOPE_BASE, SCOPE_ONELEVEL
 from .ldap_conn import LdapConn
 from .ldap_sync import LdapSync
-from .utils import bytes2str, add_group_uuid_pair, get_group_uuid_pairs
+from .utils import bytes2str, add_group_uuid_pair, get_group_uuid_pairs, remove_group_uuid_pair_by_id
 
 
 class LdapGroup(object):
@@ -337,8 +337,8 @@ class LdapGroupSync(LdapSync):
         # empty ou
         if not results:
             group = LdapGroup(ou_name, None, [], parent_uuid, 0, True)
-            sort_list.append((base_dn, group))
-            grp_data_ou[base_dn] = group
+            sort_list.append((group_uuid, group))
+            grp_data_ou[group_uuid] = group
             return
 
         mails = []
@@ -353,9 +353,11 @@ class LdapGroupSync(LdapSync):
                 continue
             # ou
             if 'ou' in attrs:
+                tihs_group_uuid = attrs[config.group_uuid_attr][0]
                 self.get_ou_member (config, ldap_conn, member_dn, search_filter,
                                     sort_list, attrs['ou'][0],
-                                    base_dn,
+                                    tihs_group_uuid,
+                                    group_uuid,
                                     grp_data_ou)
 
         group = LdapGroup(ou_name, None, sorted(set(mails)), parent_uuid, 0, True)
@@ -441,14 +443,18 @@ class LdapGroupSync(LdapSync):
             grp_uuid_pairs[pair['group_uuid']] = pair['group_id']
             group_uuid_db[pair['group_uuid']] = pair['group_id']
 
+
         # sync deleted group in ldap to db
-        for k in grp_uuid_pairs.keys():
-            if k not in data_ldap:
+        # delete in reversed group id order, first delete subdepartment, then delete parent department
+        reversed_dict_by_grp_id = {k: v for k, v in reversed(sorted(grp_uuid_pairs.items(), key=lambda item: item[1]))}
+        for k in reversed_dict_by_grp_id:
+            if data_db and k not in data_ldap:
                 deleted_group_id = grp_uuid_pairs[k]
                 if (not data_db[deleted_group_id].is_department and self.settings.del_group_if_not_found) or \
                    (data_db[deleted_group_id].is_department and self.settings.del_department_if_not_found):
                     group_uuid_db.pop(k)
                     ret = remove_group(grp_uuid_pairs[k], '')
+                    remove_group_uuid_pair_by_id(grp_uuid_pairs[k])
                     if ret < 0:
                         logger.warning('remove group %d failed.' % grp_uuid_pairs[k])
                         continue
@@ -458,7 +464,7 @@ class LdapGroupSync(LdapSync):
         # sync undeleted group in ldap to db
         super_user = None
 
-        # ldap_tups = [('dn_name', LdapGroup)...]
+        # ldap_tups = [('uuid', LdapGroup)...]
         ldap_tups = self.sort_list
 
         for k, v in ldap_tups:

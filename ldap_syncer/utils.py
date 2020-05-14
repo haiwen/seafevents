@@ -49,3 +49,15 @@ def add_group_uuid_pair(group_id, group_uuid):
         return
 
     session.commit()
+
+
+def remove_group_uuid_pair_by_id(group_id):
+    session = appconfig.session_cls()
+
+    try:
+        session.query(GroupIdLDAPUuidPair).filter_by(group_id=group_id).delete()
+    except Exception as e:
+        logger.error('remote group_id:group_uuid pair failed. \n{}'.format(e))
+        return
+
+    session.commit()
