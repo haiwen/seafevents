@@ -42,8 +42,11 @@ class LdapConfig(object):
         self.create_department_library = False
         self.sync_department_from_ou = False
         self.default_department_quota = -2
+        self.department_repo_permission = None
 
         self.sync_group_as_department = False
+        self.department_repo_permission = None
+        self.department_name_attr = None
 
 class Settings(object):
     def __init__(self, is_test=False):
@@ -206,6 +209,8 @@ class Settings(object):
         ldap_config.create_department_library = self.get_option(sync_sec,
                                                          'CREATE_DEPARTMENT_LIBRARY',
                                                          bool, False)
+        ldap_config.department_repo_permission = self.get_option(sync_sec, 'DEPT_REPO_PERM' ,dval='rw')
+
         ldap_config.default_department_quota = self.get_option(sync_sec,
                                                         'DEFAULT_DEPARTMENT_QUOTA',
                                                         int, -2)
@@ -220,7 +225,10 @@ class Settings(object):
         posix groups store members in atrribute 'memberUid', however, the value of memberUid may be not a 'uid',
         so we make it configurable, default value is 'uid'.
         '''
-        ldap_config.user_attr_in_memberUid = self.get_option(sync_sec, 'USER_ATTR_IN_MEMBERUID', dval='uid')
+        ldap_config.user_attr_in_memberUid = self.get_option(sync_sec, 'USER_ATTR_IN_MEMBERUID',dval='uid')
+        ldap_config.department_name_attr = self.get_option(sync_sec, 'DEPT_NAME_ATTR')
+
+        ldap_config.department_repo_permission = self.get_option(sync_sec, 'DEPT_REPO_PERM' ,dval='rw')
 
     def read_sync_user_config(self, ldap_config, ldap_sec, sync_sec):
         ldap_config.user_object_class = self.get_option(sync_sec, 'USER_OBJECT_CLASS',
