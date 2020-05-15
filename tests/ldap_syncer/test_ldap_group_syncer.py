@@ -216,7 +216,7 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         ccnet_api.remove_group(g3_id)
         remove_group_uuid_pair_by_id(g3_id)
 
-    def test_sync_group_as_group_with_duplicate_name(self):
+    def test_sync_group_as_group_rename_name(self):
         """
         DEL_GROUP_IF_NOT_FOUND = true
         SYNC_GROUP_AS_DEPARTMENT = false
@@ -228,9 +228,9 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
 
         # g3 is sub to g2, g2 is sub to g1
         grp1_name = 'test_grp_' + randstring(10) + '_a'
+        grp1_new_name = 'test_grp_' + randstring(10) + '_b'
         grp1_dn = 'CN=' + grp1_name + ',' + self.test_base_dn
-
-        old_group_id = ccnet_api.create_group(grp1_name, 'admin@seafiletest.com', 'LDAP', 0)
+        grp1_new_dn = 'CN=' + grp1_new_name + ',' + self.test_base_dn
 
         # add group -> sync -> test
         self.ldap_helper.add_grp(grp1_dn)
@@ -241,15 +241,21 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         assert g1.group_name == grp1_name
         assert g1.source == 'LDAP'
 
+        # rename group -> sync -> test
+        self.ldap_helper.rename_grp(grp1_dn, grp1_new_name, self.test_base_dn)
+        self.sync()
+        self.build_name2id_dict()
+        g1_id = self.grp_name2id[grp1_new_name]
+        g1 = ccnet_api.get_group(g1_id)
+        assert g1.group_name == grp1_new_name
+        assert g1.source == 'LDAP'
 
         # delete group -> sync -> test
-        # delete parent in ldap, sub group will not be deleted
-        self.ldap_helper.delete_grp(grp1_dn)
+        self.ldap_helper.delete_grp(grp1_new_dn)
         self.sync()
         g1 = ccnet_api.get_group(g1_id)
         assert g1 == None
 
-        ccnet_api.remove_group(old_group_id)
 
     def test_sync_group_as_departmennt1(self):
         """
@@ -270,9 +276,9 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         grp3_dn = 'CN=' + grp3_name + ',' + self.test_base_dn
 
         # add group -> sync -> test
-        self.ldap_helper.add_grp(grp1_dn)
-        self.ldap_helper.add_grp(grp2_dn)
         self.ldap_helper.add_grp(grp3_dn)
+        self.ldap_helper.add_grp(grp2_dn)
+        self.ldap_helper.add_grp(grp1_dn)
         self.ldap_helper.add_grp_to_grp(sub_grp_dn=grp2_dn, parent_grp_dn=grp1_dn)
         self.ldap_helper.add_grp_to_grp(sub_grp_dn=grp3_dn, parent_grp_dn=grp2_dn)
         self.sync()

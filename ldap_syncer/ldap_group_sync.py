@@ -55,9 +55,9 @@ class LdapGroupSync(LdapSync):
                 nor_members.append(member.user_name)
 
             if (group.parent_group_id == 0):
-                grp_data_db[group.id] = LdapGroup(None, group.creator_name, sorted(nor_members))
+                grp_data_db[group.id] = LdapGroup(group.group_name, group.creator_name, sorted(nor_members))
             else:
-                grp_data_db[group.id] = LdapGroup(None, group.creator_name, sorted(nor_members), None, 0, True)
+                grp_data_db[group.id] = LdapGroup(group.group_name, group.creator_name, sorted(nor_members), None, 0, True)
 
         return grp_data_db
 
@@ -473,7 +473,16 @@ class LdapGroupSync(LdapSync):
                 # group data lost in db
                 if grp_uuid_pairs[k] not in data_db:
                     continue
+
                 group_id = grp_uuid_pairs[k]
+                # update group name
+                if v.cn != data_db[group_id].cn:
+                    ret = ccnet_api.set_group_name(group_id, v.cn)
+                    if ret < 0:
+                        logger.warning('rename group %d failed.' % group_id)
+                        continue
+                    logger.debug('rename group %d success.' % group_id)
+
                 add_list, del_list = LdapGroupSync.diff_members(data_db[group_id].members,
                                                                 v.members)
                 if len(add_list) > 0 or len(del_list) > 0:
