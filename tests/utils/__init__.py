@@ -8,6 +8,7 @@ from sqlalchemy import text
 from seafevents.ldap_syncer.ldap_settings import Settings
 from seafevents.tests.conftest import get_db_session
 from seafevents.tests.utils.events_test_helper import ChangeFilePathHandler, save_file_history
+from seafevents.app.config import load_config
 
 logger = logging.getLogger('ldap_sync_test')
 logger.setLevel(logging.DEBUG)
@@ -54,8 +55,11 @@ class LDAPSyncerTest(unittest.TestCase):
         # read conf file
         self.settings = Settings(is_test=True)
         ccnet_config_file = os.path.join(os.environ['CCNET_CONF_DIR'], 'ccnet.conf')
+        seafevent_config_file = os.path.join(os.environ['CCNET_CONF_DIR'], 'seafevents.conf')
         self.config = configparser.ConfigParser()
+
         self.config.read(ccnet_config_file)
+        load_config(seafevent_config_file)
         self.test_base_dn = 'OU=test-tmp-base-ou,dc=seafile,dc=ren'
 
         # connect to seahub db

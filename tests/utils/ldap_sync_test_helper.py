@@ -81,6 +81,14 @@ class LDAPSyncTestHelper:
             return False
         return True
 
+    def rename_grp(self, old_grp_dn, new_grp_cn, new_parent_dn):
+        if not old_grp_dn:
+            return
+        try:
+            self.conn.rename_s(old_grp_dn, 'CN=' + new_grp_cn, new_parent_dn)
+        except ldap.NO_SUCH_OBJECT:
+            return
+
     def add_grp(self, grp_dn):
         if not grp_dn:
             return

@@ -1,9 +1,50 @@
 #coding: utf-8
-
 import logging
 from threading import Thread
 
-from .ldap_conn import LdapConn
+from ldap import SCOPE_BASE
+from seafevents.ldap_syncer.ldap_conn import  LdapConn
+from seafevents.ldap_syncer.utils import bytes2str, add_group_uuid_pair
+
+from seaserv import get_group_dn_pairs
+
+
+logger = logging.getLogger(__name__)
+
+
+def migrate_dn_pairs(settings):
+    grp_dn_pairs = get_group_dn_pairs()
+    if grp_dn_pairs is None:
+        logger.warning('get group dn pairs from db failed when migrate dn pairs.')
+        return
+
+    grp_dn_pairs.reverse()
+    for grp_dn_pair in grp_dn_pairs:
+        for config in settings.ldap_configs:
+            search_filter = '(objectClass=*)'
+            ldap_conn = LdapConn(config.host, config.user_dn, config.passwd, config.follow_referrals)
+            ldap_conn.create_conn()
+            if not ldap_conn.conn:
+                logger.warning('connect ldap server [%s] failed.' % config.user_dn)
+                return
+
+            if config.use_page_result:
+                results = ldap_conn.paged_search(grp_dn_pair.dn, SCOPE_BASE,
+                                                 search_filter,
+                                                 [config.group_uuid_attr])
+            else:
+                results = ldap_conn.search(grp_dn_pair.dn, SCOPE_BASE,
+                                           search_filter,
+                                           [config.group_uuid_attr])
+            ldap_conn.unbind_conn()
+            results = bytes2str(results)
+
+            if not results:
+                continue
+            else:
+                uuid = results[0][1][config.group_uuid_attr][0]
+                add_group_uuid_pair(grp_dn_pair.group_id, uuid)
+
 
 class LdapSync(Thread):
     def __init__(self, settings):
@@ -11,6 +52,8 @@ class LdapSync(Thread):
         self.settings = settings
 
     def run(self):
+        if self.settings.enable_group_sync:
+            migrate_dn_pairs(settings=self.settings)
         self.start_sync()
         self.show_sync_result()
 
