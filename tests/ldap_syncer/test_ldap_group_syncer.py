@@ -1,5 +1,6 @@
 from seafevents.ldap_syncer.ldap_group_sync import LdapGroupSync
-from seaserv import seafile_api, ccnet_api, get_group_dn_pairs
+from seafevents.ldap_syncer.utils import get_group_uuid_pairs, remove_group_uuid_pair_by_id
+from seaserv import seafile_api, ccnet_api
 from seafevents.tests.utils import LDAPSyncerTest
 from seafevents.tests.utils.utils import randstring
 from seafevents.tests.utils.ldap_sync_test_helper import LDAPSyncTestHelper
@@ -17,6 +18,7 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         base_dn_dpt_id = self.grp_name2id[self.dn2name(self.test_base_dn)]
         self.ldap_helper.delete_ou(self.test_base_dn)
         ccnet_api.remove_group(base_dn_dpt_id)
+        remove_group_uuid_pair_by_id(base_dn_dpt_id)
 
     def gen_test_user_cn_and_email(self):
         test_cn_suffix = 'a'
@@ -29,12 +31,17 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         return test_cn, test_email
 
     def build_name2id_dict(self):
-        # prepare group_name to group_id dict for ccnet query
-        dn_to_id_list = get_group_dn_pairs()
+        # prepare group_name to group_id dict for db query
+        # get_group_uuid_pairs
+        uuid_pairs = get_group_uuid_pairs()
+
         self.grp_name2id = {}
-        for item in reversed(dn_to_id_list):
-            grp_id = item.group_id
-            name = self.dn2name(item.dn)
+        for item in reversed(uuid_pairs):
+            grp_id = item['group_id']
+            g = ccnet_api.get_group(grp_id)
+            if not g:
+                continue
+            name = g.group_name
             if (name not in self.grp_name2id.keys()) or \
                     (name in self.grp_name2id.keys() and grp_id > self.grp_name2id[name]):
                 self.grp_name2id[name] = grp_id
@@ -203,8 +210,52 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         assert g1.source == g2.source == g3.source == 'LDAP'
 
         ccnet_api.remove_group(g1_id)
+        remove_group_uuid_pair_by_id(g1_id)
         ccnet_api.remove_group(g2_id)
+        remove_group_uuid_pair_by_id(g2_id)
         ccnet_api.remove_group(g3_id)
+        remove_group_uuid_pair_by_id(g3_id)
+
+    def test_sync_group_as_group_rename_name(self):
+        """
+        DEL_GROUP_IF_NOT_FOUND = true
+        SYNC_GROUP_AS_DEPARTMENT = false
+        """
+        self.settings.del_group_if_not_found = True
+        for config in self.settings.ldap_configs:
+            config.sync_group_as_department = False
+
+
+        # g3 is sub to g2, g2 is sub to g1
+        grp1_name = 'test_grp_' + randstring(10) + '_a'
+        grp1_new_name = 'test_grp_' + randstring(10) + '_b'
+        grp1_dn = 'CN=' + grp1_name + ',' + self.test_base_dn
+        grp1_new_dn = 'CN=' + grp1_new_name + ',' + self.test_base_dn
+
+        # add group -> sync -> test
+        self.ldap_helper.add_grp(grp1_dn)
+        self.sync()
+        self.build_name2id_dict()
+        g1_id = self.grp_name2id[grp1_name]
+        g1 = ccnet_api.get_group(g1_id)
+        assert g1.group_name == grp1_name
+        assert g1.source == 'LDAP'
+
+        # rename group -> sync -> test
+        self.ldap_helper.rename_grp(grp1_dn, grp1_new_name, self.test_base_dn)
+        self.sync()
+        self.build_name2id_dict()
+        g1_id = self.grp_name2id[grp1_new_name]
+        g1 = ccnet_api.get_group(g1_id)
+        assert g1.group_name == grp1_new_name
+        assert g1.source == 'LDAP'
+
+        # delete group -> sync -> test
+        self.ldap_helper.delete_grp(grp1_new_dn)
+        self.sync()
+        g1 = ccnet_api.get_group(g1_id)
+        assert g1 == None
+
 
     def test_sync_group_as_departmennt1(self):
         """
@@ -225,9 +276,9 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         grp3_dn = 'CN=' + grp3_name + ',' + self.test_base_dn
 
         # add group -> sync -> test
-        self.ldap_helper.add_grp(grp1_dn)
-        self.ldap_helper.add_grp(grp2_dn)
         self.ldap_helper.add_grp(grp3_dn)
+        self.ldap_helper.add_grp(grp2_dn)
+        self.ldap_helper.add_grp(grp1_dn)
         self.ldap_helper.add_grp_to_grp(sub_grp_dn=grp2_dn, parent_grp_dn=grp1_dn)
         self.ldap_helper.add_grp_to_grp(sub_grp_dn=grp3_dn, parent_grp_dn=grp2_dn)
         self.sync()
@@ -314,9 +365,12 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         assert g3.group_name == grp3_name
         assert g1.source == g2.source == g3.source == 'LDAP'
 
-        ccnet_api.remove_group(g1_id)
-        ccnet_api.remove_group(g2_id)
         ccnet_api.remove_group(g3_id)
+        remove_group_uuid_pair_by_id(g3_id)
+        ccnet_api.remove_group(g2_id)
+        remove_group_uuid_pair_by_id(g2_id)
+        ccnet_api.remove_group(g1_id)
+        remove_group_uuid_pair_by_id(g1_id)
 
     def test_sync_ou_as_department1(self):
         """
@@ -412,5 +466,8 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         assert g1.source == g2.source == g3.source == 'LDAP'
 
         ccnet_api.remove_group(g3_id)
+        remove_group_uuid_pair_by_id(g3_id)
         ccnet_api.remove_group(g2_id)
+        remove_group_uuid_pair_by_id(g2_id)
         ccnet_api.remove_group(g1_id)
+        remove_group_uuid_pair_by_id(g1_id)
