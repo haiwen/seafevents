@@ -82,7 +82,7 @@ class DBOper(object):
             session.close()
 
 
-def get_virus_record(session, repo_id, has_handled, start, limit):
+def get_virus_files(session, repo_id, has_handled, start, limit):
     if start < 0:
         logger.error('start must be non-negative')
         raise RuntimeError('start must be non-negative')
@@ -107,11 +107,11 @@ def get_virus_record(session, repo_id, has_handled, start, limit):
         q = q.slice(start, start+limit)
         return q.all()
     except Exception as e:
-        logger.warning('Failed to get virus record from db: %s.', e)
+        logger.warning('Failed to get virus files from db: %s.', e)
         return None
 
 
-def handle_virus_record(session, vid):
+def delete_virus_file(session, vid):
     try:
         q = session.query(VirusFile).filter(VirusFile.vid == vid)
         r = q.first()
@@ -119,11 +119,11 @@ def handle_virus_record(session, vid):
         session.commit()
         return 0
     except Exception as e:
-        logger.warning('Failed to handle virus record: %s.', e)
+        logger.warning('Failed to delete virus file: %s.', e)
         return -1
 
 
-def update_virus_record(session, vid, ignore):
+def operate_virus_file(session, vid, ignore):
     try:
         q = session.query(VirusFile).filter(VirusFile.vid == vid)
         r = q.first()
@@ -131,14 +131,14 @@ def update_virus_record(session, vid, ignore):
         session.commit()
         return 0
     except Exception as e:
-        logger.warning('Failed to ignore virus record: %s.', e)
+        logger.warning('Failed to operate virus file: %s.', e)
         return -1
 
 
-def get_virus_record_by_id(session, vid):
+def get_virus_file_by_vid(session, vid):
     try:
         q = session.query(VirusFile).filter(VirusFile.vid == vid)
         return q.first()
     except Exception as e:
-        logger.warning('Failed to get virus record by id: %s.', e)
+        logger.warning('Failed to get virus file by vid: %s.', e)
         return None
