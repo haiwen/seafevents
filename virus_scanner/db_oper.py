@@ -1,4 +1,5 @@
 # coding: utf-8
+from sqlalchemy import or_, and_
 
 from .models import VirusScanRecord, VirusFile
 from .scan_settings import logger
@@ -81,7 +82,7 @@ class DBOper(object):
             session.close()
 
 
-def get_virus_record(session, repo_id, has_handle, start, limit):
+def get_virus_record(session, repo_id, has_handled, start, limit):
     if start < 0:
         logger.error('start must be non-negative')
         raise RuntimeError('start must be non-negative')
@@ -90,16 +91,19 @@ def get_virus_record(session, repo_id, has_handle, start, limit):
         logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
 
-    if has_handle not in (True, False, None):
-        logger.error('has_handle must be True or False or None')
-        raise RuntimeError('has_handle must be True or False or None')
+    if has_handled not in (True, False, None):
+        logger.error('has_handled must be True or False or None')
+        raise RuntimeError('has_handled must be True or False or None')
 
     try:
         q = session.query(VirusFile)
         if repo_id:
             q = q.filter(VirusFile.repo_id == repo_id)
-        if has_handle is not None:
-            q = q.filter(VirusFile.has_handle == has_handle)
+        if has_handled is not None:
+            if has_handled:
+                q = q.filter(or_(VirusFile.has_deleted == 1, VirusFile.has_ignored == 1))
+            else:
+                q = q.filter(and_(VirusFile.has_deleted == 0, VirusFile.has_ignored == 0))
         q = q.slice(start, start+limit)
         return q.all()
     except Exception as e:
@@ -111,7 +115,7 @@ def handle_virus_record(session, vid):
     try:
         q = session.query(VirusFile).filter(VirusFile.vid == vid)
         r = q.first()
-        r.has_handle = 1
+        r.has_deleted = 1
         session.commit()
         return 0
     except Exception as e:
@@ -119,11 +123,11 @@ def handle_virus_record(session, vid):
         return -1
 
 
-def update_virus_record(session, vid, is_ignore):
+def update_virus_record(session, vid, ignore):
     try:
         q = session.query(VirusFile).filter(VirusFile.vid == vid)
         r = q.first()
-        r.has_ignore = is_ignore
+        r.has_ignored = ignore
         session.commit()
         return 0
     except Exception as e:
