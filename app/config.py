@@ -2,6 +2,7 @@ import os
 import logging
 from seafevents.db import init_db_session_class
 from seafevents.utils import get_config
+from seafevents.utils.config import get_opt_from_conf_or_env
 
 logger = logging.getLogger(__name__)
 
@@ -109,16 +110,14 @@ def load_file_history_config(config):
     if config.has_option('FILE HISTORY', 'enabled'):
         appconfig.fh.enabled = config.getboolean('FILE HISTORY', 'enabled')
         if appconfig.fh.enabled:
-            if config.has_option('FILE HISTORY', 'threshold'):
-                appconfig.fh.threshold = int(config.get('FILE HISTORY', 'threshold'))
-            else:
-                appconfig.fh.threshold = 5
-            appconfig.fh.suffix = config.get('FILE HISTORY', 'suffix')
+            appconfig.fh.threshold = int(get_opt_from_conf_or_env(config, 'FILE HISTORY', 'threshold', default=5))
+            default_suffix = 'md,txt,doc,docx,xls,xlsx,ppt,pptx'
+            appconfig.fh.suffix = get_opt_from_conf_or_env(config, 'FILE HISTORY', 'suffix', default=default_suffix)
             suffix = appconfig.fh.suffix.strip(',')
             appconfig.fh.suffix_list = suffix.split(',') if suffix else []
             logger.info('The file with the following suffix will be recorded into the file history: %s' % suffix)
         else:
-            logger.info('Disenabled File History Features.')
+            logger.info('Disable File History Features.')
     else:
         appconfig.fh.enabled = True
         appconfig.fh.threshold = 5
