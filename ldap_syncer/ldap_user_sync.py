@@ -119,18 +119,6 @@ class LdapUserSync(LdapSync):
             logger.info('LDAP dept sync result: add [%d]dept, update [%d]dept, '
                          'delete [%d]dept' % (self.adept, self.udept, self.ddept))
 
-    def get_attr_val(self, tab, attr, email):
-        try:
-            sql = 'select {0} from {1} where user = %s'.format(attr, tab)
-            self.cursor.execute(sql, [email])
-            r = self.cursor.fetchone()
-            if r:
-                val = r[0]
-            else:
-                val = ''
-        except Exception as e:
-            val = ''
-        return '' if not val else val
 
     def add_profile(self, email, ldap_user):
         # list_in_address_book: django will not apply default value to mysql. it will be processed in ORM.
@@ -258,23 +246,59 @@ class LdapUserSync(LdapSync):
         # user_id <-> LdapUser
         user_data_db = None
         users = get_ldap_users(-1, -1)
-        if users is None:
+        if not users:
             logger.warning('get ldap users from db failed.')
             return user_data_db
 
-        user_data_db = {}
+        # select all users attrs from profile_profile and profile_detailedprofile in one query
+        db_users_attrs_list = []
+        if self.settings.load_extra_user_info_sync:
+            sql_placeholders = ','.join(['"{}"'.format(user.email) for user in users])
+            profile_sql = "SELECT * FROM profile_profile WHERE user IN ({})".format(sql_placeholders)
+            detailed_profile_sql = "SELECT * FROM profile_detailedprofile WHERE user IN ({})".format(sql_placeholders)
+
+            try:
+                self.cursor.execute(profile_sql)
+                profile_res = self.cursor.fetchall()
+                self.cursor.execute(detailed_profile_sql)
+                detailed_profile_res = self.cursor.fetchall()
+            except Exception as e:
+                logger.warning('Failed to get profile info for db users %s.'.format(e))
+
+            email2dept = {}
+            for row in detailed_profile_res:
+                email2dept[row[1]] = row[2]
+
+            for row in profile_res:
+                email = row[1]
+                name = row[2]
+                cemail = row[6]
+                uid = row[5]
+                attr_dict = {
+                    'email': email,
+                    'name': name,
+                    'dept': email2dept.get(email, ''),
+                }
+                if self.settings.load_uid_attr != '':
+                    attr_dict['uid'] = uid
+                if self.settings.load_cemail_attr != '':
+                    attr_dict['cemail'] = cemail
+                db_users_attrs_list.append(attr_dict)
+
         name = None
         dept = None
         uid = None
         cemail = None
+        user_data_db = {}
         for user in users:
-            if self.settings.load_extra_user_info_sync:
-                name = self.get_attr_val('profile_profile', 'nickname', user.email)
-                dept = self.get_attr_val('profile_detailedprofile', 'department', user.email)
-                if self.settings.load_uid_attr != '':
-                    uid = self.get_attr_val('profile_profile', 'login_id', user.email)
-                if self.settings.load_cemail_attr != '':
-                    cemail = self.get_attr_val('profile_profile', 'contact_email', user.email)
+            if not user:
+                continue
+            user_attrs = next((attrs for attrs in db_users_attrs_list if attrs['email']==user.email), None)
+            if user_attrs and self.settings.load_extra_user_info_sync:
+                name = user_attrs.get('name', '')
+                dept = user_attrs.get('dept', '')
+                uid = user_attrs.get('uid', '')
+                cemail = user_attrs.get('email', '')
 
             user_data_db[user.email] = LdapUser(user.id, user.password, name, dept,
                                                 uid, cemail,
@@ -282,7 +306,6 @@ class LdapUserSync(LdapSync):
                                                 1 if user.is_active else 0,
                                                 user.role,
                                                 user.is_manual_set)
-
         return user_data_db
 
     def get_data_from_ldap_by_server(self, config):
