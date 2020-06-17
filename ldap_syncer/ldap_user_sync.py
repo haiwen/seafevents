@@ -253,8 +253,8 @@ class LdapUserSync(LdapSync):
         # select all users attrs from profile_profile and profile_detailedprofile in one query
         email2attrs = {}  # is like: { 'some_one@seafile': {'name': 'leo', 'dept': 'dev', ...} ...}
         if self.settings.load_extra_user_info_sync:
-            profile_sql = "SELECT * FROM profile_profile"
-            detailed_profile_sql = "SELECT * FROM profile_detailedprofile"
+            profile_sql = "SELECT user, nickname, contact_email, login_id FROM profile_profile"
+            detailed_profile_sql = "SELECT user, department FROM profile_detailedprofile"
             try:
                 self.cursor.execute(profile_sql)
                 profile_res = self.cursor.fetchall()
@@ -264,14 +264,15 @@ class LdapUserSync(LdapSync):
                 logger.warning('Failed to get profile info for db users %s.'.format(e))
 
             email2dept = {}
+
             for row in detailed_profile_res:
-                email2dept[row[1]] = row[2]
+                email2dept[row[0]] = row[1]
 
             for row in profile_res:
-                email = row[1]
-                name = row[2]
-                cemail = row[6]
-                uid = row[5]
+                email = row[0]
+                name = row[1]
+                cemail = row[2]
+                uid = row[3]
                 attr_dict = {
                     'name': name,
                     'dept': email2dept.get(email, ''),
