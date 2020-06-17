@@ -251,12 +251,10 @@ class LdapUserSync(LdapSync):
             return user_data_db
 
         # select all users attrs from profile_profile and profile_detailedprofile in one query
-        db_users_attrs_list = []
+        email2attrs = {}  # is like: { 'some_one@seafile': {'name': 'leo', 'dept': 'dev', ...} ...}
         if self.settings.load_extra_user_info_sync:
-            sql_placeholders = ','.join(['"{}"'.format(user.email) for user in users])
-            profile_sql = "SELECT * FROM profile_profile WHERE user IN ({})".format(sql_placeholders)
-            detailed_profile_sql = "SELECT * FROM profile_detailedprofile WHERE user IN ({})".format(sql_placeholders)
-
+            profile_sql = "SELECT * FROM profile_profile"
+            detailed_profile_sql = "SELECT * FROM profile_detailedprofile"
             try:
                 self.cursor.execute(profile_sql)
                 profile_res = self.cursor.fetchall()
@@ -275,15 +273,14 @@ class LdapUserSync(LdapSync):
                 cemail = row[6]
                 uid = row[5]
                 attr_dict = {
-                    'email': email,
                     'name': name,
                     'dept': email2dept.get(email, ''),
                 }
+                email2attrs[email] = attr_dict
                 if self.settings.load_uid_attr != '':
-                    attr_dict['uid'] = uid
+                    email2attrs[email]['uid'] = uid
                 if self.settings.load_cemail_attr != '':
-                    attr_dict['cemail'] = cemail
-                db_users_attrs_list.append(attr_dict)
+                    email2attrs[email]['cemail'] = cemail
 
         name = None
         dept = None
@@ -293,7 +290,7 @@ class LdapUserSync(LdapSync):
         for user in users:
             if not user:
                 continue
-            user_attrs = next((attrs for attrs in db_users_attrs_list if attrs['email']==user.email), None)
+            user_attrs = email2attrs.get(user.email, {})
             if user_attrs and self.settings.load_extra_user_info_sync:
                 name = user_attrs.get('name', '')
                 dept = user_attrs.get('dept', '')
