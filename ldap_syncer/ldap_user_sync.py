@@ -246,7 +246,7 @@ class LdapUserSync(LdapSync):
         # user_id <-> LdapUser
         user_data_db = None
         users = get_ldap_users(-1, -1)
-        if not users:
+        if users is None:
             logger.warning('get ldap users from db failed.')
             return user_data_db
 
