@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 if not appconfig.get('session_cls'):
-    load_config(os.path.join(os.environ['SEAFILE_CENTRAL_CONF_DIR'], 'seafevents.conf'))
+    if 'SEAFILE_CENTRAL_CONF_DIR' in os.environ:
+        load_config(os.path.join(os.environ['SEAFILE_CENTRAL_CONF_DIR'], 'seafevents.conf'))
 
 
 def bytes2str(data):
