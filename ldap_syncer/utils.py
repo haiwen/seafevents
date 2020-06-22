@@ -1,10 +1,16 @@
 
 import logging
 import uuid
-from seafevents.app.config import appconfig
+import os
+
+from seafevents.app.config import appconfig, load_config
 from seafevents.db import GroupIdLDAPUuidPair
 
 logger = logging.getLogger(__name__)
+
+
+if not appconfig.get('session_cls'):
+    load_config(os.path.join(os.environ['SEAFILE_CENTRAL_CONF_DIR'], 'seafevents.conf'))
 
 
 def bytes2str(data):
