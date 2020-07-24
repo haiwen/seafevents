@@ -10,6 +10,7 @@ from .ldap_conn import LdapConn
 from .ldap_sync import LdapSync
 from .utils import bytes2str
 from ldap import SCOPE_SUBTREE
+from datetime import datetime
 
 def default_ldap_role_mapping(role):
     return role
@@ -22,7 +23,7 @@ except:
     role_mapping = default_ldap_role_mapping
 
 class LdapUser(object):
-    def __init__(self, user_id, password, name, dept, uid, cemail,
+    def __init__(self, user_id, password, name, dept, uid, cemail, company_code,
                  is_staff=0, is_active=1, role = '', is_manual_set = False):
         self.user_id = user_id
         self.password = password
@@ -30,6 +31,7 @@ class LdapUser(object):
         self.dept = dept
         self.uid = uid
         self.cemail = cemail
+        self.company_code = company_code
         self.is_staff = is_staff
         self.is_active = is_active
         self.role = role
@@ -144,17 +146,17 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to add profile %s to user %s: %s.' %
                             (val, email, e))
 
-    def add_dept(self, email, dept):
+    def add_dept(self, email, dept, company_code):
         try:
-            self.cursor.execute('insert into profile_detailedprofile (user,department,telephone) '
-                                'values (%s,%s,%s)', (email, dept, ''))
+            self.cursor.execute('insert into profile_detailedprofile (user,department,telephone,company) '
+                                'values (%s,%s,%s,%s)', (email, dept, '', company_code))
             if self.cursor.rowcount == 1:
-                logger.debug('Add dept %s to user %s successs.' %
-                              (dept, email))
+                logger.debug('Add company [%s] dept [%s] to user %s successs.' %
+                              (company_code, dept, email))
                 self.adept += 1
         except Exception as e:
-            logger.warning('Failed to add dept %s to user %s: %s.' %
-                            (dept, email, e))
+            logger.warning('Failed to add company [%s] dept [%s] to user %s: %s.' %
+                            (company_code, dept, email, e))
 
     def update_profile(self, email, db_user, ldap_user):
         try:
@@ -194,22 +196,22 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to update user %s profile: %s.' %
                             (email, e))
 
-    def update_dept(self, email, dept):
+    def update_dept(self, email, dept, company_code):
         try:
             self.cursor.execute('select 1 from profile_detailedprofile where user=%s', [email])
             if self.cursor.rowcount == 0:
-                self.add_dept(email, dept)
+                self.add_dept(email, dept, company_code)
                 return
             else:
-                self.cursor.execute('update profile_detailedprofile set department=%s where user=%s',
-                                    (dept, email))
+                self.cursor.execute('update profile_detailedprofile set department=%s, company=%s where user=%s',
+                                    (dept, company_code, email))
             if self.cursor.rowcount == 1:
-                logger.debug('Update user %s dept to %s success.' %
-                              (email, dept))
+                logger.debug('Update company [%s], dept [%s] for %s success.' %
+                              (company_code, dept, email))
                 self.udept += 1
         except Exception as e:
-            logger.warning('Failed to update user %s dept to %s: %s.' %
-                            (email, dept, e))
+            logging.warning('Failed to update company [%s], dept [%s] for %s: %s.' %
+                            (company_code, dept, email, e))
 
     def del_profile(self, email):
         try:
@@ -254,7 +256,7 @@ class LdapUserSync(LdapSync):
         email2attrs = {}  # is like: { 'some_one@seafile': {'name': 'leo', 'dept': 'dev', ...} ...}
         if self.settings.load_extra_user_info_sync:
             profile_sql = "SELECT user, nickname, contact_email, login_id FROM profile_profile"
-            detailed_profile_sql = "SELECT user, department FROM profile_detailedprofile"
+            detailed_profile_sql = "SELECT user, department, company FROM profile_detailedprofile"
             try:
                 self.cursor.execute(profile_sql)
                 profile_res = self.cursor.fetchall()
@@ -264,9 +266,11 @@ class LdapUserSync(LdapSync):
                 logger.warning('Failed to get profile info for db users %s.'.format(e))
 
             email2dept = {}
+            email2company = dict()
 
             for row in detailed_profile_res:
                 email2dept[row[0]] = row[1]
+                email2company[row[0]] = row[2]
 
             for row in profile_res:
                 email = row[0]
@@ -276,6 +280,7 @@ class LdapUserSync(LdapSync):
                 attr_dict = {
                     'name': name,
                     'dept': email2dept.get(email, ''),
+                    'company': email2dept.get(email, ''),
                 }
                 email2attrs[email] = attr_dict
                 if self.settings.load_uid_attr != '':
@@ -287,6 +292,7 @@ class LdapUserSync(LdapSync):
         dept = None
         uid = None
         cemail = None
+        company_code = ''
         user_data_db = {}
         for user in users:
             if not user:
@@ -297,9 +303,10 @@ class LdapUserSync(LdapSync):
                 dept = user_attrs.get('dept', '')
                 uid = user_attrs.get('uid', '')
                 cemail = user_attrs.get('email', '')
+                company_code = user_attrs.get('company', '')
 
             user_data_db[user.email] = LdapUser(user.id, user.password, name, dept,
-                                                uid, cemail,
+                                                uid, cemail, company_code,
                                                 1 if user.is_staff else 0,
                                                 1 if user.is_active else 0,
                                                 user.role,
@@ -348,6 +355,7 @@ class LdapUserSync(LdapSync):
             search_attr.append(config.first_name_attr)
             search_attr.append(config.last_name_attr)
             search_attr.append(config.dept_attr)
+            search_attr.append(config.company_attr)
 
             if config.uid_attr != '':
                 search_attr.append(config.uid_attr)
@@ -380,6 +388,7 @@ class LdapUserSync(LdapSync):
             uid = None
             cemail = None
             role = None
+            company = ''
 
             if config.role_name_attr not in attrs:
                 role = ''
@@ -419,12 +428,50 @@ class LdapUserSync(LdapSync):
                    else:
                        cemail = attrs[config.cemail_attr][0]
 
+                if not attrs.has_key(config.company_attr):
+                    company = ''
+                else:
+                    company = attrs[config.company_attr][0]
+
             email = attrs[config.login_attr][0].lower()
             user_name = None if user_name is None else user_name.strip()
+            company_code = company[0:5]
             user_data_ldap[email] = LdapUser(None, password, user_name, dept,
-                                             uid, cemail, role = role)
+                                             uid, cemail, company_code, role = role)
 
         return user_data_ldap
+
+    def add_sync_time(self, email):
+        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+        sql = 'insert into profile_ldapsyncuserinfo (user, created_at, activated_at) values (%s, %s, %s)'
+        val = [email, now, now]
+        try:
+            self.cursor.execute(sql, val)
+            if self.cursor.rowcount == 1:
+                logging.debug('Add sync time to user %s successs.' %
+                              (email))
+        except Exception as e:
+            logging.warning('Failed to add sync time to user %s: %s.' %
+                            (email, e))
+
+    def update_activation_time(self, email):
+        self.cursor.execute('select 1 from profile_ldapsyncuserinfo where user=%s', [email])
+        if self.cursor.rowcount == 0:
+            self.add_sync_time(email)
+            return
+
+        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        sql = 'update profile_ldapsyncuserinfo set activated_at=%s where user = \'{0}\''.format(email)
+        val = [now]
+        try:
+            self.cursor.execute(sql, val)
+            if self.cursor.rowcount == 1:
+                logging.debug('Update activation time to user %s successs.' %
+                              (email))
+        except Exception as e:
+            logging.warning('Failed to update activation time to user %s: %s.' %
+                            (email, e))
 
     def sync_add_user(self, ldap_user, email):
         user_id = add_ldap_user(email, ldap_user.password, 0,
@@ -447,25 +494,30 @@ class LdapUserSync(LdapSync):
             if ret < 0:
                 logger.warning('Add role [%s] for user [%s] failed.' % (role, email))
 
+        self.add_sync_time(email)
+
         if ldap_user.config.enable_extra_user_info_sync:
             self.add_profile(email, ldap_user)
-            self.add_dept(email, ldap_user.dept)
+            self.add_dept(email, ldap_user.dept, ldap_user.company_code)
 
     def sync_update_user(self, ldap_user, db_user, email):
-        '''
+        # if user deleted from ldap then rejoin, should reset the user to active status
         set_status = False
         if db_user.is_active == 0:
+            db_user.is_active = 1
             set_status = True
 
         if ldap_user.password != db_user.password or set_status:
             rc = update_ldap_user(db_user.user_id, email, ldap_user.password,
                                   db_user.is_staff, db_user.is_active)
             if rc < 0:
-                logger.warning('Update user [%s] failed.' % email)
+                logging.warning('Update user [%s] failed.' % email)
             else:
-                logger.debug('Update user [%s] success.' % email)
+                logging.debug('Update user [%s] success.' % email)
                 self.uuser += 1
-        '''
+        if set_status:
+            self.update_activation_time(email)
+
         ret = 0
 
         if ldap_user.role:
@@ -482,8 +534,8 @@ class LdapUserSync(LdapSync):
 
         if ldap_user.config.enable_extra_user_info_sync:
             self.update_profile(email, db_user, ldap_user)
-            if ldap_user.dept != db_user.dept:
-                self.update_dept(email, ldap_user.dept)
+            if ldap_user.dept != db_user.dept or ldap_user.company_code != db_user.company_code:
+                self.update_dept(email, ldap_user.dept, ldap_user.company_code)
 
         if not db_user.is_active and ldap_user.config.auto_reactivate_users:
             try:
