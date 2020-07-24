@@ -10,7 +10,7 @@ from seafevents.utils.config import get_office_converter_conf
 from seafevents.utils import has_office_tools, get_config
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
-        WorkWinxinNoticeSender, FileUpdatesSender
+        WorkWinxinNoticeSender, FileUpdatesSender, RepoOldFileAutoDelScanner
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
@@ -80,6 +80,7 @@ class BackgroundTasks(object):
         self._content_scanner = ContentScanner(config_file)
         self._work_weixin_notice_sender = WorkWinxinNoticeSender(self._app_config)
         self._file_updates_sender = FileUpdatesSender()
+        self._repo_old_file_auto_del_scanner = RepoOldFileAutoDelScanner(config_file)
 
         self._office_converter = None
         if has_office_tools():
@@ -129,3 +130,8 @@ class BackgroundTasks(object):
             self._office_converter.start()
         else:
             logging.info('office converter is disabled')
+
+        if self._repo_old_file_auto_del_scanner.is_enabled():
+            self._repo_old_file_auto_del_scanner.start()
+        else:
+            logging.info('repo old file auto del scanner disabled')
