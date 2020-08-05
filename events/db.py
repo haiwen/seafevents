@@ -131,7 +131,7 @@ def _get_user_activities_by_timestamp(username, start, end):
 def get_user_activities_by_timestamp(username, start, end):
     return _get_user_activities_by_timestamp(username, start, end)
 
-def get_file_history(session, repo_id, path, start, limit):
+def get_file_history(session, repo_id, path, start, limit, history_limit=-1):
     repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
     current_item = session.query(FileHistory).filter(FileHistory.repo_id_path_md5 == repo_id_path_md5)\
         .order_by(desc(FileHistory.id)).first()
@@ -143,7 +143,17 @@ def get_file_history(session, repo_id, path, start, limit):
         q = session.query(FileHistory).filter(FileHistory.file_uuid == current_item.file_uuid)\
             .order_by(desc(FileHistory.id)).slice(start, start + limit + 1)
 
-        # select Event.etype, Event.timestamp, UserEvent.username from UserEvent, Event where UserEvent.username=username and UserEvent.org_id <= 0 and UserEvent.eid = Event.uuid order by UserEvent.id desc limit 0, 15;
+        if int(history_limit) >= 0:
+            present_time = datetime.datetime.utcnow()
+            delta = timedelta(days=history_limit)
+            history_time = present_time - delta
+
+            total_count = session.query(FileHistory).filter(FileHistory.file_uuid == current_item.file_uuid).\
+                filter(FileHistory.timestamp.between(history_time, present_time)).count()
+            q = session.query(FileHistory).filter(FileHistory.file_uuid == current_item.file_uuid).\
+                filter(FileHistory.timestamp.between(history_time, present_time)).\
+                order_by(desc(FileHistory.id)).slice(start, start + limit + 1)
+
         events = q.all()
         if events and len(events) == limit + 1:
             next_start = start + limit
