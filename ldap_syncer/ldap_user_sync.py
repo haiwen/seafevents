@@ -125,11 +125,11 @@ class LdapUserSync(LdapSync):
         field = 'user, nickname, intro, list_in_address_book'
         qmark = '%s, %s, %s, %s'
         val = [email, ldap_user.name, '', False]
-        if ldap_user.uid is not None and ldap_user.uid != '':
+        if ldap_user.uid:
             field += ', login_id'
             qmark += ', %s'
             val.append(ldap_user.uid)
-        if ldap_user.cemail is not None:
+        if ldap_user.cemail:
             field += ', contact_email'
             qmark += ', %s'
             val.append(ldap_user.cemail)

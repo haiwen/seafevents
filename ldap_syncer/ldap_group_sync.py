@@ -34,6 +34,15 @@ class LdapGroupSync(LdapSync):
         logger.info('LDAP group sync result: add [%d]group, update [%d]group, delete [%d]group' %
                      (self.agroup, self.ugroup, self.dgroup))
 
+    def get_department_name(self, config, attrs, default_name):
+        if config.department_name_attr in attrs and \
+           attrs[config.department_name_attr] and \
+           len(attrs[config.department_name_attr][0]) <= 255:
+            department_name = attrs[config.department_name_attr][0]
+        else:
+            department_name = default_name
+        return department_name
+
     def get_data_from_db(self):
         grp_data_db = None
         groups = get_ldap_groups(-1, -1)
@@ -138,8 +147,8 @@ class LdapGroupSync(LdapSync):
                           config.user_object_class)
         result = ldap_conn.search(base_dn, SCOPE_BASE, search_filter,
                                   [config.login_attr, 'cn',
-                                   config.group_uuid_attr])
-
+                                   config.group_uuid_attr,
+                                   config.department_name_attr])
         if not result:
             return []
         result = bytes2str(result)
@@ -206,7 +215,11 @@ class LdapGroupSync(LdapSync):
                 all_mails.append(mail.lower())
                 return all_mails
 
-        grp_data[group_uuid] = LdapGroup(attrs['cn'][0], None, sorted(set(all_mails)), parent_uuid, 0, config.sync_group_as_department)
+        if config.sync_group_as_department:
+            name = self.get_department_name(config, attrs, attrs['cn'][0])
+        else:
+            name = attrs['cn'][0]
+        grp_data[group_uuid] = LdapGroup(name, None, sorted(set(all_mails)), parent_uuid, 0, config.sync_group_as_department)
 
         return all_mails
 
@@ -249,6 +262,11 @@ class LdapGroupSync(LdapSync):
                     grp_data_ldap[group_uuid] = LdapGroup(attrs['cn'][0], None, [], None, 0, config.sync_group_as_department)
                     continue
                 if group_uuid in grp_data_ldap:
+                    if config.sync_group_as_department:
+                        name = self.get_department_name(config, attrs, attrs['cn'][0])
+                    else:
+                        name = attrs['cn'][0]
+                    grp_data_ldap[group_dn] = LdapGroup(name, None, [], None, 0, config.sync_group_as_department)
                     continue
                 all_mails = []
                 for member in attrs[config.group_member_attr]:
@@ -308,17 +326,23 @@ class LdapGroupSync(LdapSync):
                 e_idx = len(base_dn)
             ou_name = base_dn[s_idx:e_idx]
 
-
             result = ldap_conn.search(base_dn, SCOPE_BASE,
                                       search_filter,
-                                      ['ou', config.group_uuid_attr])
-            if not result:
-                continue
+                                      ['ou', config.department_name_attr])
             result = bytes2str(result)
             dn, attrs = result[0]
             group_uuid = attrs[config.group_uuid_attr][0]
 
-            self.get_ou_member (config, ldap_conn, base_dn, search_filter, sort_list, ou_name, group_uuid, None, grp_data_ou)
+            if not result:
+                name = ou_name
+            else:
+                dn, attrs = result[0]
+                if 'ou' in attrs:
+                    name = self.get_department_name (config, attrs, attrs['ou'][0])
+                else:
+                    name = ou_name
+
+            self.get_ou_member (config, ldap_conn, base_dn, search_filter, sort_list, name, group_uuid, None, grp_data_ou)
         sort_list.reverse()
         self.sort_list.extend(sort_list)
 
@@ -340,6 +364,7 @@ class LdapGroupSync(LdapSync):
             sort_list.append((group_uuid, group))
             grp_data_ou[group_uuid] = group
             return
+        results = bytes2str(results)
 
         mails = []
         member_dn=''
@@ -413,7 +438,8 @@ class LdapGroupSync(LdapSync):
             if ret < 0:
                 logger.warning('Failed to set group [%s] quota.' % group.cn)
             if group.config.create_department_library:
-                ret = seafile_api.add_group_owned_repo(group_id, group.cn, 'rw')
+                ret = seafile_api.add_group_owned_repo(group_id, group.cn,
+                                                       group.config.department_repo_permission)
                 if not ret:
                     logger.warning('Failed to create group owned repo for %s.' % group.cn)
 
