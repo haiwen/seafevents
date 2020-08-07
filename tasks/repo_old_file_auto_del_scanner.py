@@ -96,7 +96,7 @@ class RepoOldFileAutoDelScannerTimer(Thread):
                     cmd = [
                         python_exec,
                         manage_py,
-                        'scan_repo_old_file_auto_del',
+                        'scan_repo_auto_delete',
                     ]
                     with open(self._logfile, 'a') as fp:
                         run(cmd, cwd=self._seahubdir, output=fp)
