@@ -41,7 +41,7 @@ class RepoOldFileAutoDelScanner(object):
 
     def _parse_config(self, config):
         '''Parse send email related options from events.conf'''
-        section_name = 'REPO OLD FILE AUTO DEL SCANNER'
+        section_name = 'AUTO DELETION'
         key_enabled = 'enabled'
 
         key_interval = 'interval'
