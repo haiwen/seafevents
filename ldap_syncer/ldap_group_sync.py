@@ -406,8 +406,12 @@ class LdapGroupSync(LdapSync):
             else:
                 parent_group = group_data_ldap[group.parent_dn]
                 parent_id = self.create_and_add_group_to_db (group.parent_dn, parent_group, group_dn_db, group_data_ldap)
+        try:
+            group_id = ccnet_api.create_group(group.cn, super_user, 'LDAP', parent_id)
+        except Exception as e:
+            logger.warning('create ldap group [%s] failed. Error: %s' % (group.cn, e))
+            return
 
-        group_id = ccnet_api.create_group(group.cn, super_user, 'LDAP', parent_id)
         if group_id < 0:
             logger.warning('create ldap group [%s] failed.' % group.cn)
             return
