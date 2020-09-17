@@ -12,6 +12,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import Pool
 from sqlalchemy.ext.automap import automap_base
 
+from seaserv import seafile_api
+
 logger = logging.getLogger(__name__)
 
 ## base class of model classes in events.models and stats.models
@@ -49,6 +51,7 @@ def create_engine_from_conf(config_file, db = 'seafevent'):
         user = 'user'
         db_name = 'db_name'
 
+    use_crypt = False
     backend = config.get(db_sec, 'type')
     if backend == 'sqlite' or backend == 'sqlite3':
         path = config.get(db_sec, 'path')
@@ -67,8 +70,17 @@ def create_engine_from_conf(config_file, db = 'seafevent'):
             port = config.getint(db_sec, 'port')
         else:
             port = 3306
+
+        if config.has_option(db_sec, 'use_crypt'):
+            use_crypt = config.getboolean(db_sec, 'use_crypt')
+        if db == 'seafile':
+            if config.has_option('general', 'use_crypt'):
+                use_crypt = config.getboolean('general', 'use_crypt')
+
         username = config.get(db_sec, user)
         passwd = config.get(db_sec, 'password')
+        if use_crypt:
+            passwd = seafile_api.seafile_decrypt(passwd)
         dbname = config.get(db_sec, db_name)
         db_url = "mysql+mysqldb://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
         logger.info('[seafevents] database: mysql, name: %s', dbname)
