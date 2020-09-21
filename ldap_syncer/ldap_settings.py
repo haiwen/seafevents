@@ -252,6 +252,7 @@ class Settings(object):
         ldap_config.uid_attr = self.get_option(sync_sec, 'UID_ATTR')
         ldap_config.cemail_attr = self.get_option(sync_sec, 'CONTACT_EMAIL_ATTR')
         ldap_config.role_name_attr = self.get_option(sync_sec, 'ROLE_NAME_ATTR', dval='')
+        ldap_config.auto_reactive_users = self.get_option(sync_sec, 'AUTO_REACTIVATE_USERS', bool, False)
 
     def enable_sync(self):
         return self.enable_user_sync or self.enable_group_sync or self.sync_department_from_ou
