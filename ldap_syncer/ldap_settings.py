@@ -181,9 +181,9 @@ class Settings(object):
 
         self.has_base_info = True
 
-        if ldap_config.login_attr != 'email' and ldap_config.login_attr != 'userPrincipalName':
+        if ldap_config.login_attr != 'mail' and ldap_config.login_attr != 'userPrincipalName':
             if is_test:
-                logging.warning("LDAP login attr is not email or userPrincipalName")
+                logging.warning("LDAP login attr is not mail or userPrincipalName")
 
         if not has_sync_section:
             return
