@@ -485,18 +485,18 @@ class LdapUserSync(LdapSync):
             if ldap_user.dept != db_user.dept:
                 self.update_dept(email, ldap_user.dept)
 
-        if not db_user.is_active and ldap_user.config.auto_reactive_users:
+        if not db_user.is_active and ldap_user.config.auto_reactivate_users:
             try:
                 ret = update_ldap_user(db_user.user_id, email, db_user.password,
                             db_user.is_staff, 1)
             except Exception as e:
-                logger.error('Reactive user [{}] failed. ERROR: {}'.format(email, e))
+                logger.error('Reactivate user [{}] failed. ERROR: {}'.format(email, e))
                 return
 
             if ret < 0:
-                logger.warning('Reactive user [%s] failed.' % email)
+                logger.warning('Reactivate user [%s] failed.' % email)
                 return
-            logger.debug('Reactive user [%s] success.' % email)
+            logger.debug('Reactivate user [%s] success.' % email)
 
     def sync_del_user(self, db_user, email):
         ret = update_ldap_user(db_user.user_id, email, db_user.password,
