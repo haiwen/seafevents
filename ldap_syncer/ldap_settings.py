@@ -182,9 +182,9 @@ class Settings(object):
 
         self.has_base_info = True
 
-        if ldap_config.login_attr != 'email' and ldap_config.login_attr != 'userPrincipalName':
+        if ldap_config.login_attr != 'mail' and ldap_config.login_attr != 'userPrincipalName':
             if is_test:
-                logging.warning("LDAP login attr is not email or userPrincipalName")
+                logging.warning("LDAP login attr is not mail or userPrincipalName")
 
         if not has_sync_section:
             return
@@ -256,6 +256,7 @@ class Settings(object):
         ldap_config.uid_attr = self.get_option(sync_sec, 'UID_ATTR')
         ldap_config.cemail_attr = self.get_option(sync_sec, 'CONTACT_EMAIL_ATTR')
         ldap_config.role_name_attr = self.get_option(sync_sec, 'ROLE_NAME_ATTR', dval='')
+        ldap_config.auto_reactivate_users = self.get_option(sync_sec, 'AUTO_REACTIVATE_USERS', bool, False)
 
     def enable_sync(self):
         return self.enable_user_sync or self.enable_group_sync or self.sync_department_from_ou

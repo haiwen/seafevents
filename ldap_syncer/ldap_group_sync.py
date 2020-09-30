@@ -420,6 +420,10 @@ class LdapGroupSync(LdapSync):
             logger.warning('create ldap group [%s] failed. Error: %s' % (group.cn, e))
             return
 
+        if group_id < 0:
+            logger.warning('create ldap group [%s] failed.' % group.cn)
+            return
+
         try:
             add_group_uuid_pair(group_id, group_uuid)
         except Exception:
