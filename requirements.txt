@@ -4,3 +4,4 @@ pdfrw==0.4
 mock
 pytest==3.1
 pyjwt
+pymysql
