@@ -3,7 +3,6 @@ import sys
 import logging
 import atexit
 import configparser
-import ccnet
 import time
 import subprocess
 
