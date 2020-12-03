@@ -3,7 +3,7 @@ import os
 import logging
 from threading import Thread, Event
 
-from seafevents.utils import get_python_executable, run
+from seafevents.utils import get_python_executable, run_and_wait
 
 
 __all__ = [
@@ -14,7 +14,7 @@ __all__ = [
 class FileUpdatesSender(object):
 
     def __init__(self):
-        self._interval = 60
+        self._interval = 300
         self._seahub_dir = None
         self._logfile = None
         self._timer = None
@@ -66,7 +66,7 @@ class FileUpdatesSenderTimer(Thread):
                         'send_file_updates',
                     ]
                     with open(self._logfile, 'a') as fp:
-                        run(cmd, cwd=self._seahub_dir, output=fp)
+                        run_and_wait(cmd, cwd=self._seahub_dir, output=fp)
                 except Exception as e:
                     logging.exception('send file updates email error: %s', e)
 
