@@ -1,6 +1,4 @@
 #coding: utf-8
-import os
-import copy
 import logging
 import time
 import json
