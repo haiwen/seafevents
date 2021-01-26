@@ -1,13 +1,10 @@
 #coding: utf-8
-import os
-import copy
 import logging
 import time
 import json
 from datetime import datetime
 from os.path import splitext
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
-from seafobj.fs import SeafileStream
 from .config import appconfig
 from .thread_pool import ThreadPool
 from .models import ContentScanRecord, ContentScanResult
