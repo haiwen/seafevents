@@ -518,7 +518,7 @@ class LdapUserSync(LdapSync):
         # collect deleted users from ldap
         for k in data_db.iterkeys():
             if data_ldap and not data_ldap.has_key(k) and data_db[k].is_active == 1:
-                uid = data_db[k].uid
+                uid = data_db[k].uid.lower()
                 if uid is not None and uid != '':
                     deleted_users[uid] = k
 
@@ -529,8 +529,9 @@ class LdapUserSync(LdapSync):
             else:
                 # check whether it's a renamed user
                 # keep renamed users untouched
-                if v.uid is not None and v.uid != '' and v.uid in deleted_users:
-                    del deleted_users[v.uid]
+                uid = v.uid.lower()
+                if uid is not None and uid != '' and uid in deleted_users:
+                    del deleted_users[uid]
                     continue
 
                 # add user to db
