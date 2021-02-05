@@ -76,7 +76,12 @@ class EventsHandler(object):
     def handle_event(self, channel):
         session = self._db_session_class()
         while 1:
-            msg = seafile_api.pop_event(channel)
+            try:
+                msg = seafile_api.pop_event(channel)
+            except Exception as e:
+                logger.error('Failed to get event: %s' % e)
+                time.sleep(3)
+                continue
             if msg:
                 try:
                     message_handler.handle_message(session, channel, msg)
