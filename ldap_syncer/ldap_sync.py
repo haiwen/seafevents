@@ -18,24 +18,30 @@ class LdapSync(Thread):
         pass
 
     def start_sync(self):
-        data_ldap = self.get_data_from_ldap()
+        email_to_uid = self.get_uid_from_profile()
+
+        data_ldap, uid_to_ldap_user = self.get_data_from_ldap()
         if data_ldap is None:
             return
 
-        data_db = self.get_data_from_db()
+        data_db, uid_to_users  = self.get_data_from_db(email_to_uid)
         if data_db is None:
             return
 
-        self.sync_data(data_db, data_ldap)
+        self.sync_data(data_db, email_to_uid, data_ldap, uid_to_ldap_user)
 
-    def get_data_from_db(self):
+    def get_uid_from_profile(self):
+        return None
+
+    def get_data_from_db(self, email_to_uid):
         return None
 
     def get_data_from_ldap(self):
         ret = {}
+        uid_to_ldap_user={}
 
         for config in self.settings.ldap_configs:
-            cur_ret = self.get_data_from_ldap_by_server(config)
+            cur_ret = self.get_data_from_ldap_by_server(config, uid_to_ldap_user)
             # If get data from one server failed, then the result is failed
             if cur_ret is None:
                 return None
@@ -44,9 +50,9 @@ class LdapSync(Thread):
                     ret[key] = cur_ret[key]
                     ret[key].config = config
 
-        return ret
+        return ret, uid_to_ldap_user
 
-    def get_data_from_ldap_by_server(self, config):
+    def get_data_from_ldap_by_server(self, config, uid_to_ldap_user):
         return None
 
     def sync_data(self, data_db, data_ldap):
