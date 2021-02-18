@@ -107,14 +107,6 @@ class SendSeahubEmailTimer(Thread):
                     ]
                     with open(self._logfile, 'a') as fp:
                         run(cmd, cwd=self._seahubdir, output=fp)
-
-                    cmd = [
-                        python_exec,
-                        manage_py,
-                        'send_queued_mail',
-                    ]
-                    with open(self._logfile, 'a') as fp:
-                        run(cmd, cwd=self._seahubdir, output=fp)
                 except Exception as e:
                     logging.exception('error when send email: %s', e)
 
