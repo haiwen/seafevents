@@ -282,7 +282,7 @@ class LdapUserSync(LdapSync):
             self.cursor.execute('select user, login_id from profile_profile')
             r = self.cursor.fetchall()
             for row in r:
-                email = row[0]
+                email = row[0].lower()
                 uid = row[1]
                 email_to_uid[email] = uid
         except Exception as e:
@@ -291,33 +291,16 @@ class LdapUserSync(LdapSync):
 
         return email_to_uid
 
-    def get_data_from_db(self, email_to_uid):
+    def get_uid_to_users(self, email_to_uid):
         # user_id <-> LdapUser
-        user_data_db = None
+        uid_to_users = {}
         users = get_ldap_users(-1, -1)
         if users is None:
             logger.warning('get ldap users from db failed.')
-            return user_data_db
+            return uid_to_users
 
-        user_data_db = {}
-        uid_to_users = {}
-        name = None
-        dept = None
         uid = None
-        cemail = None
         for user in users:
-            if self.settings.load_extra_user_info_sync:
-                name = self.get_attr_val('profile_profile', 'nickname', user.email)
-                dept = self.get_attr_val('profile_detailedprofile', 'department', user.email)
-                if self.settings.load_cemail_attr != '':
-                    cemail = self.get_attr_val('profile_profile', 'contact_email', user.email)
-
-            user_data_db[user.email] = LdapUser(user.id, user.password, name, dept,
-                                                uid, cemail,
-                                                1 if user.is_staff else 0,
-                                                1 if user.is_active else 0,
-                                                user.role,
-                                                user.is_manual_set)
             if user.email in email_to_uid:
                 uid = email_to_uid[user.email]
                 if uid in uid_to_users:
@@ -336,9 +319,51 @@ class LdapUserSync(LdapSync):
                 else:
                     uid_to_users[uid] = [user.email]
 
-        return user_data_db, uid_to_users
+        return uid_to_users
 
-    def get_data_from_ldap_by_server(self, config, uid_to_ldap_user):
+    def get_data_from_db(self):
+        # user_id <-> LdapUser
+        user_data_db = None
+        users = get_ldap_users(-1, -1)
+        if users is None:
+            logger.warning('get ldap users from db failed.')
+            return user_data_db
+
+        user_data_db = {}
+        name = None
+        dept = None
+        uid = None
+        cemail = None
+        for user in users:
+            if self.settings.load_extra_user_info_sync:
+                name = self.get_attr_val('profile_profile', 'nickname', user.email)
+                dept = self.get_attr_val('profile_detailedprofile', 'department', user.email)
+                if self.settings.load_cemail_attr != '':
+                    cemail = self.get_attr_val('profile_profile', 'contact_email', user.email)
+
+            user_data_db[user.email] = LdapUser(user.id, user.password, name, dept,
+                                                uid, cemail,
+                                                1 if user.is_staff else 0,
+                                                1 if user.is_active else 0,
+                                                user.role,
+                                                user.is_manual_set)
+
+        return user_data_db
+
+    def get_uid_to_ldap_user(self, data_ldap):
+        uid_to_ldap_user = {}
+        for k, v in data_ldap.iteritems():
+            email = k
+            uid = v.uid
+            if email is not None:
+                if uid in uid_to_ldap_user:
+                    continue
+                else:
+                    uid_to_ldap_user[uid] = email
+
+        return uid_to_ldap_user
+
+    def get_data_from_ldap_by_server(self, config):
         if not config.enable_user_sync:
             return {}
         ldap_conn = LdapConn(config.host, config.user_dn, config.passwd, config.follow_referrals)
@@ -360,7 +385,7 @@ class LdapUserSync(LdapSync):
         for base_dn in base_dns:
             if base_dn == '':
                 continue
-            data = self.get_data_by_base_dn(config, ldap_conn, base_dn, search_filter, uid_to_ldap_user)
+            data = self.get_data_by_base_dn(config, ldap_conn, base_dn, search_filter)
             if data is None:
                 continue
             user_data_ldap.update(data)
@@ -369,7 +394,7 @@ class LdapUserSync(LdapSync):
 
         return user_data_ldap
 
-    def get_data_by_base_dn(self, config, ldap_conn, base_dn, search_filter, uid_to_ldap_user):
+    def get_data_by_base_dn(self, config, ldap_conn, base_dn, search_filter):
         user_data_ldap = {}
         search_attr = [config.login_attr, config.pwd_change_attr]
 
@@ -454,11 +479,6 @@ class LdapUserSync(LdapSync):
             user_name = None if user_name is None else user_name.strip()
             user_data_ldap[email] = LdapUser(None, password, user_name, dept,
                                              uid, cemail, role = role)
-            if email is not None:
-                if uid in uid_to_ldap_user:
-                    continue
-                else:
-                    uid_to_ldap_user[uid] = email
 
         return user_data_ldap
 
@@ -549,9 +569,11 @@ class LdapUserSync(LdapSync):
 
     # Note: customized for PinaAn's requirements. Do not deactivate renamed users in ldap.
     # The checking of rename is based on profile_profile.login_id database field and uid attribute.
-    def sync_data(self, data_db, uid_to_users, data_ldap, uid_to_ldap_user):
+    def sync_data(self, data_db, data_ldap):
+        email_to_uid = self.get_uid_from_profile()
+        uid_to_users = self.get_uid_to_users(email_to_uid)
+        uid_to_ldap_user = self.get_uid_to_ldap_user(data_ldap)
         # used to find renamed users
-        deleted_users = {}
 
         # collect deleted users from ldap
         for k, v in uid_to_users.iteritems():
@@ -559,7 +581,11 @@ class LdapUserSync(LdapSync):
                 del_users = uid_to_users[k]
                 for del_user in del_users:
                     if data_db.has_key(del_user) and data_db[del_user].is_active == 1:
-                        deleted_users[del_user] = del_user
+                        if self.settings.enable_deactive_user:
+                            self.sync_del_user(data_db[del_user], del_user)
+                        else:
+                            logger.debug('User[%s] not found in ldap, '
+                                         'DEACTIVE_USER_IF_NOTFOUND option is not set, so not deactive it.' % del_user)
 
         # sync new and existing users from ldap to db
         for k, v in data_ldap.iteritems():
@@ -568,36 +594,26 @@ class LdapUserSync(LdapSync):
                     if self.settings.import_new_user:
                         self.sync_add_user(v, k)
                 else:
-                    success = False
+                    found_active = False
                     users = uid_to_users[v.uid]
                     for user in users:
                         if data_db.has_key(user) and data_db[user].is_active == 1:
-                            success = True
+                            found_active = True
                             break
-                    if success:
+                    if found_active:
                         continue
 
                     for user in users:
                         if k == user:
                             self.sync_update_user (v, data_db[k], k)
-                            success = True
+                            found_active = True
                             break
-                    if success:
+                    if found_active:
                         continue
 
-                    for user in users:
-                        if data_db.has_key[user]:
-                            self.sync_update_user (v, data_db[user], user)
-                            break
-
-        # deactivate users that are really deleted from ldap
-        for k,v in deleted_users.iteritems():
-            email = v
-            user = data_db[email]
-            if self.settings.enable_deactive_user:
-                self.sync_del_user(user, email)
-            else:
-                logger.debug('User[%s] not found in ldap, '
-                             'DEACTIVE_USER_IF_NOTFOUND option is not set, so not deactive it.' % email)
+                    if users:
+                        user = users[0]
+                        self.sync_update_user (v, data_db[user], user)
+                        break
 
         self.close_seahub_db()
