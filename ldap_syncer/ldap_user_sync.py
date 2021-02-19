@@ -577,7 +577,7 @@ class LdapUserSync(LdapSync):
 
         # collect deleted users from ldap
         for k, v in uid_to_users.iteritems():
-            if uid_to_ldap_user and not uid_to_ldap_user.has_key(k):
+            if uid_to_ldap_user and not uid_to_ldap_user.has_key(k.encode("utf-8")):
                 del_users = uid_to_users[k]
                 for del_user in del_users:
                     if data_db.has_key(del_user) and data_db[del_user].is_active == 1:
@@ -590,12 +590,13 @@ class LdapUserSync(LdapSync):
         # sync new and existing users from ldap to db
         for k, v in data_ldap.iteritems():
             if uid_to_users:
-                if not uid_to_users.has_key(v.uid):
+                uid = v.uid.decode("utf-8")
+                if not uid_to_users.has_key(uid):
                     if self.settings.import_new_user:
                         self.sync_add_user(v, k)
                 else:
                     found_active = False
-                    users = uid_to_users[v.uid]
+                    users = uid_to_users[uid]
                     for user in users:
                         if data_db.has_key(user) and data_db[user].is_active == 1:
                             found_active = True
@@ -604,8 +605,8 @@ class LdapUserSync(LdapSync):
                         continue
 
                     for user in users:
-                        if k == user:
-                            self.sync_update_user (v, data_db[k], k)
+                        if k.decode("utf-8") == user:
+                            self.sync_update_user (v, data_db[user], user)
                             found_active = True
                             break
                     if found_active:
