@@ -301,7 +301,7 @@ class LdapUserSync(LdapSync):
 
         uid = None
         for user in users:
-            email = user.email.encode("utf-8")
+            email = user.email.lower().encode("utf-8")
             if email in email_to_uid:
                 uid = email_to_uid[email]
                 if uid in uid_to_users:
