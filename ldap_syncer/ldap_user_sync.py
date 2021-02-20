@@ -284,7 +284,7 @@ class LdapUserSync(LdapSync):
             for row in r:
                 email = row[0].lower()
                 uid = row[1]
-                email_to_uid[email] = uid
+                email_to_uid[email.encode("utf-8")] = '' if not uid else uid.encode('utf-8')
         except Exception as e:
             logger.warning('Failed to get uid from profile_profile: %s.' % e)
             sys.exit(1)
@@ -301,23 +301,24 @@ class LdapUserSync(LdapSync):
 
         uid = None
         for user in users:
-            if user.email in email_to_uid:
-                uid = email_to_uid[user.email]
+            email = user.email.encode("utf-8")
+            if email in email_to_uid:
+                uid = email_to_uid[email]
                 if uid in uid_to_users:
                     uid_users = uid_to_users[uid]
-                    uid_users.append(user.email)
+                    uid_users.append(email)
                 else:
-                    uid_to_users[uid] = [user.email]
+                    uid_to_users[uid] = [email]
             else:
                 end = user.email.rfind('@')
                 if end < 1:
                     continue
-                uid =  user.email[0:end]
+                uid =  user.email[0:end].encode("utf-8")
                 if uid in uid_to_users:
                     uid_users = uid_to_users[uid]
-                    uid_users.append(user.email)
+                    uid_users.append(email)
                 else:
-                    uid_to_users[uid] = [user.email]
+                    uid_to_users[uid] = [email]
 
         return uid_to_users
 
@@ -341,7 +342,7 @@ class LdapUserSync(LdapSync):
                 if self.settings.load_cemail_attr != '':
                     cemail = self.get_attr_val('profile_profile', 'contact_email', user.email)
 
-            user_data_db[user.email] = LdapUser(user.id, user.password, name, dept,
+            user_data_db[user.email.encode("utf-8")] = LdapUser(user.id, user.password, name, dept,
                                                 uid, cemail,
                                                 1 if user.is_staff else 0,
                                                 1 if user.is_active else 0,
@@ -577,7 +578,7 @@ class LdapUserSync(LdapSync):
 
         # collect deleted users from ldap
         for k, v in uid_to_users.iteritems():
-            if uid_to_ldap_user and not uid_to_ldap_user.has_key(k.encode("utf-8")):
+            if uid_to_ldap_user and not uid_to_ldap_user.has_key(k):
                 del_users = uid_to_users[k]
                 for del_user in del_users:
                     if data_db.has_key(del_user) and data_db[del_user].is_active == 1:
@@ -590,7 +591,7 @@ class LdapUserSync(LdapSync):
         # sync new and existing users from ldap to db
         for k, v in data_ldap.iteritems():
             if uid_to_users:
-                uid = v.uid.decode("utf-8")
+                uid = v.uid
                 if not uid_to_users.has_key(uid):
                     if self.settings.import_new_user:
                         self.sync_add_user(v, k)
@@ -605,7 +606,7 @@ class LdapUserSync(LdapSync):
                         continue
 
                     for user in users:
-                        if k.decode("utf-8") == user:
+                        if k == user:
                             self.sync_update_user (v, data_db[user], user)
                             found_active = True
                             break
