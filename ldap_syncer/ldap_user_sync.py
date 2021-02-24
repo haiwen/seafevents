@@ -227,12 +227,12 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to update user %s profile: %s.' %
                             (email, e))
 
-    def update_profile_user(self, user, uid):
+    def update_profile_user_login_id(self, user, uid):
         try:
             self.cursor.execute('update profile_profile set user=%s where login_id=%s',
                                 (user, uid))
             if self.cursor.rowcount == 1:
-                logger.debug('Update user to %s success.' % user)
+                logger.debug('Update user email for login id %s to %s success.' % (uid, user))
         except Exception as e:
             logger.warning('Failed to update profile user to %s.' % user)
 
@@ -638,26 +638,21 @@ class LdapUserSync(LdapSync):
 
                     for user in users:
                         if k == user:
-                            self.sync_update_user (v, data_db[user], user)
+                            if data_db.has_key(user) and data_db[user].is_active == 0:
+                                self.sync_update_user (v, data_db[user], user)
                             found_active = True
                             break
 
-                    if found_active:
-                        for user in users:
-                            if k == user:
-                                continue
-                            self.sync_migrate_user (user, k)
-                            if self.settings.enable_deactive_user:
-                                self.sync_del_user(data_db[user], user)
-                        self.update_profile_user (k, uid)
-                        continue
+                    if not found_active:
+                        if self.settings.import_new_user:
+                            self.sync_add_user(v, k)
 
-                    if self.settings.import_new_user:
-                        self.sync_add_user(v, k)
-                        for user in users:
-                            self.sync_migrate_user (user, k)
-                            if self.settings.enable_deactive_user:
-                                self.sync_del_user(data_db[user], user)
-                        self.update_profile_user (k, uid)
+                    for user in users:
+                        if k == user:
+                            continue
+                        self.sync_migrate_user (user, k)
+                        if self.settings.enable_deactive_user:
+                            self.sync_del_user(data_db[user], user)
+                    self.update_profile_user_login_id (k, uid)
 
         self.close_seahub_db()
