@@ -227,6 +227,15 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to update user %s profile: %s.' %
                             (email, e))
 
+    def update_profile_user_login_id(self, user, uid):
+        try:
+            self.cursor.execute('update profile_profile set user=%s where login_id=%s',
+                                (user, uid))
+            if self.cursor.rowcount == 1:
+                logger.debug('Update user email for login id %s to %s success.' % (uid, user))
+        except Exception as e:
+            logger.warning('Failed to update profile user to %s.' % user)
+
     def update_dept(self, email, dept):
         try:
             self.cursor.execute('select 1 from profile_detailedprofile where user=%s', [email])
@@ -543,6 +552,34 @@ class LdapUserSync(LdapSync):
             if ldap_user.dept != db_user.dept:
                 self.update_dept(email, ldap_user.dept)
 
+    def sync_migrate_user(self, old_user, new_user):
+        if seafile_api.update_email_id (old_user, new_user) < 0:
+            logger.warning('Failed to update emailuser id to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update profile_detailedprofile set user=%s where user=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update profile_detailedprofile user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update share_fileshare set username=%s where username=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update share_fileshare username to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update share_uploadlinkshare set username=%s where username=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update share_uploadlinkshare username to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update base_userstarredfiles set email=%s where email=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update base_userstarredfiles email to %s.' % new_user)
+
     def sync_del_user(self, db_user, email):
         ret = update_ldap_user(db_user.user_id, email, db_user.password,
                                db_user.is_staff, 0)
@@ -598,24 +635,24 @@ class LdapUserSync(LdapSync):
                 else:
                     found_active = False
                     users = uid_to_users[uid]
-                    for user in users:
-                        if data_db.has_key(user) and data_db[user].is_active == 1:
-                            found_active = True
-                            break
-                    if found_active:
-                        continue
 
                     for user in users:
                         if k == user:
-                            self.sync_update_user (v, data_db[user], user)
+                            if data_db.has_key(user) and data_db[user].is_active == 0:
+                                self.sync_update_user (v, data_db[user], user)
                             found_active = True
                             break
-                    if found_active:
-                        continue
 
-                    if users:
-                        user = users[0]
-                        self.sync_update_user (v, data_db[user], user)
-                        break
+                    if not found_active:
+                        if self.settings.import_new_user:
+                            self.sync_add_user(v, k)
+
+                    for user in users:
+                        if k == user:
+                            continue
+                        self.sync_migrate_user (user, k)
+                        if self.settings.enable_deactive_user:
+                            self.sync_del_user(data_db[user], user)
+                    self.update_profile_user_login_id (k, uid)
 
         self.close_seahub_db()
