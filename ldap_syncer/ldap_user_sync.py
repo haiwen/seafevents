@@ -5,7 +5,7 @@ import sys
 logger = logging.getLogger('ldap_sync')
 logger.setLevel(logging.DEBUG)
 
-from seaserv import get_ldap_users, add_ldap_user, update_ldap_user, \
+from seaserv import get_ldap_users, add_ldap_user, update_ldap_user, del_ldap_user, \
         seafile_api, ccnet_api
 from ldap_conn import LdapConn
 from ldap_sync import LdapSync
@@ -312,7 +312,7 @@ class LdapUserSync(LdapSync):
         for user in users:
             email = user.email.lower().encode("utf-8")
             if email in email_to_uid:
-                uid = email_to_uid[email]
+                uid = email_to_uid[email].lower()
                 if uid in uid_to_users:
                     uid_users = uid_to_users[uid]
                     uid_users.append(email)
@@ -322,7 +322,7 @@ class LdapUserSync(LdapSync):
                 end = user.email.rfind('@')
                 if end < 1:
                     continue
-                uid =  user.email[0:end].encode("utf-8")
+                uid =  user.email[0:end].encode("utf-8").lower()
                 if uid in uid_to_users:
                     uid_users = uid_to_users[uid]
                     uid_users.append(email)
@@ -364,7 +364,7 @@ class LdapUserSync(LdapSync):
         uid_to_ldap_user = {}
         for k, v in data_ldap.iteritems():
             email = k
-            uid = v.uid
+            uid = v.uid.lower()
             if email is not None:
                 if uid in uid_to_ldap_user:
                     continue
@@ -601,10 +601,6 @@ class LdapUserSync(LdapSync):
         except Exception as e:
             logger.warning("Failed to delete repo tokens for user %s: %s." % (email, e))
 
-        if self.settings.load_extra_user_info_sync:
-            self.del_profile(email)
-            self.del_dept(email)
-
     # Note: customized for PinaAn's requirements. Do not deactivate renamed users in ldap.
     # The checking of rename is based on profile_profile.login_id database field and uid attribute.
     def sync_data(self, data_db, data_ldap):
@@ -628,7 +624,7 @@ class LdapUserSync(LdapSync):
         # sync new and existing users from ldap to db
         for k, v in data_ldap.iteritems():
             if uid_to_users:
-                uid = v.uid
+                uid = v.uid.lower()
                 if not uid_to_users.has_key(uid):
                     if self.settings.import_new_user:
                         self.sync_add_user(v, k)
@@ -643,16 +639,18 @@ class LdapUserSync(LdapSync):
                             found_active = True
                             break
 
+                    ldap_email = k
                     if not found_active:
-                        if self.settings.import_new_user:
-                            self.sync_add_user(v, k)
+                        email = users[0]
+                        self.sync_update_user (v, data_db[email], k)
+                        k = email
 
                     for user in users:
                         if k == user:
                             continue
                         self.sync_migrate_user (user, k)
-                        if self.settings.enable_deactive_user:
-                            self.sync_del_user(data_db[user], user)
-                    self.update_profile_user_login_id (k, uid)
+                        del_ldap_user (data_db[user].user_id)
+                        logger.debug('Delete user [%s] success.' % user)
+                    self.update_profile_user_login_id (ldap_email, uid)
 
         self.close_seahub_db()
