@@ -601,10 +601,6 @@ class LdapUserSync(LdapSync):
         except Exception as e:
             logger.warning("Failed to delete repo tokens for user %s: %s." % (email, e))
 
-        if self.settings.load_extra_user_info_sync:
-            self.del_profile(email)
-            self.del_dept(email)
-
     # Note: customized for PinaAn's requirements. Do not deactivate renamed users in ldap.
     # The checking of rename is based on profile_profile.login_id database field and uid attribute.
     def sync_data(self, data_db, data_ldap):
