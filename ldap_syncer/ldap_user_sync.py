@@ -351,7 +351,7 @@ class LdapUserSync(LdapSync):
                 if self.settings.load_cemail_attr != '':
                     cemail = self.get_attr_val('profile_profile', 'contact_email', user.email)
 
-            user_data_db[user.email.encode("utf-8")] = LdapUser(user.id, user.password, name, dept,
+            user_data_db[user.email.encode("utf-8").lower()] = LdapUser(user.id, user.password, name, dept,
                                                 uid, cemail,
                                                 1 if user.is_staff else 0,
                                                 1 if user.is_active else 0,
@@ -517,21 +517,18 @@ class LdapUserSync(LdapSync):
             self.add_profile(email, ldap_user)
             self.add_dept(email, ldap_user.dept)
 
-    def sync_update_user(self, ldap_user, db_user, email):
+    def sync_update_user(self, ldap_user, db_user, email, new_email):
         # PingAn customization: reactivate user when it's added back to AD.
-        set_status = False
         if db_user.is_active == 0:
             db_user.is_active = 1
-            set_status = True
 
-        if set_status:
-            rc = update_ldap_user(db_user.user_id, email, ldap_user.password,
-                                  db_user.is_staff, db_user.is_active)
-            if rc < 0:
-                logger.warning('Activate user [%s] failed.' % email)
-            else:
-                logger.debug('Activate user [%s] success.' % email)
-                self.uuser += 1
+        rc = update_ldap_user(db_user.user_id, new_email, ldap_user.password,
+                              db_user.is_staff, db_user.is_active)
+        if rc < 0:
+            logger.warning('Activate user [%s] failed.' % email)
+        else:
+            logger.debug('Activate user [%s] success.' % email)
+            self.uuser += 1
 
         ret = 0
 
@@ -635,22 +632,27 @@ class LdapUserSync(LdapSync):
                     for user in users:
                         if k == user:
                             if data_db.has_key(user) and data_db[user].is_active == 0:
-                                self.sync_update_user (v, data_db[user], user)
+                                self.sync_update_user (v, data_db[user], user, k)
                             found_active = True
                             break
 
-                    ldap_email = k
-                    if not found_active:
-                        email = users[0]
-                        self.sync_update_user (v, data_db[email], k)
-                        k = email
+                    if found_active:
+                        for user in users:
+                            if k == user:
+                                continue
+                            self.sync_migrate_user (user, k)
+                            del_ldap_user (data_db[user].user_id)
+                            logger.debug('Delete user [%s] success.' % user)
+                        self.update_profile_user_login_id (k, uid)
+                        continue
 
+                    email = users[0]
+                    self.sync_update_user (v, data_db[email], email, k)
                     for user in users:
-                        if k == user:
-                            continue
                         self.sync_migrate_user (user, k)
-                        del_ldap_user (data_db[user].user_id)
-                        logger.debug('Delete user [%s] success.' % user)
-                    self.update_profile_user_login_id (ldap_email, uid)
+                        if email != user:
+                            del_ldap_user (data_db[user].user_id)
+                            logger.debug('Delete user [%s] success.' % user)
+                    self.update_profile_user_login_id (k, uid)
 
         self.close_seahub_db()
