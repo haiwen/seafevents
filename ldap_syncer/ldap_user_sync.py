@@ -577,6 +577,114 @@ class LdapUserSync(LdapSync):
         except Exception as e:
             logger.warning('Failed to update base_userstarredfiles email to %s.' % new_user)
 
+        try:
+            self.cursor.execute('update api2_token set user=%s where user=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update api2_token user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update api2_tokenv2 set user=%s where user=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update api2_tokenv2 user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update admin_log_adminlog set email=%s where email=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update admin_log_adminlog email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update avatar_avatar set emailuser=%s where emailuser=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update avatar_avatar email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update base_clientlogintoken set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update base_clientlogintoken email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update base_devicetoken set user=%s where user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update base_devicetoken user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update base_filecomment set author=%s where author=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update base_filecomment author to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update base_userlastlogin set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update base_userlastlogin user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update drafts_draft set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update drafts_draft user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update drafts_draftreviewer set reviewer=%s where reviewer=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update drafts_draftreviewer reviewer to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update notifications_usernotification set to_user=%s where to_user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update notifications_usernotification to_user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update options_useroptions set email=%s where email=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update options_useroptions email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update role_permissions_adminrole set email=%s where email=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update role_permissions_adminrole email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update sysadmin_extra_userloginlog set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update sysadmin_extra_userloginlog email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update tags_filetag set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update tags_filetag email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update wiki_wiki set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update wiki_wiki email to %s.' % new_user)
+
     def sync_del_user(self, db_user, email):
         ret = update_ldap_user(db_user.user_id, email, db_user.password,
                                db_user.is_staff, 0)
