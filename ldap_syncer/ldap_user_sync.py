@@ -685,6 +685,83 @@ class LdapUserSync(LdapSync):
         except Exception as e:
             logger.warning('Failed to update wiki_wiki email to %s.' % new_user)
 
+        try:
+            self.cursor.execute('update Activity set op_user=%s where op_user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update Activity user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update UserActivity set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update UserActivity user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update FileHistory set op_user=%s where op_user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update FileHistory user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update FileAudit set user=%s where user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update FileAudit user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update FileUpdate set user=%s where user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update FileUpdate user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update PermAudit set from_user=%s where from_user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update PermAudit from_user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update PermAudit set to=%s where to=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update PermAudit to_user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update UserTrafficStat set email=%s where email=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update UserTrafficStat email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update UserActivityStat set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update UserActivityStat username to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update UserTraffic set user=%s where user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update UserTraffic user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update MonthlyUserTraffic set user=%s where user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update MonthlyUserTraffic user to %s.' % new_user)
+
     def sync_del_user(self, db_user, email):
         ret = update_ldap_user(db_user.user_id, email, db_user.password,
                                db_user.is_staff, 0)
