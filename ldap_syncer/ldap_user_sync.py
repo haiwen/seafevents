@@ -728,7 +728,7 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to update PermAudit from_user to %s.' % new_user)
 
         try:
-            self.cursor.execute('update PermAudit set to=%s where to=%s',
+            self.cursor.execute('update PermAudit set `to`=%s where `to`=%s',
 
                                 (new_user, old_user))
         except Exception as e:
