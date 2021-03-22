@@ -554,7 +554,6 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to update emailuser id to %s.' % new_user)
         logger.debug('$migrate$ %s $to$ %s .' % (old_user, new_user))
 
-        '''
         try:
             self.cursor.execute('update profile_detailedprofile set user=%s where user=%s',
                                 (new_user, old_user))
@@ -687,6 +686,7 @@ class LdapUserSync(LdapSync):
         except Exception as e:
             logger.warning('Failed to update wiki_wiki email to %s.' % new_user)
 
+        '''
         try:
             self.cursor.execute('update Activity set op_user=%s where op_user=%s',
 
