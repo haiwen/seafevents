@@ -552,7 +552,9 @@ class LdapUserSync(LdapSync):
     def sync_migrate_user(self, old_user, new_user):
         if seafile_api.update_email_id (old_user, new_user) < 0:
             logger.warning('Failed to update emailuser id to %s.' % new_user)
+        logger.debug('$migrate$ %s $to$ %s .' % (old_user, new_user))
 
+        '''
         try:
             self.cursor.execute('update profile_detailedprofile set user=%s where user=%s',
                                 (new_user, old_user))
@@ -761,6 +763,7 @@ class LdapUserSync(LdapSync):
                                 (new_user, old_user))
         except Exception as e:
             logger.warning('Failed to update MonthlyUserTraffic user to %s.' % new_user)
+        '''
 
     def sync_del_user(self, db_user, email):
         ret = update_ldap_user(db_user.user_id, email, db_user.password,
