@@ -806,6 +806,33 @@ class LdapUserSync(LdapSync):
                             logger.debug('User[%s] not found in ldap, '
                                          'DEACTIVE_USER_IF_NOTFOUND option is not set, so not deactive it.' % del_user)
 
+        # collect migrated users
+        nums = 0
+        for k, v in data_ldap.iteritems():
+            if uid_to_users:
+                uid = v.uid.lower()
+                if uid_to_users.has_key(uid):
+                    found_active = False
+                    users = uid_to_users[uid]
+
+                    for user in users:
+                        if k == user:
+                            found_active = True
+                            break
+
+                    if found_active:
+                        for user in users:
+                            if k == user:
+                                continue
+                            nums = nums + 1
+                        continue
+
+                    for user in users:
+                        nums = nums + 1
+
+        if nums > 0:
+            logger.debug('%d users need migrate.' % nums)
+
         # sync new and existing users from ldap to db
         for k, v in data_ldap.iteritems():
             if uid_to_users:
