@@ -5,7 +5,7 @@ import uuid
 import hashlib
 
 from sqlalchemy import Column, Integer, String, DateTime, Text, Index, BigInteger
-from sqlalchemy import ForeignKey, Sequence
+from sqlalchemy import ForeignKey
 
 from seafevents.db import Base
 
@@ -14,7 +14,7 @@ class Activity(Base):
     """
     __tablename__ = 'Activity'
 
-    id = Column(Integer, Sequence('activity_seq'), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     op_type = Column(String(length=128), nullable=False)
     op_user = Column(String(length=255), nullable=False)
     obj_type = Column(String(length=128), nullable=False)
@@ -53,7 +53,7 @@ class UserActivity(Base):
     """
     __tablename__ = 'UserActivity'
 
-    id = Column(Integer, Sequence('useractivity_seq'), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(length=255), nullable=False)
     activity_id = Column(Integer, ForeignKey('Activity.id', ondelete='CASCADE'))
     timestamp = Column(DateTime, nullable=False, index=True)
@@ -98,7 +98,7 @@ class Event(Base):
 class UserEvent(Base):
     __tablename__ = 'UserEvent'
 
-    id = Column(Integer, Sequence('user_event_eid_seq'), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
 
     org_id = Column(Integer)
 
@@ -122,7 +122,7 @@ class UserEvent(Base):
 class FileHistory(Base):
     __tablename__ = 'FileHistory'
 
-    id = Column(Integer, Sequence('user_event_eid_seq'), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     op_type = Column(String(length=128), nullable=False)
     op_user = Column(String(length=255), nullable=False)
     timestamp = Column(DateTime, nullable=False, index=True)
@@ -152,7 +152,7 @@ class FileHistory(Base):
 class FileAudit(Base):
     __tablename__ = 'FileAudit'
 
-    eid = Column(Integer, Sequence('file_audit_eid_seq'), primary_key=True)
+    eid = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime, nullable=False, index=True)
     etype = Column(String(length=128), nullable=False)
     user = Column(String(length=255), nullable=False)
@@ -194,7 +194,7 @@ class FileAudit(Base):
 class FileUpdate(Base):
     __tablename__ = 'FileUpdate'
 
-    eid = Column(Integer, Sequence('file_update_eid_seq'), primary_key=True)
+    eid = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime, nullable=False, index=True)
     user = Column(String(length=255), nullable=False)
     org_id = Column(Integer, nullable=False)
@@ -229,7 +229,7 @@ class FileUpdate(Base):
 class PermAudit(Base):
     __tablename__ = 'PermAudit'
 
-    eid = Column(Integer, Sequence('user_perm_audit_eid_seq'), primary_key=True)
+    eid = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime, nullable=False)
     etype = Column(String(length=128), nullable=False)
     from_user = Column(String(length=255), nullable=False)

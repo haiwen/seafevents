@@ -1,5 +1,4 @@
 from sqlalchemy import Column, Integer, String, Text, Boolean
-from sqlalchemy import Sequence
 
 from seafevents.db import Base
 
@@ -17,7 +16,7 @@ class VirusScanRecord(Base):
 class VirusFile(Base):
     __tablename__ = 'VirusFile'
 
-    vid = Column(Integer, Sequence('virus_file_seq'), primary_key=True)
+    vid = Column(Integer, primary_key=True, autoincrement=True)
     repo_id = Column(String(length=36), nullable=False, index=True)
     commit_id = Column(String(length=40), nullable=False)
     file_path = Column(Text, nullable=False)

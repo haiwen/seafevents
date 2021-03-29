@@ -162,7 +162,7 @@ class GroupIdLDAPUuidPair(Base):
     """
     __tablename__ = 'GroupIdLDAPUuidPair'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     group_id = Column(Integer, unique=True, nullable=False)
     group_uuid = Column(String(36), default=uuid.uuid4, unique=True, nullable=False)
 
