@@ -1,14 +1,13 @@
 # coding: utf-8
 
 from sqlalchemy import Column, Integer, String, DateTime, Text, Index, BigInteger
-from sqlalchemy import Sequence
 
 from seafevents.db import Base
 
 class ContentScanRecord(Base):
     __tablename__ = 'ContentScanRecord'
 
-    id = Column(Integer, Sequence('content_scan_record_seq'), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     repo_id = Column(String(length=36), nullable=False, index=True)
     commit_id = Column(String(length=40), nullable=False)
     timestamp = Column(DateTime(), nullable=False)
@@ -21,7 +20,7 @@ class ContentScanRecord(Base):
 class ContentScanResult(Base):
     __tablename__ = 'ContentScanResult'
 
-    id = Column(Integer, Sequence('content_scan_result_seq'), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     repo_id = Column(String(length=36), nullable=False, index=True)
     path = Column(Text, nullable=False)
     platform = Column(String(length=32), nullable=False)
