@@ -328,7 +328,7 @@ class LdapGroupSync(LdapSync):
 
             result = ldap_conn.search(base_dn, SCOPE_BASE,
                                       search_filter,
-                                      ['ou', config.department_name_attr])
+                                      ['ou', config.group_uuid_attr])
             result = bytes2str(result)
             dn, attrs = result[0]
             group_uuid = attrs[config.group_uuid_attr][0]
