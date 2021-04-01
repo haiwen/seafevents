@@ -686,7 +686,6 @@ class LdapUserSync(LdapSync):
         except Exception as e:
             logger.warning('Failed to update wiki_wiki email to %s.' % new_user)
 
-        '''
         try:
             self.cursor.execute('update Activity set op_user=%s where op_user=%s',
 
@@ -763,7 +762,6 @@ class LdapUserSync(LdapSync):
                                 (new_user, old_user))
         except Exception as e:
             logger.warning('Failed to update MonthlyUserTraffic user to %s.' % new_user)
-        '''
 
     def sync_del_user(self, db_user, email):
         ret = update_ldap_user(db_user.user_id, email, db_user.password,
