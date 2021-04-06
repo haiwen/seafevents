@@ -474,12 +474,11 @@ class LdapGroupSync(LdapSync):
             grp_uuid_pairs[pair['group_uuid']] = pair['group_id']
             group_uuid_db[pair['group_uuid']] = pair['group_id']
 
-
         # sync deleted group in ldap to db
-        # delete in reversed group id order, first delete subdepartment, then delete parent department
+        # delete in reversed group id order, first delete sub department, then delete parent department
         reversed_dict_by_grp_id = {k: v for k, v in reversed(sorted(grp_uuid_pairs.items(), key=lambda item: item[1]))}
         for k in reversed_dict_by_grp_id:
-            if data_db and k not in data_ldap:
+            if grp_uuid_pairs[k] in data_db and k not in data_ldap:
                 deleted_group_id = grp_uuid_pairs[k]
                 if (not data_db[deleted_group_id].is_department and self.settings.del_group_if_not_found) or \
                    (data_db[deleted_group_id].is_department and self.settings.del_department_if_not_found):
