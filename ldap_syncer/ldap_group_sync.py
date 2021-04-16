@@ -10,7 +10,8 @@ from seaserv import get_ldap_groups, get_group_members, add_group_dn_pair, \
 from ldap import SCOPE_SUBTREE, SCOPE_BASE, SCOPE_ONELEVEL
 from .ldap_conn import LdapConn
 from .ldap_sync import LdapSync
-from .utils import bytes2str, add_group_uuid_pair, get_group_uuid_pairs, remove_group_uuid_pair_by_id
+from .utils import bytes2str, add_group_uuid_pair, get_group_uuid_pairs, remove_group_uuid_pair_by_id, \
+        remove_useless_group_uuid_pairs
 
 
 class LdapGroup(object):
@@ -49,6 +50,10 @@ class LdapGroupSync(LdapSync):
         if groups is None:
             logger.warning('get ldap groups from db failed.')
             return grp_data_db
+
+        # remove not exist group's uuid_pair
+        group_ids = [int(group.id) for group in groups]
+        remove_useless_group_uuid_pairs(group_ids)
 
         grp_data_db = {}
         for group in groups:

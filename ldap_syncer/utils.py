@@ -68,3 +68,14 @@ def remove_group_uuid_pair_by_id(group_id):
         return
 
     session.commit()
+
+
+def remove_useless_group_uuid_pairs(group_ids):
+    session = appconfig.session_cls()
+    try:
+        session.query(GroupIdLDAPUuidPair).filter(
+            GroupIdLDAPUuidPair.group_id.not_in(group_ids)).delete(synchronize_session=False)
+    except Exception as e:
+        logger.error('remote group_id:group_uuid pair failed. \n{}'.format(e))
+        return
+    session.commit()
