@@ -781,7 +781,7 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to update share_fileshareapprovalstatus email to %s.' % new_user)
 
         try:
-            self.cursor.execute('update share_fileshareextrainfo set send_to=%s where send_to=%s',
+            self.cursor.execute('update share_fileshareextrainfo set sent_to=%s where sent_to=%s',
 
                                 (new_user, old_user))
         except Exception as e:
