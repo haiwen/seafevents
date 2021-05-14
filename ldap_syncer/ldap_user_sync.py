@@ -616,12 +616,6 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to update profile_detailedprofile user to %s.' % new_user)
 
         try:
-            self.cursor.execute('update share_fileshare set username=%s where username=%s',
-                                (new_user, old_user))
-        except Exception as e:
-            logger.warning('Failed to update share_fileshare username to %s.' % new_user)
-
-        try:
             self.cursor.execute('update share_uploadlinkshare set username=%s where username=%s',
                                 (new_user, old_user))
         except Exception as e:
@@ -740,13 +734,6 @@ class LdapUserSync(LdapSync):
                                 (new_user, old_user))
         except Exception as e:
             logger.warning('Failed to update wiki_wiki email to %s.' % new_user)
-
-        try:
-            self.cursor.execute('update share_fileshareapprovalstatus set email=%s where email=%s',
-
-                                (new_user, old_user))
-        except Exception as e:
-            logger.warning('Failed to update share_fileshareapprovalstatus email to %s.' % new_user)
 
         try:
             self.cursor.execute('update share_fileshareextrainfo set sent_to=%s where sent_to=%s',
