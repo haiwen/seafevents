@@ -597,6 +597,13 @@ class LdapUserSync(LdapSync):
             if ldap_user.dept != db_user.dept or ldap_user.company_code != db_user.company_code:
                 self.update_dept(email, ldap_user.dept, ldap_user.company_code)
 
+    def record_uid_to_old_email (self, uid, old_email):
+        try:
+            self.cursor.execute('insert into login_id_to_old_emails (login_id, old_email) values (%s, %s)',
+                                (uid, old_email))
+        except Exception as e:
+            logger.warning('Failed to insert user %s: %s.' % (uid, old_email))
+
     def sync_migrate_user(self, old_user, new_user):
         if seafile_api.update_email_id (old_user, new_user) < 0:
             logger.warning('Failed to update emailuser id to %s.' % new_user)
@@ -607,12 +614,6 @@ class LdapUserSync(LdapSync):
                                 (new_user, old_user))
         except Exception as e:
             logger.warning('Failed to update profile_detailedprofile user to %s.' % new_user)
-
-        try:
-            self.cursor.execute('update share_fileshare set username=%s where username=%s',
-                                (new_user, old_user))
-        except Exception as e:
-            logger.warning('Failed to update share_fileshare username to %s.' % new_user)
 
         try:
             self.cursor.execute('update share_uploadlinkshare set username=%s where username=%s',
@@ -733,13 +734,6 @@ class LdapUserSync(LdapSync):
                                 (new_user, old_user))
         except Exception as e:
             logger.warning('Failed to update wiki_wiki email to %s.' % new_user)
-
-        try:
-            self.cursor.execute('update share_fileshareapprovalstatus set email=%s where email=%s',
-
-                                (new_user, old_user))
-        except Exception as e:
-            logger.warning('Failed to update share_fileshareapprovalstatus email to %s.' % new_user)
 
         try:
             self.cursor.execute('update share_fileshareextrainfo set sent_to=%s where sent_to=%s',
@@ -949,6 +943,7 @@ class LdapUserSync(LdapSync):
                         if email != user:
                             del_ldap_user (data_db[user].user_id)
                             logger.debug('Delete user [%s] success.' % user)
+                    self.record_uid_to_old_email (uid, email)
                     self.update_profile_user_login_id (k, uid)
 
         self.close_seahub_db()
