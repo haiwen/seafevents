@@ -299,7 +299,7 @@ def get_events(session, obj, username, org_id, repo_id, file_path, start, limit)
     if org_id > 0:
         q = q.filter(obj.org_id == org_id)
     elif org_id < 0:
-        q = q.filter(obj.org_id <= 0)
+        q = q.filter(obj.org_id == -1)
 
     q = q.order_by(desc(obj.eid)).slice(start, start + limit)
 
