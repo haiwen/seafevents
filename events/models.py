@@ -155,11 +155,11 @@ class FileAudit(Base):
     eid = Column(Integer, primary_key=True, autoincrement=True)
     timestamp = Column(DateTime, nullable=False, index=True)
     etype = Column(String(length=128), nullable=False)
-    user = Column(String(length=255), nullable=False)
+    user = Column(String(length=255), nullable=False, index=True)
     ip = Column(String(length=45), nullable=False)
     device = Column(Text, nullable=False)
     org_id = Column(Integer, nullable=False)
-    repo_id = Column(String(length=36), nullable=False)
+    repo_id = Column(String(length=36), nullable=False, index=True)
     file_path = Column(Text, nullable=False)
     __table_args__ = (Index('idx_file_audit_orgid_eid',
                             'org_id', 'eid'),
