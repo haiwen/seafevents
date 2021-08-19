@@ -85,8 +85,6 @@ def RepoUpdateEventHandler(session, msg):
                         parent, users, time)
 
                 save_user_activities(session, records)
-            else:
-                save_repo_rename_activity(session, commit, repo_id, parent, org_id, users, time)
 
             if appconfig.enable_collab_server:
                 send_message_to_collab_server(repo_id)

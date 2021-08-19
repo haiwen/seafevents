@@ -260,19 +260,6 @@ CREATE TABLE `UserTraffic` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `UserTrafficStat` (
-  `email` varchar(255) NOT NULL,
-  `month` varchar(6) NOT NULL,
-  `block_download` bigint(20) NOT NULL,
-  `file_view` bigint(20) NOT NULL,
-  `file_download` bigint(20) NOT NULL,
-  `dir_download` bigint(20) NOT NULL,
-  PRIMARY KEY (`email`,`month`),
-  KEY `ix_UserTrafficStat_month` (`month`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `VirusFile` (
   `vid` int(11) NOT NULL AUTO_INCREMENT,
   `repo_id` varchar(36) NOT NULL,
@@ -1785,19 +1772,6 @@ CREATE TABLE `UserTraffic` (
   KEY `ix_UserTraffic_org_id` (`org_id`),
   KEY `idx_traffic_time_user` (`timestamp`,`user`,`org_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=263 DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `UserTrafficStat` (
-  `email` varchar(255) NOT NULL,
-  `month` varchar(6) NOT NULL,
-  `block_download` bigint(20) NOT NULL,
-  `file_view` bigint(20) NOT NULL,
-  `file_download` bigint(20) NOT NULL,
-  `dir_download` bigint(20) NOT NULL,
-  PRIMARY KEY (`email`,`month`),
-  KEY `ix_UserTrafficStat_month` (`month`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;

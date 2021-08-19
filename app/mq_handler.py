@@ -97,5 +97,4 @@ class EventsHandler(object):
         logger.info('Subscribe to channels: %s', channels)
         for channel in channels:
             event_handler = Thread(target=self.handle_event, args=(channel, ))
-            event_handler.setDaemon(True)
             event_handler.start()
