@@ -20,7 +20,7 @@ class LdapConn(object):
         try:
             self.conn.set_option(ldap.OPT_REFERRALS, 1 if self.follow_referrals else 0)
         except ldap.LDAPError as e:
-            logging.warning('Failed to set follow_referrals option, error: %s' % e.message)
+            logging.warning('Failed to set follow_referrals option, error: %s' % e)
 
         try:
             self.conn.simple_bind_s(self.user_dn, self.passwd)
@@ -31,7 +31,7 @@ class LdapConn(object):
         except ldap.LDAPError as e:
             self.conn = None
             logging.warning('Connect ldap server %s failed, error: %s' %
-                            (self.host, e.message))
+                            (self.host, e))
 
     def search(self, base_dn, scope, search_filter, attr_list):
         if not self.conn:
@@ -43,7 +43,7 @@ class LdapConn(object):
         except ldap.LDAPError as e:
             logging.warning('Search failed for base dn(%s), filter(%s) '
                             'on server %s error: %s' % (base_dn, search_filter,
-                                                        self.host, e.message))
+                                                        self.host, e))
 
         return result
 
@@ -60,12 +60,12 @@ class LdapConn(object):
                                               attr_list, serverctrls=[ctrl])
                 rtype, rdata, rmsgid, ctrls = self.conn.result3(result)
             except ldap.LDAPError as e:
-                if isinstance(e.message, dict) and e.message['desc'] == 'No such object':
+                if isinstance(e, dict) and e.get('desc', '') == 'No such object':
                     pass
                 else:
                     logging.warning('Search failed for base dn(%s), filter(%s) '
                                     'on server %s error: %s' % (base_dn, search_filter,
-                                                                self.host, e.message))
+                                                                self.host, e))
                 return None
 
             total_result.extend(rdata)
