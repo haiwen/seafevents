@@ -19,7 +19,7 @@ class LDAPSyncTestHelper:
         try:
             self.conn.set_option(ldap.OPT_REFERRALS, 1 if self.follow_referrals else 0)
         except ldap.LDAPError as e:
-            logging.warning('Failed to set follow_referrals option, error: %s' % e.message)
+            logging.warning('Failed to set follow_referrals option, error: %s' % e)
 
         try:
             self.conn.simple_bind_s(self.user_dn, self.passwd)
@@ -30,7 +30,7 @@ class LDAPSyncTestHelper:
         except ldap.LDAPError as e:
             self.conn = None
             logging.warning('Connect ldap server %s failed, error: %s' %
-                            (self.host, e.message))
+                            (self.host, e))
 
     def __del__(self):
         if self.conn:
