@@ -131,17 +131,21 @@ class LdapGroupSync(LdapSync):
                 group_dn, attrs = result
                 if not isinstance(attrs, dict):
                     continue
-                self.get_group_member_from_ldap(config, ldap_conn, group_dn, grp_data_ldap, sort_list, parent_dn=None)
+                self.get_group_member_from_ldap(config, ldap_conn, group_dn, grp_data_ldap, sort_list, parent_dn=None, depth=1)
 
         self.sort_list.extend(list(grp_data_ldap.items()))
 
         return grp_data_ldap
 
 
-    def get_group_member_from_ldap(self, config, ldap_conn, base_dn, grp_data, sort_list, parent_dn):
+    def get_group_member_from_ldap(self, config, ldap_conn, base_dn, grp_data, sort_list, parent_dn, depth=1):
         """
         grp_data is dict of {dn: LdapGroup} pairs, base_dn is suppose to be group dn
         """
+        if depth > 50:
+            logger.error('50 recursion depth exceeded, this group is unusual.')
+            return
+        depth += 1
         if base_dn in grp_data:
             if not grp_data[base_dn].parent_dn:
                 grp_data[base_dn].parent_dn = parent_dn
@@ -199,7 +203,7 @@ class LdapGroupSync(LdapSync):
         # group member
         if config.group_member_attr in attrs and attrs[config.group_member_attr] != ['']:
             for member in attrs[config.group_member_attr]:
-                mails = self.get_group_member_from_ldap(config, ldap_conn, member, grp_data, sort_list, base_dn)
+                mails = self.get_group_member_from_ldap(config, ldap_conn, member, grp_data, sort_list, base_dn, depth)
                 if not mails:
                     continue
                 all_mails.extend(mails)
