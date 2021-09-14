@@ -274,7 +274,7 @@ class LdapGroupSync(LdapSync):
                         name = self.get_department_name(config, attrs, attrs['cn'][0])
                     else:
                         name = attrs['cn'][0]
-                    grp_data_ldap[group_dn] = LdapGroup(name, None, [], None, 0, config.sync_group_as_department)
+                    grp_data_ldap[group_uuid] = LdapGroup(name, None, [], None, 0, config.sync_group_as_department)
                     continue
                 all_mails = []
                 for member in attrs[config.group_member_attr]:
@@ -285,7 +285,7 @@ class LdapGroupSync(LdapSync):
 
                 grp_data_ldap[group_uuid] = LdapGroup(attrs['cn'][0], None,
                                                     sorted(set(all_mails)), None, 0, config.sync_group_as_department)
-                sort_list.append((group_dn, grp_data_ldap[group_uuid]))
+                sort_list.append((group_uuid, grp_data_ldap[group_uuid]))
 
         self.sort_list.extend(sort_list)
         return grp_data_ldap
