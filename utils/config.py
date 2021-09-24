@@ -1,9 +1,7 @@
 import os
 import logging
 import configparser
-import tempfile
 
-from seafevents.utils import has_office_tools
 
 def parse_workers(workers, default_workers):
     try:
@@ -85,102 +83,3 @@ def parse_interval(interval, default):
         return default
     else:
         return val
-
-def get_office_converter_conf(config):
-    '''Parse search related options from events.conf'''
-
-    if not has_office_tools():
-        logging.debug('office converter is not enabled because libreoffice or python-uno is not found')
-        return dict(enabled=False)
-
-    section_name = 'OFFICE CONVERTER'
-    key_enabled = 'enabled'
-
-    key_outputdir = 'outputdir'
-    default_outputdir = os.path.join(tempfile.gettempdir(), 'seafile-office-output')
-
-    key_workers = 'workers'
-    default_workers = 2
-
-    key_max_pages = 'max-pages'
-    default_max_pages = 50
-
-    key_max_size = 'max-size'
-    default_max_size = 2 * 1024 * 1024
-
-    key_host = 'host'
-    default_host = '127.0.0.1'
-
-    key_port = 'port'
-    default_port = 6000
-
-    d = {'enabled': False}
-    if not config.has_section(section_name):
-        return d
-
-    def get_option(key, default=None):
-        try:
-            value = config.get(section_name, key)
-        except configparser.NoOptionError:
-            value = default
-
-        return value
-
-    enabled = get_option(key_enabled, default=False)
-    enabled = parse_bool(enabled)
-
-    d['enabled'] = enabled
-    logging.debug('office enabled: %s', enabled)
-
-    if not enabled:
-        return d
-
-    # [ outputdir ]
-    outputdir = get_option(key_outputdir, default=default_outputdir)
-
-    if not os.path.exists(outputdir):
-        try:
-            os.mkdir(outputdir)
-        except Exception as e:
-            logging.error(e)
-
-    if not os.access(outputdir, os.R_OK):
-        logging.error('Permission Denied: %s is not readable' % outputdir)
-
-    if not os.access(outputdir, os.W_OK):
-        logging.error('Permission Denied: %s is not allowed to be written.' % outputdir)
-
-    # [ workers ]
-    workers = get_option(key_workers, default=default_workers)
-    workers = parse_workers(workers, default_workers)
-
-
-    # [ max_size ]
-    max_size = get_option(key_max_size, default=default_max_size)
-    if max_size != default_max_size:
-        max_size = parse_max_size(max_size, default=default_max_size)
-
-    # [ max_pages ]
-    max_pages = get_option(key_max_pages, default=default_max_pages)
-    if max_pages != default_max_pages:
-        max_pages = parse_max_pages(max_pages, default=default_max_pages)
-
-    # [ http server address ]
-    host = get_option(key_host, default=default_host)
-    port = get_option(key_port, default=default_port)
-
-    logging.debug('office convert workers: %s', workers)
-    logging.debug('office outputdir: %s', outputdir)
-    logging.debug('office convert max pages: %s', max_pages)
-    logging.debug('office convert max size: %s MB', max_size / 1024 / 1024)
-    logging.debug('office http server host: %s', host)
-    logging.debug('office http server port: %s', port)
-
-    d['outputdir'] = outputdir
-    d['workers'] = workers
-    d['max_pages'] = max_pages
-    d['max_size'] = max_size
-    d['host'] = host
-    d['port'] = port
-
-    return d

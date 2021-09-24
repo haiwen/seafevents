@@ -8,7 +8,6 @@ import subprocess
 
 logger = logging.getLogger(__name__)
 pyexec = None
-HAS_OFFICE_TOOLS = None
 
 def find_in_path(prog):
     if 'win32' in sys.platform:
@@ -26,55 +25,6 @@ def find_in_path(prog):
             return path
 
     return None
-
-def check_office_tools():
-    return True
-    """Check if requried executables can be found in PATH. If not, error
-    and exit.
-
-    """
-    tools = [
-        'soffice',
-    ]
-
-    for prog in tools:
-        if find_in_path(prog) is None:
-            logging.debug("Can't find the %s executable in PATH\n" % prog)
-            return False
-
-    return True
-
-def check_python_uno():
-    try:
-        import uno
-        del uno
-    except ImportError:
-        return False
-    else:
-        return True
-
-def has_office_tools():
-    '''Test whether office converter can be enabled by checking the
-    libreoffice executable and python-uno library.
-
-    python-uno has an known bug about monkey patching the "__import__" builtin
-    function, which can make django fail to start. So we use a function to
-    defer the test of uno import until it is really need (which is after
-    django is started) to avoid the bug.
-
-    See https://code.djangoproject.com/ticket/11098
-
-    '''
-
-    global HAS_OFFICE_TOOLS
-    if HAS_OFFICE_TOOLS is None:
-        # if check_office_tools() and check_python_uno():
-        if check_office_tools():
-            HAS_OFFICE_TOOLS = True
-        else:
-            HAS_OFFICE_TOOLS = False
-
-    return HAS_OFFICE_TOOLS
 
 def do_exit(code=0):
     logging.info('exit with code %s', code)
