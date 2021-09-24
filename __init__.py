@@ -45,8 +45,6 @@ from .virus_scanner import get_virus_files, delete_virus_file, operate_virus_fil
 
 from .content_scanner.db import get_content_scan_results
 
-from .utils import has_office_tools
-from .utils.config import get_office_converter_conf
 from .tasks import IndexUpdater
 
 logger = logging.getLogger(__name__)
@@ -54,40 +52,6 @@ logger = logging.getLogger(__name__)
 def is_search_enabled(config):
     index_updater = IndexUpdater(config)
     return index_updater.is_enabled()
-
-def is_office_converter_enabled(config):
-    if not has_office_tools():
-        return False
-
-    conf = get_office_converter_conf(config)
-
-    return conf.get('enabled', False)
-
-def get_office_converter_dir(config, file_type):
-    if not has_office_tools():
-        logger.error('office converter is not enabled, because no office tool')
-        raise RuntimeError('office converter is not enabled')
-
-    conf = get_office_converter_conf(config)
-    if not conf['enabled']:
-        logger.error('office converter is not enabled')
-        raise RuntimeError('office conveter is not enabled')
-
-    return os.path.join(conf['outputdir'], file_type)
-
-def get_office_converter_limit(config):
-    if not has_office_tools():
-        logger.error('office converter is not enabled, because no office tool')
-        raise RuntimeError('office converter is not enabled')
-
-    conf = get_office_converter_conf(config)
-    if not conf['enabled']:
-        logger.error('office converter is not enabled')
-        raise RuntimeError('office conveter is not enabled')
-
-    max_size = conf['max_size']
-    max_pages = conf['max_pages']
-    return max_size, max_pages
 
 def is_audit_enabled(config):
 
