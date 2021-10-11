@@ -11,7 +11,7 @@ class EventsPublisher(object):
             rdp = redis.ConnectionPool(host=appconfig.publish_mq_server,
                                        port=appconfig.publish_mq_port,
                                        password=appconfig.publish_mq_password,
-                                       retry_on_timeout=True)
+                                       retry_on_timeout=True, decode_responses=True)
             self.mq = redis.StrictRedis(connection_pool=rdp)
         try:
             self.mq.ping()
