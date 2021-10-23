@@ -16,6 +16,8 @@ from seafevents.utils import do_exit, ClientConnector, has_office_tools, get_con
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
         WorkWinxinNoticeSender, FileUpdatesSender
+from seafevents.compress_service.compress_server import CompressServer
+from seafevents.compress_service.compress_worker import CompressWorker
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
@@ -58,6 +60,9 @@ class App(object):
 
         self._evbase = libevent.Base() #pylint: disable=E1101
         self._sighandler = SignalHandler(self._evbase)
+
+        self.compress_server = CompressServer(get_config(args.config_file))
+        self.compress_worker = CompressWorker()
 
     def start_ccnet_session(self):
         '''Connect to ccnet-server, retry util connection is made'''
@@ -112,6 +117,13 @@ class App(object):
         else:
             logging.info("User login statistics is disabled.")
             logging.info("Traffic statistics is disabled.")
+
+        if self.compress_server.is_server_enabled():
+            logging.info('Start compress server...')
+            self.compress_server.start()
+        if self.compress_server.is_worker_enabled():
+            logging.info('Start compress worker...')
+            self.compress_worker.start()
 
         while True:
             self._serve()
