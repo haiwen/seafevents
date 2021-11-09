@@ -38,6 +38,9 @@ class App(object):
             logging.error('Error loading seafevents config. Detial: %s' % e)
             raise RuntimeError("Error loading seafevents config. Detial: %s" % e)
 
+        self.compress_server = CompressServer(get_config(args.config_file))
+        self.compress_worker = CompressWorker()
+
         self._events_listener = None
         if self._events_listener_enabled:
             self._events_listener = EventsMQListener(self._args.config_file)
@@ -60,9 +63,6 @@ class App(object):
 
         self._evbase = libevent.Base() #pylint: disable=E1101
         self._sighandler = SignalHandler(self._evbase)
-
-        self.compress_server = CompressServer(get_config(args.config_file))
-        self.compress_worker = CompressWorker()
 
     def start_ccnet_session(self):
         '''Connect to ccnet-server, retry util connection is made'''
@@ -106,6 +106,13 @@ class App(object):
     def serve_forever(self):
         self.connect_ccnet()
 
+        if self.compress_server.is_server_enabled():
+            self.compress_server.start()
+            logging.info('Start compress server...')
+        if self.compress_server.is_worker_enabled():
+            self.compress_worker.start()
+            logging.info('Start compress worker...')
+
         if self._bg_tasks:
             self._bg_tasks.start(self._evbase)
         else:
@@ -117,13 +124,6 @@ class App(object):
         else:
             logging.info("User login statistics is disabled.")
             logging.info("Traffic statistics is disabled.")
-
-        if self.compress_server.is_server_enabled():
-            logging.info('Start compress server...')
-            self.compress_server.start()
-        if self.compress_server.is_worker_enabled():
-            logging.info('Start compress worker...')
-            self.compress_worker.start()
 
         while True:
             self._serve()

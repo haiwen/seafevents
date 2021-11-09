@@ -13,7 +13,6 @@ from seaserv import seafile_api
 from seafevents.app.config import appconfig
 from seafevents.compress_service.task_manager import task_manager
 
-
 logger = logging.getLogger(__name__)
 
 seahub_dir = os.environ.get('SEAHUB_DIR', '')
@@ -55,7 +54,6 @@ def add_share_links_to_task_queue():
                 logger.error('dirent is None. repo_id: %s path: %s' % (repo_id, path))
                 continue
 
-            last_modify = dirent.mtime
             if info_dict and info_dict['flag'] == 'simplerisk' and \
                     info_dict['extra'] and info_dict['extra'].get('isLock', '') == 'Y':
                 # decrypt pwd
@@ -68,7 +66,9 @@ def add_share_links_to_task_queue():
                 decrypted_text = un_pad(content)
                 decrypted_pwd = decrypted_text.rstrip('\0')
 
+                last_modify = dirent.mtime
                 task_manager.add_compress_task(token, repo_id, path, last_modify, decrypted_pwd)
+                logger.debug('add compress task success, token %s' % token)
 
     session.close()
 
@@ -102,33 +102,36 @@ def delete_useless_zip_files():
 
         for share_link_id, download_num in results2:
             for link_id, sent_tos in results3:
-                if share_link_id == link_id and \
-                        download_num < sent_tos * PINGAN_SHARE_LINK_SEND_TO_VISITS_LIMIT_BASE:
+                if str(share_link_id) == str(link_id) and \
+                        int(download_num) < int(sent_tos) * PINGAN_SHARE_LINK_SEND_TO_VISITS_LIMIT_BASE:
                     share_link_ids.discard(share_link_id)
 
-        sql4 = """SELECT `repo_id`, `path` FROM `share_fileshare` WHERE `id` IN :share_link_ids
-                  AND `deleted`=1 OR `expire_date` <= :datetime_now"""
-        results4 = session.execute(
-            sql4, {'share_link_ids': share_link_ids, 'datetime_now': datetime.now()}).fetchall()
+        if share_link_ids:
+            sql4 = """SELECT `repo_id`, `path` FROM `share_fileshare` WHERE `id` IN :share_link_ids
+                      AND `deleted`=1 OR `expire_date` <= :datetime_now"""
+            results4 = session.execute(
+                sql4, {'share_link_ids': list(share_link_ids), 'datetime_now': datetime.now()}).fetchall()
 
-        for repo_id, path in results4:
-            filename = os.path.basename(path)
-            file_name, file_ext = os.path.splitext(filename)
+            for repo_id, path in results4:
+                filename = os.path.basename(path)
+                file_name, file_ext = os.path.splitext(filename)
 
-            tmp_file_dir = os.path.join('/tmp/temp_file', repo_id, os.path.dirname(path).strip('/'))
-            tmp_file = os.path.join(tmp_file_dir, filename)
-            if os.path.exists(tmp_file):
-                try:
-                    os.remove(tmp_file)
-                except Exception as e:
-                    logger.error('Failed to remove zip file %s, %s' % (tmp_file, e))
-            tmp_zip_dir = os.path.join('/tmp/temp_zip', repo_id, os.path.dirname(path).strip('/'))
-            tmp_zip = os.path.join(tmp_zip_dir, '%s_zip.zip' % file_name)
-            if os.path.exists(tmp_zip):
-                try:
-                    os.remove(tmp_zip)
-                except Exception as e:
-                    logger.error('Failed to remove zip file %s, %s' % (tmp_zip, e))
+                tmp_file_dir = os.path.join('/tmp/temp_file', repo_id, os.path.dirname(path).strip('/'))
+                tmp_file = os.path.join(tmp_file_dir, filename)
+                if os.path.exists(tmp_file):
+                    try:
+                        os.remove(tmp_file)
+                        logger.debug('Succeed to remove temp file %s' % tmp_file)
+                    except Exception as e:
+                        logger.error('Failed to remove zip file %s, %s' % (tmp_file, e))
+                tmp_zip_dir = os.path.join('/tmp/temp_zip', repo_id, os.path.dirname(path).strip('/'))
+                tmp_zip = os.path.join(tmp_zip_dir, '%s_zip.zip' % file_name)
+                if os.path.exists(tmp_zip):
+                    try:
+                        os.remove(tmp_zip)
+                        logger.debug('Succeed to remove zip file %s' % tmp_zip)
+                    except Exception as e:
+                        logger.error('Failed to remove zip file %s, %s' % (tmp_zip, e))
 
     session.close()
 
@@ -145,6 +148,9 @@ class CompressWorker(Thread):
             if not self._finished.is_set():
                 try:
                     add_share_links_to_task_queue()
+                except Exception as e:
+                    logger.error(e)
+                try:
                     delete_useless_zip_files()
                 except Exception as e:
                     logger.error(e)

@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
-import time
 import logging
 from threading import Thread
-from BaseHTTPServer import HTTPServer
+
+from werkzeug.serving import ThreadedWSGIServer
 
 from seafevents.compress_service.task_manager import task_manager
-from seafevents.compress_service.request_handler import CompressRequestHandler
-
+from seafevents.compress_service.request_handler import app as application
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,7 @@ class CompressServer(Thread):
         self._parse_config(config)
         task_manager.init(self._workers, self._file_server_port)
         task_manager.run()
-        self._server = HTTPServer((self._host, int(self._port)), CompressRequestHandler)
+        self._server = ThreadedWSGIServer(self._host, int(self._port), application)
 
     def is_server_enabled(self):
         return self.server_enabled
@@ -58,11 +57,4 @@ class CompressServer(Thread):
             self._file_server_port = 8082
 
     def run(self):
-        while 1:
-            try:
-                self._server.serve_forever()
-            except Exception as e:
-                logger.error(e)
-                time.sleep(5)
-                self._server.server_close()
-                self._server = HTTPServer((self._host, int(self._port)), CompressRequestHandler)
+        self._server.serve_forever()

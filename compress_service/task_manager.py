@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
 import os
 import Queue
 import threading
 import logging
 import requests
-from urllib import quote_plus
+
+from django.utils.http import urlquote
 
 from seaserv import seafile_api
 
@@ -131,6 +136,10 @@ class TaskManager(object):
             last_modify = compress_task.last_modify
             decrypted_pwd = compress_task.decrypted_pwd
 
+            if (repo_id + file_path) in self.task_map:
+                logger.debug('compress task is doing by other worker')
+                continue
+
             tmp_file, tmp_zip = generate_tmp_paths(repo_id, file_path)
             if os.path.exists(tmp_zip):
                 try:
@@ -151,12 +160,17 @@ class TaskManager(object):
             self.task_map.add(repo_id + file_path)
 
             filename = os.path.basename(file_path)
-            obj_id = seafile_api.get_file_id_by_path(repo_id, file_path)
-            dl_token = seafile_api.get_fileserver_access_token(repo_id, obj_id, 'view', '', use_onetime=False)
-            inner_url = '%s/files/%s/%s' % (
-                'http://127.0.0.1:%s' % self.file_server_port, dl_token, quote_plus(filename))
             try:
-                resp = requests.get(inner_url)
+                obj_id = seafile_api.get_file_id_by_path(repo_id, file_path)
+                dl_token = seafile_api.get_fileserver_access_token(repo_id, obj_id, 'view', '', use_onetime=False)
+            except Exception as e:
+                logger.error(e)
+                self.task_map.discard(repo_id + file_path)
+                continue
+
+            try:
+                inner_url = '%s/files/%s/%s' % (
+                    'http://127.0.0.1:%s' % self.file_server_port, dl_token, urlquote(filename))
             except Exception as e:
                 logger.error(e)
                 self.task_map.discard(repo_id + file_path)
@@ -164,10 +178,22 @@ class TaskManager(object):
                 continue
 
             try:
+                logger.debug('Starting get file %s content' % file_path)
+                resp = requests.get(inner_url)
+                logger.debug('Succeed get file content')
+            except Exception as e:
+                logger.error(e)
+                self.task_map.discard(repo_id + file_path)
+                self.task_queue.put(compress_task)
+                continue
+
+            try:
+                logger.debug('Starting write file content')
                 with open(tmp_file, 'wb') as f:
                     f.write(resp.content)
-                status = os.system("zip -P '%s' -j -%d '%s' '%s'" % (decrypted_pwd, 1, tmp_zip, tmp_file))
-                logger.info('compress file %s status: %s' % (file_path, status))
+                logger.debug('Starting compress file')
+                status = os.system("zip -P '%s' -j '%s' '%s'" % (decrypted_pwd, tmp_zip, tmp_file))
+                logger.debug('compress file %s status: %s' % (file_path, status))
             except Exception as e:
                 logger.error(e)
                 self.task_map.discard(repo_id + file_path)
