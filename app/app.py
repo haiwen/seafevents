@@ -11,6 +11,8 @@ from seafevents.utils import has_office_tools, get_config
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
         WorkWinxinNoticeSender, FileUpdatesSender, RepoOldFileAutoDelScanner
+from seafevents.compress_service.compress_server import CompressServer
+from seafevents.compress_service.compress_worker import CompressWorker
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
@@ -29,6 +31,9 @@ class App(object):
         except Exception as e:
             logging.error('Error loading seafevents config. Detail: %s' % e)
             raise RuntimeError("Error loading seafevents config. Detail: %s" % e)
+
+        self.compress_server = CompressServer(get_config(args.config_file))
+        self.compress_worker = CompressWorker()
 
         self._events_handler = None
         if self._events_handler_enabled:
@@ -52,6 +57,13 @@ class App(object):
             self._events_handler.start()
         else:
             logging.info("Event listener is disabled.")
+
+        if self.compress_server.is_server_enabled():
+            self.compress_server.start()
+            logging.info('Start compress server...')
+        if self.compress_server.is_worker_enabled():
+            self.compress_worker.start()
+            logging.info('Start compress worker...')
 
         if self._bg_tasks:
             self._bg_tasks.start()
