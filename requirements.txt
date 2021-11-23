@@ -5,3 +5,4 @@ pdfrw==0.4
 mock
 mysql-python
 pytest==3.1
+Flask

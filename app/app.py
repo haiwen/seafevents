@@ -16,6 +16,8 @@ from seafevents.utils import do_exit, ClientConnector, has_office_tools, get_con
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
         WorkWinxinNoticeSender, FileUpdatesSender
+from seafevents.compress_service.compress_server import CompressServer
+from seafevents.compress_service.compress_worker import CompressWorker
 
 if has_office_tools():
     from seafevents.office_converter import OfficeConverter
@@ -35,6 +37,9 @@ class App(object):
         except Exception as e:
             logging.error('Error loading seafevents config. Detial: %s' % e)
             raise RuntimeError("Error loading seafevents config. Detial: %s" % e)
+
+        self.compress_server = CompressServer(get_config(args.config_file))
+        self.compress_worker = CompressWorker()
 
         self._events_listener = None
         if self._events_listener_enabled:
@@ -100,6 +105,13 @@ class App(object):
 
     def serve_forever(self):
         self.connect_ccnet()
+
+        if self.compress_server.is_server_enabled():
+            self.compress_server.start()
+            logging.info('Start compress server...')
+        if self.compress_server.is_worker_enabled():
+            self.compress_worker.start()
+            logging.info('Start compress worker...')
 
         if self._bg_tasks:
             self._bg_tasks.start(self._evbase)
