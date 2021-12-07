@@ -45,6 +45,8 @@ def load_config(config_file):
     load_statistics_config(config)
     load_file_history_config(config)
     load_collab_server_config(config)
+    load_compress_service_config(config)
+
 
 @exception_catch('env')
 def load_env_config():
@@ -136,3 +138,15 @@ def load_collab_server_config(config):
     if appconfig.enable_collab_server:
         appconfig.collab_server = config.get('COLLAB_SERVER', 'server_url')
         appconfig.collab_key = config.get('COLLAB_SERVER', 'key')
+
+
+@exception_catch('compress service')
+def load_compress_service_config(config):
+    appconfig.enable_compress_server = False
+    appconfig.enable_compress_worker = False
+    if not config.has_option('COMPRESS SERVER', 'server_enabled'):
+        return
+    appconfig.enable_compress_server = config.getboolean('COMPRESS SERVER', 'server_enabled')
+    if not config.has_option('COMPRESS SERVER', 'worker_enabled'):
+        return
+    appconfig.enable_compress_worker = config.getboolean('COMPRESS SERVER', 'worker_enabled')

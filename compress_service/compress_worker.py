@@ -45,17 +45,18 @@ def add_share_links_to_task_queue():
             except Exception as e:
                 logger.error('Failed to get share link app_info: %s' % e)
                 continue
-            try:
-                dirent = seafile_api.get_dirent_by_path(repo_id, path)
-            except Exception as e:
-                logger.error('Failed to get dirent: %s. repo_id: %s path: %s' % (e, repo_id, path))
-                continue
-            if not dirent:
-                logger.error('dirent is None. repo_id: %s path: %s' % (repo_id, path))
-                continue
 
             if info_dict and info_dict['flag'] == 'simplerisk' and \
                     info_dict['extra'] and info_dict['extra'].get('isLock', '') == 'Y':
+                try:
+                    dirent = seafile_api.get_dirent_by_path(repo_id, path)
+                except Exception as e:
+                    logger.error('Failed to get dirent: %s. repo_id: %s path: %s' % (e, repo_id, path))
+                    continue
+                if not dirent:
+                    logger.error('dirent is None. repo_id: %s path: %s' % (repo_id, path))
+                    continue
+
                 # decrypt pwd
                 pwd = info_dict['extra'].get('encryptedPwd', '')
                 base_key = base64.b64decode(PWD_SECRET_KEY.encode("utf-8"))
@@ -68,7 +69,7 @@ def add_share_links_to_task_queue():
 
                 last_modify = dirent.mtime
                 task_manager.add_compress_task(token, repo_id, path, last_modify, decrypted_pwd)
-                logger.debug('add compress task success, token %s' % token)
+                logger.info('add compress task success, token %s' % token)
 
     session.close()
 
@@ -76,11 +77,12 @@ def add_share_links_to_task_queue():
 def delete_useless_zip_files():
     session = appconfig.session_cls()
 
-    sql1 = """SELECT `id`, `app_info` FROM `share_fileshare`
-             WHERE `deleted`=0 AND `expire_date` > :datetime_now"""
+    sql1 = """SELECT `id`, `repo_id`, `path`, `app_info` FROM `share_fileshare`
+              WHERE `deleted`=0 AND `expire_date` > :datetime_now"""
     results1 = session.execute(sql1, {'datetime_now': datetime.now()}).fetchall()
-    share_link_ids = set()
-    for share_link_id, app_info in results1:
+    need_del_link_id_set = set()
+    cannot_del_files_map = dict()
+    for link_id, repo_id, path, app_info in results1:
         if app_info:
             try:
                 info_dict = json.loads(app_info)
@@ -89,55 +91,76 @@ def delete_useless_zip_files():
                 continue
             if info_dict and info_dict['flag'] == 'simplerisk' and \
                     info_dict['extra'] and info_dict['extra'].get('isLock', '') == 'Y':
-                share_link_ids.add(share_link_id)
+                need_del_link_id_set.add(link_id)
+                cannot_del_files_map[link_id] = (repo_id + path)
 
-    if share_link_ids:
+    if need_del_link_id_set:
         sql2 = """SELECT `share_link_id`, COUNT(`share_link_id`) AS download_num FROM `share_filesharedownloads`
                   WHERE `share_link_id` IN :share_link_ids GROUP BY `share_link_id`"""
-        results2 = session.execute(sql2, {'share_link_ids': list(share_link_ids)}).fetchall()
+        results2 = session.execute(sql2, {'share_link_ids': list(need_del_link_id_set)}).fetchall()
 
         sql3 = """SELECT `share_link_id`, COUNT(`share_link_id`) AS sent_tos FROM `share_fileshareextrainfo`
                   WHERE `share_link_id` IN :share_link_ids GROUP BY `share_link_id`"""
-        results3 = session.execute(sql3, {'share_link_ids': list(share_link_ids)}).fetchall()
+        results3 = session.execute(sql3, {'share_link_ids': list(need_del_link_id_set)}).fetchall()
 
-        for share_link_id, download_num in results2:
-            for link_id, sent_tos in results3:
-                if str(share_link_id) == str(link_id) and \
-                        int(download_num) < int(sent_tos) * PINGAN_SHARE_LINK_SEND_TO_VISITS_LIMIT_BASE:
-                    share_link_ids.discard(share_link_id)
+        download_num_map = dict()
+        sent_to_map = dict()
+        for link_id, download_num in results2:
+            download_num_map[link_id] = download_num
+        for link_id, sent_tos in results3:
+            sent_to_map[link_id] = sent_tos
 
-        if share_link_ids:
-            sql4 = """SELECT `repo_id`, `path` FROM `share_fileshare` WHERE `id` IN :share_link_ids
-                      AND `deleted`=1 OR `expire_date` <= :datetime_now"""
-            results4 = session.execute(
-                sql4, {'share_link_ids': list(share_link_ids), 'datetime_now': datetime.now()}).fetchall()
+        for link_id in download_num_map:
+            if int(download_num_map[link_id]) < int(sent_to_map[link_id]) * PINGAN_SHARE_LINK_SEND_TO_VISITS_LIMIT_BASE:
+                need_del_link_id_set.discard(link_id)
+            else:
+                cannot_del_files_map.pop(link_id, None)
 
-            for repo_id, path in results4:
-                filename = os.path.basename(path)
-                file_name, file_ext = os.path.splitext(filename)
+    if need_del_link_id_set:
+        sql4 = """SELECT `repo_id`, `path` FROM `share_fileshare` WHERE `id` IN :share_link_ids
+                  OR `deleted`=1 OR `expire_date` <= :datetime_now"""
+        results4 = session.execute(
+            sql4, {'share_link_ids': list(need_del_link_id_set), 'datetime_now': datetime.now()}).fetchall()
+    else:
+        sql4 = """SELECT `repo_id`, `path` FROM `share_fileshare` WHERE `deleted`=1
+                  OR `expire_date` <= :datetime_now"""
+        results4 = session.execute(sql4, {'datetime_now': datetime.now()}).fetchall()
 
-                tmp_file_dir = os.path.join('/tmp/temp_file', repo_id, os.path.dirname(path).strip('/'))
-                tmp_file = os.path.join(tmp_file_dir, filename)
-                if os.path.exists(tmp_file):
-                    try:
-                        os.remove(tmp_file)
-                        logger.debug('Succeed to remove temp file %s' % tmp_file)
-                    except Exception as e:
-                        logger.error('Failed to remove zip file %s, %s' % (tmp_file, e))
-                tmp_zip_dir = os.path.join('/tmp/temp_zip', repo_id, os.path.dirname(path).strip('/'))
-                tmp_zip = os.path.join(tmp_zip_dir, '%s_zip.zip' % file_name)
-                if os.path.exists(tmp_zip):
-                    try:
-                        os.remove(tmp_zip)
-                        logger.debug('Succeed to remove zip file %s' % tmp_zip)
-                    except Exception as e:
-                        logger.error('Failed to remove zip file %s, %s' % (tmp_zip, e))
+    for repo_id, path in results4:
+        if (repo_id + path) not in cannot_del_files_map.values():
+            filename = os.path.basename(path)
+            file_name, file_ext = os.path.splitext(filename)
+
+            tmp_file_dir = os.path.join('/tmp/temp_file', repo_id, os.path.dirname(path).strip('/'))
+            tmp_file = os.path.join(tmp_file_dir, filename)
+            if os.path.exists(tmp_file):
+                try:
+                    os.remove(tmp_file)
+                    logger.info('Succeed to remove temp file %s' % tmp_file)
+                except Exception as e:
+                    logger.error('Failed to remove zip file %s, %s' % (tmp_file, e))
+            tmp_zip_dir = os.path.join('/tmp/temp_zip', repo_id, os.path.dirname(path).strip('/'))
+            tmp_zip = os.path.join(tmp_zip_dir, '%s_zip.zip' % file_name)
+            if os.path.exists(tmp_zip):
+                try:
+                    os.remove(tmp_zip)
+                    logger.info('Succeed to remove zip file %s' % tmp_zip)
+                except Exception as e:
+                    logger.error('Failed to remove zip file %s, %s' % (tmp_zip, e))
 
     session.close()
 
 
 class CompressWorker(Thread):
+    def __init__(self):
+        Thread.__init__(self)
 
+    def run(self):
+        AddTaskWorker().start()
+        CleanFilesWorker().start()
+
+
+class AddTaskWorker(Thread):
     def __init__(self):
         Thread.__init__(self)
         self._finished = Event()
@@ -145,12 +168,21 @@ class CompressWorker(Thread):
     def run(self):
         while not self._finished.is_set():
             self._finished.wait(300)
-            if not self._finished.is_set():
-                try:
-                    add_share_links_to_task_queue()
-                except Exception as e:
-                    logger.error(e)
-                try:
-                    delete_useless_zip_files()
-                except Exception as e:
-                    logger.error(e)
+            try:
+                add_share_links_to_task_queue()
+            except Exception as e:
+                logger.error(e)
+
+
+class CleanFilesWorker(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self._finished = Event()
+
+    def run(self):
+        while not self._finished.is_set():
+            self._finished.wait(86400)
+            try:
+                delete_useless_zip_files()
+            except Exception as e:
+                logger.error(e)
