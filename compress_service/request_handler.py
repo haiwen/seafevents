@@ -24,9 +24,9 @@ def add_compress_task():
         return make_response((e, 500))
 
     if resp:
-        logger.debug('Add compress task succeed.')
         return make_response(({'success': True}, 200))
     else:
+        logger.error('Failed to add compress task.')
         return make_response((error, 500))
 
 

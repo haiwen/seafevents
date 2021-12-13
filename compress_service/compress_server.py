@@ -16,26 +16,9 @@ class CompressServer(Thread):
         Thread.__init__(self)
         self._parse_config(config)
         task_manager.init(self._workers, self._file_server_port)
-        task_manager.run()
         self._server = ThreadedWSGIServer(self._host, int(self._port), application)
 
-    def is_server_enabled(self):
-        return self.server_enabled
-
-    def is_worker_enabled(self):
-        return self.worker_enabled
-
     def _parse_config(self, config):
-        if config.has_option('COMPRESS SERVER', 'server_enabled'):
-            self.server_enabled = config.getboolean('COMPRESS SERVER', 'server_enabled')
-        else:
-            self.server_enabled = False
-
-        if config.has_option('COMPRESS SERVER', 'worker_enabled'):
-            self.worker_enabled = config.getboolean('COMPRESS SERVER', 'worker_enabled')
-        else:
-            self.worker_enabled = False
-
         if config.has_option('COMPRESS SERVER', 'host'):
             self._host = config.get('COMPRESS SERVER', 'host')
         else:
@@ -57,4 +40,5 @@ class CompressServer(Thread):
             self._file_server_port = 8082
 
     def run(self):
+        task_manager.run()
         self._server.serve_forever()

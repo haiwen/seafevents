@@ -38,8 +38,10 @@ class App(object):
             logging.error('Error loading seafevents config. Detial: %s' % e)
             raise RuntimeError("Error loading seafevents config. Detial: %s" % e)
 
-        self.compress_server = CompressServer(get_config(args.config_file))
-        self.compress_worker = CompressWorker()
+        if appconfig.enable_compress_server:
+            self.compress_server = CompressServer(get_config(args.config_file))
+        if appconfig.enable_compress_worker:
+            self.compress_worker = CompressWorker()
 
         self._events_listener = None
         if self._events_listener_enabled:
@@ -106,10 +108,10 @@ class App(object):
     def serve_forever(self):
         self.connect_ccnet()
 
-        if self.compress_server.is_server_enabled():
+        if appconfig.enable_compress_server:
             self.compress_server.start()
             logging.info('Start compress server...')
-        if self.compress_server.is_worker_enabled():
+        if appconfig.enable_compress_worker:
             self.compress_worker.start()
             logging.info('Start compress worker...')
 

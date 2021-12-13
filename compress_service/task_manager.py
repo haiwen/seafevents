@@ -2,7 +2,6 @@
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
-
 import os
 import Queue
 import threading
@@ -83,6 +82,7 @@ class TaskManager(object):
                 last_modified = get_compress_file_last_modified(token)
                 if (last_modified and (str(last_modified) != str(dirent.mtime)))\
                         or str(last_modify) != str(dirent.mtime):
+                    logger.info('This file was modified after it was shared.')
                     try:
                         os.remove(tmp_zip)
                     except Exception as e:
@@ -110,6 +110,7 @@ class TaskManager(object):
                 last_modified = get_compress_file_last_modified(token)
                 if (last_modified and (str(last_modified) != str(dirent.mtime)))\
                         or str(last_modify) != str(dirent.mtime):
+                    logger.info('This file was modified after it was shared.')
                     try:
                         os.remove(tmp_zip)
                     except Exception as e:
@@ -137,7 +138,7 @@ class TaskManager(object):
             decrypted_pwd = compress_task.decrypted_pwd
 
             if (repo_id + file_path) in self.task_map:
-                logger.debug('compress task is doing by other worker')
+                logger.info('compress task is doing by other worker')
                 continue
 
             tmp_file, tmp_zip = generate_tmp_paths(repo_id, file_path)
@@ -151,6 +152,7 @@ class TaskManager(object):
                     logger.error('dirent is None. repo_id: %s file_path: %s' % (repo_id, file_path))
                     continue
                 if str(last_modify) != str(dirent.mtime):
+                    logger.info('This file was modified after it was shared.')
                     try:
                         os.remove(tmp_zip)
                     except Exception as e:
@@ -178,9 +180,9 @@ class TaskManager(object):
                 continue
 
             try:
-                logger.debug('Starting get file %s content' % file_path)
+                logger.info('Starting get file %s content' % file_path)
                 resp = requests.get(inner_url)
-                logger.debug('Succeed get file content')
+                logger.info('Succeed get file content')
             except Exception as e:
                 logger.error(e)
                 self.task_map.discard(repo_id + file_path)
@@ -188,12 +190,12 @@ class TaskManager(object):
                 continue
 
             try:
-                logger.debug('Starting write file content')
+                logger.info('Starting write file content')
                 with open(tmp_file, 'wb') as f:
                     f.write(resp.content)
-                logger.debug('Starting compress file')
+                logger.info('Starting compress file')
                 status = os.system("zip -P '%s' -j '%s' '%s'" % (decrypted_pwd, tmp_zip, tmp_file))
-                logger.debug('compress file %s status: %s' % (file_path, status))
+                logger.info('Compress file %s status: %s' % (file_path, status))
             except Exception as e:
                 logger.error(e)
                 self.task_map.discard(repo_id + file_path)
