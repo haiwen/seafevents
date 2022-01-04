@@ -21,9 +21,14 @@ logger = logging.getLogger(__name__)
 
 def get_compress_file_last_modified(token):
     session = appconfig.session_cls()
-    result = session.query(CompressRecords).filter(CompressRecords.token == token).first()
-    last_modified = result.last_modified if result else None
-    session.close()
+    last_modified = None
+    try:
+        result = session.query(CompressRecords).filter(CompressRecords.token == token).first()
+        last_modified = result.last_modified if result else None
+    except Exception as e:
+        logger.error(e)
+    finally:
+        session.close()
     return last_modified
 
 
@@ -87,6 +92,22 @@ class TaskManager(object):
                         os.remove(tmp_zip)
                     except Exception as e:
                         logger.error('Failed to remove zip file %s, %s' % (tmp_zip, e))
+                    return False, 'This file was modified after it was shared: %s file_path: %s' % (repo_id, file_path)
+                result = None
+                session = appconfig.session_cls()
+                try:
+                    result = session.query(CompressRecords).filter(CompressRecords.token == token).first()
+                except Exception as e:
+                    logger.error(e)
+                finally:
+                    session.close()
+                if not result:
+                    try:
+                        os.remove(tmp_zip)
+                    except Exception as e:
+                        logger.error('Failed to remove zip file %s, %s' % (tmp_zip, e))
+                    compress_task = CompressTask(token, repo_id, file_path, last_modify, decrypted_pwd)
+                    self.task_queue.put(compress_task)
             else:
                 compress_task = CompressTask(token, repo_id, file_path, last_modify, decrypted_pwd)
                 self.task_queue.put(compress_task)
@@ -117,7 +138,22 @@ class TaskManager(object):
                         logger.error('Failed to remove zip file %s, %s' % (tmp_zip, e))
                     return 4
                 else:
-                    return 3
+                    result = None
+                    session = appconfig.session_cls()
+                    try:
+                        result = session.query(CompressRecords).filter(CompressRecords.token == token).first()
+                    except Exception as e:
+                        logger.error(e)
+                    finally:
+                        session.close()
+                    if not result:
+                        try:
+                            os.remove(tmp_zip)
+                        except Exception as e:
+                            logger.error('Failed to remove zip file %s, %s' % (tmp_zip, e))
+                        return 1
+                    else:
+                        return 3
             else:
                 return 1
 
@@ -157,7 +193,23 @@ class TaskManager(object):
                         os.remove(tmp_zip)
                     except Exception as e:
                         logger.error('Failed to remove zip file %s, %s' % (tmp_zip, e))
-                continue
+                    continue
+
+                result = None
+                session = appconfig.session_cls()
+                try:
+                    result = session.query(CompressRecords).filter(CompressRecords.token == token).first()
+                except Exception as e:
+                    logger.error(e)
+                finally:
+                    session.close()
+                if not result:
+                    try:
+                        os.remove(tmp_zip)
+                    except Exception as e:
+                        logger.error('Failed to remove zip file %s, %s' % (tmp_zip, e))
+                else:
+                    continue
 
             self.task_map.add(repo_id + file_path)
 
