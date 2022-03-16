@@ -323,8 +323,6 @@ def generate_filehistory_records(added_files, deleted_files, added_dirs,
     _added_files.extend(list_file_in_dir(repo_id, added_dirs, 'add'))
     for de in _added_files:
         record = copy.copy(base_record)
-        op_type = ''
-        logging.info(commit.description)
         if commit.description.startswith('Reverted') or commit.description.startswith('Recovered'):
             op_type = OP_RECOVER
         else:
