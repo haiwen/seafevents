@@ -1,3 +1,4 @@
+import os
 import json
 import uuid
 import logging
@@ -9,7 +10,7 @@ from sqlalchemy import desc
 from sqlalchemy.sql import exists
 
 from .models import Event, UserEvent, FileAudit, FileUpdate, PermAudit, \
-        Activity, UserActivity, FileHistory
+        Activity, UserActivity, FileHistory, FileUploadRecord
 
 from seafevents.app.config import appconfig
 
@@ -272,6 +273,17 @@ def save_file_update_event(session, timestamp, user, org_id, repo_id,
     event = FileUpdate(timestamp, user, org_id, repo_id, commit_id, file_oper)
     session.add(event)
     session.commit()
+
+def get_file_upload_info(session, repo_id, path):
+    filename = os.path.basename(path)
+    if filename.endswith('/'):
+        filename = filename.rstrip('/')
+    parent_path = os.path.dirname(path)
+    repo_id_parent_path_md5 = hashlib.md5((repo_id + parent_path).encode('utf8')).hexdigest()
+    q = session.query(FileUploadRecord)
+    q = q.filter(FileUploadRecord.repo_id_parent_path_md5 == repo_id_parent_path_md5)
+    q = q.filter(FileUploadRecord.filename == filename)
+    return q.first()
 
 def get_events(session, obj, username, org_id, repo_id, file_path, start, limit):
     if start < 0:
