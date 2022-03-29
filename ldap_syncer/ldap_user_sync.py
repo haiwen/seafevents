@@ -1,10 +1,11 @@
 #coding: utf-8
 
 import logging
+import sys
 logger = logging.getLogger('ldap_sync')
 logger.setLevel(logging.DEBUG)
 
-from seaserv import get_ldap_users, add_ldap_user, update_ldap_user, \
+from seaserv import get_ldap_users, add_ldap_user, update_ldap_user, del_ldap_user, \
         seafile_api, ccnet_api
 from .ldap_conn import LdapConn
 from .ldap_sync import LdapSync
@@ -119,8 +120,29 @@ class LdapUserSync(LdapSync):
             logger.info('LDAP dept sync result: add [%d]dept, update [%d]dept, '
                          'delete [%d]dept' % (self.adept, self.udept, self.ddept))
 
-
     def add_profile(self, email, ldap_user):
+        # PingAn customization:
+        # Since login_id and contact_email are unique, we need to delete any existing duplicate entries.
+        # Otherwise there may be entries in profile_profile tables that belong to deactivated user,
+        # causing failure to insert new entry with the same login_id or contact_email.
+        # For example, a user's email changed in LDAP. Then it will be deactivated and a new user will
+        # be created during LDAP sync.
+        if ldap_user.uid is not None and ldap_user.uid != '':
+            sql = 'delete from profile_profile where login_id=%s'
+            try:
+                self.cursor.execute(sql, [ldap_user.uid])
+            except Exception as e:
+                logger.warning('Failed to delete duplicate profile for login_id %s: %s.',
+                               ldap_user.uid, e)
+
+        if ldap_user.cemail is not None and ldap_user.cemail != '':
+            sql = 'delete from profile_profile where contact_email=%s'
+            try:
+                self.cursor.execute(sql, [ldap_user.cemail])
+            except Exception as e:
+                logger.warning('Failed to delete duplicate profile for contact_email %s: %s.',
+                               ldap_user.cemail, e)
+
         # list_in_address_book: django will not apply default value to mysql. it will be processed in ORM.
         field = 'user, nickname, intro, list_in_address_book'
         qmark = '%s, %s, %s, %s'
@@ -194,6 +216,15 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to update user %s profile: %s.' %
                             (email, e))
 
+    def update_profile_user_login_id(self, user, uid):
+        try:
+            self.cursor.execute('update profile_profile set user=%s where login_id=%s',
+                                (user, uid))
+            if self.cursor.rowcount == 1:
+                logger.debug('Update user email for login id %s to %s success.' % (uid, user))
+        except Exception as e:
+            logger.warning('Failed to update profile user to %s.' % user)
+
     def update_dept(self, email, dept):
         try:
             self.cursor.execute('select 1 from profile_detailedprofile where user=%s', [email])
@@ -241,6 +272,53 @@ class LdapUserSync(LdapSync):
         except Exception as e:
             logger.warning('Failed to delete token from %s for user %s: %s.' %
                             (tab, email, e))
+
+    def get_uid_from_profile(self):
+        # email <-> uid
+        email_to_uid = {}
+        try:
+            self.cursor.execute('select user, login_id from profile_profile')
+            r = self.cursor.fetchall()
+            for row in r:
+                email = row[0].lower()
+                uid = row[1]
+                email_to_uid[email.encode("utf-8")] = '' if not uid else uid.encode('utf-8')
+        except Exception as e:
+            logger.warning('Failed to get uid from profile_profile: %s.' % e)
+            sys.exit(1)
+
+        return email_to_uid
+
+    def get_uid_to_users(self, email_to_uid):
+        # user_id <-> LdapUser
+        uid_to_users = {}
+        users = get_ldap_users(-1, -1)
+        if users is None:
+            logger.warning('get ldap users from db failed.')
+            return uid_to_users
+
+        uid = None
+        for user in users:
+            email = user.email.lower().encode("utf-8")
+            if email in email_to_uid:
+                uid = email_to_uid[email].lower()
+                if uid in uid_to_users:
+                    uid_users = uid_to_users[uid]
+                    uid_users.append(email)
+                else:
+                    uid_to_users[uid] = [email]
+            else:
+                end = user.email.rfind('@')
+                if end < 1:
+                    continue
+                uid =  user.email[0:end].encode("utf-8").lower()
+                if uid in uid_to_users:
+                    uid_users = uid_to_users[uid]
+                    uid_users.append(email)
+                else:
+                    uid_to_users[uid] = [email]
+
+        return uid_to_users
 
     def get_data_from_db(self):
         # user_id <-> LdapUser
@@ -305,6 +383,19 @@ class LdapUserSync(LdapSync):
                                                 user.role,
                                                 user.is_manual_set)
         return user_data_db
+
+    def get_uid_to_ldap_user(self, data_ldap):
+        uid_to_ldap_user = {}
+        for k, v in data_ldap.iteritems():
+            email = k
+            uid = v.uid.lower()
+            if email is not None:
+                if uid in uid_to_ldap_user:
+                    continue
+                else:
+                    uid_to_ldap_user[uid] = email
+
+        return uid_to_ldap_user
 
     def get_data_from_ldap_by_server(self, config):
         if not config.enable_user_sync:
@@ -412,7 +503,7 @@ class LdapUserSync(LdapSync):
                    if config.uid_attr not in attrs:
                        uid = ''
                    else:
-                        uid = attrs[config.uid_attr][0]
+                       uid = attrs[config.uid_attr][0]
 
                 if config.cemail_attr != '':
                    if config.cemail_attr not in attrs:
@@ -452,21 +543,19 @@ class LdapUserSync(LdapSync):
             self.add_profile(email, ldap_user)
             self.add_dept(email, ldap_user.dept)
 
-    def sync_update_user(self, ldap_user, db_user, email):
-        '''
-        set_status = False
+    def sync_update_user(self, ldap_user, db_user, email, new_email):
+        # PingAn customization: reactivate user when it's added back to AD.
         if db_user.is_active == 0:
-            set_status = True
+            db_user.is_active = 1
 
-        if ldap_user.password != db_user.password or set_status:
-            rc = update_ldap_user(db_user.user_id, email, ldap_user.password,
-                                  db_user.is_staff, db_user.is_active)
-            if rc < 0:
-                logger.warning('Update user [%s] failed.' % email)
-            else:
-                logger.debug('Update user [%s] success.' % email)
-                self.uuser += 1
-        '''
+        rc = update_ldap_user(db_user.user_id, new_email, ldap_user.password,
+                              db_user.is_staff, db_user.is_active)
+        if rc < 0:
+            logger.warning('Activate user [%s] failed.' % email)
+        else:
+            logger.debug('Activate user [%s] success.' % email)
+            self.uuser += 1
+
         ret = 0
 
         if ldap_user.role:
@@ -499,6 +588,220 @@ class LdapUserSync(LdapSync):
                 return
             logger.debug('Reactivate user [%s] success.' % email)
 
+    def sync_migrate_user(self, old_user, new_user):
+        if seafile_api.update_email_id (old_user, new_user) < 0:
+            logger.warning('Failed to update emailuser id to %s.' % new_user)
+        logger.debug('$migrate$ %s $to$ %s .' % (old_user, new_user))
+
+        try:
+            self.cursor.execute('update profile_detailedprofile set user=%s where user=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update profile_detailedprofile user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update share_fileshare set username=%s where username=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update share_fileshare username to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update share_uploadlinkshare set username=%s where username=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update share_uploadlinkshare username to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update base_userstarredfiles set email=%s where email=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update base_userstarredfiles email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update api2_token set user=%s where user=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update api2_token user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update api2_tokenv2 set user=%s where user=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update api2_tokenv2 user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update admin_log_adminlog set email=%s where email=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update admin_log_adminlog email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update avatar_avatar set emailuser=%s where emailuser=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update avatar_avatar email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update base_clientlogintoken set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update base_clientlogintoken email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update base_devicetoken set user=%s where user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update base_devicetoken user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update base_filecomment set author=%s where author=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update base_filecomment author to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update base_userlastlogin set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update base_userlastlogin user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update drafts_draft set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update drafts_draft user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update drafts_draftreviewer set reviewer=%s where reviewer=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update drafts_draftreviewer reviewer to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update notifications_usernotification set to_user=%s where to_user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update notifications_usernotification to_user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update options_useroptions set email=%s where email=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update options_useroptions email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update role_permissions_adminrole set email=%s where email=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update role_permissions_adminrole email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update sysadmin_extra_userloginlog set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update sysadmin_extra_userloginlog email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update tags_filetag set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update tags_filetag email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update wiki_wiki set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update wiki_wiki email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update Activity set op_user=%s where op_user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update Activity user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update UserActivity set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update UserActivity user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update FileHistory set op_user=%s where op_user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update FileHistory user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update FileAudit set user=%s where user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update FileAudit user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update FileUpdate set user=%s where user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update FileUpdate user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update PermAudit set from_user=%s where from_user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update PermAudit from_user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update PermAudit set `to`=%s where `to`=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update PermAudit to_user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update UserTrafficStat set email=%s where email=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update UserTrafficStat email to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update UserActivityStat set username=%s where username=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update UserActivityStat username to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update UserTraffic set user=%s where user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update UserTraffic user to %s.' % new_user)
+
+        try:
+            self.cursor.execute('update MonthlyUserTraffic set user=%s where user=%s',
+
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update MonthlyUserTraffic user to %s.' % new_user)
+
     def sync_del_user(self, db_user, email):
         ret = update_ldap_user(db_user.user_id, email, db_user.password,
                                db_user.is_staff, 0)
@@ -520,27 +823,88 @@ class LdapUserSync(LdapSync):
         except Exception as e:
             logger.warning("Failed to delete repo tokens for user %s: %s." % (email, e))
 
-        if self.settings.load_extra_user_info_sync:
-            self.del_profile(email)
-            self.del_dept(email)
-
+    # Note: customized for PinaAn's requirements. Do not deactivate renamed users in ldap.
+    # The checking of rename is based on profile_profile.login_id database field and uid attribute.
     def sync_data(self, data_db, data_ldap):
-        # sync deleted user in ldap to db
-        for k in data_db.keys():
-            if k not in data_ldap and data_db[k].is_active == 1:
-                if self.settings.enable_deactive_user:
-                    self.sync_del_user(data_db[k], k)
-                else:
-                    logger.debug('User[%s] not found in ldap, '
-                                  'DEACTIVE_USER_IF_NOTFOUND option is not set, so not deactive it.' % k)
+        email_to_uid = self.get_uid_from_profile()
+        uid_to_users = self.get_uid_to_users(email_to_uid)
+        uid_to_ldap_user = self.get_uid_to_ldap_user(data_ldap)
+        # used to find renamed users
 
-        # sync undeleted user in ldap to db
+        # collect deleted users from ldap
+        for k, v in uid_to_users.items():
+            if uid_to_ldap_user and k not in uid_to_ldap_user:
+                del_users = uid_to_users[k]
+                for del_user in del_users:
+                    if del_user in data_db and data_db[del_user].is_active == 1:
+                        if self.settings.enable_deactive_user:
+                            self.sync_del_user(data_db[del_user], del_user)
+                        else:
+                            logger.debug('User[%s] not found in ldap, '
+                                         'DEACTIVE_USER_IF_NOTFOUND option is not set, so not deactive it.' % del_user)
+
+        # collect migrated users
+        nums = 0
         for k, v in data_ldap.items():
-            if k in data_db:
-                self.sync_update_user(v, data_db[k], k)
-            else:
-                # add user to db
-                if self.settings.import_new_user:
-                    self.sync_add_user(v, k)
+            if uid_to_users:
+                uid = v.uid.lower()
+                if uid in uid_to_users:
+                    found_active = False
+                    users = uid_to_users[uid]
+
+                    for user in users:
+                        if k == user:
+                            found_active = True
+                            break
+
+                    if found_active:
+                        for user in users:
+                            if k == user:
+                                continue
+                            nums = nums + 1
+                        continue
+
+                    for user in users:
+                        nums = nums + 1
+
+        if nums > 0:
+            logger.debug('%d users need migrate.' % nums)
+
+        # sync new and existing users from ldap to db
+        for k, v in data_ldap.items():
+            if uid_to_users:
+                uid = v.uid.lower()
+                if uid not in uid_to_users:
+                    if self.settings.import_new_user:
+                        self.sync_add_user(v, k)
+                else:
+                    found_active = False
+                    users = uid_to_users[uid]
+
+                    for user in users:
+                        if k == user:
+                            if user in data_db and data_db[user].is_active == 0:
+                                self.sync_update_user(v, data_db[user], user, k)
+                            found_active = True
+                            break
+
+                    if found_active:
+                        for user in users:
+                            if k == user:
+                                continue
+                            self.sync_migrate_user(user, k)
+                            del_ldap_user(data_db[user].user_id)
+                            logger.debug('Delete user [%s] success.' % user)
+                        self.update_profile_user_login_id (k, uid)
+                        continue
+
+                    email = users[0]
+                    self.sync_update_user(v, data_db[email], email, k)
+                    for user in users:
+                        self.sync_migrate_user(user, k)
+                        if email != user:
+                            del_ldap_user(data_db[user].user_id)
+                            logger.debug('Delete user [%s] success.' % user)
+                    self.update_profile_user_login_id(k, uid)
 
         self.close_seahub_db()
