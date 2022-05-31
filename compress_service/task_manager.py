@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
 import os
-import Queue
+import queue
 import threading
 import logging
 import requests
@@ -63,7 +61,7 @@ class CompressTask(object):
 class TaskManager(object):
 
     def __init__(self):
-        self.task_queue = Queue.Queue()
+        self.task_queue = queue.Queue()
         self.task_map = set()
         self.workers = 4
         self.file_server_port = 8082
@@ -161,7 +159,7 @@ class TaskManager(object):
         while 1:
             try:
                 compress_task = self.task_queue.get(timeout=1)
-            except Queue.Empty:
+            except queue.Empty:
                 continue
             except Exception as e:
                 logger.error(e)
