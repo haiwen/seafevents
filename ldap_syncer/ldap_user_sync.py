@@ -330,7 +330,8 @@ class LdapUserSync(LdapSync):
                 continue
             data = self.get_data_by_base_dn(config, ldap_conn, base_dn, search_filter)
             if data is None:
-                continue
+                # Failed to get data by base dn
+                return None
             user_data_ldap.update(data)
 
         ldap_conn.unbind_conn()
