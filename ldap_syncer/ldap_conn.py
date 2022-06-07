@@ -37,13 +37,16 @@ class LdapConn(object):
         if not self.conn:
             return None
 
-        result = None
+        result = []
         try:
-            result = self.conn.search_s(base_dn, scope, search_filter, attr_list)
+            rdata = self.conn.search_s(base_dn, scope, search_filter, attr_list)
+            if rdata:
+                result.extend(rdata)
         except ldap.LDAPError as e:
             logging.warning('Search failed for base dn(%s), filter(%s) '
                             'on server %s error: %s' % (base_dn, search_filter,
                                                         self.host, e))
+            return None
 
         return result
 
