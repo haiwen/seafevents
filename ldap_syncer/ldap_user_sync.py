@@ -282,7 +282,7 @@ class LdapUserSync(LdapSync):
             for row in r:
                 email = row[0].lower()
                 uid = row[1]
-                email_to_uid[email.encode("utf-8")] = '' if not uid else uid.encode('utf-8')
+                email_to_uid[email] = '' if not uid else uid
         except Exception as e:
             logger.warning('Failed to get uid from profile_profile: %s.' % e)
             sys.exit(1)
@@ -299,7 +299,7 @@ class LdapUserSync(LdapSync):
 
         uid = None
         for user in users:
-            email = user.email.lower().encode("utf-8")
+            email = user.email.lower()
             if email in email_to_uid:
                 uid = email_to_uid[email].lower()
                 if uid in uid_to_users:
@@ -311,7 +311,7 @@ class LdapUserSync(LdapSync):
                 end = user.email.rfind('@')
                 if end < 1:
                     continue
-                uid =  user.email[0:end].encode("utf-8").lower()
+                uid =  user.email[0:end].lower()
                 if uid in uid_to_users:
                     uid_users = uid_to_users[uid]
                     uid_users.append(email)
@@ -386,7 +386,7 @@ class LdapUserSync(LdapSync):
 
     def get_uid_to_ldap_user(self, data_ldap):
         uid_to_ldap_user = {}
-        for k, v in data_ldap.iteritems():
+        for k, v in data_ldap.items():
             email = k
             uid = v.uid.lower()
             if email is not None:
@@ -589,7 +589,7 @@ class LdapUserSync(LdapSync):
             logger.debug('Reactivate user [%s] success.' % email)
 
     def sync_migrate_user(self, old_user, new_user):
-        if seafile_api.update_email_id (old_user, new_user) < 0:
+        if ccnet_api.update_emailuser_id(old_user, new_user) < 0:
             logger.warning('Failed to update emailuser id to %s.' % new_user)
         logger.debug('$migrate$ %s $to$ %s .' % (old_user, new_user))
 
