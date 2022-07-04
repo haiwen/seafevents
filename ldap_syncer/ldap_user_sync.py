@@ -644,7 +644,7 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to insert user %s: %s.' % (uid, old_email))
 
     def sync_migrate_user(self, old_user, new_user):
-        if seafile_api.update_email_id (old_user, new_user) < 0:
+        if ccnet_api.update_emailuser_id(old_user, new_user) < 0:
             logger.warning('Failed to update emailuser id to %s.' % new_user)
         logger.debug('$migrate$ %s $to$ %s .' % (old_user, new_user))
 
