@@ -6,7 +6,6 @@ from seafevents.utils import get_python_executable, run, get_config
 from seafevents.utils.config import parse_bool, parse_interval, get_opt_from_conf_or_env
 
 
-
 class RepoOldFileAutoDelScanner(object):
     def __init__(self, config_file):
         self._enabled = False
@@ -31,7 +30,6 @@ class RepoOldFileAutoDelScanner(object):
         if not os.path.exists(seahub_dir):
             logging.critical('seahub_dir %s does not exist' % seahub_dir)
             raise RuntimeError('seahub_dir does not exist')
-
 
         self._seahubdir = seahub_dir
 
@@ -61,7 +59,6 @@ class RepoOldFileAutoDelScanner(object):
         interval = get_opt_from_conf_or_env(config, section_name, key_interval,
                                                default=default_interval)
         self._interval = parse_interval(interval, default_interval)
-
 
     def start(self):
         if not self.is_enabled():
