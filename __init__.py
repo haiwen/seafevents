@@ -1,31 +1,3 @@
-"""
-Event: General user event class, has these attributes:
-    - username
-    - timestamp
-    - etype
-    - <other event-specific attributes ...> , see the table below
-
-----------------------------------
-
-event details:
-
-|-------------+---------------------------+--------------------|
-| etype       | type specific attributes  | more info          |
-|-------------+---------------------------+--------------------|
-|-------------+---------------------------+--------------------|
-| repo-update | repo_id, commit_id        |                    |
-| repo-create | owner, repo_id, repo_name |                    |
-| repo-delete | owner, repo_id, repo_name |                    |
-| repo-share  | type, from, to, repo_id   | not implmented yet |
-|-------------+---------------------------+--------------------|
-| join-group  | user, group               | not implmented yet |
-| quit-group  | user, group               | not implmented yet |
-|-------------+---------------------------+--------------------|
-
-"""
-
-import os
-import configparser
 import logging
 
 from .db import init_db_session_class
@@ -45,13 +17,20 @@ from .virus_scanner import get_virus_files, delete_virus_file, operate_virus_fil
 
 from .content_scanner.db import get_content_scan_results
 
-from .tasks import IndexUpdater
+from .tasks import IndexUpdater, RepoOldFileAutoDelScanner
 
 logger = logging.getLogger(__name__)
+
+
+def is_repo_auto_del_enabled(config_file):
+    repo_auto_del_scanner = RepoOldFileAutoDelScanner(config_file)
+    return repo_auto_del_scanner.is_enabled()
+
 
 def is_search_enabled(config):
     index_updater = IndexUpdater(config)
     return index_updater.is_enabled()
+
 
 def is_audit_enabled(config):
 
