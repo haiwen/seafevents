@@ -36,7 +36,7 @@ class LdapGroupSync(LdapSync):
                      (self.agroup, self.ugroup, self.dgroup))
 
     def get_department_name(self, config, attrs, default_name):
-        if config.department_name_attr in attrs and \
+        if config.department_name_attr != '' and config.department_name_attr in attrs and \
            attrs[config.department_name_attr] and \
            len(attrs[config.department_name_attr][0]) <= 255:
             department_name = attrs[config.department_name_attr][0]
@@ -250,11 +250,13 @@ class LdapGroupSync(LdapSync):
             if config.use_page_result:
                 results = ldap_conn.paged_search(base_dn, SCOPE_SUBTREE,
                                                 search_filter,
-                                                [config.group_member_attr, 'cn', config.group_uuid_attr])
+                                                [config.group_member_attr, 'cn', config.group_uuid_attr,
+                                                 config.department_name_attr])
             else:
                 results = ldap_conn.search(base_dn, SCOPE_SUBTREE,
                                           search_filter,
-                                          [config.group_member_attr, 'cn', config.group_uuid_attr])
+                                          [config.group_member_attr, 'cn', config.group_uuid_attr,
+                                           config.department_name_attr])
             if not results:
                 continue
             results = bytes2str(results)
@@ -336,7 +338,7 @@ class LdapGroupSync(LdapSync):
 
             result = ldap_conn.search(base_dn, SCOPE_BASE,
                                       search_filter,
-                                      ['ou', config.group_uuid_attr])
+                                      ['ou', config.group_uuid_attr, config.department_name_attr])
             result = bytes2str(result)
             dn, attrs = result[0]
             group_uuid = attrs[config.group_uuid_attr][0]
@@ -360,11 +362,13 @@ class LdapGroupSync(LdapSync):
         if config.use_page_result:
             results = ldap_conn.paged_search(base_dn, SCOPE_ONELEVEL,
                                              search_filter,
-                                             [config.login_attr, 'ou', config.group_uuid_attr])
+                                             [config.login_attr, 'ou', config.group_uuid_attr,
+                                              config.department_name_attr])
         else:
             results = ldap_conn.search(base_dn, SCOPE_ONELEVEL,
                                        search_filter,
-                                       [config.login_attr, 'ou', config.group_uuid_attr])
+                                       [config.login_attr, 'ou', config.group_uuid_attr,
+                                        config.department_name_attr])
         results = bytes2str(results)
         # empty ou
         if not results:
@@ -386,10 +390,11 @@ class LdapGroupSync(LdapSync):
                 continue
             # ou
             if 'ou' in attrs:
-                tihs_group_uuid = attrs[config.group_uuid_attr][0]
+                name = self.get_department_name (config, attrs, attrs['ou'][0])
+                this_group_uuid = attrs[config.group_uuid_attr][0]
                 self.get_ou_member (config, ldap_conn, member_dn, search_filter,
-                                    sort_list, attrs['ou'][0],
-                                    tihs_group_uuid,
+                                    sort_list, name,
+                                    this_group_uuid,
                                     group_uuid,
                                     grp_data_ou)
 
