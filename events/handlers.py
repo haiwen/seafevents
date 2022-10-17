@@ -434,6 +434,8 @@ def FileAuditEventHandler(session, msg):
     user_agent = elements[3]
     repo_id = elements[4]
     file_path = elements[5]
+    if not file_path.startswith('/'):
+        file_path = '/' + file_path
 
     org_id = get_org_id_by_repo_id(repo_id)
 
