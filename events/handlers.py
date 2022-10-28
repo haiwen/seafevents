@@ -18,7 +18,8 @@ from seafevents.app.config import appconfig
 from .change_file_path import ChangeFilePathHandler
 from .models import Activity
 from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, save_ding_talk_msg
-from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
+from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count, \
+     delete_deleted_files_count
 
 
 def RepoUpdateEventHandler(session, msg):
@@ -103,10 +104,12 @@ def RepoUpdateEventHandler(session, msg):
                 repo = seafile_api.get_repo(repo_id)
                 if files_count > appconfig.once_threshold:
                     save_ding_talk_msg(repo_id, repo.name, owner)
+                    delete_deleted_files_count(session, repo_id)
 
                 total_count = get_deleted_files_total_count(session, repo_id, deleted_time)
                 if total_count > appconfig.total_threshold:
                     save_ding_talk_msg(repo_id, repo.name, owner)
+                    delete_deleted_files_count(session, repo_id)
             # end custom
 
 

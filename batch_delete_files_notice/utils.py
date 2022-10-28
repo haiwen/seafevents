@@ -10,7 +10,6 @@ from seafobj import fs_mgr
 
 from seafevents.app.config import appconfig, load_config
 
-
 logger = logging.getLogger(__name__)
 
 seahub_dir = os.environ.get('SEAHUB_DIR', '')
@@ -70,7 +69,7 @@ def save_ding_talk_msg(repo_id, repo_name, username):
         sql1 = """SELECT * FROM alibaba_profile WHERE `uid`=:username"""
         res = session1.execute(sql1, {'username': username}).first()
         if not res:
-            logger.debug('%s not found in alibaba profile table.' % username)
+            logger.error('%s not found in alibaba profile table.' % username)
             return
         to_work_no_list = [res['work_no']]
     except Exception as e:
@@ -141,6 +140,7 @@ def save_ding_talk_msg(repo_id, repo_name, username):
             'is_consumed': 0,
             'message_key': uuid.uuid4(),
         })
+        session2.commit()
     except Exception as e:
         logger.error(e)
         return

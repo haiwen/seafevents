@@ -8,11 +8,9 @@ class DeletedFilesCount(Base):
     __tablename__ = 'deleted_files_count'
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    repo_id = Column(String(length=36), nullable=False)
-    deleted_time = Column(DateTime, nullable=False)
+    repo_id = Column(String(length=36), nullable=False, index=True)
+    deleted_time = Column(DateTime, nullable=False, index=True)
     files_count = Column(BigInteger, nullable=False)
-
-    __table_args__ = (Index('idx_repo_id_deleted_time', 'repo_id', 'deleted_time'),)
 
     def __init__(self, repo_id, files_count, deleted_time):
         self.repo_id = repo_id

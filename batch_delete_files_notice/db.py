@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import datetime
+
 from .models import DeletedFilesCount
 
 
@@ -16,3 +18,11 @@ def get_deleted_files_total_count(session, repo_id, deleted_time):
         total_count += count.files_count
 
     return total_count
+
+
+def delete_deleted_files_count(session, repo_id):
+    today = datetime.date.today()
+
+    session.query(DeletedFilesCount).filter(DeletedFilesCount.repo_id == repo_id).\
+        filter(DeletedFilesCount.deleted_time == today).delete()
+    session.commit()
