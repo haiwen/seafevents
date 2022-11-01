@@ -46,6 +46,20 @@ def load_config(config_file):
     load_statistics_config(config)
     load_file_history_config(config)
     load_collab_server_config(config)
+    load_deleted_files_config(config)
+
+
+# custom for ali
+@exception_catch('delete files notice')
+def load_deleted_files_config(config):
+    appconfig.once_threshold = 0
+    appconfig.total_threshold = 0
+    if config.has_option('DELETE FILES NOTICE', 'once_threshold'):
+        appconfig.once_threshold = config.getint('DELETE FILES NOTICE', 'once_threshold')
+    if config.has_option('DELETE FILES NOTICE', 'total_threshold'):
+        appconfig.total_threshold = config.getint('DELETE FILES NOTICE', 'total_threshold')
+# end custom
+
 
 @exception_catch('env')
 def load_env_config():

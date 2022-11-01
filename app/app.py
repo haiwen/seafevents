@@ -10,6 +10,7 @@ from seafevents.utils import get_config
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
         WorkWinxinNoticeSender, FileUpdatesSender, RepoOldFileAutoDelScanner
+from seafevents.tasks.deleted_files_count_cleaner import DeletedFilesCountCleaner
 
 Base = declarative_base()
 
@@ -77,11 +78,14 @@ class BackgroundTasks(object):
         self._work_weixin_notice_sender = WorkWinxinNoticeSender(self._app_config)
         self._file_updates_sender = FileUpdatesSender()
         self._repo_old_file_auto_del_scanner = RepoOldFileAutoDelScanner(config_file)
+        self._deleted_files_count_cleaner = DeletedFilesCountCleaner(config_file)
 
     def start(self):
         logging.info('Starting background tasks.')
 
         self._file_updates_sender.start()
+
+        self._deleted_files_count_cleaner.start()
 
         if self._work_weixin_notice_sender.is_enabled():
             self._work_weixin_notice_sender.start()
