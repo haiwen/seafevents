@@ -17,6 +17,9 @@ from seafevents.events.db import save_file_audit_event, save_file_update_event, 
 from seafevents.app.config import appconfig
 from .change_file_path import ChangeFilePathHandler
 from .models import Activity
+from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, save_ding_talk_msg
+from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
+
 
 def RepoUpdateEventHandler(session, msg):
     elements = msg['content'].split('\t')
@@ -90,6 +93,22 @@ def RepoUpdateEventHandler(session, msg):
 
             if appconfig.enable_collab_server:
                 send_message_to_collab_server(repo_id)
+
+            # custom for ali
+            if (deleted_files or deleted_dirs) and (appconfig.once_threshold > 0 and appconfig.total_threshold > 0):
+                deleted_time = datetime.datetime.fromtimestamp(msg['ctime']).strftime('%Y-%m-%d 00:00:00')
+                files_count = get_deleted_files_count(repo_id, commit.version, deleted_files, deleted_dirs)
+                save_deleted_files_count(session, repo_id, files_count, deleted_time)
+
+                repo = seafile_api.get_repo(repo_id)
+                if files_count > appconfig.once_threshold:
+                    save_ding_talk_msg(repo_id, repo.name, owner)
+
+                total_count = get_deleted_files_total_count(session, repo_id, deleted_time)
+                if total_count > appconfig.total_threshold:
+                    save_ding_talk_msg(repo_id, repo.name, owner)
+            # end custom
+
 
 def send_message_to_collab_server(repo_id):
     url = '%s/api/repo-update' % appconfig.collab_server
