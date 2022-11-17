@@ -2,17 +2,24 @@
 
 # Your ccnet conf dir
 export CCNET_CONF_DIR=
+
 # Your seafile conf dir
 export SEAFILE_CONF_DIR=
 
-# Your extra python path.
+# Your seahub dir
+export SEAHUB_DIR=
+
+# Your seafes dir
+export SEAFES_DIR=
+
+# Your python path.
 export PYTHONPATH=$PYTHONPATH:
 
-if ! pgrep ccnet-server 2>/dev/null 1>&2; then
-    echo "please start ccnet-server first";
+if ! pgrep seaf-server 2>/dev/null 1>&2; then
+    echo "please start seaf-server first";
     exit 1;
 fi
 
-pkill -f "python seafile_events.py --loglevel=debug"
+pkill -f "python main.py"
 
-python seafile_events.py --loglevel=debug --logfile=events.log --reconnect
+python main.py --logfile=events.log --loglevel=debug

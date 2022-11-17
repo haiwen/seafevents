@@ -24,14 +24,15 @@ jobs:
 
       - name: clone and build
         run: |
-          git clone --depth=1 --branch=master https://github.com/haiwen/seafobj.git /tmp/seafobj
-
-          git clone --depth=1 --branch=master https://github.com/haiwen/seafile-test-deploy.git /tmp/seafile-test-deploy
-          cd /tmp/seafile-test-deploy && git fetch origin 8.0:8.0 && git checkout 8.0 && ./bootstrap.sh
+          git clone --depth=1 --branch=master https://github.com/haiwen/seafobj /tmp/seafobj
+          git clone --depth=1 --branch=master https://github.com/haiwen/seahub /tmp/seahub
+          git clone --depth=1 --branch=master https://github.com/haiwen/seafile-test-deploy /tmp/seafile-test-deploy
+          cd /tmp/seafile-test-deploy && ./bootstrap.sh
 
       - name: pip install
         run: |
           cd /tmp/seafobj && pip install -r requirements.txt
+          cd /tmp/seahub && pip install -r requirements.txt
           cd $GITHUB_WORKSPACE && pip install -r test-requirements.txt
 
       - name: create test database
@@ -43,4 +44,5 @@ jobs:
         run: |
           export PYTHONPATH=/usr/local/lib/python3.6/site-packages:/usr/local/lib/python3.6/dist-packages:/usr/lib/python3.6/site-packages:/usr/lib/python3.6/dist-packages:/tmp/libsearpc:/tmp/ccnet-server/python:/tmp/seafile-server/python:/tmp/seafobj:$PYTHONPATH
           export CCNET_CONF_DIR=/tmp/ccnet SEAFILE_CONF_DIR=/tmp/seafile-data
+          export SEAHUB_DIR=/tmp/seahub
           cd tests && pytest -sv events

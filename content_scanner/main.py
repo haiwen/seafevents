@@ -1,14 +1,10 @@
-#!/usr/bin/env python
-#coding: utf-8
-
+# coding: utf-8
 import argparse
-import configparser
 import os
-import logging
-from seafevents.app.log import LogConfigurator
-from .config import appconfig, load_config
-from .models import ContentScanResult, ContentScanRecord
+
+from seafevents.app.config import get_config
 from .content_scan import ContentScan
+
 
 class AppArgParser(object):
     def __init__(self):
@@ -35,17 +31,16 @@ class AppArgParser(object):
             default='info',
         )
 
+
 def main():
     args = AppArgParser().parse_args()
-    app_logger = LogConfigurator(args.loglevel, args.logfile)
-    try:
-        load_config(args.config_file)
-    except Exception as e:
-        logging.error('Error loading content-scan config: %s' % e)
-        raise RuntimeError("Error loading content-scan config: %s" % e)
+    config = get_config(args.config_file)
+    seafile_conf_path = os.path.join(os.environ['SEAFILE_CONF_DIR'], 'seafile.conf')
+    seafile_config = get_config(seafile_conf_path)
 
-    content_scanner = ContentScan()
+    content_scanner = ContentScan(config, seafile_config)
     content_scanner.start()
+
 
 if __name__ == '__main__':
     main()

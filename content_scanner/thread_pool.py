@@ -1,21 +1,20 @@
-#coding: utf-8
+# coding: utf-8
 
 from threading import Thread
 import queue
 import logging
-from .config import appconfig
 from .ali_scan import AliScanner
 
 class Worker(Thread):
-    def __init__(self, do_work, task_queue):
+    def __init__(self, platform, key, key_id, region, do_work, task_queue):
         Thread.__init__(self)
         self.do_work = do_work
         self.task_queue = task_queue
         self.client = None
-        if appconfig.platform == 'ali':
-            self.client = AliScanner()
+        if platform == 'ali':
+            self.client = AliScanner(key, key_id, region)
         else:
-            logging.error('Unknown platform: %s', appconfig.platform)
+            logging.error('Unknown platform: %s', platform)
 
     def run(self):
         while True:
@@ -30,14 +29,18 @@ class Worker(Thread):
                 self.task_queue.task_done()
 
 class ThreadPool(object):
-    def __init__(self, do_work, nworker=10):
+    def __init__(self, platform, key, key_id, region, do_work, nworker=10):
+        self.platform = platform
+        self.key = key
+        self.key_id = key_id
+        self.region = region
         self.do_work = do_work
         self.nworker = nworker
         self.task_queue = queue.Queue()
 
     def start(self):
         for i in range(self.nworker):
-            Worker(self.do_work, self.task_queue).start()
+            Worker(self.platform, self.key, self.key_id, self.region, self.do_work, self.task_queue).start()
 
     def put_task(self, task):
         self.task_queue.put(task)

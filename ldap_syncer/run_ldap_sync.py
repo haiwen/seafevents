@@ -1,6 +1,5 @@
-#!/usr/bin/env python
-#coding: utf-8
-
+# coding: utf-8
+import os
 import logging
 import sys
 import argparse
@@ -11,7 +10,7 @@ from .ldap_conn import LdapConn
 from .ldap_group_sync import LdapGroupSync
 from .ldap_user_sync import LdapUserSync
 
-from seafevents.app.config import load_env_config
+from seafevents.app.config import  get_config
 
 def print_search_result(records):
     if len(records) > 0:
@@ -126,9 +125,13 @@ if __name__ == '__main__':
     }
     logging.basicConfig(**kw)
 
-    load_env_config()
+    config_file = os.environ['EVENTS_CONFIG_FILE']
+    ccnet_conf_path = os.path.join(os.environ['CCNET_CONF_DIR'], 'ccnet.conf')
 
-    settings = Settings(True if arg.test else False)
+    config = get_config(config_file)
+    ccnet_config = get_config(ccnet_conf_path)
+
+    settings = Settings(config, ccnet_config, True if arg.test else False)
     if not settings.has_base_info:
         sys.exit()
 

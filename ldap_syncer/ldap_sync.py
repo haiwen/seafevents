@@ -43,7 +43,8 @@ def migrate_dn_pairs(settings):
                 continue
             else:
                 uuid = results[0][1][config.group_uuid_attr][0]
-                add_group_uuid_pair(grp_dn_pair.group_id, uuid)
+                session = settings.db_session()
+                add_group_uuid_pair(session, grp_dn_pair.group_id, uuid)
 
 
 class LdapSync(Thread):

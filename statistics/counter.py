@@ -1,8 +1,6 @@
-import os
 import logging
 import hashlib
 import time
-from configparser import ConfigParser
 from datetime import timedelta
 from datetime import datetime
 from sqlalchemy import func
@@ -11,8 +9,7 @@ from .models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic,\
                    MonthlyUserTraffic, MonthlySysTraffic
 from seafevents.events.models import FileUpdate
 from seafevents.events.models import FileAudit
-from seafevents.app.config import appconfig
-from seafevents.db import SeafBase
+from seafevents.db import SeafBase, init_db_session_class
 from .db import get_org_id
 
 # This is a throwaway variable to deal with a python bug
@@ -22,16 +19,12 @@ login_records = {}
 traffic_info = {}
 
 def update_hash_record(session, login_name, login_time, org_id):
-    if not appconfig.enable_statistics:
-        return
     time_str = login_time.strftime('%Y-%m-%d 00:00:00')
     time_by_day = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S')
     md5_key = hashlib.md5((login_name + time_str).encode('utf-8')).hexdigest()
     login_records[md5_key] = (login_name, time_by_day, org_id)
 
 def save_traffic_info(session, timestamp, user_name, repo_id, oper, size):
-    if not appconfig.enable_statistics:
-        return
     org_id = get_org_id(repo_id)
     time_str = timestamp.strftime('%Y-%m-%d')
     if time_str not in traffic_info:
@@ -42,8 +35,8 @@ def save_traffic_info(session, timestamp, user_name, repo_id, oper, size):
         traffic_info[time_str][(org_id, user_name, oper)] += size
 
 class FileOpsCounter(object):
-    def __init__(self):
-        self.edb_session = appconfig.session_cls()
+    def __init__(self, config):
+        self.edb_session = init_db_session_class(config)()
 
     def start_count(self):
         logging.info('Start counting file operations..')
@@ -139,9 +132,9 @@ class FileOpsCounter(object):
         self.edb_session.close()
 
 class TotalStorageCounter(object):
-    def __init__(self):
-        self.edb_session = appconfig.session_cls()
-        self.seafdb_session = appconfig.seaf_session_cls()
+    def __init__(self, config, seafile_config):
+        self.edb_session = init_db_session_class(config)()
+        self.seafdb_session = init_db_session_class(seafile_config, db='seafile')()
 
     def start_count(self):
         logging.info('Start counting total storage..')
@@ -198,8 +191,8 @@ class TotalStorageCounter(object):
         self.edb_session.close()
 
 class TrafficInfoCounter(object):
-    def __init__(self):
-        self.edb_session = appconfig.session_cls()
+    def __init__(self, config):
+        self.edb_session = init_db_session_class(config)()
 
     def start_count(self):
         time_start = time.time()
@@ -307,8 +300,8 @@ class TrafficInfoCounter(object):
                 logging.warning('Failed to update traffic info: %s.', e)
 
 class MonthlyTrafficCounter(object):
-    def __init__(self):
-        self.edb_session = appconfig.session_cls()
+    def __init__(self, config):
+        self.edb_session = init_db_session_class(config)()
 
     def start_count(self):
         time_start = time.time()
@@ -432,8 +425,8 @@ class MonthlyTrafficCounter(object):
         self.sys_item_count += 1
 
 class UserActivityCounter(object):
-    def __init__(self):
-        self.edb_session = appconfig.session_cls()
+    def __init__(self, config):
+        self.edb_session = init_db_session_class(config)()
 
     def start_count(self):
         logging.info('Start counting user activity info..')

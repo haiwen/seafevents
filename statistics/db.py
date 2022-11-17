@@ -8,7 +8,6 @@ from .models import UserActivityStat, UserTraffic, SysTraffic, \
                    FileOpsStat, TotalStorageStat, MonthlyUserTraffic, MonthlySysTraffic
 
 from seaserv import seafile_api, get_org_id_by_repo_id
-from seafevents.app.config import appconfig
 
 repo_org = {}
 is_org = -1
@@ -60,14 +59,13 @@ def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
         ret.append((datetime.strptime(str(row.timestamp), '%Y-%m-%d'), row.number))
     return ret
 
-def get_org_user_activity_stats_by_day(org_id, start, end):
+def get_org_user_activity_stats_by_day(session, org_id, start, end):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
     ret = []
     try:
-        session = appconfig.session_cls()
         q = session.query(UserActivityStat.timestamp.label("timestamp"),
                           func.count(UserActivityStat.username).label("number"))
         q = q.filter(UserActivityStat.timestamp.between(start_at_0, end_at_23),
@@ -81,15 +79,12 @@ def get_org_user_activity_stats_by_day(org_id, start, end):
             ret.append({"timestamp":timestamp, "number":num})
     except Exception as e:
         logging.warning('Failed to get org-user activities by day: %s.', e)
-    finally:
-        session.close()
 
     return ret
 
-def _get_total_storage_stats(start, end, offset='+00:00', org_id=0):
+def _get_total_storage_stats(session, start, end, offset='+00:00', org_id=0):
     ret = []
     try:
-        session = appconfig.session_cls()
         q = session.query(func.convert_tz(TotalStorageStat.timestamp, '+00:00', offset).label("timestamp"),
                           func.sum(TotalStorageStat.total_size).label("total_size"))
         if org_id == 0:
@@ -108,8 +103,6 @@ def _get_total_storage_stats(start, end, offset='+00:00', org_id=0):
             ret.append((row.timestamp, row.total_size))
     except Exception as e:
         logging.warning('Failed to get total storage: %s.', e)
-    finally:
-        session.close()
 
     return ret
 
@@ -119,7 +112,7 @@ def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
 
-    results = _get_total_storage_stats (start_at_0, end_at_23, offset)
+    results = _get_total_storage_stats(session, start_at_0, end_at_23, offset)
     results.reverse()
 
     '''
@@ -140,13 +133,13 @@ def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
     ret.reverse()
     return ret
 
-def get_org_storage_stats_by_day(org_id, start, end, offset='+00:00'):
+def get_org_storage_stats_by_day(session, org_id, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
 
-    results = _get_total_storage_stats (start_at_0, end_at_23, offset, org_id)
+    results = _get_total_storage_stats(session, start_at_0, end_at_23, offset, org_id)
     results.reverse()
 
     '''
@@ -189,7 +182,7 @@ def get_file_ops_stats_by_day(session, start, end, offset='+00:00'):
         ret.append((datetime.strptime(str(row.timestamp), '%Y-%m-%d'), row.op_type, int(row.number)))
     return ret
 
-def get_org_file_ops_stats_by_day(org_id, start, end, offset='+00:00'):
+def get_org_file_ops_stats_by_day(session, org_id, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
@@ -197,7 +190,6 @@ def get_org_file_ops_stats_by_day(org_id, start, end, offset='+00:00'):
     ret = []
 
     try:
-        session = appconfig.session_cls()
         q = session.query(func.date(func.convert_tz(FileOpsStat.timestamp, '+00:00', offset)).label("timestamp"),
                           func.sum(FileOpsStat.number).label("number"),
                           FileOpsStat.op_type)
@@ -217,8 +209,6 @@ def get_org_file_ops_stats_by_day(org_id, start, end, offset='+00:00'):
             ret.append({"timestamp":timestamp, "op_type":op_type, "number":num})
     except Exception as e:
         logging.warning('Failed to get org-file operations data: %s.', e)
-    finally:
-        session.close()
 
     return ret
 
@@ -478,13 +468,12 @@ def get_org_traffic_by_month(org_id, start, end):
     return ret
 """
 
-def get_all_users_traffic_by_month(month, start=-1, limit=-1, order_by='user', org_id=-1):
+def get_all_users_traffic_by_month(session, month, start=-1, limit=-1, order_by='user', org_id=-1):
     month_str = month.strftime('%Y-%m-01 00:00:00')
     _month = datetime.strptime(month_str, '%Y-%m-%d %H:%M:%S')
 
     ret = []
     try:
-        session = appconfig.session_cls()
         q = session.query(MonthlyUserTraffic).filter(
                           MonthlyUserTraffic.timestamp==_month,
                           MonthlyUserTraffic.org_id==org_id)
@@ -518,7 +507,6 @@ def get_all_users_traffic_by_month(month, start=-1, limit=-1, order_by='user', o
             q = q.order_by(desc(MonthlyUserTraffic.sync_file_download))
         else:
             logging.warning("Failed to get all users traffic by month, unkown order_by '%s'.", order_by)
-            session.close()
             return []
 
         if start>=0 and limit>0:
@@ -533,18 +521,15 @@ def get_all_users_traffic_by_month(month, start=-1, limit=-1, order_by='user', o
 
     except Exception as e:
         logging.warning('Failed to get all users traffic by month: %s.', e)
-    finally:
-        session.close()
 
     return ret
 
-def get_all_orgs_traffic_by_month(month, start=-1, limit=-1, order_by='org_id'):
+def get_all_orgs_traffic_by_month(session, month, start=-1, limit=-1, order_by='org_id'):
     month_str = month.strftime('%Y-%m-01 00:00:00')
     _month = datetime.strptime(month_str, '%Y-%m-%d %H:%M:%S')
 
     ret = []
     try:
-        session = appconfig.session_cls()
         q = session.query(MonthlySysTraffic).filter(MonthlySysTraffic.timestamp==_month,
                                                     MonthlySysTraffic.org_id>0)
 
@@ -592,18 +577,15 @@ def get_all_orgs_traffic_by_month(month, start=-1, limit=-1, order_by='org_id'):
 
     except Exception as e:
         logging.warning('Failed to get all users traffic by month: %s.', e)
-    finally:
-        session.close()
 
     return ret
 
-def get_user_traffic_by_month (user, month):
+def get_user_traffic_by_month(session, user, month):
     month_str = month.strftime('%Y-%m-01 00:00:00')
     _month = datetime.strptime(month_str, '%Y-%m-%d %H:%M:%S')
 
     ret = {}
     try:
-        session = appconfig.session_cls()
         q = session.query(MonthlyUserTraffic).filter(MonthlyUserTraffic.timestamp==_month,
                                                      MonthlyUserTraffic.user==user)
         result = q.first()
@@ -614,7 +596,5 @@ def get_user_traffic_by_month (user, month):
             ret = d
     except Exception as e:
         logging.warning('Failed to get user traffic by month: %s.', e)
-    finally:
-        session.close()
 
     return ret

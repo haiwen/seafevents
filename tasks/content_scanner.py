@@ -4,19 +4,16 @@ import os
 import logging
 from threading import Thread, Event
 
-from seafevents.utils import get_config, get_python_executable, run
-from seafevents.utils.config import parse_bool, parse_interval, get_opt_from_conf_or_env
+from seafevents.utils import get_python_executable, run, parse_bool, parse_interval, get_opt_from_conf_or_env
 
 
 class ContentScanner(object):
-    def __init__(self, config_file):
+    def __init__(self, config):
         self._enabled = False
         self._interval = None
-        self._config_file = config_file
         self._logfile = None
         self._timer = None
 
-        config = get_config(config_file)
         self._parse_config(config)
 
     def _parse_config(self, config):
@@ -44,7 +41,7 @@ class ContentScanner(object):
             return
 
         logging.info('content scanner is started, interval = %s sec', self._interval)
-        ContentScanTimer(self._interval, self._config_file, self._logfile).start()
+        ContentScanTimer(self._interval, self._logfile).start()
 
     def is_enabled(self):
         return self._enabled
@@ -52,10 +49,9 @@ class ContentScanner(object):
 
 class ContentScanTimer(Thread):
 
-    def __init__(self, interval, config_file, log_file):
+    def __init__(self, interval, log_file):
         Thread.__init__(self)
         self._interval = interval
-        self._config_file = config_file
         self._logfile = log_file
         self.finished = Event()
 
@@ -69,7 +65,7 @@ class ContentScanTimer(Thread):
                         get_python_executable(),
                         '-m', 'seafevents.content_scanner.main',
                         '--logfile', self._logfile,
-                        '--config-file', self._config_file
+                        '--config-file', os.environ['EVENTS_CONFIG_FILE']
                     ]
                     env = dict(os.environ)
                     run(cmd, env=env)

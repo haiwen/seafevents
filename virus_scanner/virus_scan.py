@@ -1,20 +1,24 @@
-#coding: utf-8
-
+# -*- coding: utf-8 -*-
 import os
 import tempfile
 import subprocess
+
 from seafobj import commit_mgr, fs_mgr, block_mgr
+
 from .db_oper import DBOper
 from .commit_differ import CommitDiffer
 from .thread_pool import ThreadPool
-from seafevents.utils import get_python_executable
 from .scan_settings import logger
+from seafevents.utils import get_python_executable
+from seafevents.app.config import SEAHUB_DIR
+
 
 class ScanTask(object):
     def __init__(self, repo_id, head_commit_id, scan_commit_id):
         self.repo_id = repo_id
         self.head_commit_id = head_commit_id
         self.scan_commit_id = scan_commit_id
+
 
 class VirusScan(object):
     def __init__(self, settings):
@@ -34,8 +38,7 @@ class VirusScan(object):
             repo_id, head_commit_id, scan_commit_id = row
 
             if head_commit_id == scan_commit_id:
-                logger.debug('No change occur for repo %.8s, skip virus scan.',
-                              repo_id)
+                logger.debug('No change occur for repo %.8s, skip virus scan.', repo_id)
                 continue
 
             thread_pool.put_task(ScanTask(repo_id, head_commit_id, scan_commit_id))
@@ -58,8 +61,7 @@ class VirusScan(object):
             scan_files = differ.diff()
 
             if len(scan_files) == 0:
-                logger.debug('No change occur for repo %.8s, skip virus scan.',
-                              scan_task.repo_id)
+                logger.debug('No change occur for repo %.8s, skip virus scan.', scan_task.repo_id)
                 self.db_oper.update_vscan_record(scan_task.repo_id, scan_task.head_commit_id)
                 return
             else:
@@ -78,17 +80,14 @@ class VirusScan(object):
                 ret = self.scan_file_virus(scan_task.repo_id, fid, fpath)
 
                 if ret == 0:
-                    logger.debug('File %s virus scan by %s: OK.',
-                                  fpath, self.settings.scan_cmd)
+                    logger.debug('File %s virus scan by %s: OK.', fpath, self.settings.scan_cmd)
                     nvnum += 1
                 elif ret == 1:
-                    logger.info('File %s virus scan by %s: Found virus.',
-                                 fpath, self.settings.scan_cmd)
+                    logger.info('File %s virus scan by %s: Found virus.', fpath, self.settings.scan_cmd)
                     vnum += 1
                     vrecords.append((scan_task.repo_id, scan_task.head_commit_id, fpath))
                 else:
-                    logger.debug('File %s virus scan by %s: Failed.',
-                                  fpath, self.settings.scan_cmd)
+                    logger.debug('File %s virus scan by %s: Failed.', fpath, self.settings.scan_cmd)
                     nfailed += 1
 
             if nfailed == 0:
@@ -101,15 +100,14 @@ class VirusScan(object):
                     self.db_oper.update_vscan_record(scan_task.repo_id, scan_task.head_commit_id)
 
             logger.info('Virus scan for repo %.8s finished: %d virus, %d non virus, %d failed.',
-                         scan_task.repo_id, vnum, nvnum, nfailed)
+                        scan_task.repo_id, vnum, nvnum, nfailed)
 
         except Exception as e:
-            logger.warning('Failed to scan virus for repo %.8s: %s.',
-                            scan_task.repo_id, e)
+            logger.warning('Failed to scan virus for repo %.8s: %s.', scan_task.repo_id, e)
 
     def scan_file_virus(self, repo_id, file_id, file_path):
+        tfd, tpath = tempfile.mkstemp()
         try:
-            tfd, tpath = tempfile.mkstemp()
             seafile = fs_mgr.load_seafile(repo_id, 1, file_id)
             for blk_id in seafile.blocks:
                 os.write(tfd, block_mgr.load_block(repo_id, 1, blk_id))
@@ -122,8 +120,7 @@ class VirusScan(object):
             return self.parse_scan_result(ret_code)
 
         except Exception as e:
-            logger.warning('Virus scan for file %s encounter error: %s.',
-                            file_path, e)
+            logger.warning('Virus scan for file %s encounter error: %s.', file_path, e)
             return -1
         finally:
             if tfd > 0:
@@ -134,10 +131,10 @@ class VirusScan(object):
         args = ["%s:%s" % (e[0], e[2]) for e in vrecords]
         cmd = [
             get_python_executable(),
-            os.path.join(self.settings.seahub_dir, 'manage.py'),
+            os.path.join(SEAHUB_DIR, 'manage.py'),
             'notify_admins_on_virus',
         ] + args
-        subprocess.Popen(cmd, cwd=self.settings.seahub_dir)
+        subprocess.Popen(cmd, SEAHUB_DIR)
 
     def parse_scan_result(self, ret_code):
         rcode_str = str(ret_code)
@@ -154,14 +151,12 @@ class VirusScan(object):
 
     def should_scan_file(self, fpath, fsize):
         if fsize >= self.settings.scan_size_limit << 20:
-            logger.debug('File %s size exceed %sM, skip virus scan.' %
-                          (fpath, self.settings.scan_size_limit))
+            logger.debug('File %s size exceed %sM, skip virus scan.' % (fpath, self.settings.scan_size_limit))
             return False
 
         ext = os.path.splitext(fpath)[1].lower()
         if ext in self.settings.scan_skip_ext:
-            logger.debug('File %s type in scan skip list, skip virus scan.' %
-                          fpath)
+            logger.debug('File %s type in scan skip list, skip virus scan.' % fpath)
             return False
 
         return True

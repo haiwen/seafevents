@@ -1,22 +1,24 @@
-from seafevents.app.config import appconfig, load_config
-from .statistics.db import get_file_ops_stats_by_day, get_user_activity_stats_by_day, \
-     get_total_storage_stats_by_day, get_org_user_traffic_by_day, \
-     get_user_traffic_by_day, get_org_traffic_by_day, get_system_traffic_by_day,\
-     get_all_users_traffic_by_month, get_all_orgs_traffic_by_month, get_user_traffic_by_month,\
-     get_org_storage_stats_by_day, get_org_file_ops_stats_by_day, get_org_user_activity_stats_by_day
+from .db import init_db_session_class
+from .statistics.db import *
+from .events.db import *
+from .content_scanner.db import *
+from .virus_scanner.db_oper import *
+from .app.config import is_repo_auto_del_enabled, is_search_enabled, is_audit_enabled
 
-from .events.db import get_new_file_path, get_user_activities_by_timestamp
-from .content_scanner.db import get_content_scan_results
-
-def init(config_file):
-    if not appconfig.get('session_cls'):
-        load_config(config_file)
 
 def is_pro():
     return True
 
-def get_file_history_suffix():
-    if appconfig.fh.enabled is False:
-        return None
 
-    return appconfig.fh.suffix_list
+def get_file_history_suffix(config):
+    fh_enabled = True
+    if config.has_option('FILE HISTORY', 'enabled'):
+        fh_enabled = config.getboolean('FILE HISTORY', 'enabled')
+    if fh_enabled is False:
+        return []
+
+    suffix = 'md,txt,doc,docx,xls,xlsx,ppt,pptx'
+    if config.has_option('FILE HISTORY', 'suffix'):
+        suffix = config.get('FILE HISTORY', 'suffix')
+    fh_suffix_list = suffix.strip(',').split(',') if suffix else []
+    return fh_suffix_list

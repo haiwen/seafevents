@@ -5,8 +5,7 @@ import logging
 import configparser
 from threading import Thread, Event
 
-from seafevents.utils import get_python_executable, run
-from seafevents.utils.config import parse_bool, parse_interval, get_opt_from_conf_or_env
+from seafevents.utils import get_python_executable, run, parse_bool, parse_interval, get_opt_from_conf_or_env
 
 __all__ = [
     'IndexUpdater',
