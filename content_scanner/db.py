@@ -1,13 +1,11 @@
 import logging
 
 from .models import ContentScanResult
-from seafevents.app.config import appconfig
 
-def get_content_scan_results(start=-1, limit=-1):
+
+def get_content_scan_results(session, start=-1, limit=-1):
     ret = []
     try:
-        session = appconfig.session_cls()
-    
         q = session.query(ContentScanResult).order_by(ContentScanResult.repo_id)
         if start >= 0 and limit > 0:
             q = q.slice(start, start + limit)
@@ -23,4 +21,3 @@ def get_content_scan_results(start=-1, limit=-1):
         session.close()
 
     return ret
-    

@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-#coding: utf-8
+# coding: utf-8
 
 import os
 import sys
@@ -8,7 +7,7 @@ import argparse
 from seafevents.virus_scanner.scan_settings import Settings
 from seafevents.virus_scanner.virus_scan import VirusScan
 
-from seafevents.app.config import load_config
+from seafevents.app.config import get_config
 
 if __name__ == "__main__":
     kw = {
@@ -28,9 +27,11 @@ if __name__ == "__main__":
                         help='seafevents config file')
     args = parser.parse_args()
 
-    load_config(args.config_file)
+    config = get_config(args.config_file)
+    seafile_conf_path = os.path.join(os.environ['SEAFILE_CONF_DIR'], 'seafile.conf')
+    seafile_config = get_config(seafile_conf_path)
 
-    setting = Settings(args.config_file)
+    setting = Settings(config, seafile_config)
     if setting.is_enabled():
         VirusScan(setting).start()
     else:

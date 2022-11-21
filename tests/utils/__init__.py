@@ -1,6 +1,5 @@
 import unittest
 import os
-import configparser
 import logging
 
 from sqlalchemy import text
@@ -8,7 +7,7 @@ from sqlalchemy import text
 from seafevents.ldap_syncer.ldap_settings import Settings
 from seafevents.tests.conftest import get_db_session
 from seafevents.tests.utils.events_test_helper import ChangeFilePathHandler, save_file_history
-from seafevents.app.config import load_config
+from seafevents.app.config import get_config
 
 logger = logging.getLogger('ldap_sync_test')
 logger.setLevel(logging.DEBUG)
@@ -53,13 +52,12 @@ class EventTest(unittest.TestCase):
 class LDAPSyncerTest(unittest.TestCase):
     def setUp(self):
         # read conf file
-        self.settings = Settings(is_test=True)
-        ccnet_config_file = os.path.join(os.environ['CCNET_CONF_DIR'], 'ccnet.conf')
-        seafevent_config_file = os.path.join(os.environ['CCNET_CONF_DIR'], 'seafevents.conf')
-        self.config = configparser.ConfigParser()
+        config_file = os.path.join(os.environ['CCNET_CONF_DIR'], 'seafevents.conf')
+        ccnet_conf_path = os.path.join(os.environ['CCNET_CONF_DIR'], 'ccnet.conf')
+        config = get_config(config_file)
+        ccnet_config = get_config(ccnet_conf_path)
+        self.settings = Settings(config, ccnet_config, is_test=True)
 
-        self.config.read(ccnet_config_file)
-        load_config(seafevent_config_file)
         self.test_base_dn = 'OU=test-tmp-base-ou,dc=seafile,dc=ren'
 
         # connect to seahub db

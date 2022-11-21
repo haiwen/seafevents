@@ -2,43 +2,25 @@ import os
 import logging
 from threading import Thread, Event
 
-from seafevents.utils import get_python_executable, run, get_config
-from seafevents.utils.config import parse_bool, parse_interval, get_opt_from_conf_or_env
+from seafevents.utils import get_python_executable, run, parse_bool, parse_interval, get_opt_from_conf_or_env
+from seafevents.app.config import SEAHUB_DIR
 
 
 class RepoOldFileAutoDelScanner(object):
-    def __init__(self, config_file):
+    def __init__(self, config):
         self._enabled = False
-
         self._interval = None
-        self._seahubdir = None
         self._logfile = None
-
         self._timer = None
 
-        config = get_config(config_file)
         self._parse_config(config)
         self._prepare_logdir()
-        self._prepare_seahub_dir()
-
-    def _prepare_seahub_dir(self):
-        seahub_dir = os.environ.get('SEAHUB_DIR', '')
-
-        if not seahub_dir:
-            logging.critical('seahub_dir is not set')
-            raise RuntimeError('seahub_dir is not set')
-        if not os.path.exists(seahub_dir):
-            logging.critical('seahub_dir %s does not exist' % seahub_dir)
-            raise RuntimeError('seahub_dir does not exist')
-
-        self._seahubdir = seahub_dir
 
     def _prepare_logdir(self):
         logdir = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''))
         self._logfile = os.path.join(logdir, 'repo_old_file_auto_del_scan.log')
 
     def _parse_config(self, config):
-        '''Parse send email related options from events.conf'''
         section_name = 'AUTO DELETION'
         key_enabled = 'enabled'
 
@@ -56,8 +38,7 @@ class RepoOldFileAutoDelScanner(object):
             return
 
         self._enabled = True
-        interval = get_opt_from_conf_or_env(config, section_name, key_interval,
-                                               default=default_interval)
+        interval = get_opt_from_conf_or_env(config, section_name, key_interval, default=default_interval)
         self._interval = parse_interval(interval, default_interval)
 
     def start(self):
@@ -65,7 +46,7 @@ class RepoOldFileAutoDelScanner(object):
             logging.warning('Can not scan repo old files auto del days: it is not enabled!')
             return
 
-        RepoOldFileAutoDelScannerTimer(self._interval, self._seahubdir, self._logfile).start()
+        RepoOldFileAutoDelScannerTimer(self._interval, self._logfile).start()
 
     def is_enabled(self):
         return self._enabled
@@ -73,11 +54,10 @@ class RepoOldFileAutoDelScanner(object):
 
 class RepoOldFileAutoDelScannerTimer(Thread):
 
-    def __init__(self, interval, seahubdir, logfile):
+    def __init__(self, interval, logfile):
 
         Thread.__init__(self)
         self._interval = interval
-        self._seahubdir = seahubdir
         self._logfile = logfile
 
         self.finished = Event()
@@ -89,14 +69,14 @@ class RepoOldFileAutoDelScannerTimer(Thread):
                 logging.info('start scan repo old files auto del days')
                 try:
                     python_exec = get_python_executable()
-                    manage_py = os.path.join(self._seahubdir, 'manage.py')
+                    manage_py = os.path.join(SEAHUB_DIR, 'manage.py')
                     cmd = [
                         python_exec,
                         manage_py,
                         'scan_repo_auto_delete',
                     ]
                     with open(self._logfile, 'a') as fp:
-                        run(cmd, cwd=self._seahubdir, output=fp)
+                        run(cmd, cwd=SEAHUB_DIR, output=fp)
                 except Exception as e:
                     logging.exception('error when scan repo old files auto del days: %s', e)
 

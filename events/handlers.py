@@ -5,7 +5,7 @@ import copy
 import logging
 import logging.handlers
 import datetime
-from urllib import request, parse
+from urllib import request
 from datetime import timedelta
 from os.path import splitext
 
@@ -14,11 +14,12 @@ from seafobj import CommitDiffer, commit_mgr, fs_mgr
 from seafobj.commit_differ import DiffEntry
 from seafevents.events.db import save_file_audit_event, save_file_update_event, \
         save_perm_audit_event, save_user_activity, save_filehistory, update_user_activity_timestamp
-from seafevents.app.config import appconfig
+from seafevents.utils import get_opt_from_conf_or_env
 from .change_file_path import ChangeFilePathHandler
 from .models import Activity
 
-def RepoUpdateEventHandler(session, msg):
+
+def RepoUpdateEventHandler(config, session, msg):
     elements = msg['content'].split('\t')
     if len(elements) != 3:
         logging.warning("got bad message: %s", elements)
@@ -43,7 +44,7 @@ def RepoUpdateEventHandler(session, msg):
                 renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
 
             if renamed_files or renamed_dirs or moved_files or moved_dirs:
-                changer = ChangeFilePathHandler()
+                changer = ChangeFilePathHandler(session)
                 for r_file in renamed_files:
                     changer.update_db_records(repo_id, r_file.path, r_file.new_path, 0)
                 for r_dir in renamed_dirs:
@@ -52,7 +53,6 @@ def RepoUpdateEventHandler(session, msg):
                     changer.update_db_records(repo_id, m_file.path, m_file.new_path, 0)
                 for m_dir in moved_dirs:
                     changer.update_db_records(repo_id, m_dir.path, m_dir.new_path, 1)
-                changer.close_session()
 
             users = []
             org_id = get_org_id_by_repo_id(repo_id)
@@ -72,12 +72,15 @@ def RepoUpdateEventHandler(session, msg):
             if added_files or deleted_files or added_dirs or deleted_dirs or \
                     modified_files or renamed_files or moved_files or renamed_dirs or moved_dirs:
 
-                if appconfig.fh.enabled:
+                fh_enabled = True
+                if config.has_option('FILE HISTORY', 'enabled'):
+                    fh_enabled = config.getboolean('FILE HISTORY', 'enabled')
+                if fh_enabled:
                     records = generate_filehistory_records(added_files, deleted_files,
                                     added_dirs, deleted_dirs, modified_files, renamed_files,
                                     moved_files, renamed_dirs, moved_dirs, commit, repo_id,
                                     parent, time)
-                    save_file_histories(session, records)
+                    save_file_histories(config, session, records)
 
                 records = generate_activity_records(added_files, deleted_files,
                         added_dirs, deleted_dirs, modified_files, renamed_files,
@@ -86,34 +89,24 @@ def RepoUpdateEventHandler(session, msg):
 
                 save_user_activities(session, records)
 
-            if appconfig.enable_collab_server:
-                send_message_to_collab_server(repo_id)
+            enable_collab_server = False
+            if config.has_option('COLLAB_SERVER', 'enabled'):
+                enable_collab_server = config.getboolean('COLLAB_SERVER', 'enabled')
+            if enable_collab_server:
+                send_message_to_collab_server(config, repo_id)
 
-def send_message_to_collab_server(repo_id):
-    url = '%s/api/repo-update' % appconfig.collab_server
-    form_data = 'repo_id=%s&key=%s' % (repo_id, appconfig.collab_key)
+
+def send_message_to_collab_server(config, repo_id):
+    collab_server = config.get('COLLAB_SERVER', 'server_url')
+    collab_key = config.get('COLLAB_SERVER', 'key')
+    url = '%s/api/repo-update' % collab_server
+    form_data = 'repo_id=%s&key=%s' % (repo_id, collab_key)
     req = request.Request(url, form_data.encode('utf-8'))
     resp = request.urlopen(req)
     ret_code = resp.getcode()
     if ret_code != 200:
-        logging.warning('Failed to send message to collab_server %s', appconfig.collab_server)
+        logging.warning('Failed to send message to collab_server %s', collab_server)
 
-def save_repo_rename_activity(session, commit, repo_id, parent, org_id, related_users, time):
-    repo = seafile_api.get_repo(repo_id)
-
-    record = {
-        'op_type': 'rename',
-        'obj_type': 'repo',
-        'timestamp': time,
-        'repo_id': repo_id,
-        'repo_name': repo.repo_name,
-        'path': '/',
-        'op_user': commit.creator_name,
-        'related_users': related_users,
-        'commit_id': commit.commit_id,
-        'old_repo_name': parent.repo_name
-    }
-    save_user_activity(session, record)
 
 def save_user_activities(session, records):
     # If a file was edited many times by same user in 30 minutes, just update timestamp.
@@ -380,26 +373,29 @@ def generate_filehistory_records(added_files, deleted_files, added_dirs,
 
     return records
 
-def save_file_histories(session, records):
+
+def save_file_histories(config, session, records):
     if not isinstance(records, list):
         return
     for record in records:
-        if should_record(record):
-            save_filehistory(session, record)
+        if should_record(config, record):
+            fh_threshold = int(get_opt_from_conf_or_env(config, 'FILE HISTORY', 'threshold', default=5))
+            save_filehistory(session, fh_threshold, record)
 
-def should_record(record):
+
+def should_record(config, record):
     """ return True if record['path'] is a specified office file
     """
-    if not appconfig.fh.enabled:
-        return False
-
+    suffix = 'md,txt,doc,docx,xls,xlsx,ppt,pptx'
+    fh_suffix_list = get_opt_from_conf_or_env(config, 'FILE HISTORY', 'suffix', default=suffix.strip(','))
     filename, suffix = splitext(record['path'])
-    if suffix[1:] in appconfig.fh.suffix_list:
+    if suffix[1:] in fh_suffix_list:
         return True
 
     return False
 
-def FileUpdateEventHandler(session, msg):
+
+def FileUpdateEventHandler(config, session, msg):
     elements = msg['content'].split('\t')
     if len(elements) != 3:
         logging.warning("got bad message: %s", elements)
@@ -421,7 +417,7 @@ def FileUpdateEventHandler(session, msg):
     save_file_update_event(session, time, commit.creator_name, org_id,
                            repo_id, commit_id, commit.desc)
 
-def FileAuditEventHandler(session, msg):
+def FileAuditEventHandler(config, session, msg):
     elements = msg['content'].split('\t')
     if len(elements) != 6:
         logging.warning("got bad message: %s", elements)
@@ -442,7 +438,7 @@ def FileAuditEventHandler(session, msg):
     save_file_audit_event(session, timestamp, msg_type, user_name, ip,
                           user_agent, org_id, repo_id, file_path)
 
-def PermAuditEventHandler(session, msg):
+def PermAuditEventHandler(config, session, msg):
     elements = msg['content'].split('\t')
     if len(elements) != 7:
         logging.warning("got bad message: %s", elements)
@@ -462,7 +458,7 @@ def PermAuditEventHandler(session, msg):
                           org_id, repo_id, file_path, perm)
 
 
-def DraftPublishEventHandler(session, msg):
+def DraftPublishEventHandler(config, session, msg):
 
     elements = msg['content'].split('\t')
     if len(elements) != 6:

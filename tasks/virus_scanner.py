@@ -7,13 +7,17 @@ from seafevents.virus_scanner import VirusScan
 
 
 class VirusScanner(object):
-    def __init__(self, config_file):
-        self.settings = Settings(config_file)
+    def __init__(self, config, seafile_config):
+        self.settings = Settings(config, seafile_config)
 
     def is_enabled(self):
         return self.settings.is_enabled()
 
     def start(self):
+        if not self.is_enabled():
+            logging.warning('Can not start virus scanner: it is not enabled!')
+            return
+
         logging.info("Start virus scanner, interval = %s sec", self.settings.scan_interval*60)
         VirusScanTimer(self.settings).start()
 

@@ -6,7 +6,14 @@ from datetime import datetime
 from .counter import update_hash_record, save_traffic_info
 
 
-def UserLoginEventHandler(session, msg):
+def UserLoginEventHandler(config, session, msg):
+    enabled = False
+    if config.has_option('STATISTICS', 'enabled'):
+        enabled = config.getboolean('STATISTICS', 'enabled')
+    if not enabled:
+        logging.info('statistics is disabled')
+        return
+
     elements = msg['content'].split('\t')
     if len(elements) != 4:
         logging.warning("got bad message: %s", elements)
@@ -19,7 +26,14 @@ def UserLoginEventHandler(session, msg):
     update_hash_record(session, username, _timestamp, org_id)
 
 
-def FileStatsEventHandler(session, msg):
+def FileStatsEventHandler(config, session, msg):
+    enabled = False
+    if config.has_option('STATISTICS', 'enabled'):
+        enabled = config.getboolean('STATISTICS', 'enabled')
+    if not enabled:
+        logging.info('statistics is disabled')
+        return
+
     elements = msg['content'].split('\t')
     if len(elements) != 4:
         logging.warning("got bad message: %s", elements)

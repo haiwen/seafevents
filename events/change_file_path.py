@@ -5,17 +5,13 @@ import logging
 import hashlib
 
 from sqlalchemy.sql import text
-from seafevents.app.config import appconfig
 
 logger = logging.getLogger(__name__)
 
 
 class ChangeFilePathHandler(object):
-    def __init__(self):
-        self.session = appconfig.session_cls()
-
-    def close_session(self):
-        self.session.close()
+    def __init__(self, session):
+        self.session = session
 
     def update_db_records(self, dst_repo_id, path, new_path, is_dir, src_repo_id=None):
         if not dst_repo_id or not path or not new_path:

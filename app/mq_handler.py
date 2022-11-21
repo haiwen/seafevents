@@ -8,6 +8,7 @@ import seafevents.events.handlers as events_handlers
 import seafevents.events_publisher.handlers as publisher_handlers
 import seafevents.statistics.handlers as stats_handlers
 from seafevents.db import init_db_session_class
+from seafevents.app.event_redis import RedisClient
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class MessageHandler(object):
         if func not in funcs:
             funcs.append(func)
 
-    def handle_message(self, session, channel, msg):
+    def handle_message(self, config, session, redis_connection, channel, msg):
         pos = msg['content'].find('\t')
         if pos == -1:
             logger.warning("invalid message format: %s", msg)
@@ -46,7 +47,10 @@ class MessageHandler(object):
         funcs = self._handlers.get(msg_type)
         for func in funcs:
             try:
-                func(session, msg)
+                if func.__name__ == 'RepoUpdatePublishHandler':
+                    func(config, redis_connection, msg)
+                else:
+                    func(config, session, msg)
             except Exception as e:
                 logger.exception("error when handle msg: %s", e)
 
@@ -62,7 +66,20 @@ class MessageHandler(object):
 message_handler = MessageHandler()
 
 
-def init_message_handlers(enable_audit):
+def init_message_handlers(config):
+    if config.has_option('Audit', 'enabled'):
+        try:
+            enable_audit = config.getboolean('Audit', 'enabled')
+        except ValueError:
+            enable_audit = False
+    elif config.has_option('AUDIT', 'enabled'):
+        try:
+            enable_audit = config.getboolean('AUDIT', 'enabled')
+        except ValueError:
+            enable_audit = False
+    else:
+        enable_audit = False
+
     events_handlers.register_handlers(message_handler, enable_audit)
     stats_handlers.register_handlers(message_handler)
     publisher_handlers.register_handlers(message_handler)
@@ -70,11 +87,15 @@ def init_message_handlers(enable_audit):
 
 class EventsHandler(object):
 
-    def __init__(self, events_conf):
-        self._db_session_class = init_db_session_class(events_conf)
+    def __init__(self, config):
+        self._config = config
+        self._db_session_class = init_db_session_class(config)
+        self._redis_connection = RedisClient(config).connection
 
     def handle_event(self, channel):
+        config = self._config
         session = self._db_session_class()
+        redis_connection = self._redis_connection
         while 1:
             try:
                 msg = seafile_api.pop_event(channel)
@@ -84,11 +105,12 @@ class EventsHandler(object):
                 continue
             if msg:
                 try:
-                    message_handler.handle_message(session, channel, msg)
+                    message_handler.handle_message(config, session, redis_connection, channel, msg)
                 except Exception as e:
                     logger.error(e)
                 finally:
                     session.close()
+                    redis_connection.close()
             else:
                 time.sleep(0.5)
 

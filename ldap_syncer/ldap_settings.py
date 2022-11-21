@@ -3,7 +3,7 @@
 import os
 import logging
 import configparser
-from seafevents.app.config import appconfig
+from seafevents.db import init_db_session_class
 
 MAX_LDAP_NUM = 10
 
@@ -50,7 +50,7 @@ class LdapConfig(object):
         self.department_name_attr = None
 
 class Settings(object):
-    def __init__(self, is_test=False):
+    def __init__(self, config, ccnet_config, is_test=False):
         # If any of ldap configs allows user-sync/group-sync, user-sync/group-sync task is allowed.
         self.enable_group_sync = False
         self.enable_user_sync = False
@@ -73,25 +73,10 @@ class Settings(object):
         self.load_cemail_attr = False
 
         self.ldap_configs = []
+        self.db_session = init_db_session_class(config)
+        self.ccnet_config = ccnet_config
 
-        if appconfig.get('ccnet_conf_path'):
-            ccnet_conf_path = appconfig.ccnet_conf_path
-        else:
-            if is_test:
-                ccnet_conf_dir = os.environ.get('CCNET_CONF_DIR')
-                if ccnet_conf_dir:
-                    ccnet_conf_path = os.path.join(ccnet_conf_dir, 'ccnet.conf')
-                else:
-                    logging.warning('Environment variable CCNET_CONF_DIR and SEAFILE_CENTRAL_CONF_DIR is not define, stop ldap test.')
-                    return
-            else:
-                logging.warning('Environment variable CCNET_CONF_DIR and SEAFILE_CENTRAL_CONF_DIR is not define, disable ldap sync.')
-                return
-
-        self.parser = configparser.ConfigParser()
-        self.parser.read(ccnet_conf_path)
-
-        if not self.parser.has_section('LDAP'):
+        if not self.ccnet_config.has_section('LDAP'):
             if is_test:
                 logging.info('LDAP section is not set, stop ldap test.')
             else:
@@ -100,7 +85,7 @@ class Settings(object):
 
         # We can run test without [LDAP_SYNC] section
         has_sync_section = True
-        if not self.parser.has_section('LDAP_SYNC'):
+        if not self.ccnet_config.has_section('LDAP_SYNC'):
             if not is_test:
                 logging.info('LDAP_SYNC section is not set, disable ldap sync.')
                 return
@@ -134,10 +119,10 @@ class Settings(object):
         for i in range(0, MAX_LDAP_NUM):
             ldap_sec = 'LDAP' if i==0 else 'LDAP_MULTI_%d' % i
             sync_sec = 'LDAP_SYNC' if i==0 else 'LDAP_SYNC_MULTI_%d' % i
-            if not self.parser.has_section(ldap_sec):
+            if not self.ccnet_config.has_section(ldap_sec):
                 break
             # If [LDAP_MULTI_1] was configed but no [LDAP_SYNC_MULTI_1], use [LDAP_SYNC] section for this server.
-            if not self.parser.has_section(sync_sec):
+            if not self.ccnet_config.has_section(sync_sec):
                 sync_sec = 'LDAP_SYNC'
 
             ldap_config = LdapConfig()
@@ -263,9 +248,9 @@ class Settings(object):
 
     def get_option(self, section, key, dtype=None, dval=''):
         try:
-            val = self.parser.get(section, key)
+            val = self.ccnet_config.get(section, key)
             if dtype:
-                val = self.parser.getboolean(section, key) \
+                val = self.ccnet_config.getboolean(section, key) \
                         if dtype == bool else dtype(val)
                 return val
         except configparser.NoOptionError:

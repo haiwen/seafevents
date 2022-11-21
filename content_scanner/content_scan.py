@@ -1,14 +1,13 @@
-#coding: utf-8
+# coding: utf-8
 import logging
 import time
 import json
 from datetime import datetime
 from os.path import splitext
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
-from .config import appconfig
 from .thread_pool import ThreadPool
 from .models import ContentScanRecord, ContentScanResult
-from seafevents.db import SeafBase
+from seafevents.db import SeafBase, init_db_session_class
 
 ZERO_OBJ_ID = '0000000000000000000000000000000000000000'
 
@@ -22,9 +21,45 @@ class ScanTask(object):
 ## Compare each head_commit_id with the last scanned commit_id,
 ## if they're not equal, do diff and content scan.
 class ContentScan(object):
-    def __init__(self):
-        self.thread_pool = ThreadPool(self.diff_and_scan_content, appconfig.thread_num)
+    def __init__(self, config, seafile_config):
+        self.suffix_list = []
+        self.size_limit = 20 * 1024 * 1024
+        self.platform = ''
+        self.key = ''
+        self.key_id = ''
+        self.region = 'cn-shanghai'
+        self.thread_num = 3
+
+        self.edb_session = init_db_session_class(config)
+        self.seafdb_session = init_db_session_class(seafile_config, db='seafile')
+
+        self._parse_config(config)
+
+        self.thread_pool = ThreadPool(
+            self.platform, self.key, self.key_id, self.region, self.diff_and_scan_content, self.thread_num)
         self.thread_pool.start()
+
+    def _parse_config(self, config):
+        if config.has_option('CONTENT SCAN', 'suffix'):
+            suffix = config.get('CONTENT SCAN', 'suffix').strip(',')
+            self.suffix_list = suffix.split(',') if suffix else []
+
+        if config.has_option('CONTENT SCAN', 'size_limit'):
+            size_limit_mb = config.getint('CONTENT SCAN', 'size_limit')
+            self.size_limit = size_limit_mb * 1024 * 1024
+
+        if config.has_option('CONTENT SCAN', 'platform'):
+            self.platform = config.get('CONTENT SCAN', 'platform')
+
+        if self.platform.lower() == 'ali':
+            self.key = config.get('CONTENT SCAN', 'key')
+            self.key_id = config.get('CONTENT SCAN', 'key_id')
+
+        if config.has_option('CONTENT SCAN', 'region'):
+            self.region = config.get('CONTENT SCAN', 'region')
+
+        if config.has_option('CONTENT SCAN', 'thread_num'):
+            self.thread_num = config.getint('CONTENT SCAN', 'thread_num')
 
     def start(self):
         try:
@@ -40,8 +75,8 @@ class ContentScan(object):
         dt_str = dt.strftime('%Y-%m-%d %H:%M:%S')
         self.dt = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
 
-        edb_session = appconfig.session_cls()
-        seafdb_session = appconfig.seaf_session_cls()
+        edb_session = self.edb_session()
+        seafdb_session = self.seafdb_session()
 
         # Get repo list from seafile-db
         Branch = SeafBase.classes.Branch
@@ -84,7 +119,7 @@ class ContentScan(object):
         repo_id = task.repo_id
         last_commit_id = task.last_commit_id
         new_commit_id = task.new_commit_id
-        edb_session = appconfig.session_cls()
+        edb_session = self.edb_session()
 
         # repo not changed, update timestamp
         if last_commit_id == new_commit_id:
@@ -206,7 +241,7 @@ class ContentScan(object):
 
         for item in scan_results:
             detail = json.dumps(item["detail"])
-            new_record = ContentScanResult(repo_id, item["path"], appconfig.platform, detail)
+            new_record = ContentScanResult(repo_id, item["path"], self.platform, detail)
             edb_session.add(new_record)
             a_count += 1
         if a_count >= 1:
@@ -228,11 +263,11 @@ class ContentScan(object):
         self.thread_pool.put_task(task)
 
     def should_scan_file(self, fpath, fsize):
-        if fsize > appconfig.size_limit:
+        if fsize > self.size_limit:
             return False
 
         filename, suffix = splitext(fpath)
-        if suffix[1:] not in appconfig.suffix_list:
+        if suffix[1:] not in self.suffix_list:
             return False
 
         return True

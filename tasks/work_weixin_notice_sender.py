@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 import os
-import sys
 import logging
 from threading import Thread, Event
 
-from seafevents.utils import get_python_executable, run
-from seafevents.utils.config import parse_bool, parse_interval, get_opt_from_conf_or_env
+from seafevents.utils import get_python_executable, run, parse_bool, parse_interval, get_opt_from_conf_or_env
+from seafevents.app.config import ENABLE_WORK_WEIXIN, SEAHUB_DIR
 
 
 __all__ = [
@@ -18,7 +17,6 @@ class WorkWinxinNoticeSender(object):
     def __init__(self, config):
         self._enabled = False
         self._interval = None
-        self._seahub_dir = None
         self._logfile = None
         self._timer = None
 
@@ -36,26 +34,9 @@ class WorkWinxinNoticeSender(object):
         key_interval = 'interval'
         default_interval = 60  # 1min
 
-        # seahub_dir
-        seahub_dir = os.environ.get('SEAHUB_DIR', '')
-
-        if not seahub_dir:
-            logging.critical('seahub_dir is not set')
-            raise RuntimeError('seahub_dir is not set')
-        if not os.path.exists(seahub_dir):
-            logging.critical('seahub_dir %s does not exist' % seahub_dir)
-            raise RuntimeError('seahub_dir does not exist')
-
         # enabled
-        sys.path.insert(0, seahub_dir)
-        try:
-            from seahub.settings import ENABLE_WORK_WEIXIN
-
-            enabled = ENABLE_WORK_WEIXIN
-            enabled = parse_bool(enabled)
-        except ImportError as e:
-            logging.warning('Can not import seahub.settings: %s.' % e)
-            enabled = False
+        enabled = ENABLE_WORK_WEIXIN
+        enabled = parse_bool(enabled)
 
         if not enabled:
             return
@@ -70,7 +51,6 @@ class WorkWinxinNoticeSender(object):
             interval = default_interval
 
         self._interval = interval
-        self._seahub_dir = seahub_dir
 
     def start(self):
         if not self.is_enabled():
@@ -79,7 +59,7 @@ class WorkWinxinNoticeSender(object):
 
         logging.info('Start work weixin notice sender, interval = %s sec', self._interval)
 
-        WorkWeixinNoticeSenderTimer(self._interval, self._seahub_dir, self._logfile).start()
+        WorkWeixinNoticeSenderTimer(self._interval, self._logfile).start()
 
     def is_enabled(self):
         return self._enabled
@@ -87,10 +67,9 @@ class WorkWinxinNoticeSender(object):
 
 class WorkWeixinNoticeSenderTimer(Thread):
 
-    def __init__(self, interval, seahub_dir, logfile):
+    def __init__(self, interval, logfile):
         Thread.__init__(self)
         self._interval = interval
-        self._seahub_dir = seahub_dir
         self._logfile = logfile
         self.finished = Event()
 
@@ -101,7 +80,7 @@ class WorkWeixinNoticeSenderTimer(Thread):
                 logging.info('Start to send work weixin notifications..')
                 try:
                     python_exec = get_python_executable()
-                    manage_py = os.path.join(self._seahub_dir, 'manage.py')
+                    manage_py = os.path.join(SEAHUB_DIR, 'manage.py')
                     cmd = [
                         python_exec,
                         manage_py,
@@ -109,7 +88,7 @@ class WorkWeixinNoticeSenderTimer(Thread):
                     ]
 
                     with open(self._logfile, 'a') as fp:
-                        run(cmd, cwd=self._seahub_dir, output=fp)
+                        run(cmd, cwd=SEAHUB_DIR, output=fp)
                 except Exception as e:
                     logging.exception('send work weixin notifications error: %s', e)
 

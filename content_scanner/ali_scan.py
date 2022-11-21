@@ -1,4 +1,4 @@
-#coding=utf-8
+# coding=utf-8
 from aliyunsdkcore import client
 from aliyunsdkcore.profile import region_provider
 from aliyunsdkgreen.request.v20180509 import TextScanRequest
@@ -7,15 +7,11 @@ import json
 import uuid
 import datetime
 import logging
-from .config import appconfig
 
 MAX_SIZE=25000
 
 class AliScanner(object):
-    def __init__(self):
-        key = appconfig.key
-        key_id = appconfig.key_id
-        region = appconfig.region
+    def __init__(self, key, key_id, region,):
         domain = 'green.' + region + '.aliyuncs.com'
         self.clt = client.AcsClient(key_id, key, region)
         region_provider.modify_point('Green', region, domain)

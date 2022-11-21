@@ -18,7 +18,8 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         base_dn_dpt_id = self.grp_name2id[self.dn2name(self.test_base_dn)]
         self.ldap_helper.delete_ou(self.test_base_dn)
         ccnet_api.remove_group(base_dn_dpt_id)
-        remove_group_uuid_pair_by_id(base_dn_dpt_id)
+        session = self.settings.db_session()
+        remove_group_uuid_pair_by_id(session, base_dn_dpt_id)
 
     def gen_test_user_cn_and_email(self):
         test_cn_suffix = 'a'
@@ -33,7 +34,7 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
     def build_name2id_dict(self):
         # prepare group_name to group_id dict for db query
         # get_group_uuid_pairs
-        uuid_pairs = get_group_uuid_pairs()
+        uuid_pairs = get_group_uuid_pairs(self.settings.db_session())
 
         self.grp_name2id = {}
         for item in reversed(uuid_pairs):
@@ -210,11 +211,14 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         assert g1.source == g2.source == g3.source == 'LDAP'
 
         ccnet_api.remove_group(g1_id)
-        remove_group_uuid_pair_by_id(g1_id)
+        session = self.settings.db_session()
+        remove_group_uuid_pair_by_id(session, g1_id)
         ccnet_api.remove_group(g2_id)
-        remove_group_uuid_pair_by_id(g2_id)
+        session = self.settings.db_session()
+        remove_group_uuid_pair_by_id(session, g2_id)
         ccnet_api.remove_group(g3_id)
-        remove_group_uuid_pair_by_id(g3_id)
+        session = self.settings.db_session()
+        remove_group_uuid_pair_by_id(session, g3_id)
 
     def test_sync_group_as_group_rename_name(self):
         """
@@ -366,11 +370,14 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         assert g1.source == g2.source == g3.source == 'LDAP'
 
         ccnet_api.remove_group(g3_id)
-        remove_group_uuid_pair_by_id(g3_id)
+        session = self.settings.db_session()
+        remove_group_uuid_pair_by_id(session, g3_id)
         ccnet_api.remove_group(g2_id)
-        remove_group_uuid_pair_by_id(g2_id)
+        session = self.settings.db_session()
+        remove_group_uuid_pair_by_id(session, g2_id)
         ccnet_api.remove_group(g1_id)
-        remove_group_uuid_pair_by_id(g1_id)
+        session = self.settings.db_session()
+        remove_group_uuid_pair_by_id(session, g1_id)
 
     def test_sync_ou_as_department1(self):
         """
@@ -466,8 +473,11 @@ class LDAPGroupSyncerTest(LDAPSyncerTest):
         assert g1.source == g2.source == g3.source == 'LDAP'
 
         ccnet_api.remove_group(g3_id)
-        remove_group_uuid_pair_by_id(g3_id)
+        session = self.settings.db_session()
+        remove_group_uuid_pair_by_id(session, g3_id)
         ccnet_api.remove_group(g2_id)
-        remove_group_uuid_pair_by_id(g2_id)
+        session = self.settings.db_session()
+        remove_group_uuid_pair_by_id(session, g2_id)
         ccnet_api.remove_group(g1_id)
-        remove_group_uuid_pair_by_id(g1_id)
+        session = self.settings.db_session()
+        remove_group_uuid_pair_by_id(session, g1_id)

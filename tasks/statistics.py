@@ -1,10 +1,9 @@
 # coding: utf-8
 import logging
-
 from threading import Thread, Event
+
 from seafevents.statistics import TotalStorageCounter, FileOpsCounter, TrafficInfoCounter,\
                                   MonthlyTrafficCounter, UserActivityCounter
-from seafevents.app.config import appconfig
 
 
 def exception_catch(module):
@@ -19,30 +18,40 @@ def exception_catch(module):
 
 
 class Statistics(Thread):
-    def __init__(self):
+    def __init__(self, config, seafile_config):
         Thread.__init__(self)
+        self.config = config
+        self.seafile_config = seafile_config
 
     def is_enabled(self):
-        return appconfig.enable_statistics
+        enabled = False
+        if self.config.has_option('STATISTICS', 'enabled'):
+            enabled = self.config.getboolean('STATISTICS', 'enabled')
+        return enabled
 
     def run(self):
         # These tasks should run at backend node server.
         if self.is_enabled():
-            logging.info("Starting data statistics.")
-            CountTotalStorage().start()
-            CountFileOps().start()
-            CountMonthlyTrafficInfo().start()
+            logging.info("Start data statistics..")
+            CountTotalStorage(self.config, self.seafile_config).start()
+            CountFileOps(self.config).start()
+            CountMonthlyTrafficInfo(self.config).start()
+        else:
+            logging.info('Can not start data statistics: it is not enabled!')
+            return
 
 
 class CountTotalStorage(Thread):
-    def __init__(self):
+    def __init__(self, config, seafile_config):
         Thread.__init__(self)
+        self.config = config
+        self.seafile_config = seafile_config
         self.finished = Event()
 
     @exception_catch('CountTotalStorage')
     def run(self):
         while not self.finished.is_set():
-            TotalStorageCounter().start_count()
+            TotalStorageCounter(self.config, self.seafile_config).start_count()
             self.finished.wait(3600)
 
     def cancel(self):
@@ -50,14 +59,15 @@ class CountTotalStorage(Thread):
 
 
 class CountFileOps(Thread):
-    def __init__(self):
+    def __init__(self, config):
         Thread.__init__(self)
+        self.config = config
         self.finished = Event()
 
     @exception_catch('CountFileOps')
     def run(self):
         while not self.finished.is_set():
-            FileOpsCounter().start_count()
+            FileOpsCounter(self.config).start_count()
             self.finished.wait(3600)
 
     def cancel(self):
@@ -66,14 +76,22 @@ class CountFileOps(Thread):
 
 class CountTrafficInfo(Thread):
     # This should run at frontend node server.
-    def __init__(self):
+    def __init__(self, config):
         Thread.__init__(self)
+        self.config = config
         self.finished = Event()
 
     @exception_catch('CountTrafficInfo')
     def run(self):
+        enabled = False
+        if self.config.has_option('STATISTICS', 'enabled'):
+            enabled = self.config.getboolean('STATISTICS', 'enabled')
+        if not enabled:
+            logging.info("Traffic statistics is disabled.")
+            return
+
         while not self.finished.is_set():
-            TrafficInfoCounter().start_count()
+            TrafficInfoCounter(self.config).start_count()
             self.finished.wait(3600)
 
     def cancel(self):
@@ -81,14 +99,15 @@ class CountTrafficInfo(Thread):
 
 
 class CountMonthlyTrafficInfo(Thread):
-    def __init__(self):
+    def __init__(self, config):
         Thread.__init__(self)
+        self.config = config
         self.finished = Event()
 
     @exception_catch('CountMonthlyTrafficInfo')
     def run(self):
         while not self.finished.is_set():
-            MonthlyTrafficCounter().start_count()
+            MonthlyTrafficCounter(self.config).start_count()
             self.finished.wait(3600)
 
     def cancel(self):
@@ -97,13 +116,21 @@ class CountMonthlyTrafficInfo(Thread):
 
 class CountUserActivity(Thread):
     # This should run at frontend node server.
-    def __init__(self):
+    def __init__(self, config):
         Thread.__init__(self)
+        self.config = config
         self.finished = Event()
 
     def run(self):
+        enabled = False
+        if self.config.has_option('STATISTICS', 'enabled'):
+            enabled = self.config.getboolean('STATISTICS', 'enabled')
+        if not enabled:
+            logging.info("User login statistics is disabled.")
+            return
+
         while not self.finished.is_set():
-            UserActivityCounter().start_count()
+            UserActivityCounter(self.config).start_count()
             self.finished.wait(3600)
 
     def cancel(self):
