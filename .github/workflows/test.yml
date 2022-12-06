@@ -42,7 +42,7 @@ jobs:
 
       - name: run pytest
         run: |
-          export PYTHONPATH=/usr/local/lib/python3.6/site-packages:/usr/local/lib/python3.6/dist-packages:/usr/lib/python3.6/site-packages:/usr/lib/python3.6/dist-packages:/tmp/libsearpc:/tmp/ccnet-server/python:/tmp/seafile-server/python:/tmp/seafobj:$PYTHONPATH
+          export PYTHONPATH=/usr/local/lib/python3.7/site-packages:/usr/local/lib/python3.7/dist-packages:/usr/lib/python3.7/site-packages:/usr/lib/python3.7/dist-packages:/tmp/libsearpc:/tmp/ccnet-server/python:/tmp/seafile-server/python:/tmp/seafobj:$PYTHONPATH
           export CCNET_CONF_DIR=/tmp/ccnet SEAFILE_CONF_DIR=/tmp/seafile-data
           export SEAHUB_DIR=/tmp/seahub
           cd tests && pytest -sv events
