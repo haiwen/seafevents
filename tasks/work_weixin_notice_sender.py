@@ -84,7 +84,7 @@ class WorkWeixinNoticeSenderTimer(Thread):
                     cmd = [
                         python_exec,
                         manage_py,
-                        'send_work_weixin_notifications',
+                        'send_notices_to_social_account',
                     ]
 
                     with open(self._logfile, 'a') as fp:
