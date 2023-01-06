@@ -17,6 +17,7 @@ sys.path.insert(0, SEAHUB_DIR)
 
 try:
     import seahub.settings as seahub_settings
+    TIME_ZONE = getattr(seahub_settings, 'TIME_ZONE', 'UTC')
     ENABLE_WORK_WEIXIN = getattr(seahub_settings, 'ENABLE_WORK_WEIXIN', False)
 except ImportError:
     logger.critical("Can not import seahub settings.")

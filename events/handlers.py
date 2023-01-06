@@ -1,7 +1,5 @@
 # coding: utf-8
-
 import os
-import sys
 import json
 import pytz
 import copy
@@ -12,391 +10,18 @@ from urllib import request
 from datetime import timedelta
 from os.path import splitext
 
+from sqlalchemy.sql import text
+import pymysql
+
 from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
 from seafobj.commit_differ import DiffEntry
 from seafevents.events.db import save_file_audit_event, save_file_update_event, \
         save_perm_audit_event, save_user_activity, save_filehistory, update_user_activity_timestamp
+from seafevents.app.config import TIME_ZONE
 from seafevents.utils import get_opt_from_conf_or_env
 from .change_file_path import ChangeFilePathHandler
 from .models import Activity
-
-import pymysql
-from dbutils.pooled_db import PooledDB
-
-
-def get_seahub_db_config():
-
-    seahub_dir = os.environ.get('SEAHUB_DIR', '')
-
-    if not seahub_dir:
-        logging.critical('seahub_dir is not set')
-
-    if not os.path.exists(seahub_dir):
-        logging.critical('seahub_dir %s does not exist' % seahub_dir)
-
-    if seahub_dir not in sys.path:
-        sys.path.insert(0, seahub_dir)
-
-    try:
-        from seahub.settings import DATABASES, TIME_ZONE
-    except ImportError as e:
-        logging.warning('Can not import seahub.settings: %s.' % e)
-        return {}
-
-    config = {
-        "host": DATABASES['default']['HOST'],
-        "port": int(DATABASES['default']['PORT']),
-        "db": DATABASES['default']['NAME'],
-        "user": DATABASES['default']['USER'],
-        "passwd": DATABASES['default']['PASSWORD'],
-        "time_zone": TIME_ZONE,
-    }
-    return config
-
-
-seahub_db_pool = None
-config = get_seahub_db_config()
-if config:
-    seahub_db_pool = PooledDB(pymysql,
-                              charset='utf8',
-                              maxconnections=5,
-                              host=config['host'],
-                              port=config['port'],
-                              db=config['db'],
-                              user=config['user'],
-                              passwd=config['passwd'],
-                              setsession=['SET AUTOCOMMIT = 1'])
-
-
-def generate_repo_monitor_records(repo_id, commit,
-                                  added_files, deleted_files,
-                                  added_dirs, deleted_dirs,
-                                  renamed_files, renamed_dirs,
-                                  moved_files, moved_dirs,
-                                  modified_files):
-
-    OP_CREATE = 'create'
-    OP_RECOVER = 'recover'
-    OP_DELETE = 'delete'
-    OP_RENAME = 'rename'
-    OP_MOVE = 'move'
-    OP_EDIT = 'edit'
-
-    OBJ_FILE = 'file'
-    OBJ_DIR = 'dir'
-
-    # {'_dict': {'client_version': '8.0.8',
-    #            'commit_id': '436a73b6253de071f29947ad15122e38bfd991eb',
-    #            'creator': '3d486d5be28704428d613e86be533ad66286a839',
-    #            'creator_name': 'lian@lian.com',
-    #            'ctime': 1666689533,
-    #            'description': 'Added or modified "1" and 2 more files.\n'
-    #                           'Deleted "users.xlsx".\n',
-    #            'device_name': 'lian mac work',
-    #            'no_local_history': 1,
-    #            'parent_id': 'e7dc5161cb00b2b5784fd58e303d5944fbd5d647',
-    #            'repo_category': None,
-    #            'repo_desc': '',
-    #            'repo_id': '31191817-eda3-49f6-b2d9-d7bc534f6c5a',
-    #            'repo_name': 'lian lib for test repo monitor',
-    #            'root_id': '01e9bea5f8b525bed256afc46d24821d7ce9b8be',
-    #            'second_parent_id': None,
-    #            'version': 1}}
-
-    repo = seafile_api.get_repo(repo_id)
-    base_record = {
-        'op_user': commit.creator_name,
-        'repo_id': repo_id,
-        'repo_name': repo.repo_name,
-        'commit_id': commit.commit_id,
-        'timestamp': commit.ctime,
-        'commit_desc': commit.description,
-    }
-
-    records = []
-
-    if added_files:
-
-        added_files_record = copy.copy(base_record)
-        added_files_record["commit_diff"] = []
-
-        # {'new_path': None,
-        #  'obj_id': '0000000000000000000000000000000000000000',
-        #  'path': '/3',
-        #  'size': 0}
-        for de in added_files:
-
-            op_type = ''
-            if commit.description.startswith('Reverted'):
-                op_type = OP_RECOVER
-            else:
-                op_type = OP_CREATE
-
-            commit_diff = {}
-            commit_diff['op_type'] = op_type
-            commit_diff['obj_type'] = OBJ_FILE
-            commit_diff['obj_id'] = de.obj_id
-            commit_diff['path'] = de.path
-            commit_diff['size'] = de.size
-
-            added_files_record["commit_diff"].append(commit_diff)
-
-        records.append(added_files_record)
-
-    if deleted_files:
-
-        deleted_files_record = copy.copy(base_record)
-        deleted_files_record["commit_diff"] = []
-
-        for de in deleted_files:
-
-            commit_diff = {}
-            commit_diff['op_type'] = OP_DELETE
-            commit_diff['obj_type'] = OBJ_FILE
-            commit_diff['obj_id'] = de.obj_id
-            commit_diff['size'] = de.size
-            commit_diff['path'] = de.path
-
-            deleted_files_record["commit_diff"].append(commit_diff)
-
-        records.append(deleted_files_record)
-
-    if added_dirs:
-
-        added_dirs_record = copy.copy(base_record)
-        added_dirs_record["commit_diff"] = []
-
-        for de in added_dirs:
-
-            op_type = ''
-            if commit.description.startswith('Recovered'):
-                op_type = OP_RECOVER
-            else:
-                op_type = OP_CREATE
-
-            commit_diff = {}
-            commit_diff['op_type'] = op_type
-            commit_diff['obj_type'] = OBJ_DIR
-            commit_diff['obj_id'] = de.obj_id
-            commit_diff['path'] = de.path
-
-            added_dirs_record["commit_diff"].append(commit_diff)
-
-        records.append(added_dirs_record)
-
-    if deleted_dirs:
-
-        deleted_dirs_record = copy.copy(base_record)
-        deleted_dirs_record["commit_diff"] = []
-
-        for de in deleted_dirs:
-
-            commit_diff = {}
-            commit_diff['op_type'] = OP_DELETE
-            commit_diff['obj_type'] = OBJ_DIR
-            commit_diff['obj_id'] = de.obj_id
-            commit_diff['path'] = de.path
-
-            deleted_dirs_record["commit_diff"].append(commit_diff)
-
-        records.append(deleted_dirs_record)
-
-    if renamed_files:
-
-        renamed_files_record = copy.copy(base_record)
-        renamed_files_record["commit_diff"] = []
-
-        for de in renamed_files:
-
-            commit_diff = {}
-            commit_diff['op_type'] = OP_RENAME
-            commit_diff['obj_type'] = OBJ_FILE
-            commit_diff['obj_id'] = de.obj_id
-            commit_diff['path'] = de.new_path
-            commit_diff['size'] = de.size
-            commit_diff['old_path'] = de.path
-
-            renamed_files_record["commit_diff"].append(commit_diff)
-
-        records.append(renamed_files_record)
-
-    if renamed_dirs:
-
-        renamed_dirs_record = copy.copy(base_record)
-        renamed_dirs_record["commit_diff"] = []
-
-        for de in renamed_dirs:
-
-            commit_diff = {}
-            commit_diff['op_type'] = OP_RENAME
-            commit_diff['obj_type'] = OBJ_DIR
-            commit_diff['obj_id'] = de.obj_id
-            commit_diff['path'] = de.new_path
-            commit_diff['size'] = de.size
-            commit_diff['old_path'] = de.path
-
-            renamed_dirs_record["commit_diff"].append(commit_diff)
-
-        records.append(renamed_dirs_record)
-
-    if moved_files:
-
-        moved_files_record = copy.copy(base_record)
-        moved_files_record["commit_diff"] = []
-
-        for de in moved_files:
-
-            commit_diff = {}
-            commit_diff['op_type'] = OP_MOVE
-            commit_diff['obj_type'] = OBJ_FILE
-            commit_diff['obj_id'] = de.obj_id
-            commit_diff['path'] = de.new_path
-            commit_diff['size'] = de.size
-            commit_diff['old_path'] = de.path
-
-            moved_files_record["commit_diff"].append(commit_diff)
-
-        records.append(moved_files_record)
-
-    if moved_dirs:
-
-        moved_dirs_record = copy.copy(base_record)
-        moved_dirs_record["commit_diff"] = []
-
-        for de in moved_dirs:
-
-            commit_diff = {}
-            commit_diff['op_type'] = OP_MOVE
-            commit_diff['obj_type'] = OBJ_DIR
-            commit_diff['obj_id'] = de.obj_id
-            commit_diff['path'] = de.new_path
-            commit_diff['size'] = de.size
-            commit_diff['old_path'] = de.path
-
-            moved_dirs_record["commit_diff"].append(commit_diff)
-
-        records.append(moved_dirs_record)
-
-    if modified_files:
-
-        modified_files_record = copy.copy(base_record)
-        modified_files_record["commit_diff"] = []
-
-        for de in modified_files:
-
-            op_type = ''
-            if commit.description.startswith('Reverted'):
-                op_type = OP_RECOVER
-            else:
-                op_type = OP_EDIT
-
-            commit_diff = {}
-            commit_diff['op_type'] = op_type
-            commit_diff['obj_type'] = OBJ_FILE
-            commit_diff['obj_id'] = de.obj_id
-            commit_diff['path'] = de.path
-            commit_diff['size'] = de.size
-
-            modified_files_record["commit_diff"].append(commit_diff)
-
-        records.append(modified_files_record)
-
-    return records
-
-
-def save_message_to_user_notification(records):
-
-    with seahub_db_pool.connection() as db:
-        with db.cursor() as cursor:
-
-            # get repo monitor info
-            sql = "select * from base_usermonitoredrepos"
-            cursor.execute(sql)
-            monitored_repos = cursor.fetchall()
-
-            repo_id_monitor_user = {}
-            for monitored_repo in monitored_repos:
-                monitor_user = monitored_repo[1]
-                repo_id = monitored_repo[2]
-                repo_id_monitor_user[repo_id] = monitor_user
-
-            # process repo update record
-            records_should_save = []
-            for record in records:
-
-                repo_id = record.get('repo_id')
-                if not repo_id or repo_id not in repo_id_monitor_user:
-                    continue
-
-                monitor_user = repo_id_monitor_user[repo_id]
-                op_user = record.get('op_user')
-                if not op_user or op_user == monitor_user:
-                    continue
-
-                info = {
-                    'record': record,
-                    'monitor_user': monitor_user
-                }
-
-                records_should_save.append(info)
-
-            # {'monitor_user': 'lian@lian.com',
-            #  'record': {'commit_desc': 'Deleted "users.xlsx" and 1 more files',
-            #             'commit_diff': [{'obj_id': '4e1385391118ad01302a68f5ee1885f76382aa2f',
-            #                              'obj_type': 'file',
-            #                              'op_type': 'delete',
-            #                              'path': '/users.xlsx',
-            #                              'size': 8939},
-            #                             {'obj_id': '82135d1f2687e56e2a9a7be530baf61f4abb0b5f',
-            #                              'obj_type': 'file',
-            #                              'op_type': 'delete',
-            #                              'path': '/123456.md',
-            #                              'size': 13}],
-            #             'commit_id': 'b013adb9cf06631e835d42d10f7ccf49a69caad8',
-            #             'op_user': 'foo@foo.com',
-            #             'repo_id': '31191817-eda3-49f6-b2d9-d7bc534f6c5a',
-            #             'repo_name': 'lian lib for test repo monitor',
-            #             'timestamp': 1666774731}}
-
-            # save to user notification
-            for item in records_should_save:
-
-                monitor_user = item['monitor_user']
-                record = item['record']
-
-                detail = {
-                    "commit_id": record["commit_id"],
-                    "repo_id": record["repo_id"],
-                    "repo_name": record["repo_name"],
-                    "op_user": record["op_user"],
-                    "op_type": record["commit_diff"][0]["op_type"],
-                    "obj_type": record["commit_diff"][0]["obj_type"],
-                    "obj_path_list": [item["path"] for item in record["commit_diff"]],
-                    "old_obj_path_list": [],
-                }
-
-                if record["commit_diff"][0].get("old_path"):
-                    detail["old_obj_path_list"] = [item["old_path"] for item in record["commit_diff"]]
-
-                detail = json.dumps(detail)
-                detail = pymysql.converters.escape_string(detail)
-
-                time_zone = pytz.timezone(config['time_zone'])
-
-                utc_datetime = datetime.datetime.utcfromtimestamp(record['timestamp'])
-                utc_datetime = utc_datetime.replace(microsecond=0)
-                utc_datetime = pytz.utc.localize(utc_datetime)
-                local_datetime = utc_datetime.astimezone(time_zone)
-                local_datetime_str = local_datetime.strftime("%Y-%m-%d %H:%M:%S")
-
-                column = "(to_user, msg_type, detail, timestamp, seen)"
-                value = "('{}', 'repo_monitor', '{}', '{}', 0)".format(monitor_user,
-                                                                       detail,
-                                                                       local_datetime_str)
-
-                sql = "INSERT INTO notifications_usernotification {} VALUES {}".format(column, value)
-                cursor.execute(sql)
 
 
 def RepoUpdateEventHandler(config, session, msg):
@@ -469,15 +94,14 @@ def RepoUpdateEventHandler(config, session, msg):
 
                 save_user_activities(session, records)
 
-                if seahub_db_pool:
-                    records = generate_repo_monitor_records(repo_id, commit,
+                # save repo monitor recodes
+                records = generate_repo_monitor_records(repo_id, commit,
                                                             added_files, deleted_files,
                                                             added_dirs, deleted_dirs,
                                                             renamed_files, renamed_dirs,
                                                             moved_files, moved_dirs,
                                                             modified_files)
-
-                    save_message_to_user_notification(records)
+                save_message_to_user_notification(session, records)
 
             enable_collab_server = False
             if config.has_option('COLLAB_SERVER', 'enabled'):
@@ -496,6 +120,330 @@ def send_message_to_collab_server(config, repo_id):
     ret_code = resp.getcode()
     if ret_code != 200:
         logging.warning('Failed to send message to collab_server %s', collab_server)
+
+
+def generate_repo_monitor_records(repo_id, commit,
+                                  added_files, deleted_files,
+                                  added_dirs, deleted_dirs,
+                                  renamed_files, renamed_dirs,
+                                  moved_files, moved_dirs,
+                                  modified_files):
+
+    OP_CREATE = 'create'
+    OP_RECOVER = 'recover'
+    OP_DELETE = 'delete'
+    OP_RENAME = 'rename'
+    OP_MOVE = 'move'
+    OP_EDIT = 'edit'
+
+    OBJ_FILE = 'file'
+    OBJ_DIR = 'dir'
+
+    # {'_dict': {'client_version': '8.0.8',
+    #            'commit_id': '436a73b6253de071f29947ad15122e38bfd991eb',
+    #            'creator': '3d486d5be28704428d613e86be533ad66286a839',
+    #            'creator_name': 'lian@lian.com',
+    #            'ctime': 1666689533,
+    #            'description': 'Added or modified "1" and 2 more files.\n'
+    #                           'Deleted "users.xlsx".\n',
+    #            'device_name': 'lian mac work',
+    #            'no_local_history': 1,
+    #            'parent_id': 'e7dc5161cb00b2b5784fd58e303d5944fbd5d647',
+    #            'repo_category': None,
+    #            'repo_desc': '',
+    #            'repo_id': '31191817-eda3-49f6-b2d9-d7bc534f6c5a',
+    #            'repo_name': 'lian lib for test repo monitor',
+    #            'root_id': '01e9bea5f8b525bed256afc46d24821d7ce9b8be',
+    #            'second_parent_id': None,
+    #            'version': 1}}
+
+    repo = seafile_api.get_repo(repo_id)
+    base_record = {
+        'op_user': commit.creator_name,
+        'repo_id': repo_id,
+        'repo_name': repo.repo_name,
+        'commit_id': commit.commit_id,
+        'timestamp': commit.ctime,
+        'commit_desc': commit.description,
+    }
+
+    records = []
+
+    if added_files:
+
+        added_files_record = copy.copy(base_record)
+        added_files_record["commit_diff"] = []
+
+        # {'new_path': None,
+        #  'obj_id': '0000000000000000000000000000000000000000',
+        #  'path': '/3',
+        #  'size': 0}
+        for de in added_files:
+
+            if commit.description.startswith('Reverted'):
+                op_type = OP_RECOVER
+            else:
+                op_type = OP_CREATE
+
+            commit_diff = dict()
+            commit_diff['op_type'] = op_type
+            commit_diff['obj_type'] = OBJ_FILE
+            commit_diff['obj_id'] = de.obj_id
+            commit_diff['path'] = de.path
+            commit_diff['size'] = de.size
+
+            added_files_record["commit_diff"].append(commit_diff)
+
+        records.append(added_files_record)
+
+    if deleted_files:
+
+        deleted_files_record = copy.copy(base_record)
+        deleted_files_record["commit_diff"] = []
+
+        for de in deleted_files:
+
+            commit_diff = dict()
+            commit_diff['op_type'] = OP_DELETE
+            commit_diff['obj_type'] = OBJ_FILE
+            commit_diff['obj_id'] = de.obj_id
+            commit_diff['size'] = de.size
+            commit_diff['path'] = de.path
+
+            deleted_files_record["commit_diff"].append(commit_diff)
+
+        records.append(deleted_files_record)
+
+    if added_dirs:
+
+        added_dirs_record = copy.copy(base_record)
+        added_dirs_record["commit_diff"] = []
+
+        for de in added_dirs:
+
+            if commit.description.startswith('Recovered'):
+                op_type = OP_RECOVER
+            else:
+                op_type = OP_CREATE
+
+            commit_diff = dict()
+            commit_diff['op_type'] = op_type
+            commit_diff['obj_type'] = OBJ_DIR
+            commit_diff['obj_id'] = de.obj_id
+            commit_diff['path'] = de.path
+
+            added_dirs_record["commit_diff"].append(commit_diff)
+
+        records.append(added_dirs_record)
+
+    if deleted_dirs:
+
+        deleted_dirs_record = copy.copy(base_record)
+        deleted_dirs_record["commit_diff"] = []
+
+        for de in deleted_dirs:
+
+            commit_diff = dict()
+            commit_diff['op_type'] = OP_DELETE
+            commit_diff['obj_type'] = OBJ_DIR
+            commit_diff['obj_id'] = de.obj_id
+            commit_diff['path'] = de.path
+
+            deleted_dirs_record["commit_diff"].append(commit_diff)
+
+        records.append(deleted_dirs_record)
+
+    if renamed_files:
+
+        renamed_files_record = copy.copy(base_record)
+        renamed_files_record["commit_diff"] = []
+
+        for de in renamed_files:
+
+            commit_diff = dict()
+            commit_diff['op_type'] = OP_RENAME
+            commit_diff['obj_type'] = OBJ_FILE
+            commit_diff['obj_id'] = de.obj_id
+            commit_diff['path'] = de.new_path
+            commit_diff['size'] = de.size
+            commit_diff['old_path'] = de.path
+
+            renamed_files_record["commit_diff"].append(commit_diff)
+
+        records.append(renamed_files_record)
+
+    if renamed_dirs:
+
+        renamed_dirs_record = copy.copy(base_record)
+        renamed_dirs_record["commit_diff"] = []
+
+        for de in renamed_dirs:
+
+            commit_diff = dict()
+            commit_diff['op_type'] = OP_RENAME
+            commit_diff['obj_type'] = OBJ_DIR
+            commit_diff['obj_id'] = de.obj_id
+            commit_diff['path'] = de.new_path
+            commit_diff['size'] = de.size
+            commit_diff['old_path'] = de.path
+
+            renamed_dirs_record["commit_diff"].append(commit_diff)
+
+        records.append(renamed_dirs_record)
+
+    if moved_files:
+
+        moved_files_record = copy.copy(base_record)
+        moved_files_record["commit_diff"] = []
+
+        for de in moved_files:
+
+            commit_diff = dict()
+            commit_diff['op_type'] = OP_MOVE
+            commit_diff['obj_type'] = OBJ_FILE
+            commit_diff['obj_id'] = de.obj_id
+            commit_diff['path'] = de.new_path
+            commit_diff['size'] = de.size
+            commit_diff['old_path'] = de.path
+
+            moved_files_record["commit_diff"].append(commit_diff)
+
+        records.append(moved_files_record)
+
+    if moved_dirs:
+
+        moved_dirs_record = copy.copy(base_record)
+        moved_dirs_record["commit_diff"] = []
+
+        for de in moved_dirs:
+
+            commit_diff = dict()
+            commit_diff['op_type'] = OP_MOVE
+            commit_diff['obj_type'] = OBJ_DIR
+            commit_diff['obj_id'] = de.obj_id
+            commit_diff['path'] = de.new_path
+            commit_diff['size'] = de.size
+            commit_diff['old_path'] = de.path
+
+            moved_dirs_record["commit_diff"].append(commit_diff)
+
+        records.append(moved_dirs_record)
+
+    if modified_files:
+
+        modified_files_record = copy.copy(base_record)
+        modified_files_record["commit_diff"] = []
+
+        for de in modified_files:
+
+            if commit.description.startswith('Reverted'):
+                op_type = OP_RECOVER
+            else:
+                op_type = OP_EDIT
+
+            commit_diff = dict()
+            commit_diff['op_type'] = op_type
+            commit_diff['obj_type'] = OBJ_FILE
+            commit_diff['obj_id'] = de.obj_id
+            commit_diff['path'] = de.path
+            commit_diff['size'] = de.size
+
+            modified_files_record["commit_diff"].append(commit_diff)
+
+        records.append(modified_files_record)
+
+    return records
+
+
+def save_message_to_user_notification(session, records):
+    sql = "SELECT * FROM base_usermonitoredrepos"
+    result = session.execute(text(sql))
+    monitored_repos = result.fetchall()
+
+    repo_id_monitor_user = {}
+    for monitored_repo in monitored_repos:
+        monitor_user = monitored_repo[1]
+        repo_id = monitored_repo[2]
+        repo_id_monitor_user[repo_id] = monitor_user
+
+    # process repo update record
+    records_should_save = []
+    for record in records:
+
+        repo_id = record.get('repo_id')
+        if not repo_id or repo_id not in repo_id_monitor_user:
+            continue
+
+        monitor_user = repo_id_monitor_user[repo_id]
+        op_user = record.get('op_user')
+        if not op_user or op_user == monitor_user:
+            continue
+
+        info = {
+            'record': record,
+            'monitor_user': monitor_user
+        }
+
+        records_should_save.append(info)
+
+    # {'monitor_user': 'lian@lian.com',
+    #  'record': {'commit_desc': 'Deleted "users.xlsx" and 1 more files',
+    #             'commit_diff': [{'obj_id': '4e1385391118ad01302a68f5ee1885f76382aa2f',
+    #                              'obj_type': 'file',
+    #                              'op_type': 'delete',
+    #                              'path': '/users.xlsx',
+    #                              'size': 8939},
+    #                             {'obj_id': '82135d1f2687e56e2a9a7be530baf61f4abb0b5f',
+    #                              'obj_type': 'file',
+    #                              'op_type': 'delete',
+    #                              'path': '/123456.md',
+    #                              'size': 13}],
+    #             'commit_id': 'b013adb9cf06631e835d42d10f7ccf49a69caad8',
+    #             'op_user': 'foo@foo.com',
+    #             'repo_id': '31191817-eda3-49f6-b2d9-d7bc534f6c5a',
+    #             'repo_name': 'lian lib for test repo monitor',
+    #             'timestamp': 1666774731}}
+
+    # save to user notification
+    step = 100
+    for i in range(0, len(records_should_save), step):
+
+        values = list()
+        for item in records_should_save[i: i+step]:
+            monitor_user = item['monitor_user']
+            record = item['record']
+
+            detail = {
+                "commit_id": record["commit_id"],
+                "repo_id": record["repo_id"],
+                "repo_name": record["repo_name"],
+                "op_user": record["op_user"],
+                "op_type": record["commit_diff"][0]["op_type"],
+                "obj_type": record["commit_diff"][0]["obj_type"],
+                "obj_path_list": [item["path"] for item in record["commit_diff"]],
+                "old_obj_path_list": [],
+            }
+
+            if record["commit_diff"][0].get("old_path"):
+                detail["old_obj_path_list"] = [item["old_path"] for item in record["commit_diff"]]
+
+            detail = json.dumps(detail)
+            detail = pymysql.converters.escape_string(detail)
+
+            time_zone = pytz.timezone(TIME_ZONE)
+
+            utc_datetime = datetime.datetime.utcfromtimestamp(record['timestamp'])
+            utc_datetime = utc_datetime.replace(microsecond=0)
+            utc_datetime = pytz.utc.localize(utc_datetime)
+            local_datetime = utc_datetime.astimezone(time_zone)
+            local_datetime_str = local_datetime.strftime("%Y-%m-%d %H:%M:%S")
+
+            values.append((monitor_user, 'repo_monitor', detail, local_datetime_str, 0))
+
+        sql = """INSERT INTO notifications_usernotification (to_user, msg_type, detail, timestamp, seen)
+                 VALUES %s""" % ', '.join(["('%s', '%s', '%s', '%s', %s)" % value for value in values])
+        session.execute(text(sql))
+        session.commit()
 
 
 def save_user_activities(session, records):
