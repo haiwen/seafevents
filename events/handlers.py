@@ -10,6 +10,7 @@ from urllib import request
 from datetime import timedelta
 from os.path import splitext
 
+from django.core.cache import cache
 from sqlalchemy.sql import text
 import pymysql
 
@@ -96,11 +97,11 @@ def RepoUpdateEventHandler(config, session, msg):
 
                 # save repo monitor recodes
                 records = generate_repo_monitor_records(repo_id, commit,
-                                                            added_files, deleted_files,
-                                                            added_dirs, deleted_dirs,
-                                                            renamed_files, renamed_dirs,
-                                                            moved_files, moved_dirs,
-                                                            modified_files)
+                                                        added_files, deleted_files,
+                                                        added_dirs, deleted_dirs,
+                                                        renamed_files, renamed_dirs,
+                                                        moved_files, moved_dirs,
+                                                        modified_files)
                 save_message_to_user_notification(session, records)
 
             enable_collab_server = False
@@ -356,14 +357,31 @@ def generate_repo_monitor_records(repo_id, commit,
 
 
 def save_message_to_user_notification(session, records):
-    sql = "SELECT * FROM base_usermonitoredrepos"
-    result = session.execute(text(sql))
-    monitored_repos = result.fetchall()
+
+    monitored_repos = cache.get('monitored_repos')
+    if not monitored_repos:
+        sql = "SELECT * FROM base_usermonitoredrepos"
+        result = session.execute(text(sql))
+        monitored_repos = result.fetchall()
+        cache.set('monitored_repos', monitored_repos, 24 * 60 * 60)
 
     repo_id_monitor_user = {}
     for monitored_repo in monitored_repos:
+
         monitor_user = monitored_repo[1]
         repo_id = monitored_repo[2]
+
+        org_id = get_org_id_by_repo_id(repo_id)
+        if org_id > 0:
+            repo_owner = seafile_api.get_org_repo_owner(repo_id)
+        else:
+            repo_owner = seafile_api.get_repo_owner(repo_id)
+
+        if monitor_user != repo_owner:
+            del_sql = "DELETE FROM base_usermonitoredrepos where email='{}' and repo_id='{}'".format(monitor_user, repo_id)
+            result = session.execute(text(del_sql))
+            continue
+
         repo_id_monitor_user[repo_id] = monitor_user
 
     # process repo update record
