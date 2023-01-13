@@ -379,7 +379,8 @@ def save_message_to_user_notification(session, records):
 
         if monitor_user != repo_owner:
             del_sql = "DELETE FROM base_usermonitoredrepos where email='{}' and repo_id='{}'".format(monitor_user, repo_id)
-            result = session.execute(text(del_sql))
+            session.execute(text(del_sql))
+            session.commit()
             continue
 
         repo_id_monitor_user[repo_id] = monitor_user
