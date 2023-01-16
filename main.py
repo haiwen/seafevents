@@ -32,6 +32,7 @@ def main(background_tasks_only=False):
     os.environ['EVENTS_CONFIG_FILE'] = os.path.expanduser(args.config_file)
     ccnet_conf_path = os.path.join(os.environ['CCNET_CONF_DIR'], 'ccnet.conf')
     seafile_conf_path = os.path.join(os.environ['SEAFILE_CONF_DIR'], 'seafile.conf')
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'seahub.settings'  # set env for repo monitor cache
 
     ccnet_config = get_config(ccnet_conf_path)
     seafile_config = get_config(seafile_conf_path)
