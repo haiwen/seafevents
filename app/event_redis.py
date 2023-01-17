@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import logging
-import redis
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +35,7 @@ class RedisClient(object):
         By default, each Redis instance created will in turn create its own connection pool.
         Every caller using redis client will has it's own pool with config caller passed.
         """
+        import redis
         self.connection = redis.Redis(
             host=self._host, port=self._port, password=self._password, decode_responses=True,
             socket_timeout=socket_timeout, socket_connect_timeout=socket_connect_timeout,
