@@ -153,7 +153,7 @@ def get_opt_from_conf_or_env(config, section, key, env_key=None, default=None):
     """
     try:
         return config.get(section, key)
-    except configparser.NoOptionError:
+    except configparser.Error:
         if env_key is None:
             return default
         else:
