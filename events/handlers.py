@@ -358,70 +358,80 @@ def generate_repo_monitor_records(repo_id, commit,
 
 def save_message_to_user_notification(session, records):
 
-    monitored_repos = cache.get('monitored_repos')
-    if not monitored_repos:
-        sql = "SELECT * FROM base_usermonitoredrepos"
-        result = session.execute(text(sql))
-        monitored_repos = result.fetchall()
-        cache.set('monitored_repos', monitored_repos, 24 * 60 * 60)
+    repo_id_monitor_users = {}
 
-    repo_id_monitor_user = {}
-    for monitored_repo in monitored_repos:
+    for record in records:
 
-        monitor_user = monitored_repo[1]
-        repo_id = monitored_repo[2]
-
-        org_id = get_org_id_by_repo_id(repo_id)
-        if org_id > 0:
-            repo_owner = seafile_api.get_org_repo_owner(repo_id)
-        else:
-            repo_owner = seafile_api.get_repo_owner(repo_id)
-
-        if monitor_user != repo_owner:
-            del_sql = "DELETE FROM base_usermonitoredrepos where email='{}' and repo_id='{}'".format(monitor_user, repo_id)
-            session.execute(text(del_sql))
-            session.commit()
+        repo_id = record.get('repo_id')
+        if not repo_id:
             continue
 
-        repo_id_monitor_user[repo_id] = monitor_user
+        monitor_users = cache.get('{}_monitor_users'.format(repo_id))
+        if not monitor_users:
+            sql = "SELECT email FROM base_usermonitoredrepos where repo_id='{}'".format(repo_id)
+            result = session.execute(text(sql))
+            monitor_users = result.fetchall()
+            monitor_users = [item[0] for item in monitor_users]
+
+        cache_monitor_users = []
+        for monitor_user in monitor_users:
+
+            permission = seafile_api.check_permission_by_path(repo_id, '/', monitor_user)
+            if permission not in ('r', 'rw'):
+                del_sql = "DELETE FROM base_usermonitoredrepos where email='{}' and repo_id='{}'".format(monitor_user, repo_id)
+                session.execute(text(del_sql))
+                session.commit()
+                continue
+
+            cache_monitor_users.append(monitor_user)
+
+        cache.set('{}_monitor_users'.format(repo_id),
+                  cache_monitor_users,
+                  24 * 60 * 60)
+
+        repo_id_monitor_users[repo_id] = cache_monitor_users
 
     # process repo update record
     records_should_save = []
     for record in records:
 
         repo_id = record.get('repo_id')
-        if not repo_id or repo_id not in repo_id_monitor_user:
+        if not repo_id or repo_id not in repo_id_monitor_users:
             continue
 
-        monitor_user = repo_id_monitor_user[repo_id]
         op_user = record.get('op_user')
-        if not op_user or op_user == monitor_user:
+        if not op_user:
             continue
 
-        info = {
-            'record': record,
-            'monitor_user': monitor_user
-        }
+        for monitor_user in repo_id_monitor_users[repo_id]:
 
-        records_should_save.append(info)
+            if op_user == monitor_user:
+                continue
 
-    # {'monitor_user': 'lian@lian.com',
-    #  'record': {'commit_desc': 'Deleted "users.xlsx" and 1 more files',
-    #             'commit_diff': [{'obj_id': '4e1385391118ad01302a68f5ee1885f76382aa2f',
-    #                              'obj_type': 'file',
-    #                              'op_type': 'delete',
-    #                              'path': '/users.xlsx',
-    #                              'size': 8939},
-    #                             {'obj_id': '82135d1f2687e56e2a9a7be530baf61f4abb0b5f',
-    #                              'obj_type': 'file',
-    #                              'op_type': 'delete',
-    #                              'path': '/123456.md',
-    #                              'size': 13}],
-    #             'commit_id': 'b013adb9cf06631e835d42d10f7ccf49a69caad8',
-    #             'op_user': 'foo@foo.com',
-    #             'repo_id': '31191817-eda3-49f6-b2d9-d7bc534f6c5a',
-    #             'repo_name': 'lian lib for test repo monitor',
-    #             'timestamp': 1666774731}}
+            info = {
+                'record': record,
+                'monitor_user': monitor_user
+            }
+
+            records_should_save.append(info)
+
+        # {'monitor_user': 'lian@lian.com',
+        #  'record': {'commit_desc': 'Deleted "users.xlsx" and 1 more files',
+        #             'commit_diff': [{'obj_id': '4e1385391118ad01302a68f5ee1885f76382aa2f',
+        #                              'obj_type': 'file',
+        #                              'op_type': 'delete',
+        #                              'path': '/users.xlsx',
+        #                              'size': 8939},
+        #                             {'obj_id': '82135d1f2687e56e2a9a7be530baf61f4abb0b5f',
+        #                              'obj_type': 'file',
+        #                              'op_type': 'delete',
+        #                              'path': '/123456.md',
+        #                              'size': 13}],
+        #             'commit_id': 'b013adb9cf06631e835d42d10f7ccf49a69caad8',
+        #             'op_user': 'foo@foo.com',
+        #             'repo_id': '31191817-eda3-49f6-b2d9-d7bc534f6c5a',
+        #             'repo_name': 'lian lib for test repo monitor',
+        #             'timestamp': 1666774731}}
 
     # save to user notification
     step = 100
