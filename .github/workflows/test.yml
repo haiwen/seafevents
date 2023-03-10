@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v1
         with:
-          python-version: "3.6"
+          python-version: "3.7"
 
       - name: apt install
         run: |
@@ -41,6 +41,6 @@ jobs:
 
       - name: run pytest
         run: |
-          export PYTHONPATH=/usr/local/lib/python3.6/site-packages:/usr/local/lib/python3.6/dist-packages:/usr/lib/python3.6/site-packages:/usr/lib/python3.6/dist-packages:/tmp/libsearpc:/tmp/ccnet-server/python:/tmp/seafile-server/python:/tmp/seafobj:$PYTHONPATH
+          export PYTHONPATH=/usr/local/lib/python3.7/site-packages:/usr/local/lib/python3.7/dist-packages:/usr/lib/python3.7/site-packages:/usr/lib/python3.7/dist-packages:/tmp/libsearpc:/tmp/ccnet-server/python:/tmp/seafile-server/python:/tmp/seafobj:$PYTHONPATH
           export CCNET_CONF_DIR=/tmp/ccnet SEAFILE_CONF_DIR=/tmp/seafile-data
           cd tests && pytest -sv events
