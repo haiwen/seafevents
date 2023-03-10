@@ -25,13 +25,15 @@ def main(background_tasks_only=False):
     if args.pidfile:
         write_pidfile(args.pidfile)
 
-    if ('CCNET_CONF_DIR' not in os.environ) or ('SEAFILE_CONF_DIR' not in os.environ):
-        logging.error('Environment variable CCNET_CONF_DIR or SEAFILE_CONF_DIR is not define')
-        raise RuntimeError('Environment variable CCNET_CONF_DIR and SEAFILE_CONF_DIR is not define')
+    ccnet_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('CCNET_CONF_DIR')
+    seafile_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('SEAFILE_CONF_DIR')
+    if not ccnet_conf_dir or not seafile_conf_dir:
+        logging.error('Environment variable ccnet_conf_dir or seafile_conf_dir is not define')
+        raise RuntimeError('Environment variable ccnet_conf_dir and seafile_conf_dir is not define')
 
     os.environ['EVENTS_CONFIG_FILE'] = os.path.expanduser(args.config_file)
-    ccnet_conf_path = os.path.join(os.environ['CCNET_CONF_DIR'], 'ccnet.conf')
-    seafile_conf_path = os.path.join(os.environ['SEAFILE_CONF_DIR'], 'seafile.conf')
+    ccnet_conf_path = os.path.join(ccnet_conf_dir, 'ccnet.conf')
+    seafile_conf_path = os.path.join(seafile_conf_dir, 'seafile.conf')
     os.environ['DJANGO_SETTINGS_MODULE'] = 'seahub.settings'  # set env for repo monitor cache
 
     ccnet_config = get_config(ccnet_conf_path)
