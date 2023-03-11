@@ -28,7 +28,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = get_config(args.config_file)
-    seafile_conf_path = os.path.join(os.environ['SEAFILE_CONF_DIR'], 'seafile.conf')
+    seafile_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('SEAFILE_CONF_DIR')
+    seafile_conf_path = os.path.join(seafile_conf_dir, 'seafile.conf')
     seafile_config = get_config(seafile_conf_path)
 
     setting = Settings(config, seafile_config)
