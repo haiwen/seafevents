@@ -48,8 +48,7 @@ class Settings(object):
         if seafile_config.has_option('virus_scan', 'scan_command'):
             self.scan_cmd = seafile_config.get('virus_scan', 'scan_command')
         if not self.scan_cmd:
-            logger.info('[virus_scan] scan_command option is not found in %s, disable virus scan.' %
-                        os.path.join(os.environ['SEAFILE_CONF_DIR'], 'seafile.conf'))
+            logger.info('[virus_scan] scan_command option is not found in seafile.conf, disable virus scan.')
             return False
 
         vcode = None
