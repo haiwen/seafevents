@@ -20,6 +20,8 @@ from .models import Activity
 from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, save_ding_talk_msg
 from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
 
+recent_added_events = {'recent_added_events': []}
+
 
 def RepoUpdateEventHandler(session, msg):
     elements = msg['content'].split('\t')
@@ -93,18 +95,43 @@ def RepoUpdateEventHandler(session, msg):
                 send_message_to_collab_server(repo_id)
 
             # custom for ali
+            if added_files or added_dirs:
+                added_obj_set = set()
+                for added_file in added_files:
+                    added_obj_set.add(added_file.obj_id)
+                for added_dir in added_dirs:
+                    added_obj_set.add(added_dir.obj_id)
+
+                if len(recent_added_events['recent_added_events']) < 10:
+                    recent_added_events['recent_added_events'].append(added_obj_set)
+                else:
+                    recent_added_events['recent_added_events'].pop(0)
+                    recent_added_events['recent_added_events'].append(added_obj_set)
+
             if (deleted_files or deleted_dirs) and (appconfig.once_threshold > 0 and appconfig.total_threshold > 0):
-                deleted_time = datetime.datetime.fromtimestamp(msg['ctime']).strftime('%Y-%m-%d 00:00:00')
-                files_count = get_deleted_files_count(repo_id, commit.version, deleted_files, deleted_dirs)
-                save_deleted_files_count(session, repo_id, files_count, deleted_time)
+                deleted_obj_set = set()
+                for deleted_file in deleted_files:
+                    deleted_obj_set.add(deleted_file.obj_id)
+                for deleted_dir in deleted_dirs:
+                    deleted_obj_set.add(deleted_dir.obj_id)
 
-                repo = seafile_api.get_repo(repo_id)
-                if files_count > appconfig.once_threshold:
-                    save_ding_talk_msg(repo_id, repo.name, owner)
+                if deleted_obj_set in recent_added_events['recent_added_events']:
+                    try:
+                        recent_added_events['recent_added_events'].remove(deleted_obj_set)
+                    except ValueError:
+                        pass
+                else:
+                    deleted_time = datetime.datetime.fromtimestamp(msg['ctime']).strftime('%Y-%m-%d 00:00:00')
+                    files_count = get_deleted_files_count(repo_id, commit.version, deleted_files, deleted_dirs)
+                    save_deleted_files_count(session, repo_id, files_count, deleted_time)
 
-                total_count = get_deleted_files_total_count(session, repo_id, deleted_time)
-                if total_count > appconfig.total_threshold:
-                    save_ding_talk_msg(repo_id, repo.name, owner)
+                    repo = seafile_api.get_repo(repo_id)
+                    if files_count > appconfig.once_threshold:
+                        save_ding_talk_msg(repo_id, repo.name, owner)
+
+                    total_count = get_deleted_files_total_count(session, repo_id, deleted_time)
+                    if total_count > appconfig.total_threshold:
+                        save_ding_talk_msg(repo_id, repo.name, owner)
             # end custom
 
 
