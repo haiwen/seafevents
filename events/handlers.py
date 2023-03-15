@@ -480,12 +480,11 @@ def save_user_activities(session, records):
     if len(records) == 1 and records[0]['op_type'] == 'edit':
         record = records[0]
         _timestamp = record['timestamp'] - timedelta(minutes=30)
-        q = session.query(Activity)
+        q = session.query(Activity).filter(Activity.timestamp > _timestamp)
         q = q.filter(Activity.repo_id==record['repo_id'],
                      Activity.op_type==record['op_type'],
                      Activity.op_user==record['op_user'],
-                     Activity.path==record['path'],
-                     Activity.timestamp > _timestamp)
+                     Activity.path==record['path'])
         row = q.first()
         if row:
             activity_id = row.id
