@@ -1,7 +1,8 @@
 from seafevents.app.mq_handler import EventsHandler, init_message_handlers
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
-        WorkWinxinNoticeSender, FileUpdatesSender, RepoOldFileAutoDelScanner
+        WorkWinxinNoticeSender, FileUpdatesSender, RepoOldFileAutoDelScanner,\
+        DeletedFilesCountCleaner
 
 
 class App(object):
@@ -27,6 +28,7 @@ class App(object):
             self._work_weixin_notice_sender = WorkWinxinNoticeSender(config)
             self._file_updates_sender = FileUpdatesSender()
             self._repo_old_file_auto_del_scanner = RepoOldFileAutoDelScanner(config)
+            self._deleted_files_count_cleaner = DeletedFilesCountCleaner(config)
 
     def serve_forever(self):
         if self._fg_tasks_enabled:
@@ -44,3 +46,4 @@ class App(object):
             self._statistics.start()
             self._content_scanner.start()
             self._repo_old_file_auto_del_scanner.start()
+            self._deleted_files_count_cleaner.start()
