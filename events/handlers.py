@@ -79,12 +79,15 @@ def RepoUpdateEventHandler(session, msg):
                                     parent, time)
                     save_file_histories(session, records)
 
+                """
+                # custom for alphabox: do not record activities
                 records = generate_activity_records(added_files, deleted_files,
                         added_dirs, deleted_dirs, modified_files, renamed_files,
                         moved_files, renamed_dirs, moved_dirs, commit, repo_id,
                         parent, users, time)
 
                 save_user_activities(session, records)
+                """
 
             if appconfig.enable_collab_server:
                 send_message_to_collab_server(repo_id)
