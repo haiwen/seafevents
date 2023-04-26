@@ -779,8 +779,11 @@ def FileUpdateEventHandler(config, session, msg):
             return
 
     time = datetime.datetime.utcfromtimestamp(msg['ctime'])
+    creator_name = getattr(commit, 'creator_name', '')
+    if creator_name is None:
+        creator_name = ''
 
-    save_file_update_event(session, time, getattr(commit, 'creator_name', ''), org_id,
+    save_file_update_event(session, time, creator_name, org_id,
                            repo_id, commit_id, commit.desc)
 
 def FileAuditEventHandler(config, session, msg):
