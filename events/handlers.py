@@ -160,7 +160,7 @@ def generate_repo_monitor_records(repo_id, commit,
 
     repo = seafile_api.get_repo(repo_id)
     base_record = {
-        'op_user': commit.creator_name,
+        'op_user': getattr(commit, 'creator_name', ''),
         'repo_id': repo_id,
         'repo_name': repo.repo_name,
         'commit_id': commit.commit_id,
@@ -517,7 +517,7 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
         'timestamp': time,
         'repo_id': repo_id,
         'related_users': related_users,
-        'op_user': commit.creator_name,
+        'op_user': getattr(commit, 'creator_name', ''),
         'repo_name': repo.repo_name
     }
     records = []
@@ -674,7 +674,7 @@ def generate_filehistory_records(added_files, deleted_files, added_dirs,
         'commit_id': commit.commit_id,
         'timestamp': time,
         'repo_id': repo_id,
-        'op_user': commit.creator_name
+        'op_user': getattr(commit, 'creator_name', '')
     }
     records = []
 
@@ -780,7 +780,7 @@ def FileUpdateEventHandler(config, session, msg):
 
     time = datetime.datetime.utcfromtimestamp(msg['ctime'])
 
-    save_file_update_event(session, time, commit.creator_name, org_id,
+    save_file_update_event(session, time, getattr(commit, 'creator_name', ''), org_id,
                            repo_id, commit_id, commit.desc)
 
 def FileAuditEventHandler(config, session, msg):
