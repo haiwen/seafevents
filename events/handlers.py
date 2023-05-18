@@ -493,8 +493,6 @@ def save_user_activities(session, records):
             save_user_activity(session, record)
     else:
         for record in records:
-            if os.path.dirname(record['path']) == '/images/auto-upload':
-                continue
             save_user_activity(session, record)
 
 def generate_activity_records(added_files, deleted_files, added_dirs,
@@ -621,6 +619,8 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
         records.append(record)
 
     for record in records:
+        if os.path.dirname(record['path']) in ['/images/auto-upload', '/images/sdoc']:
+            records.remove(record)
         if 'old_path' in record:
             record['old_path'] = record['old_path'].rstrip('/')
         record['path'] = record['path'].rstrip('/') if record['path'] != '/' else '/'
