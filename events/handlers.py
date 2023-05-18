@@ -619,7 +619,9 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
         records.append(record)
 
     for record in records:
-        if os.path.dirname(record['path']) in ['/images/auto-upload', '/images/sdoc']:
+        if os.path.dirname(record['path']).startswith('/images/auto-upload'):
+            records.remove(record)
+        if os.path.dirname(record['path']).startswith('/images/sdoc'):
             records.remove(record)
         if 'old_path' in record:
             record['old_path'] = record['old_path'].rstrip('/')
