@@ -12,3 +12,4 @@ cscope.*
 stats-logs/
 *.cnf
 .idea/
+.vscode/

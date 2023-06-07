@@ -39,26 +39,36 @@ def RepoUpdateEventHandler(config, session, msg):
         commit = commit_mgr.load_commit(repo_id, 0, commit_id)
 
     # TODO: maybe handle merge commit.
+    logging.info('commit: %s, commit.parent_id: %s commit.second_parent_id: %s', commit, commit.parent_id, commit.second_parent_id)
     if commit is not None and commit.parent_id and not commit.second_parent_id:
 
         parent = commit_mgr.load_commit(repo_id, commit.version, commit.parent_id)
+        logging.info('parent: %s', parent)
 
         if parent is not None:
             differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id,
                                   True, True)
             added_files, deleted_files, added_dirs, deleted_dirs, modified_files,\
                 renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
+            logging.info('renamed_files: %s', renamed_files)
+            logging.info('renamed_dirs: %s', renamed_dirs)
+            logging.info('moved_files: %s', moved_files)
+            logging.info('moved_dirs: %s', moved_dirs)
 
-            if renamed_files or renamed_dirs or moved_files or moved_dirs:
+            if renamed_files or renamed_dirs or moved_files or moved_dirs or deleted_files:
                 changer = ChangeFilePathHandler(session)
                 for r_file in renamed_files:
                     changer.update_db_records(repo_id, r_file.path, r_file.new_path, 0)
+                    changer.change_file_ledger(repo_id, r_file.path, r_file.new_path)
                 for r_dir in renamed_dirs:
                     changer.update_db_records(repo_id, r_dir.path, r_dir.new_path, 1)
                 for m_file in moved_files:
                     changer.update_db_records(repo_id, m_file.path, m_file.new_path, 0)
+                    changer.change_file_ledger(repo_id, m_file.path, m_file.new_path)
                 for m_dir in moved_dirs:
                     changer.update_db_records(repo_id, m_dir.path, m_dir.new_path, 1)
+                for d_file in deleted_files:
+                    changer.delete_file_ledger(repo_id, d_file.path)
 
             users = []
             org_id = get_org_id_by_repo_id(repo_id)

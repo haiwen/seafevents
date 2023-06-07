@@ -6,3 +6,6 @@ mock
 pytest
 pyjwt
 pymysql
+openpyxl
+flask
+gevent
