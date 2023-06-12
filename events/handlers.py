@@ -39,21 +39,15 @@ def RepoUpdateEventHandler(config, session, msg):
         commit = commit_mgr.load_commit(repo_id, 0, commit_id)
 
     # TODO: maybe handle merge commit.
-    logging.info('commit: %s, commit.parent_id: %s commit.second_parent_id: %s', commit, commit.parent_id, commit.second_parent_id)
     if commit is not None and commit.parent_id and not commit.second_parent_id:
 
         parent = commit_mgr.load_commit(repo_id, commit.version, commit.parent_id)
-        logging.info('parent: %s', parent)
 
         if parent is not None:
             differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id,
                                   True, True)
             added_files, deleted_files, added_dirs, deleted_dirs, modified_files,\
                 renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
-            logging.info('renamed_files: %s', renamed_files)
-            logging.info('renamed_dirs: %s', renamed_dirs)
-            logging.info('moved_files: %s', moved_files)
-            logging.info('moved_dirs: %s', moved_dirs)
 
             if renamed_files or renamed_dirs or moved_files or moved_dirs or deleted_files:
                 changer = ChangeFilePathHandler(session)

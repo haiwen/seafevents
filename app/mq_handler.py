@@ -45,9 +45,6 @@ class MessageHandler(object):
             return
 
         funcs = self._handlers.get(msg_type)
-        logger.info('channel: %s', channel)
-        logger.info('msg: %s', msg)
-        logger.info('funcs: %s', funcs)
         for func in funcs:
             try:
                 if func.__name__ == 'RepoUpdatePublishHandler':
@@ -86,9 +83,6 @@ def init_message_handlers(config):
     events_handlers.register_handlers(message_handler, enable_audit)
     stats_handlers.register_handlers(message_handler)
     publisher_handlers.register_handlers(message_handler)
-    logger.info('enable_audit: %s', enable_audit)
-    for msg_type, funcs in message_handler._handlers.items():
-        logger.info('msg_type: %s, funcs: %s ', msg_type, funcs)
 
 
 class EventsHandler(object):
@@ -110,7 +104,6 @@ class EventsHandler(object):
                 time.sleep(3)
                 continue
             if msg:
-                logger.info('msg: %s', msg)
                 try:
                     message_handler.handle_message(config, session, redis_connection, channel, msg)
                 except Exception as e:
