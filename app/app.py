@@ -2,7 +2,6 @@ from seafevents.app.mq_handler import EventsHandler, init_message_handlers
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
         WorkWinxinNoticeSender, FileUpdatesSender, RepoOldFileAutoDelScanner
-from seafevents.seaf_io.server import SeafeventsIOServer
 
 
 class App(object):
@@ -17,7 +16,6 @@ class App(object):
             self._events_handler = EventsHandler(config)
             self._count_traffic_task = CountTrafficInfo(config)
             self._update_login_record_task = CountUserActivity(config)
-            self._seafevents_io_server = SeafeventsIOServer()
 
         if self._bg_tasks_enabled:
             self._index_updater = IndexUpdater(config)
@@ -35,7 +33,6 @@ class App(object):
             self._events_handler.start()
             self._update_login_record_task.start()
             self._count_traffic_task.start()
-            self._seafevents_io_server.start()
 
         if self._bg_tasks_enabled:
             self._file_updates_sender.start()

@@ -6,7 +6,7 @@ import hashlib
 
 from sqlalchemy.sql import text
 
-from seafevents.app.config import DTABLE_WEB_SERVER, DTABLE_WEB_LEDGER_API_TOKEN, LEDGER_TABLE_NAME
+from seafevents.app.config import DTABLE_WEB_SERVER, SEATABLE_LEDGER_BASE_API_TOKEN, LEDGER_TABLE_NAME
 from seafevents.utils.seatable_api import SeaTableAPI
 
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class ChangeFilePathHandler(object):
     def __init__(self, session):
         self.session = session
-        self.need_change_ledger = all((DTABLE_WEB_SERVER, DTABLE_WEB_LEDGER_API_TOKEN, LEDGER_TABLE_NAME))
+        self.need_change_ledger = all((DTABLE_WEB_SERVER, SEATABLE_LEDGER_BASE_API_TOKEN, LEDGER_TABLE_NAME))
 
     def update_db_records(self, dst_repo_id, path, new_path, is_dir, src_repo_id=None):
         if not dst_repo_id or not path or not new_path:
@@ -169,9 +169,17 @@ class ChangeFilePathHandler(object):
         if not self.need_change_ledger:
             return
         try:
-            seatable_api = SeaTableAPI(DTABLE_WEB_LEDGER_API_TOKEN, DTABLE_WEB_SERVER)
+            self._change_file_ledger(repo_id, path, new_path)
         except Exception as e:
-            logger.error('DTABLE_WEB_SERVER: %s, DTABLE_WEB_LEDGER_API_TOKEN: %s auth error: %s', DTABLE_WEB_SERVER, DTABLE_WEB_LEDGER_API_TOKEN, e)
+            logger.warning('change file ledger repo: %s path: %s new_path: %s error: %s', repo_id, path, new_path, e)
+
+    def _change_file_ledger(self, repo_id, path, new_path):
+        if not self.need_change_ledger:
+            return
+        try:
+            seatable_api = SeaTableAPI(SEATABLE_LEDGER_BASE_API_TOKEN, DTABLE_WEB_SERVER)
+        except Exception as e:
+            logger.error('DTABLE_WEB_SERVER: %s, DTABLE_WEB_LEDGER_API_TOKEN: %s auth error: %s', DTABLE_WEB_SERVER, SEATABLE_LEDGER_BASE_API_TOKEN, e)
             return
         file_name = os.path.basename(new_path)
         sql = f"UPDATE `{LEDGER_TABLE_NAME}` SET `文件路径`='{new_path}', `文件名`='{file_name}' WHERE `Repo ID`='{repo_id}' AND `文件路径`='{path}'"
@@ -185,9 +193,17 @@ class ChangeFilePathHandler(object):
         if not self.need_change_ledger:
             return
         try:
-            seatable_api = SeaTableAPI(DTABLE_WEB_LEDGER_API_TOKEN, DTABLE_WEB_SERVER)
+            self._delete_file_ledger(repo_id, path)
         except Exception as e:
-            logger.error('DTABLE_WEB_SERVER: %s, DTABLE_WEB_LEDGER_API_TOKEN: %s auth error: %s', DTABLE_WEB_SERVER, DTABLE_WEB_LEDGER_API_TOKEN, e)
+            logger.warning('delete file ledger repo: %s path: %s error: %s', repo_id, path, e)
+
+    def _delete_file_ledger(self, repo_id, path):
+        if not self.need_change_ledger:
+            return
+        try:
+            seatable_api = SeaTableAPI(SEATABLE_LEDGER_BASE_API_TOKEN, DTABLE_WEB_SERVER)
+        except Exception as e:
+            logger.error('DTABLE_WEB_SERVER: %s, DTABLE_WEB_LEDGER_API_TOKEN: %s auth error: %s', DTABLE_WEB_SERVER, SEATABLE_LEDGER_BASE_API_TOKEN, e)
             return
         sql = f"DELETE FROM `{LEDGER_TABLE_NAME}` WHERE `Repo ID`='{repo_id}' AND `文件路径`='{path}'"
         logger.info('sql: %s', sql)
