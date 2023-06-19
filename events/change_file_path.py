@@ -6,7 +6,7 @@ import hashlib
 
 from sqlalchemy.sql import text
 
-from seafevents.app.config import DTABLE_WEB_SERVER, SEATABLE_LEDGER_BASE_API_TOKEN, LEDGER_TABLE_NAME
+from seafevents.app.config import DTABLE_WEB_SERVER, SEATABLE_EX_PROPS_BASE_API_TOKEN, EX_PROPS_TABLE
 from seafevents.utils.seatable_api import SeaTableAPI
 
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class ChangeFilePathHandler(object):
     def __init__(self, session):
         self.session = session
-        self.need_change_ledger = all((DTABLE_WEB_SERVER, SEATABLE_LEDGER_BASE_API_TOKEN, LEDGER_TABLE_NAME))
+        self.need_change_ex_props = all((DTABLE_WEB_SERVER, SEATABLE_EX_PROPS_BASE_API_TOKEN, EX_PROPS_TABLE))
 
     def update_db_records(self, dst_repo_id, path, new_path, is_dir, src_repo_id=None):
         if not dst_repo_id or not path or not new_path:
@@ -165,49 +165,49 @@ class ChangeFilePathHandler(object):
                                  'repo_id': src_repo_id if src_repo_id else repo_id, 'path': row[0]})
                 self.session.commit()
 
-    def change_file_ledger(self, repo_id, path, new_path):
-        if not self.need_change_ledger:
+    def change_file_ex_props(self, repo_id, path, new_path):
+        if not self.need_change_ex_props:
             return
         try:
-            self._change_file_ledger(repo_id, path, new_path)
+            self._change_file_ex_props(repo_id, path, new_path)
         except Exception as e:
-            logger.warning('change file ledger repo: %s path: %s new_path: %s error: %s', repo_id, path, new_path, e)
+            logger.warning('change file ex-props repo: %s path: %s new_path: %s error: %s', repo_id, path, new_path, e)
 
-    def _change_file_ledger(self, repo_id, path, new_path):
-        if not self.need_change_ledger:
+    def _change_file_ex_props(self, repo_id, path, new_path):
+        if not self.need_change_ex_props:
             return
         try:
-            seatable_api = SeaTableAPI(SEATABLE_LEDGER_BASE_API_TOKEN, DTABLE_WEB_SERVER)
+            seatable_api = SeaTableAPI(SEATABLE_EX_PROPS_BASE_API_TOKEN, DTABLE_WEB_SERVER)
         except Exception as e:
-            logger.error('DTABLE_WEB_SERVER: %s, DTABLE_WEB_LEDGER_API_TOKEN: %s auth error: %s', DTABLE_WEB_SERVER, SEATABLE_LEDGER_BASE_API_TOKEN, e)
+            logger.error('DTABLE_WEB_SERVER: %s, SEATABLE_EX_PROPS_BASE_API_TOKEN: %s auth error: %s', DTABLE_WEB_SERVER, SEATABLE_EX_PROPS_BASE_API_TOKEN, e)
             return
         file_name = os.path.basename(new_path)
-        sql = f"UPDATE `{LEDGER_TABLE_NAME}` SET `文件路径`='{new_path}', `文件名`='{file_name}' WHERE `Repo ID`='{repo_id}' AND `文件路径`='{path}'"
+        sql = f"UPDATE `{EX_PROPS_TABLE}` SET `Path`='{new_path}', `File`='{file_name}' WHERE `Repo ID`='{repo_id}' AND `Path`='{path}'"
         logger.info('sql: %s', sql)
         try:
             seatable_api.query(sql)
         except Exception as e:
-            logger.error('update ledger repo: %s path: %s new_path: %s', repo_id, path, new_path)
+            logger.error('update ex-props repo: %s path: %s new_path: %s', repo_id, path, new_path)
 
-    def delete_file_ledger(self, repo_id, path):
-        if not self.need_change_ledger:
+    def delete_file_ex_props(self, repo_id, path):
+        if not self.need_change_ex_props:
             return
         try:
-            self._delete_file_ledger(repo_id, path)
+            self._delete_file_ex_props(repo_id, path)
         except Exception as e:
-            logger.warning('delete file ledger repo: %s path: %s error: %s', repo_id, path, e)
+            logger.warning('delete file ex-props repo: %s path: %s error: %s', repo_id, path, e)
 
-    def _delete_file_ledger(self, repo_id, path):
-        if not self.need_change_ledger:
+    def _delete_file_ex_props(self, repo_id, path):
+        if not self.need_change_ex_props:
             return
         try:
-            seatable_api = SeaTableAPI(SEATABLE_LEDGER_BASE_API_TOKEN, DTABLE_WEB_SERVER)
+            seatable_api = SeaTableAPI(SEATABLE_EX_PROPS_BASE_API_TOKEN, DTABLE_WEB_SERVER)
         except Exception as e:
-            logger.error('DTABLE_WEB_SERVER: %s, DTABLE_WEB_LEDGER_API_TOKEN: %s auth error: %s', DTABLE_WEB_SERVER, SEATABLE_LEDGER_BASE_API_TOKEN, e)
+            logger.error('DTABLE_WEB_SERVER: %s, SEATABLE_EX_PROPS_BASE_API_TOKEN: %s auth error: %s', DTABLE_WEB_SERVER, SEATABLE_EX_PROPS_BASE_API_TOKEN, e)
             return
-        sql = f"DELETE FROM `{LEDGER_TABLE_NAME}` WHERE `Repo ID`='{repo_id}' AND `文件路径`='{path}'"
+        sql = f"DELETE FROM `{EX_PROPS_TABLE}` WHERE `Repo ID`='{repo_id}' AND `Path`='{path}'"
         logger.info('sql: %s', sql)
         try:
             seatable_api.query(sql)
         except Exception as e:
-            logger.error('update ledger repo: %s path: %s', repo_id, path)
+            logger.error('update ex-props repo: %s path: %s', repo_id, path)

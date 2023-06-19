@@ -20,8 +20,8 @@ try:
     TIME_ZONE = getattr(seahub_settings, 'TIME_ZONE', 'UTC')
     ENABLE_WORK_WEIXIN = getattr(seahub_settings, 'ENABLE_WORK_WEIXIN', False)
     DTABLE_WEB_SERVER = getattr(seahub_settings, 'DTABLE_WEB_SERVER', None)
-    SEATABLE_LEDGER_BASE_API_TOKEN = getattr(seahub_settings, 'SEATABLE_LEDGER_BASE_API_TOKEN', None)
-    LEDGER_TABLE_NAME = getattr(seahub_settings, 'LEDGER_TABLE_NAME', None)
+    SEATABLE_EX_PROPS_BASE_API_TOKEN = getattr(seahub_settings, 'SEATABLE_EX_PROPS_BASE_API_TOKEN', None)
+    EX_PROPS_TABLE = getattr(seahub_settings, 'EX_PROPS_TABLE', None)
 except ImportError:
     logger.critical("Can not import seahub settings.")
     raise RuntimeError("Can not import seahub settings.")

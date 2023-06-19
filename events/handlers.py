@@ -53,16 +53,16 @@ def RepoUpdateEventHandler(config, session, msg):
                 changer = ChangeFilePathHandler(session)
                 for r_file in renamed_files:
                     changer.update_db_records(repo_id, r_file.path, r_file.new_path, 0)
-                    changer.change_file_ledger(repo_id, r_file.path, r_file.new_path)
+                    changer.change_file_ex_props(repo_id, r_file.path, r_file.new_path)
                 for r_dir in renamed_dirs:
                     changer.update_db_records(repo_id, r_dir.path, r_dir.new_path, 1)
                 for m_file in moved_files:
                     changer.update_db_records(repo_id, m_file.path, m_file.new_path, 0)
-                    changer.change_file_ledger(repo_id, m_file.path, m_file.new_path)
+                    changer.change_file_ex_props(repo_id, m_file.path, m_file.new_path)
                 for m_dir in moved_dirs:
                     changer.update_db_records(repo_id, m_dir.path, m_dir.new_path, 1)
                 for d_file in deleted_files:
-                    changer.delete_file_ledger(repo_id, d_file.path)
+                    changer.delete_file_ex_props(repo_id, d_file.path)
 
             users = []
             org_id = get_org_id_by_repo_id(repo_id)
