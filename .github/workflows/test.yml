@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - "10.0"
       - "9.0"
 
 jobs:
@@ -15,7 +16,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.7"
+          python-version: "3.8"
 
       - name: apt install
         run: |
@@ -24,7 +25,7 @@ jobs:
           sudo apt-get install -y uuid-dev intltool libsqlite3-dev build-essential
           sudo apt-get install -y libarchive-dev libtool libjansson-dev valac
           sudo apt-get install -y libfuse-dev cmake re2c flex autoconf automake
-          sudo apt-get install -y libssl-dev libldap2-dev libonig-dev libxml2 libxml2-dev libjwt-dev
+          sudo apt-get install -y libssl-dev libldap2-dev libsasl2-dev libonig-dev libxml2 libxml2-dev libjwt-dev
 
       - name: clone and build
         run: |
@@ -46,7 +47,7 @@ jobs:
 
       - name: run pytest
         run: |
-          export PYTHONPATH=/usr/local/lib/python3.7/site-packages:/usr/local/lib/python3.7/dist-packages:/usr/lib/python3.7/site-packages:/usr/lib/python3.7/dist-packages:/tmp/libsearpc:/tmp/ccnet-server/python:/tmp/seafile-server/python:/tmp/seafobj:$PYTHONPATH
+          export PYTHONPATH=/usr/local/lib/python3.8/site-packages:/usr/local/lib/python3.8/dist-packages:/usr/lib/python3.8/site-packages:/usr/lib/python3.8/dist-packages:/tmp/libsearpc:/tmp/ccnet-server/python:/tmp/seafile-server/python:/tmp/seafobj:$PYTHONPATH
           export CCNET_CONF_DIR=/tmp/ccnet SEAFILE_CONF_DIR=/tmp/seafile-data
           export SEAHUB_DIR=/tmp/seahub
           cd tests && pytest -sv events
