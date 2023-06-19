@@ -754,7 +754,7 @@ def save_file_histories(config, session, records):
 def should_record(config, record):
     """ return True if record['path'] is a specified office file
     """
-    suffix = 'md,txt,doc,docx,xls,xlsx,ppt,pptx'
+    suffix = 'md,txt,doc,docx,xls,xlsx,ppt,pptx,sdoc'
     fh_suffix_list = get_opt_from_conf_or_env(config, 'FILE HISTORY', 'suffix', default=suffix.strip(','))
     filename, suffix = splitext(record['path'])
     if suffix[1:] in fh_suffix_list:
