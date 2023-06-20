@@ -4,6 +4,8 @@ import os
 import sys
 import logging
 import argparse
+
+from seafevents.db import prepare_db_tables
 from seafevents.virus_scanner.scan_settings import Settings
 from seafevents.virus_scanner.virus_scan import VirusScan
 
@@ -34,6 +36,7 @@ if __name__ == "__main__":
 
     setting = Settings(config, seafile_config)
     if setting.is_enabled():
+        prepare_db_tables(seafile_config)
         VirusScan(setting).start()
     else:
         logger.info('Virus scan is disabled.')
