@@ -134,7 +134,7 @@ class VirusScan(object):
             os.path.join(SEAHUB_DIR, 'manage.py'),
             'notify_admins_on_virus',
         ] + args
-        subprocess.Popen(cmd, SEAHUB_DIR)
+        subprocess.Popen(cmd, cwd=SEAHUB_DIR)
 
     def parse_scan_result(self, ret_code):
         rcode_str = str(ret_code)
