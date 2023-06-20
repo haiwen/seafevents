@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - master
-      - "9.0"
+      - "10.0"
 
 jobs:
   build:
@@ -28,8 +28,8 @@ jobs:
 
       - name: clone and build
         run: |
-          git clone --depth=1 --branch=master https://github.com/haiwen/seafobj /tmp/seafobj
-          git clone --depth=1 --branch=master https://github.com/haiwen/seahub /tmp/seahub
+          git clone --depth=1 --branch=10.0 https://github.com/haiwen/seafobj /tmp/seafobj
+          git clone --depth=1 --branch=10.0 https://github.com/haiwen/seahub /tmp/seahub
           git clone --depth=1 --branch=master https://github.com/haiwen/seafile-test-deploy /tmp/seafile-test-deploy
           cd /tmp/seafile-test-deploy && ./bootstrap.sh
 
