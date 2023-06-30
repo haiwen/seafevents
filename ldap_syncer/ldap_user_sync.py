@@ -1,31 +1,36 @@
-#coding: utf-8
-
+# -*- coding: utf-8 -*-
+import json
+import uuid
 import logging
-logger = logging.getLogger('ldap_sync')
-logger.setLevel(logging.DEBUG)
 
-from seaserv import get_ldap_users, add_ldap_user, update_ldap_user, \
-        seafile_api, ccnet_api
+from seaserv import seafile_api, ccnet_api
 from .ldap_conn import LdapConn
 from .ldap_sync import LdapSync
 from .utils import bytes2str
 from ldap import SCOPE_SUBTREE
 
-def default_ldap_role_mapping(role):
-    return role
-
-role_mapping = None
 try:
     from custom_functions import ldap_role_mapping
-    role_mapping = ldap_role_mapping
-except:
-    role_mapping = default_ldap_role_mapping
+except ImportError:
+    def ldap_role_mapping(role):
+        return role
+
+
+VIRTUAL_ID_EMAIL_DOMAIN = '@auth.local'
+
+
+def gen_user_virtual_id():
+    return uuid.uuid4().hex[:32] + VIRTUAL_ID_EMAIL_DOMAIN
+
+
+logger = logging.getLogger('ldap_sync')
+logger.setLevel(logging.DEBUG)
+
 
 class LdapUser(object):
-    def __init__(self, user_id, password, name, dept, uid, cemail,
-                 is_staff=0, is_active=1, role = '', is_manual_set = False):
+    def __init__(self, user_id, name, dept, uid, cemail,
+                 is_staff=0, is_active=1, role='', is_manual_set=False):
         self.user_id = user_id
-        self.password = password
         self.name = name
         self.dept = dept
         self.uid = uid
@@ -34,6 +39,7 @@ class LdapUser(object):
         self.is_active = is_active
         self.role = role
         self.is_manual_set = is_manual_set
+
 
 class LdapUserSync(LdapSync):
     def __init__(self, settings):
@@ -53,61 +59,7 @@ class LdapUserSync(LdapSync):
         self.udept = 0
         self.ddept = 0
 
-        self.db_conn = None
-        self.cursor = None
-
-        self.init_seahub_db()
-
-        if self.cursor is None and settings.load_extra_user_info_sync:
-            logger.debug('Failed to init seahub db, disable sync user extra info.')
-            for config in self.settings.ldap_configs:
-                config.enable_extra_user_info_sync = False
-
-    def init_seahub_db(self):
-        try:
-            import pymysql
-            pymysql.install_as_MySQLdb()
-            import seahub_settings
-        except ImportError as e:
-            logger.warning('Failed to init seahub db: %s.' %  e)
-            return
-
-        try:
-            db_infos = seahub_settings.DATABASES['default']
-        except KeyError as e:
-            logger.warning('Failed to init seahub db, can not find db info in seahub settings.')
-            return
-
-        if db_infos.get('ENGINE') != 'django.db.backends.mysql':
-            logger.warning('Failed to init seahub db, only mysql db supported.')
-            return
-
-        db_host = db_infos.get('HOST', '127.0.0.1')
-        db_port = int(db_infos.get('PORT', '3306'))
-        db_name = db_infos.get('NAME')
-        if not db_name:
-            logger.warning('Failed to init seahub db, db name is not setted.')
-            return
-        db_user = db_infos.get('USER')
-        if not db_user:
-            logger.warning('Failed to init seahub db, db user is not setted.')
-            return
-        db_passwd = db_infos.get('PASSWORD')
-
-        try:
-            self.db_conn = pymysql.connect(host=db_host, port=db_port,
-                                           user=db_user, passwd=db_passwd,
-                                           db=db_name, charset='utf8')
-            self.db_conn.autocommit(True)
-            self.cursor = self.db_conn.cursor()
-        except Exception as e:
-            logger.warning('Failed to init seahub db: %s.' %  e)
-
-    def close_seahub_db(self):
-        if self.cursor:
-            self.cursor.close()
-        if self.db_conn:
-            self.db_conn.close()
+        self.login_attr_email_map = dict()
 
     def show_sync_result(self):
         logger.info('''LDAP user sync result: add [%d]user, update [%d]user, deactive [%d]user, add [%d]role, update [%d]role''' %
@@ -118,7 +70,6 @@ class LdapUserSync(LdapSync):
                          'delete [%d]profile' % (self.aprofile, self.uprofile, self.dprofile))
             logger.info('LDAP dept sync result: add [%d]dept, update [%d]dept, '
                          'delete [%d]dept' % (self.adept, self.udept, self.ddept))
-
 
     def add_profile(self, email, ldap_user):
         # list_in_address_book: django will not apply default value to mysql. it will be processed in ORM.
@@ -245,10 +196,22 @@ class LdapUserSync(LdapSync):
     def get_data_from_db(self):
         # user_id <-> LdapUser
         user_data_db = None
-        users = get_ldap_users(-1, -1)
-        if users is None:
-            logger.warning('get ldap users from db failed.')
+        try:
+            self.cursor.execute("SELECT username,uid FROM social_auth_usersocialauth WHERE `provider`='ldap'")
+            ldap_users = self.cursor.fetchall()
+        except Exception as e:
+            logger.error('get ldap users from db failed: %s' % e)
             return user_data_db
+
+        # get login_attr email map
+        for user in ldap_users:
+            self.login_attr_email_map[user[1]] = user[0]
+
+        # get ldap users from ccnet by email_list
+        email_list = list()
+        for user in ldap_users:
+            email_list.append(user[0])
+        users = ccnet_api.get_emailusers_in_list('DB', json.dumps(email_list))
 
         # select all users attrs from profile_profile and profile_detailedprofile in one query
         email2attrs = {}  # is like: { 'some_one@seafile': {'name': 'leo', 'dept': 'dev', ...} ...}
@@ -262,6 +225,7 @@ class LdapUserSync(LdapSync):
                 detailed_profile_res = self.cursor.fetchall()
             except Exception as e:
                 logger.warning('Failed to get profile info for db users %s.'.format(e))
+                return
 
             email2dept = {}
 
@@ -298,7 +262,7 @@ class LdapUserSync(LdapSync):
                 uid = user_attrs.get('uid', '')
                 cemail = user_attrs.get('email', '')
 
-            user_data_db[user.email] = LdapUser(user.id, user.password, name, dept,
+            user_data_db[user.email] = LdapUser(user.id, name, dept,
                                                 uid, cemail,
                                                 1 if user.is_staff else 0,
                                                 1 if user.is_active else 0,
@@ -340,7 +304,7 @@ class LdapUserSync(LdapSync):
 
     def get_data_by_base_dn(self, config, ldap_conn, base_dn, search_filter):
         user_data_ldap = {}
-        search_attr = [config.login_attr, config.pwd_change_attr]
+        search_attr = [config.login_attr]
 
         if config.role_name_attr:
             search_attr.append(config.role_name_attr)
@@ -371,10 +335,6 @@ class LdapUserSync(LdapSync):
                 continue
             if config.login_attr not in attrs:
                 continue
-            if config.pwd_change_attr not in attrs:
-                password = ''
-            else:
-                password = attrs[config.pwd_change_attr][0]
 
             user_name = None
             dept = None
@@ -422,35 +382,40 @@ class LdapUserSync(LdapSync):
 
             email = attrs[config.login_attr][0].lower()
             user_name = None if user_name is None else user_name.strip()
-            user_data_ldap[email] = LdapUser(None, password, user_name, dept,
-                                             uid, cemail, role = role)
+            user_data_ldap[email] = LdapUser(None, user_name, dept, uid, cemail, role=role)
 
         return user_data_ldap
 
-    def sync_add_user(self, ldap_user, email):
-        user_id = add_ldap_user(email, ldap_user.password, 0,
-                                1 if self.settings.activate_user else 0)
-        if user_id <= 0:
-            logger.warning('Add user [%s] failed.' % email)
+    def sync_add_user(self, ldap_user, login_attr):
+        virtual_id = gen_user_virtual_id()
+        ret = ccnet_api.add_emailuser(virtual_id, '!', 0, 1 if self.settings.activate_user else 0)
+        if ret < 0:
+            logger.warning('Add user [%s] failed.' % login_attr)
+            return
+        try:
+            self.cursor.execute("INSERT INTO social_auth_usersocialauth (username,provider,uid,extra_data) "
+                                "VALUES (%s, %s, %s, %s)", (virtual_id, 'ldap', login_attr, ''))
+        except Exception as e:
+            logger.error('Add user [%s] to social_auth_usersocialauth failed: %s' % (login_attr, e))
             return
         self.auser += 1
-        logger.debug('Add user [%s] success.' % email)
+        logger.debug('Add user [%s] success.' % login_attr)
 
         ret = 0
         if ldap_user.role:
-            role = role_mapping(ldap_user.role)
-            ret = ccnet_api.update_role_emailuser(email, role, False)
+            role = ldap_role_mapping(ldap_user.role)
+            ret = ccnet_api.update_role_emailuser(virtual_id, role, False)
 
             if ret == 0:
                 self.arole += 1
-                logger.debug('Add role [%s] for user [%s] success.' % (role, email))
+                logger.debug('Add role [%s] for user [%s] success.' % (role, login_attr))
 
             if ret < 0:
-                logger.warning('Add role [%s] for user [%s] failed.' % (role, email))
+                logger.warning('Add role [%s] for user [%s] failed.' % (role, login_attr))
 
         if ldap_user.config.enable_extra_user_info_sync:
-            self.add_profile(email, ldap_user)
-            self.add_dept(email, ldap_user.dept)
+            self.add_profile(virtual_id, ldap_user)
+            self.add_dept(virtual_id, ldap_user.dept)
 
     def sync_update_user(self, ldap_user, db_user, email):
         '''
@@ -470,13 +435,13 @@ class LdapUserSync(LdapSync):
         ret = 0
 
         if ldap_user.role:
-            role = role_mapping(ldap_user.role)
+            role = ldap_role_mapping(ldap_user.role)
             if not db_user.is_manual_set and db_user.role != role:
                 ret = ccnet_api.update_role_emailuser(email, role, False)
 
                 if ret == 0:
                     self.urole += 1
-                    #logger.debug('Update role [%s] for user [%s] success.' % (role, email))
+                    logger.debug('Update role [%s] for user [%s] success.' % (role, email))
 
                 if ret < 0:
                     logger.warning('Update role [%s] for user [%s] failed.' % (role, email))
@@ -488,8 +453,7 @@ class LdapUserSync(LdapSync):
 
         if not db_user.is_active and ldap_user.config.auto_reactivate_users:
             try:
-                ret = update_ldap_user(db_user.user_id, email, db_user.password,
-                            db_user.is_staff, 1)
+                ret = ccnet_api.update_emailuser('DB', db_user.user_id, '!', db_user.is_staff, 1)
             except Exception as e:
                 logger.error('Reactivate user [{}] failed. ERROR: {}'.format(email, e))
                 return
@@ -500,10 +464,16 @@ class LdapUserSync(LdapSync):
             logger.debug('Reactivate user [%s] success.' % email)
 
     def sync_del_user(self, db_user, email):
-        ret = update_ldap_user(db_user.user_id, email, db_user.password,
-                               db_user.is_staff, 0)
-        if ret < 0:
-            logger.warning('Deactive user [%s] failed.' % email)
+        try:
+            ccnet_api.update_emailuser('DB', db_user.id, '!', db_user.is_staff, 0)
+        except Exception as e:
+            logger.warning('Deactive user [%s] failed: %s' % (email, e))
+            return
+
+        try:
+            self.cursor.execute("DELETE FROM social_auth_usersocialauth WHERR username=%s ", (email,))
+        except Exception as e:
+            logger.error('Delete user [%s] from social_auth_usersocialauth failed: %s' % (email, e))
             return
         logger.debug('Deactive user [%s] success.' % email)
         self.duser += 1
@@ -526,21 +496,35 @@ class LdapUserSync(LdapSync):
 
     def sync_data(self, data_db, data_ldap):
         # sync deleted user in ldap to db
-        for k in data_db.keys():
-            if k not in data_ldap and data_db[k].is_active == 1:
+        for login_attr in self.login_attr_email_map.keys():
+            email = self.login_attr_email_map[login_attr]
+            if login_attr not in data_ldap and data_db[email].is_active == 1:
                 if self.settings.enable_deactive_user:
-                    self.sync_del_user(data_db[k], k)
+                    self.sync_del_user(data_db[email], email)
                 else:
                     logger.debug('User[%s] not found in ldap, '
-                                  'DEACTIVE_USER_IF_NOTFOUND option is not set, so not deactive it.' % k)
+                                 'DEACTIVE_USER_IF_NOTFOUND option is not set, so not deactive it.' % login_attr)
 
         # sync undeleted user in ldap to db
-        for k, v in data_ldap.items():
-            if k in data_db:
-                self.sync_update_user(v, data_db[k], k)
+        for login_attr, ldap_user in data_ldap.items():
+            if login_attr in self.login_attr_email_map:
+                email = self.login_attr_email_map[login_attr]
+                self.sync_update_user(ldap_user, data_db[email], email)
             else:
-                # add user to db
-                if self.settings.import_new_user:
-                    self.sync_add_user(v, k)
+                # Search user from ccnet via login_attr:
+                user = ccnet_api.get_emailuser(login_attr)
+                # if exists and password is '!', means that the user is an older version user
+                if user and user.password == '!':
+                    self.sync_update_user(ldap_user, user, user.email)
+                    try:
+                        self.cursor.execute("INSERT INTO social_auth_usersocialauth (username,provider,uid,extra_data) "
+                                            "VALUES (%s, %s, %s, %s)", (user.email, 'ldap', login_attr, ''))
+                    except Exception as e:
+                        logger.error('Add user [%s] to social_auth_usersocialauth failed: %s' % (login_attr, e))
+                        return
+
+                # if not exists, create a new user
+                elif self.settings.import_new_user:
+                    self.sync_add_user(ldap_user, login_attr)
 
         self.close_seahub_db()

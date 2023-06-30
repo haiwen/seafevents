@@ -1,12 +1,14 @@
-#coding: utf-8
+# -*- coding: utf-8 -*-
 import logging
 from threading import Thread
 
 from ldap import SCOPE_BASE
-from seafevents.ldap_syncer.ldap_conn import  LdapConn
+from seafevents.ldap_syncer.ldap_conn import LdapConn
 from seafevents.ldap_syncer.utils import bytes2str, add_group_uuid_pair
 
 from seaserv import get_group_dn_pairs
+
+from seafevents.app.config import seahub_settings
 
 
 logger = logging.getLogger(__name__)
@@ -51,6 +53,59 @@ class LdapSync(Thread):
     def __init__(self, settings):
         Thread.__init__(self)
         self.settings = settings
+        self.db_conn = None
+        self.cursor = None
+        self.init_seahub_db()
+
+        if self.cursor is None:
+            raise RuntimeError('Failed to init seahub db.')
+
+    def init_seahub_db(self):
+        try:
+            import pymysql
+            pymysql.install_as_MySQLdb()
+        except ImportError as e:
+            logger.warning('Failed to init seahub db: %s.' % e)
+            return
+
+        try:
+            db_infos = seahub_settings.DATABASES['default']
+        except KeyError:
+            logger.warning('Failed to init seahub db, can not find db info in seahub settings.')
+            return
+
+        if db_infos.get('ENGINE') != 'django.db.backends.mysql':
+            logger.warning('Failed to init seahub db, only mysql db supported.')
+            return
+
+        db_host = db_infos.get('HOST', '127.0.0.1')
+        db_port = int(db_infos.get('PORT', '3306'))
+        db_name = db_infos.get('NAME')
+        if not db_name:
+            logger.warning('Failed to init seahub db, db name is not setted.')
+            return
+        db_user = db_infos.get('USER')
+        if not db_user:
+            logger.warning('Failed to init seahub db, db user is not setted.')
+            return
+        db_passwd = db_infos.get('PASSWORD')
+
+        try:
+            self.db_conn = pymysql.connect(host=db_host, port=db_port,
+                                           user=db_user, passwd=db_passwd,
+                                           db=db_name, charset='utf8')
+            self.db_conn.autocommit(True)
+            self.cursor = self.db_conn.cursor()
+        except Exception as e:
+            self.cursor = None
+            logger.warning('Failed to init seahub db: %s.' % e)
+            return
+
+    def close_seahub_db(self):
+        if self.cursor:
+            self.cursor.close()
+        if self.db_conn:
+            self.db_conn.close()
 
     def run(self):
         if self.settings.enable_group_sync:

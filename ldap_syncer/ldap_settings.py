@@ -1,4 +1,4 @@
-#coding: utf-8
+# -*- coding: utf-8 -*-
 
 import os
 import logging
@@ -23,7 +23,6 @@ class LdapConfig(object):
         self.user_filter = None
         self.import_new_user = True
         self.user_object_class = None
-        self.pwd_change_attr = None
         self.enable_extra_user_info_sync = False
         self.first_name_attr = None
         self.last_name_attr = None
@@ -225,8 +224,6 @@ class Settings(object):
         # If USER_FILTER is not set in server level, use value of LDAP_SYNC section
         if not ldap_config.user_filter:
             ldap_config.user_filter = self.get_option(sync_sec, 'USER_FILTER')
-        ldap_config.pwd_change_attr = self.get_option(sync_sec, 'PWD_CHANGE_ATTR',
-                                               dval='pwdLastSet')
 
         ldap_config.enable_extra_user_info_sync = self.get_option(sync_sec, 'ENABLE_EXTRA_USER_INFO_SYNC',
                                                            bool, False)
