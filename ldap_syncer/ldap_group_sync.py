@@ -1,17 +1,17 @@
-#coding: utf-8
-
+# -*- coding: utf-8 -*-
 import logging
-logger = logging.getLogger('ldap_sync')
-logger.setLevel(logging.DEBUG)
 
-from seaserv import get_ldap_groups, get_group_members, add_group_dn_pair, \
-        get_group_dn_pairs, create_group, group_add_member, group_remove_member, \
-        get_group, remove_group, get_super_users, ccnet_api, seafile_api
+from seaserv import get_ldap_groups, get_group_members, group_add_member, group_remove_member, \
+        remove_group, get_super_users, ccnet_api, seafile_api
 from ldap import SCOPE_SUBTREE, SCOPE_BASE, SCOPE_ONELEVEL
 from .ldap_conn import LdapConn
 from .ldap_sync import LdapSync
 from .utils import bytes2str, add_group_uuid_pair, get_group_uuid_pairs, remove_group_uuid_pair_by_id, \
         remove_useless_group_uuid_pairs
+
+
+logger = logging.getLogger('ldap_sync')
+logger.setLevel(logging.DEBUG)
 
 
 class LdapGroup(object):
@@ -23,6 +23,7 @@ class LdapGroup(object):
         self.group_id = group_id
         self.is_department = is_department
 
+
 class LdapGroupSync(LdapSync):
     def __init__(self, settings):
         LdapSync.__init__(self, settings)
@@ -30,6 +31,7 @@ class LdapGroupSync(LdapSync):
         self.ugroup = 0
         self.dgroup = 0
         self.sort_list = []
+        self.login_attr_email_map = dict()
 
     def show_sync_result(self):
         logger.info('LDAP group sync result: add [%d]group, update [%d]group, delete [%d]group' %
@@ -55,6 +57,17 @@ class LdapGroupSync(LdapSync):
         group_ids = [int(group.id) for group in groups]
         session = self.settings.db_session()
         remove_useless_group_uuid_pairs(session, group_ids)
+
+        try:
+            self.cursor.execute("SELECT username,uid FROM social_auth_usersocialauth WHERE `provider`='ldap'")
+            ldap_users = self.cursor.fetchall()
+        except Exception as e:
+            logger.error('get ldap users from db failed: %s' % e)
+            return grp_data_db
+
+        # get login_attr email map
+        for user in ldap_users:
+            self.login_attr_email_map[user[1]] = user[0]
 
         grp_data_db = {}
         for group in groups:
@@ -530,6 +543,13 @@ class LdapGroupSync(LdapSync):
                         continue
                     logger.debug('rename group %d success.' % group_id)
 
+                # Convert login_attr of group members in LDAP to email of Seafile
+                # according to uid(LDAP_LOGIN_ATTR) in social_auth_usersocialauth
+                email_list = list()
+                for login_attr in v.members:
+                    email_list.append(self.login_attr_email_map.get(login_attr, ''))
+                v.members = sorted(email_list)
+
                 add_list, del_list = LdapGroupSync.diff_members(data_db[group_id].members,
                                                                 v.members)
                 if len(add_list) > 0 or len(del_list) > 0:
@@ -554,6 +574,8 @@ class LdapGroupSync(LdapSync):
                                   (member, group_id))
             else:
                 self.create_and_add_group_to_db(k, v, group_uuid_db, data_ldap)
+
+        self.close_seahub_db()
 
     @staticmethod
     def get_super_user():
