@@ -197,7 +197,7 @@ class Settings(object):
         ldap_config.user_object_class = self.get_option(
             '%sLDAP_USER_OBJECT_CLASS' % setting_prefix, 'person')
         ldap_config.enable_extra_user_info_sync = self.get_option(
-            'ENABLE_EXTRA_USER_INFO_SYNC', False)
+            'ENABLE_EXTRA_USER_INFO_SYNC', True)
         ldap_config.first_name_attr = self.get_option(
             'LDAP_USER_FIRST_NAME_ATTR', 'givenName')
         ldap_config.last_name_attr = self.get_option(
