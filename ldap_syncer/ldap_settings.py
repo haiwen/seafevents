@@ -4,7 +4,6 @@ import logging
 from seafevents.db import init_db_session_class
 from seafevents.app.config import seahub_settings
 
-
 MULTI_LDAP_SETTING_PREFIX = 'MULTI_'
 
 
@@ -47,7 +46,6 @@ class LdapConfig(object):
         self.department_repo_permission = None
 
         self.sync_group_as_department = False
-        self.department_repo_permission = None
         self.department_name_attr = None
 
 
@@ -169,8 +167,6 @@ class Settings(object):
             '%sLDAP_GROUP_MEMBER_ATTR' % setting_prefix, 'member')
         ldap_config.group_uuid_attr = self.get_option(
             '%sLDAP_GROUP_UUID_ATTR' % setting_prefix, 'objectGUID')
-        ldap_config.user_object_class = self.get_option(
-            '%sLDAP_USER_OBJECT_CLASS' % setting_prefix, 'person')
         ldap_config.create_department_library = self.get_option(
             '%sLDAP_CREATE_DEPARTMENT_LIBRARY' % setting_prefix, False)
         ldap_config.department_repo_permission = self.get_option(
@@ -189,8 +185,6 @@ class Settings(object):
             '%sLDAP_USER_ATTR_IN_MEMBERUID' % setting_prefix, default='uid')
         ldap_config.department_name_attr = self.get_option(
             '%sLDAP_DEPT_NAME_ATTR' % setting_prefix, '')
-        ldap_config.department_repo_permission = self.get_option(
-            '%sLDAP_DEPT_REPO_PERM' % setting_prefix, 'rw')
 
     def read_sync_user_config(self, ldap_config, enable_multi_ldap=False):
         setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else ''
