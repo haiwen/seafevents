@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import logging
-from seafevents.db import init_db_session_class
 
+from seafevents.db import init_db_session_class
 from seafevents.app.config import seahub_settings
+
 
 MULTI_LDAP_SETTING_PREFIX = 'MULTI_'
 
@@ -133,6 +134,7 @@ class Settings(object):
         ldap_config.user_dn = self.get_option('%sLDAP_ADMIN_DN' % setting_prefix, '')
         ldap_config.passwd = self.get_option('%sLDAP_ADMIN_PASSWORD' % setting_prefix, '')
         ldap_config.login_attr = self.get_option('%sLDAP_LOGIN_ATTR' % setting_prefix, 'mail',)
+        ldap_config.user_filter = self.get_option('%sLDAP_FILTER' % setting_prefix, '')
         ldap_config.use_page_result = self.get_option('%sLDAP_USE_PAGED_RESULT' % setting_prefix, False)
         ldap_config.follow_referrals = self.get_option('%sLDAP_FOLLOW_REFERRALS' % setting_prefix, True)
 
@@ -194,8 +196,6 @@ class Settings(object):
         setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else ''
         ldap_config.user_object_class = self.get_option(
             '%sLDAP_USER_OBJECT_CLASS' % setting_prefix, 'person')
-        ldap_config.user_filter = self.get_option(
-            '%sLDAP_FILTER' % setting_prefix, '')
         ldap_config.enable_extra_user_info_sync = self.get_option(
             'ENABLE_EXTRA_USER_INFO_SYNC', False)
         ldap_config.first_name_attr = self.get_option(
