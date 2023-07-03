@@ -133,7 +133,8 @@ class Settings(object):
         ldap_config.user_dn = self.get_option('LDAP_ADMIN_DN'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.passwd = self.get_option('LDAP_ADMIN_PASSWORD'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.login_attr = self.get_option('LDAP_LOGIN_ATTR'.replace('LDAP', setting_prefix, 1), 'mail')
-        ldap_config.ldap_provider = self.get_option('LDAP_PROVIDER'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.ldap_provider = self.get_option('LDAP_PROVIDER'.replace('LDAP', setting_prefix, 1),
+                                                    'ldap1' if enable_multi_ldap else 'ldap')
         ldap_config.user_filter = self.get_option('LDAP_FILTER'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.use_page_result = self.get_option('LDAP_USE_PAGED_RESULT'.replace('LDAP', setting_prefix, 1), False)
         ldap_config.follow_referrals = self.get_option('LDAP_FOLLOW_REFERRALS'.replace('LDAP', setting_prefix, 1), True)
