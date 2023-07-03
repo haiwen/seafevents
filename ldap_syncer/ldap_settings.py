@@ -14,6 +14,7 @@ class LdapConfig(object):
         self.user_dn = None
         self.passwd = None
         self.login_attr = None
+        self.ldap_provider = None
         self.use_page_result = False
         self.follow_referrals = True
 
@@ -131,7 +132,8 @@ class Settings(object):
         ldap_config.base_dn = self.get_option('LDAP_BASE_DN'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.user_dn = self.get_option('LDAP_ADMIN_DN'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.passwd = self.get_option('LDAP_ADMIN_PASSWORD'.replace('LDAP', setting_prefix, 1), '')
-        ldap_config.login_attr = self.get_option('LDAP_LOGIN_ATTR'.replace('LDAP', setting_prefix, 1), 'mail',)
+        ldap_config.login_attr = self.get_option('LDAP_LOGIN_ATTR'.replace('LDAP', setting_prefix, 1), 'mail')
+        ldap_config.ldap_provider = self.get_option('LDAP_PROVIDER'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.user_filter = self.get_option('LDAP_FILTER'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.use_page_result = self.get_option('LDAP_USE_PAGED_RESULT'.replace('LDAP', setting_prefix, 1), False)
         ldap_config.follow_referrals = self.get_option('LDAP_FOLLOW_REFERRALS'.replace('LDAP', setting_prefix, 1), True)
@@ -182,7 +184,7 @@ class Settings(object):
         so we make it configurable, default value is 'uid'.
         '''
         ldap_config.user_attr_in_memberUid = self.get_option(
-            'LDAP_USER_ATTR_IN_MEMBERUID'.replace('LDAP', setting_prefix, 1), default='uid')
+            'LDAP_USER_ATTR_IN_MEMBERUID'.replace('LDAP', setting_prefix, 1), 'uid')
         ldap_config.department_name_attr = self.get_option(
             'LDAP_DEPT_NAME_ATTR'.replace('LDAP', setting_prefix, 1), '')
 

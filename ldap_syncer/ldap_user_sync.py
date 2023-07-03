@@ -195,9 +195,13 @@ class LdapUserSync(LdapSync):
 
     def get_data_from_db(self):
         # user_id <-> LdapUser
+        providers = list()
+        for config in self.settings.ldap_configs:
+            providers.append(config.ldap_provider)
         user_data_db = None
         try:
-            self.cursor.execute("SELECT username,uid FROM social_auth_usersocialauth WHERE `provider`='ldap'")
+            self.cursor.execute("SELECT username,uid FROM social_auth_usersocialauth WHERE `provider` IN %s",
+                                [providers])
             ldap_users = self.cursor.fetchall()
         except Exception as e:
             logger.error('get ldap users from db failed: %s' % e)
@@ -394,7 +398,7 @@ class LdapUserSync(LdapSync):
             return
         try:
             self.cursor.execute("INSERT INTO social_auth_usersocialauth (username,provider,uid,extra_data) "
-                                "VALUES (%s, %s, %s, %s)", (virtual_id, 'ldap', login_attr, ''))
+                                "VALUES (%s, %s, %s, %s)", (virtual_id, ldap_user.config.ldap_provider, login_attr, ''))
         except Exception as e:
             logger.error('Add user [%s] to social_auth_usersocialauth failed: %s' % (login_attr, e))
             return
@@ -518,7 +522,8 @@ class LdapUserSync(LdapSync):
                     self.sync_update_user(ldap_user, user, user.email)
                     try:
                         self.cursor.execute("INSERT INTO social_auth_usersocialauth (username,provider,uid,extra_data) "
-                                            "VALUES (%s, %s, %s, %s)", (user.email, 'ldap', login_attr, ''))
+                                            "VALUES (%s, %s, %s, %s)",
+                                            (user.email, ldap_user.config.ldap_provider, login_attr, ''))
                     except Exception as e:
                         logger.error('Add user [%s] to social_auth_usersocialauth failed: %s' % (login_attr, e))
                         return

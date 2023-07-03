@@ -58,8 +58,12 @@ class LdapGroupSync(LdapSync):
         session = self.settings.db_session()
         remove_useless_group_uuid_pairs(session, group_ids)
 
+        providers = list()
+        for config in self.settings.ldap_configs:
+            providers.append(config.ldap_provider)
         try:
-            self.cursor.execute("SELECT username,uid FROM social_auth_usersocialauth WHERE `provider`='ldap'")
+            self.cursor.execute("SELECT username,uid FROM social_auth_usersocialauth WHERE `provider` IN %s",
+                                [providers])
             ldap_users = self.cursor.fetchall()
         except Exception as e:
             logger.error('get ldap users from db failed: %s' % e)
