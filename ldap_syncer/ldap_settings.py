@@ -4,7 +4,7 @@ import logging
 from seafevents.db import init_db_session_class
 from seafevents.app.config import seahub_settings
 
-MULTI_LDAP_SETTING_PREFIX = 'MULTI_'
+MULTI_LDAP_SETTING_PREFIX = 'MULTI_LDAP_1_'
 
 
 class LdapConfig(object):
@@ -126,15 +126,15 @@ class Settings(object):
             self.ldap_configs.append(ldap_config)
 
     def read_base_config(self, ldap_config, is_test, enable_multi_ldap=False):
-        setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else ''
-        ldap_config.host = self.get_option('%sLDAP_SERVER_URL' % setting_prefix, '')
-        ldap_config.base_dn = self.get_option('%sLDAP_BASE_DN' % setting_prefix, '')
-        ldap_config.user_dn = self.get_option('%sLDAP_ADMIN_DN' % setting_prefix, '')
-        ldap_config.passwd = self.get_option('%sLDAP_ADMIN_PASSWORD' % setting_prefix, '')
-        ldap_config.login_attr = self.get_option('%sLDAP_LOGIN_ATTR' % setting_prefix, 'mail',)
-        ldap_config.user_filter = self.get_option('%sLDAP_FILTER' % setting_prefix, '')
-        ldap_config.use_page_result = self.get_option('%sLDAP_USE_PAGED_RESULT' % setting_prefix, False)
-        ldap_config.follow_referrals = self.get_option('%sLDAP_FOLLOW_REFERRALS' % setting_prefix, True)
+        setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else 'LDAP'
+        ldap_config.host = self.get_option('LDAP_SERVER_URL'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.base_dn = self.get_option('LDAP_BASE_DN'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.user_dn = self.get_option('LDAP_ADMIN_DN'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.passwd = self.get_option('LDAP_ADMIN_PASSWORD'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.login_attr = self.get_option('LDAP_LOGIN_ATTR'.replace('LDAP', setting_prefix, 1), 'mail',)
+        ldap_config.user_filter = self.get_option('LDAP_FILTER'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.use_page_result = self.get_option('LDAP_USE_PAGED_RESULT'.replace('LDAP', setting_prefix, 1), False)
+        ldap_config.follow_referrals = self.get_option('LDAP_FOLLOW_REFERRALS'.replace('LDAP', setting_prefix, 1), True)
 
         if ldap_config.host == '' or ldap_config.user_dn == '' or ldap_config.passwd == '' or ldap_config.base_dn == '':
             if is_test:
@@ -151,45 +151,45 @@ class Settings(object):
                 logging.warning("LDAP login attr is not mail or userPrincipalName")
 
         ldap_config.enable_user_sync = self.get_option(
-            'ENABLE_%sLDAP_USER_SYNC' % setting_prefix, False)
+            'ENABLE_LDAP_USER_SYNC'.replace('LDAP', setting_prefix, 1), False)
         ldap_config.enable_group_sync = self.get_option(
-            'ENABLE_%sLDAP_GROUP_SYNC' % setting_prefix, False)
+            'ENABLE_LDAP_GROUP_SYNC'.replace('LDAP', setting_prefix, 1), False)
         ldap_config.sync_department_from_ou = self.get_option(
-            '%sLDAP_SYNC_DEPARTMENT_FROM_OU' % setting_prefix, False)
+            'LDAP_SYNC_DEPARTMENT_FROM_OU'.replace('LDAP', setting_prefix, 1), False)
 
     def read_sync_group_config(self, ldap_config, enable_multi_ldap=False):
-        setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else ''
+        setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else 'LDAP'
         ldap_config.group_object_class = self.get_option(
-            '%sLDAP_GROUP_OBJECT_CLASS' % setting_prefix, 'group')
+            'LDAP_GROUP_OBJECT_CLASS'.replace('LDAP', setting_prefix, 1), 'group')
         ldap_config.group_filter = self.get_option(
-            '%sLDAP_GROUP_FILTER' % setting_prefix, '')
+            'LDAP_GROUP_FILTER'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.group_member_attr = self.get_option(
-            '%sLDAP_GROUP_MEMBER_ATTR' % setting_prefix, 'member')
+            'LDAP_GROUP_MEMBER_ATTR'.replace('LDAP', setting_prefix, 1), 'member')
         ldap_config.group_uuid_attr = self.get_option(
-            '%sLDAP_GROUP_UUID_ATTR' % setting_prefix, 'objectGUID')
+            'LDAP_GROUP_UUID_ATTR'.replace('LDAP', setting_prefix, 1), 'objectGUID')
         ldap_config.create_department_library = self.get_option(
-            '%sLDAP_CREATE_DEPARTMENT_LIBRARY' % setting_prefix, False)
+            'LDAP_CREATE_DEPARTMENT_LIBRARY'.replace('LDAP', setting_prefix, 1), False)
         ldap_config.department_repo_permission = self.get_option(
-            '%sLDAP_DEPT_REPO_PERM' % setting_prefix, 'rw')
+            'LDAP_DEPT_REPO_PERM'.replace('LDAP', setting_prefix, 1), 'rw')
         ldap_config.default_department_quota = self.get_option(
-            '%sLDAP_DEFAULT_DEPARTMENT_QUOTA' % setting_prefix, -2)
+            'LDAP_DEFAULT_DEPARTMENT_QUOTA'.replace('LDAP', setting_prefix, 1), -2)
         ldap_config.sync_group_as_department = self.get_option(
-            '%sLDAP_SYNC_GROUP_AS_DEPARTMENT' % setting_prefix, False)
+            'LDAP_SYNC_GROUP_AS_DEPARTMENT'.replace('LDAP', setting_prefix, 1), False)
         ldap_config.use_group_member_range_query = self.get_option(
-            '%sLDAP_USE_GROUP_MEMBER_RANGE_QUERY' % setting_prefix, False)
+            'LDAP_USE_GROUP_MEMBER_RANGE_QUERY'.replace('LDAP', setting_prefix, 1), False)
         '''
         posix groups store members in atrribute 'memberUid', however, the value of memberUid may be not a 'uid',
         so we make it configurable, default value is 'uid'.
         '''
         ldap_config.user_attr_in_memberUid = self.get_option(
-            '%sLDAP_USER_ATTR_IN_MEMBERUID' % setting_prefix, default='uid')
+            'LDAP_USER_ATTR_IN_MEMBERUID'.replace('LDAP', setting_prefix, 1), default='uid')
         ldap_config.department_name_attr = self.get_option(
-            '%sLDAP_DEPT_NAME_ATTR' % setting_prefix, '')
+            'LDAP_DEPT_NAME_ATTR'.replace('LDAP', setting_prefix, 1), '')
 
     def read_sync_user_config(self, ldap_config, enable_multi_ldap=False):
-        setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else ''
+        setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else 'LDAP'
         ldap_config.user_object_class = self.get_option(
-            '%sLDAP_USER_OBJECT_CLASS' % setting_prefix, 'person')
+            'LDAP_USER_OBJECT_CLASS'.replace('LDAP', setting_prefix, 1), 'person')
         ldap_config.enable_extra_user_info_sync = self.get_option(
             'ENABLE_EXTRA_USER_INFO_SYNC', True)
         ldap_config.first_name_attr = self.get_option(
@@ -199,15 +199,15 @@ class Settings(object):
         ldap_config.name_reverse = self.get_option(
             'LDAP_USER_NAME_REVERSE', False)
         ldap_config.dept_attr = self.get_option(
-            '%sLDAP_DEPT_ATTR' % setting_prefix, 'department')
+            'LDAP_DEPT_ATTR'.replace('LDAP', setting_prefix, 1), 'department')
         ldap_config.uid_attr = self.get_option(
-            '%sLDAP_UID_ATTR' % setting_prefix, '')
+            'LDAP_UID_ATTR'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.cemail_attr = self.get_option(
-            '%sLDAP_CONTACT_EMAIL_ATTR' % setting_prefix, '')
+            'LDAP_CONTACT_EMAIL_ATTR'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.role_name_attr = self.get_option(
-            '%sLDAP_USER_ROLE_ATTR' % setting_prefix, '')
+            'LDAP_USER_ROLE_ATTR'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.auto_reactivate_users = self.get_option(
-            'AUTO_REACTIVATE_USERS', False)
+            'LDAP_AUTO_REACTIVATE_USERS'.replace('LDAP', setting_prefix, 1), False)
 
     def enable_sync(self):
         return self.enable_user_sync or self.enable_group_sync or self.sync_department_from_ou
