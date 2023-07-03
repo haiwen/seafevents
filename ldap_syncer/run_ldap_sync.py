@@ -130,13 +130,9 @@ if __name__ == '__main__':
         config_file = os.path.join(config_dir, 'seafevents.conf')
     else:
         config_file = os.environ.get('EVENTS_CONFIG_FILE')
-    ccnet_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('CCNET_CONF_DIR')
-    ccnet_conf_path = os.path.join(ccnet_conf_dir, 'ccnet.conf')
 
     config = get_config(config_file)
-    ccnet_config = get_config(ccnet_conf_path)
-
-    settings = Settings(config, ccnet_config, True if arg.test else False)
+    settings = Settings(config, True if arg.test else False)
     if not settings.has_base_info:
         sys.exit()
 

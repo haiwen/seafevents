@@ -1,11 +1,11 @@
-#coding: utf-8
-
-import os
+# -*- coding: utf-8 -*-
 import logging
-import configparser
-from seafevents.db import init_db_session_class
 
-MAX_LDAP_NUM = 10
+from seafevents.db import init_db_session_class
+from seafevents.app.config import seahub_settings
+
+MULTI_LDAP_SETTING_PREFIX = 'MULTI_LDAP_1_'
+
 
 class LdapConfig(object):
     def __init__(self):
@@ -14,6 +14,7 @@ class LdapConfig(object):
         self.user_dn = None
         self.passwd = None
         self.login_attr = None
+        self.ldap_provider = None
         self.use_page_result = False
         self.follow_referrals = True
 
@@ -23,7 +24,6 @@ class LdapConfig(object):
         self.user_filter = None
         self.import_new_user = True
         self.user_object_class = None
-        self.pwd_change_attr = None
         self.enable_extra_user_info_sync = False
         self.first_name_attr = None
         self.last_name_attr = None
@@ -32,6 +32,7 @@ class LdapConfig(object):
         self.uid_attr = None
         self.cemail_attr = None
         self.role_name_attr = None
+        self.auto_reactivate_users = False
 
         self.group_filter = None
         self.group_object_class = None
@@ -46,11 +47,11 @@ class LdapConfig(object):
         self.department_repo_permission = None
 
         self.sync_group_as_department = False
-        self.department_repo_permission = None
         self.department_name_attr = None
 
+
 class Settings(object):
-    def __init__(self, config, ccnet_config, is_test=False):
+    def __init__(self, config, is_test=False):
         # If any of ldap configs allows user-sync/group-sync, user-sync/group-sync task is allowed.
         self.enable_group_sync = False
         self.enable_user_sync = False
@@ -74,71 +75,50 @@ class Settings(object):
 
         self.ldap_configs = []
         self.db_session = init_db_session_class(config)
-        self.ccnet_config = ccnet_config
-
-        if not self.ccnet_config.has_section('LDAP'):
+        if not self.get_option('ENABLE_LDAP', False) and self.get_option('ENABLE_MULTI_LDAP', False):
             if is_test:
-                logging.info('LDAP section is not set, stop ldap test.')
+                logging.info('LDAP is not set, stop ldap test.')
             else:
-                logging.info('LDAP section is not set, disable ldap sync.')
+                logging.info('LDAP is not set, disable ldap sync.')
             return
 
-        # We can run test without [LDAP_SYNC] section
-        has_sync_section = True
-        if not self.ccnet_config.has_section('LDAP_SYNC'):
-            if not is_test:
-                logging.info('LDAP_SYNC section is not set, disable ldap sync.')
-                return
-            else:
-                has_sync_section = False
-
-        if has_sync_section:
-            self.read_common_config(is_test)
-
-        self.read_multi_server_configs(is_test, has_sync_section)
+        self.read_common_config()
+        self.read_multi_server_configs(is_test)
 
         # If enable_extra_user_info_sync, uid_attr, cemail_attr were configed in any of ldap configs,
         # load extra_user_info, uid_attr, cemail_attr from database to memory.
-        for config in self.ldap_configs:
-            if config.enable_extra_user_info_sync == True:
+        for ldap_config in self.ldap_configs:
+            if ldap_config.enable_extra_user_info_sync is True:
                 self.load_extra_user_info_sync = True
-            if config.uid_attr != '':
+            if ldap_config.uid_attr != '':
                 self.load_uid_attr = True
-            if config.cemail_attr != '':
+            if ldap_config.cemail_attr != '':
                 self.load_cemail_attr = True
 
-    def read_common_config(self, is_test):
-        self.sync_interval = self.get_option('LDAP_SYNC', 'SYNC_INTERVAL', int, 60)
-        self.del_group_if_not_found = self.get_option('LDAP_SYNC', 'DEL_GROUP_IF_NOT_FOUND', bool, False)
-        self.del_department_if_not_found = self.get_option('LDAP_SYNC', 'DEL_DEPARTMENT_IF_NOT_FOUND', bool, False)
-        self.enable_deactive_user = self.get_option('LDAP_SYNC', 'DEACTIVE_USER_IF_NOTFOUND', bool, False)
-        self.activate_user = self.get_option('LDAP_SYNC', 'ACTIVATE_USER_WHEN_IMPORT', bool, True)
-        self.import_new_user = self.get_option('LDAP_SYNC', 'IMPORT_NEW_USER', bool, True)
+    def read_common_config(self):
+        self.sync_interval = self.get_option('LDAP_SYNC_INTERVAL', 60)
+        self.del_group_if_not_found = self.get_option('DEL_GROUP_IF_NOT_FOUND', False)
+        self.del_department_if_not_found = self.get_option('DEL_DEPARTMENT_IF_NOT_FOUND', False)
+        self.enable_deactive_user = self.get_option('DEACTIVE_USER_IF_NOTFOUND', False)
+        self.activate_user = self.get_option('ACTIVATE_USER_WHEN_IMPORT', True)
+        self.import_new_user = self.get_option('IMPORT_NEW_USER', True)
 
-    def read_multi_server_configs(self, is_test, has_sync_section=True):
-        for i in range(0, MAX_LDAP_NUM):
-            ldap_sec = 'LDAP' if i==0 else 'LDAP_MULTI_%d' % i
-            sync_sec = 'LDAP_SYNC' if i==0 else 'LDAP_SYNC_MULTI_%d' % i
-            if not self.ccnet_config.has_section(ldap_sec):
-                break
-            # If [LDAP_MULTI_1] was configed but no [LDAP_SYNC_MULTI_1], use [LDAP_SYNC] section for this server.
-            if not self.ccnet_config.has_section(sync_sec):
-                sync_sec = 'LDAP_SYNC'
+    def read_multi_server_configs(self, is_test):
+        for i in range(2):
+            enable_multi_ldap = False
+            if i == 1:
+                enable_multi_ldap = True
 
             ldap_config = LdapConfig()
-            if self.read_base_config(ldap_config, ldap_sec, sync_sec, is_test, has_sync_section) == -1:
+            if self.read_base_config(ldap_config, is_test, enable_multi_ldap) == -1:
                 return
 
-            if not has_sync_section:
-                self.ldap_configs.append(ldap_config)
-                continue
-
             if ldap_config.enable_user_sync:
-                self.read_sync_user_config(ldap_config, ldap_sec, sync_sec)
+                self.read_sync_user_config(ldap_config, enable_multi_ldap)
                 self.enable_user_sync = True
 
             if ldap_config.enable_group_sync or ldap_config.sync_department_from_ou:
-                self.read_sync_group_config(ldap_config, ldap_sec, sync_sec)
+                self.read_sync_group_config(ldap_config, enable_multi_ldap)
                 if ldap_config.enable_group_sync:
                     self.enable_group_sync = True
                 if ldap_config.sync_department_from_ou:
@@ -146,22 +126,24 @@ class Settings(object):
 
             self.ldap_configs.append(ldap_config)
 
-    def read_base_config(self, ldap_config, ldap_sec, sync_sec, is_test, has_sync_section=True):
-        ldap_config.host = self.get_option(ldap_sec, 'HOST')
-        ldap_config.base_dn = self.get_option(ldap_sec, 'BASE')
-        ldap_config.user_dn = self.get_option(ldap_sec, 'USER_DN')
-        ldap_config.passwd = self.get_option(ldap_sec, 'PASSWORD')
-        ldap_config.login_attr = self.get_option(ldap_sec, 'LOGIN_ATTR', dval='mail')
-        ldap_config.use_page_result = self.get_option(ldap_sec, 'USE_PAGED_RESULT', bool, False)
-        ldap_config.follow_referrals = self.get_option(ldap_sec, 'FOLLOW_REFERRALS', bool, True)
-        ldap_config.user_filter = self.get_option(ldap_sec, 'FILTER')
-        ldap_config.group_filter = self.get_option(ldap_sec, 'GROUP_FILTER')
+    def read_base_config(self, ldap_config, is_test, enable_multi_ldap=False):
+        setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else 'LDAP'
+        ldap_config.host = self.get_option('LDAP_SERVER_URL'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.base_dn = self.get_option('LDAP_BASE_DN'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.user_dn = self.get_option('LDAP_ADMIN_DN'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.passwd = self.get_option('LDAP_ADMIN_PASSWORD'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.login_attr = self.get_option('LDAP_LOGIN_ATTR'.replace('LDAP', setting_prefix, 1), 'mail')
+        ldap_config.ldap_provider = self.get_option('LDAP_PROVIDER'.replace('LDAP', setting_prefix, 1),
+                                                    'ldap1' if enable_multi_ldap else 'ldap')
+        ldap_config.user_filter = self.get_option('LDAP_FILTER'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.use_page_result = self.get_option('LDAP_USE_PAGED_RESULT'.replace('LDAP', setting_prefix, 1), False)
+        ldap_config.follow_referrals = self.get_option('LDAP_FOLLOW_REFERRALS'.replace('LDAP', setting_prefix, 1), True)
 
         if ldap_config.host == '' or ldap_config.user_dn == '' or ldap_config.passwd == '' or ldap_config.base_dn == '':
             if is_test:
-                logging.warning('LDAP info is not set completely in [%s], stop ldap test.', ldap_sec)
+                logging.warning('LDAP info is not set completely in seahub_settings.py, stop ldap test.')
             else:
-                logging.warning('LDAP info is not set completely in [%s], disable ldap sync.', ldap_sec)
+                logging.warning('LDAP info is not set completely in seahub_settings.py, disable ldap sync.')
             self.has_base_info = False
             return -1
 
@@ -171,90 +153,67 @@ class Settings(object):
             if is_test:
                 logging.warning("LDAP login attr is not mail or userPrincipalName")
 
-        if not has_sync_section:
-            return
+        ldap_config.enable_user_sync = self.get_option(
+            'ENABLE_LDAP_USER_SYNC'.replace('LDAP', setting_prefix, 1), False)
+        ldap_config.enable_group_sync = self.get_option(
+            'ENABLE_LDAP_GROUP_SYNC'.replace('LDAP', setting_prefix, 1), False)
+        ldap_config.sync_department_from_ou = self.get_option(
+            'LDAP_SYNC_DEPARTMENT_FROM_OU'.replace('LDAP', setting_prefix, 1), False)
 
-        ldap_config.enable_group_sync = self.get_option(sync_sec, 'ENABLE_GROUP_SYNC',
-                                                        bool, False)
-        ldap_config.enable_user_sync = self.get_option(sync_sec, 'ENABLE_USER_SYNC',
-                                                        bool, False)
-        ldap_config.sync_department_from_ou = self.get_option(sync_sec, 'SYNC_DEPARTMENT_FROM_OU',
-                                                              bool, False)
-    def read_sync_group_config(self, ldap_config, ldap_sec, sync_sec):
-        ldap_config.group_object_class = self.get_option(sync_sec, 'GROUP_OBJECT_CLASS', dval='group')
-
-        # If GROUP_FILTER is not set in server level, use value of LDAP_SYNC section
-        if not ldap_config.group_filter:
-            ldap_config.group_filter = self.get_option(sync_sec, 'GROUP_FILTER')
-
-        ldap_config.group_member_attr = self.get_option(sync_sec,
-                                                 'GROUP_MEMBER_ATTR',
-                                                 dval='member')
-        ldap_config.group_uuid_attr = self.get_option(sync_sec,
-                                               'GROUP_UUID_ATTR',
-                                                dval='objectGUID')
-        ldap_config.user_object_class = self.get_option(sync_sec, 'USER_OBJECT_CLASS',
-                                                 dval='person')
-        ldap_config.create_department_library = self.get_option(sync_sec,
-                                                         'CREATE_DEPARTMENT_LIBRARY',
-                                                         bool, False)
-        ldap_config.department_repo_permission = self.get_option(sync_sec, 'DEPT_REPO_PERM' ,dval='rw')
-
-        ldap_config.default_department_quota = self.get_option(sync_sec,
-                                                        'DEFAULT_DEPARTMENT_QUOTA',
-                                                        int, -2)
-
-        ldap_config.sync_group_as_department = self.get_option(sync_sec,
-                                                        'SYNC_GROUP_AS_DEPARTMENT',
-                                                        bool, False)
-        ldap_config.use_group_member_range_query = self.get_option(sync_sec,
-                                                        'USE_GROUP_MEMBER_RANGE_QUERY',
-                                                        bool, False)
+    def read_sync_group_config(self, ldap_config, enable_multi_ldap=False):
+        setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else 'LDAP'
+        ldap_config.group_object_class = self.get_option(
+            'LDAP_GROUP_OBJECT_CLASS'.replace('LDAP', setting_prefix, 1), 'group')
+        ldap_config.group_filter = self.get_option(
+            'LDAP_GROUP_FILTER'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.group_member_attr = self.get_option(
+            'LDAP_GROUP_MEMBER_ATTR'.replace('LDAP', setting_prefix, 1), 'member')
+        ldap_config.group_uuid_attr = self.get_option(
+            'LDAP_GROUP_UUID_ATTR'.replace('LDAP', setting_prefix, 1), 'objectGUID')
+        ldap_config.create_department_library = self.get_option(
+            'LDAP_CREATE_DEPARTMENT_LIBRARY'.replace('LDAP', setting_prefix, 1), False)
+        ldap_config.department_repo_permission = self.get_option(
+            'LDAP_DEPT_REPO_PERM'.replace('LDAP', setting_prefix, 1), 'rw')
+        ldap_config.default_department_quota = self.get_option(
+            'LDAP_DEFAULT_DEPARTMENT_QUOTA'.replace('LDAP', setting_prefix, 1), -2)
+        ldap_config.sync_group_as_department = self.get_option(
+            'LDAP_SYNC_GROUP_AS_DEPARTMENT'.replace('LDAP', setting_prefix, 1), False)
+        ldap_config.use_group_member_range_query = self.get_option(
+            'LDAP_USE_GROUP_MEMBER_RANGE_QUERY'.replace('LDAP', setting_prefix, 1), False)
         '''
         posix groups store members in atrribute 'memberUid', however, the value of memberUid may be not a 'uid',
         so we make it configurable, default value is 'uid'.
         '''
-        ldap_config.user_attr_in_memberUid = self.get_option(sync_sec, 'USER_ATTR_IN_MEMBERUID',dval='uid')
-        ldap_config.department_name_attr = self.get_option(sync_sec, 'DEPT_NAME_ATTR')
+        ldap_config.user_attr_in_memberUid = self.get_option(
+            'LDAP_USER_ATTR_IN_MEMBERUID'.replace('LDAP', setting_prefix, 1), 'uid')
+        ldap_config.department_name_attr = self.get_option(
+            'LDAP_DEPT_NAME_ATTR'.replace('LDAP', setting_prefix, 1), '')
 
-        ldap_config.department_repo_permission = self.get_option(sync_sec, 'DEPT_REPO_PERM' ,dval='rw')
-
-    def read_sync_user_config(self, ldap_config, ldap_sec, sync_sec):
-        ldap_config.user_object_class = self.get_option(sync_sec, 'USER_OBJECT_CLASS',
-                                                 dval='person')
-        # If USER_FILTER is not set in server level, use value of LDAP_SYNC section
-        if not ldap_config.user_filter:
-            ldap_config.user_filter = self.get_option(sync_sec, 'USER_FILTER')
-        ldap_config.pwd_change_attr = self.get_option(sync_sec, 'PWD_CHANGE_ATTR',
-                                               dval='pwdLastSet')
-
-        ldap_config.enable_extra_user_info_sync = self.get_option(sync_sec, 'ENABLE_EXTRA_USER_INFO_SYNC',
-                                                           bool, False)
-        ldap_config.first_name_attr = self.get_option(sync_sec, 'FIRST_NAME_ATTR',
-                                               dval='givenName')
-        ldap_config.last_name_attr = self.get_option(sync_sec, 'LAST_NAME_ATTR',
-                                              dval='sn')
-        ldap_config.name_reverse = self.get_option(sync_sec, 'USER_NAME_REVERSE',
-                                            bool, False)
-        ldap_config.dept_attr = self.get_option(sync_sec, 'DEPT_ATTR',
-                                         dval='department')
-        ldap_config.uid_attr = self.get_option(sync_sec, 'UID_ATTR')
-        ldap_config.cemail_attr = self.get_option(sync_sec, 'CONTACT_EMAIL_ATTR')
-        ldap_config.role_name_attr = self.get_option(sync_sec, 'ROLE_NAME_ATTR', dval='')
-        ldap_config.auto_reactivate_users = self.get_option(sync_sec, 'AUTO_REACTIVATE_USERS', bool, False)
+    def read_sync_user_config(self, ldap_config, enable_multi_ldap=False):
+        setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else 'LDAP'
+        ldap_config.user_object_class = self.get_option(
+            'LDAP_USER_OBJECT_CLASS'.replace('LDAP', setting_prefix, 1), 'person')
+        ldap_config.enable_extra_user_info_sync = self.get_option(
+            'ENABLE_EXTRA_USER_INFO_SYNC', True)
+        ldap_config.first_name_attr = self.get_option(
+            'LDAP_USER_FIRST_NAME_ATTR', 'givenName')
+        ldap_config.last_name_attr = self.get_option(
+            'LDAP_USER_LAST_NAME_ATTR', 'sn')
+        ldap_config.name_reverse = self.get_option(
+            'LDAP_USER_NAME_REVERSE', False)
+        ldap_config.dept_attr = self.get_option(
+            'LDAP_DEPT_ATTR'.replace('LDAP', setting_prefix, 1), 'department')
+        ldap_config.uid_attr = self.get_option(
+            'LDAP_UID_ATTR'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.cemail_attr = self.get_option(
+            'LDAP_CONTACT_EMAIL_ATTR'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.role_name_attr = self.get_option(
+            'LDAP_USER_ROLE_ATTR'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.auto_reactivate_users = self.get_option(
+            'LDAP_AUTO_REACTIVATE_USERS'.replace('LDAP', setting_prefix, 1), False)
 
     def enable_sync(self):
         return self.enable_user_sync or self.enable_group_sync or self.sync_department_from_ou
 
-    def get_option(self, section, key, dtype=None, dval=''):
-        try:
-            val = self.ccnet_config.get(section, key)
-            if dtype:
-                val = self.ccnet_config.getboolean(section, key) \
-                        if dtype == bool else dtype(val)
-                return val
-        except configparser.NoOptionError:
-            return dval
-        except ValueError:
-            return dval
-        return val if val != '' else dval
+    def get_option(self, name, default):
+        return getattr(seahub_settings, name, default)
