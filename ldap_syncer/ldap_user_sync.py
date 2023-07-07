@@ -30,7 +30,7 @@ logger.setLevel(logging.DEBUG)
 class LdapUser(object):
     def __init__(self, user_id, name, dept, uid, cemail,
                  is_staff=0, is_active=1, role='', is_manual_set=False):
-        self.user_id = user_id
+        self.id = user_id
         self.name = name
         self.dept = dept
         self.uid = uid
@@ -422,22 +422,6 @@ class LdapUserSync(LdapSync):
             self.add_dept(virtual_id, ldap_user.dept)
 
     def sync_update_user(self, ldap_user, db_user, email):
-        '''
-        set_status = False
-        if db_user.is_active == 0:
-            set_status = True
-
-        if ldap_user.password != db_user.password or set_status:
-            rc = update_ldap_user(db_user.user_id, email, ldap_user.password,
-                                  db_user.is_staff, db_user.is_active)
-            if rc < 0:
-                logger.warning('Update user [%s] failed.' % email)
-            else:
-                logger.debug('Update user [%s] success.' % email)
-                self.uuser += 1
-        '''
-        ret = 0
-
         if ldap_user.role:
             role = ldap_role_mapping(ldap_user.role)
             if not db_user.is_manual_set and db_user.role != role:
@@ -457,7 +441,7 @@ class LdapUserSync(LdapSync):
 
         if not db_user.is_active and ldap_user.config.auto_reactivate_users:
             try:
-                ret = ccnet_api.update_emailuser('DB', db_user.user_id, '!', db_user.is_staff, 1)
+                ret = ccnet_api.update_emailuser('DB', db_user.id, '!', db_user.is_staff, 1)
             except Exception as e:
                 logger.error('Reactivate user [{}] failed. ERROR: {}'.format(email, e))
                 return

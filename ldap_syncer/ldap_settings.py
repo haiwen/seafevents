@@ -4,7 +4,7 @@ import logging
 from seafevents.db import init_db_session_class
 from seafevents.app.config import seahub_settings
 
-MULTI_LDAP_SETTING_PREFIX = 'MULTI_LDAP_1_'
+MULTI_LDAP_SETTING_PREFIX = 'MULTI_LDAP_1'
 
 
 class LdapConfig(object):
@@ -75,7 +75,7 @@ class Settings(object):
 
         self.ldap_configs = []
         self.db_session = init_db_session_class(config)
-        if not self.get_option('ENABLE_LDAP', False) and self.get_option('ENABLE_MULTI_LDAP', False):
+        if not self.get_option('ENABLE_LDAP', False) and not self.get_option('ENABLE_MULTI_LDAP', False):
             if is_test:
                 logging.info('LDAP is not set, stop ldap test.')
             else:
@@ -107,6 +107,8 @@ class Settings(object):
         for i in range(2):
             enable_multi_ldap = False
             if i == 1:
+                if not self.get_option('ENABLE_MULTI_LDAP', False):
+                    return
                 enable_multi_ldap = True
 
             ldap_config = LdapConfig()

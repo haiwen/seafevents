@@ -551,7 +551,9 @@ class LdapGroupSync(LdapSync):
                 # according to uid(LDAP_LOGIN_ATTR) in social_auth_usersocialauth
                 email_list = list()
                 for login_attr in v.members:
-                    email_list.append(self.login_attr_email_map.get(login_attr, ''))
+                    email = self.login_attr_email_map.get(login_attr, '')
+                    if email:
+                        email_list.append(email)
                 v.members = sorted(email_list)
 
                 add_list, del_list = LdapGroupSync.diff_members(data_db[group_id].members,
