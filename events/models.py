@@ -1,13 +1,12 @@
 # coding: utf-8
-
 import json
-import uuid
 import hashlib
 
 from sqlalchemy import Column, Integer, String, DateTime, Text, Index, BigInteger
 from sqlalchemy import ForeignKey
 
 from seafevents.db import Base
+
 
 class Activity(Base):
     """
@@ -33,7 +32,6 @@ class Activity(Base):
         self.op_user = record['op_user']
         self.path = record['path']
         self.commit_id = record.get('commit_id', None)
-
 
         detail = {}
         detail_keys = ['size', 'old_path', 'days', 'repo_name', 'obj_id', 'old_repo_name']
@@ -71,54 +69,6 @@ class UserActivity(Base):
                 (self.username, self.activity_id)
 
 
-class Event(Base):
-    """General class for events. Specific information is stored in json format
-    in Event.detail.
-
-    """
-    __tablename__ = 'Event'
-
-    uuid = Column(String(length=36), primary_key=True)
-    etype = Column(String(length=128), nullable=False)
-    timestamp = Column(DateTime, nullable=False, index=True)
-
-    # Json format detail for this event
-    detail = Column(Text, nullable=False)
-
-    def __init__(self, timestamp, etype, detail):
-        self.uuid = str(uuid.uuid4())
-        self.timestamp = timestamp
-        self.etype = etype
-        self.detail = json.dumps(detail)
-
-    def __str__(self):
-        return 'Event<uuid: %s, type: %s, detail: %s>' % \
-            (self.uuid, self.etype, self.detail)
-
-class UserEvent(Base):
-    __tablename__ = 'UserEvent'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-
-    org_id = Column(Integer)
-
-    username = Column(String(length=255), nullable=False, index=True)
-
-    eid = Column(String(length=36), ForeignKey('Event.uuid', ondelete='CASCADE'), index=True)
-
-    def __init__(self, org_id, username, eid):
-        self.org_id = org_id
-        self.username = username
-        self.eid = eid
-
-    def __str__(self):
-        if self.org_id > 0:
-            return "UserEvent<org = %d, user = %s, event id = %s>" % \
-                (self.org_id, self.username, self.eid)
-        else:
-            return "UserEvent<user = %s, event id = %s>" % \
-                (self.username, self.eid)
-
 class FileHistory(Base):
     __tablename__ = 'FileHistory'
 
@@ -129,7 +79,7 @@ class FileHistory(Base):
 
     repo_id = Column(String(length=36), nullable=False)
     commit_id = Column(String(length=40))
-    file_id =  Column(String(length=40), nullable=False)
+    file_id = Column(String(length=40), nullable=False)
     file_uuid = Column(String(length=40), index=True)
     path = Column(Text, nullable=False)
     repo_id_path_md5 = Column(String(length=32), index=True)
@@ -148,6 +98,7 @@ class FileHistory(Base):
         self.repo_id_path_md5 = hashlib.md5((self.repo_id + self.path).encode('utf8')).hexdigest()
         self.size = record.get('size')
         self.old_path = record.get('old_path', '')
+
 
 class FileAudit(Base):
     __tablename__ = 'FileAudit'
@@ -191,6 +142,7 @@ class FileAudit(Base):
                     (self.etype, self.user, self.ip, self.device,
                      self.repo_id, self.file_path)
 
+
 class FileUpdate(Base):
     __tablename__ = 'FileUpdate'
 
@@ -225,6 +177,7 @@ class FileUpdate(Base):
             return "FileUpdate<User = %s, RepoID = %s, CommitID = %s, \
                     FileOper = %s>" % (self.user, self.repo_id,
                                        self.commit_id, self.file_oper)
+
 
 class PermAudit(Base):
     __tablename__ = 'PermAudit'
