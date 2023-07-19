@@ -4,8 +4,11 @@ import time
 import json
 from datetime import datetime
 from os.path import splitext
-from seafobj import CommitDiffer, commit_mgr, fs_mgr
 from .thread_pool import ThreadPool
+
+from sqlalchemy import select, update, delete, null
+from seafobj import CommitDiffer, commit_mgr, fs_mgr
+
 from .models import ContentScanRecord, ContentScanResult
 from seafevents.db import SeafBase, init_db_session_class
 
@@ -80,33 +83,28 @@ class ContentScan(object):
 
         # Get repo list from seafile-db
         Branch = SeafBase.classes.Branch
-        VirtualRepo= SeafBase.classes.VirtualRepo
-        q = seafdb_session.query(Branch.repo_id, Branch.commit_id)
-        q = q.outerjoin(VirtualRepo, Branch.repo_id==VirtualRepo.repo_id)
-        q = q.filter(VirtualRepo.repo_id == None)
-        results = q.all()
+        VirtualRepo = SeafBase.classes.VirtualRepo
+        stmt = select(Branch.repo_id, Branch.commit_id).outerjoin(
+                      VirtualRepo, Branch.repo_id == VirtualRepo.repo_id).where(
+                      VirtualRepo.repo_id == null())
+        results = seafdb_session.scalars(stmt).all()
         for row in results:
             repo_id = row.repo_id
             new_commit_id = row.commit_id
             last_commit_id = None
-            q = edb_session.query(ContentScanRecord.commit_id)
-            q = q.filter(ContentScanRecord.repo_id==repo_id)
-            result = q.first()
+            stmt = select(ContentScanRecord.commit_id).where(
+                ContentScanRecord.repo_id == repo_id).limit(1)
+            result = edb_session.scalars(stmt).first()
             if result:
-                last_commit_id = result[0]
+                last_commit_id = result
 
             self.put_task(repo_id, last_commit_id, new_commit_id)
 
         # Remove deleted repo's record after all threads finished
         self.thread_pool.join()
-        q = edb_session.query(ContentScanRecord)
-        q = q.filter(ContentScanRecord.timestamp != self.dt)
-        q.delete()
-        q = edb_session.query(ContentScanResult)
-        subqurey = edb_session.query(ContentScanRecord.repo_id)
-        q = q.filter(ContentScanResult.repo_id.notin_(subqurey))
-        # need fetch subqurey
-        q.delete(synchronize_session='fetch')
+        edb_session.execute(delete(ContentScanRecord).where(ContentScanRecord.timestamp != self.dt))
+        edb_session.execute(delete(ContentScanResult).where(ContentScanResult.repo_id.not_in(
+                select(ContentScanRecord.repo_id))).execution_options(synchronize_session='fetch'))
         edb_session.commit()
 
         edb_session.close()
@@ -123,10 +121,10 @@ class ContentScan(object):
 
         # repo not changed, update timestamp
         if last_commit_id == new_commit_id:
-            q = edb_session.query(ContentScanRecord)
-            q = q.filter(ContentScanRecord.repo_id==repo_id,
-                         ContentScanRecord.commit_id==last_commit_id)
-            q.update({"timestamp": self.dt})
+            stmt = update(ContentScanRecord).where(
+                ContentScanRecord.repo_id == repo_id,
+                ContentScanRecord.commit_id == last_commit_id).values({"timestamp": self.dt})
+            edb_session.execute(stmt)
             edb_session.commit()
             edb_session.close()
             return
@@ -157,8 +155,8 @@ class ContentScan(object):
         renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
 
         # Handle renamed, moved and deleted files.
-        q = edb_session.query(ContentScanResult).filter(ContentScanResult.repo_id==repo_id)
-        results = q.all()
+        stmt = select(ContentScanResult).where(ContentScanResult.repo_id == repo_id)
+        results = edb_session.scalars(stmt).all()
         if results:
             path_pairs_to_rename = []
             paths_to_delete = []
@@ -194,9 +192,10 @@ class ContentScan(object):
                         path_pairs_to_rename.append((row.path, new_path))
 
             for old_path, new_path in path_pairs_to_rename:
-                q = edb_session.query(ContentScanResult)
-                q = q.filter(ContentScanResult.repo_id==repo_id, ContentScanResult.path==old_path)
-                q = q.update({"path": new_path})
+                stmt = update(ContentScanResult).where(
+                    ContentScanResult.repo_id == repo_id, ContentScanResult.path == old_path).\
+                    values({"path": new_path})
+                edb_session.execute(stmt)
 
             # deleted files
             for d_file in deleted_files:
@@ -213,9 +212,9 @@ class ContentScan(object):
                         paths_to_delete.append(row.path)
 
             for path in paths_to_delete:
-                q = edb_session.query(ContentScanResult)
-                q = q.filter(ContentScanResult.repo_id==repo_id, ContentScanResult.path==path)
-                q.delete()
+                stmt = delete(ContentScanResult).where(
+                    ContentScanResult.repo_id == repo_id, ContentScanResult.path == path)
+                edb_session.execute(stmt)
 
             edb_session.commit()
 
@@ -249,8 +248,9 @@ class ContentScan(object):
 
         # Update ContentScanRecord
         if last_commit_id:
-            q = edb_session.query(ContentScanRecord).filter(ContentScanRecord.repo_id==repo_id)
-            q.update({"commit_id": new_commit_id, "timestamp": self.dt})
+            stmt = update(ContentScanRecord).where(ContentScanRecord.repo_id == repo_id).\
+                values({"commit_id": new_commit_id, "timestamp": self.dt})
+            edb_session.execute(stmt)
         else:
             new_record = ContentScanRecord(repo_id, new_commit_id, self.dt)
             edb_session.add(new_record)

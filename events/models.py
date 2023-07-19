@@ -2,8 +2,9 @@
 import json
 import hashlib
 
-from sqlalchemy import Column, Integer, String, DateTime, Text, Index, BigInteger
-from sqlalchemy import ForeignKey
+from sqlalchemy.orm import mapped_column
+from sqlalchemy.sql.sqltypes import Integer, String, DateTime, Text, BigInteger
+from sqlalchemy.sql.schema import Index, ForeignKey
 
 from seafevents.db import Base
 
@@ -13,18 +14,19 @@ class Activity(Base):
     """
     __tablename__ = 'Activity'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    op_type = Column(String(length=128), nullable=False)
-    op_user = Column(String(length=255), nullable=False)
-    obj_type = Column(String(length=128), nullable=False)
-    timestamp = Column(DateTime, nullable=False, index=True)
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    op_type = mapped_column(String(length=128), nullable=False)
+    op_user = mapped_column(String(length=255), nullable=False)
+    obj_type = mapped_column(String(length=128), nullable=False)
+    timestamp = mapped_column(DateTime, nullable=False, index=True)
 
-    repo_id = Column(String(length=36), nullable=False)
-    commit_id = Column(String(length=40))
-    path = Column(Text, nullable=False)
-    detail = Column(Text, nullable=False)
+    repo_id = mapped_column(String(length=36), nullable=False)
+    commit_id = mapped_column(String(length=40))
+    path = mapped_column(Text, nullable=False)
+    detail = mapped_column(Text, nullable=False)
 
     def __init__(self, record):
+        super().__init__()
         self.op_type = record['op_type']
         self.obj_type = record['obj_type']
         self.repo_id = record['repo_id']
@@ -51,15 +53,16 @@ class UserActivity(Base):
     """
     __tablename__ = 'UserActivity'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    username = Column(String(length=255), nullable=False)
-    activity_id = Column(Integer, ForeignKey('Activity.id', ondelete='CASCADE'))
-    timestamp = Column(DateTime, nullable=False, index=True)
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username = mapped_column(String(length=255), nullable=False)
+    activity_id = mapped_column(Integer, ForeignKey('Activity.id', ondelete='CASCADE'))
+    timestamp = mapped_column(DateTime, nullable=False, index=True)
 
     __table_args__ = (Index('idx_username_timestamp',
                             'username', 'timestamp'),)
 
     def __init__(self, username, activity_id, timestamp):
+        super().__init__()
         self.username = username
         self.activity_id = activity_id
         self.timestamp = timestamp
@@ -72,21 +75,22 @@ class UserActivity(Base):
 class FileHistory(Base):
     __tablename__ = 'FileHistory'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    op_type = Column(String(length=128), nullable=False)
-    op_user = Column(String(length=255), nullable=False)
-    timestamp = Column(DateTime, nullable=False, index=True)
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    op_type = mapped_column(String(length=128), nullable=False)
+    op_user = mapped_column(String(length=255), nullable=False)
+    timestamp = mapped_column(DateTime, nullable=False, index=True)
 
-    repo_id = Column(String(length=36), nullable=False)
-    commit_id = Column(String(length=40))
-    file_id = Column(String(length=40), nullable=False)
-    file_uuid = Column(String(length=40), index=True)
-    path = Column(Text, nullable=False)
-    repo_id_path_md5 = Column(String(length=32), index=True)
-    size = Column(BigInteger, nullable=False)
-    old_path = Column(Text, nullable=False)
+    repo_id = mapped_column(String(length=36), nullable=False)
+    commit_id = mapped_column(String(length=40))
+    file_id = mapped_column(String(length=40), nullable=False)
+    file_uuid = mapped_column(String(length=40), index=True)
+    path = mapped_column(Text, nullable=False)
+    repo_id_path_md5 = mapped_column(String(length=32), index=True)
+    size = mapped_column(BigInteger, nullable=False)
+    old_path = mapped_column(Text, nullable=False)
 
     def __init__(self, record):
+        super().__init__()
         self.op_type = record['op_type']
         self.op_user = record['op_user']
         self.timestamp = record['timestamp']
@@ -103,15 +107,15 @@ class FileHistory(Base):
 class FileAudit(Base):
     __tablename__ = 'FileAudit'
 
-    eid = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, nullable=False, index=True)
-    etype = Column(String(length=128), nullable=False)
-    user = Column(String(length=255), nullable=False, index=True)
-    ip = Column(String(length=45), nullable=False)
-    device = Column(Text, nullable=False)
-    org_id = Column(Integer, nullable=False)
-    repo_id = Column(String(length=36), nullable=False, index=True)
-    file_path = Column(Text, nullable=False)
+    eid = mapped_column(Integer, primary_key=True, autoincrement=True)
+    timestamp = mapped_column(DateTime, nullable=False, index=True)
+    etype = mapped_column(String(length=128), nullable=False)
+    user = mapped_column(String(length=255), nullable=False, index=True)
+    ip = mapped_column(String(length=45), nullable=False)
+    device = mapped_column(Text, nullable=False)
+    org_id = mapped_column(Integer, nullable=False)
+    repo_id = mapped_column(String(length=36), nullable=False, index=True)
+    file_path = mapped_column(Text, nullable=False)
     __table_args__ = (Index('idx_file_audit_orgid_eid',
                             'org_id', 'eid'),
                       Index('idx_file_audit_user_orgid_eid',
@@ -121,6 +125,7 @@ class FileAudit(Base):
 
     def __init__(self, timestamp, etype, user, ip, device,
                  org_id, repo_id, file_path):
+        super().__init__()
         self.timestamp = timestamp
         self.etype = etype
         self.user = user
@@ -146,13 +151,13 @@ class FileAudit(Base):
 class FileUpdate(Base):
     __tablename__ = 'FileUpdate'
 
-    eid = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, nullable=False, index=True)
-    user = Column(String(length=255), nullable=False)
-    org_id = Column(Integer, nullable=False)
-    repo_id = Column(String(length=36), nullable=False)
-    commit_id = Column(String(length=40), nullable=False)
-    file_oper = Column(Text, nullable=False)
+    eid = mapped_column(Integer, primary_key=True, autoincrement=True)
+    timestamp = mapped_column(DateTime, nullable=False, index=True)
+    user = mapped_column(String(length=255), nullable=False)
+    org_id = mapped_column(Integer, nullable=False)
+    repo_id = mapped_column(String(length=36), nullable=False)
+    commit_id = mapped_column(String(length=40), nullable=False)
+    file_oper = mapped_column(Text, nullable=False)
     __table_args__ = (Index('idx_file_update_orgid_eid',
                             'org_id', 'eid'),
                       Index('idx_file_update_user_orgid_eid',
@@ -161,6 +166,7 @@ class FileUpdate(Base):
                             'repo_id', 'org_id', 'eid'))
 
     def __init__(self, timestamp, user, org_id, repo_id, commit_id, file_oper):
+        super().__init__()
         self.timestamp = timestamp
         self.user = user
         self.org_id = org_id
@@ -182,15 +188,15 @@ class FileUpdate(Base):
 class PermAudit(Base):
     __tablename__ = 'PermAudit'
 
-    eid = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, nullable=False)
-    etype = Column(String(length=128), nullable=False)
-    from_user = Column(String(length=255), nullable=False)
-    to = Column(String(length=255), nullable=False)
-    org_id = Column(Integer, nullable=False)
-    repo_id = Column(String(length=36), nullable=False)
-    file_path = Column(Text, nullable=False)
-    permission = Column(String(length=15), nullable=False)
+    eid = mapped_column(Integer, primary_key=True, autoincrement=True)
+    timestamp = mapped_column(DateTime, nullable=False)
+    etype = mapped_column(String(length=128), nullable=False)
+    from_user = mapped_column(String(length=255), nullable=False)
+    to = mapped_column(String(length=255), nullable=False)
+    org_id = mapped_column(Integer, nullable=False)
+    repo_id = mapped_column(String(length=36), nullable=False)
+    file_path = mapped_column(Text, nullable=False)
+    permission = mapped_column(String(length=15), nullable=False)
     __table_args__ = (Index('idx_perm_audit_orgid_eid',
                             'org_id', 'eid'),
                       Index('idx_perm_audit_user_orgid_eid',
@@ -200,6 +206,7 @@ class PermAudit(Base):
 
     def __init__(self, timestamp, etype, from_user, to, org_id, repo_id,
                  file_path, permission):
+        super().__init__()
         self.timestamp = timestamp
         self.etype = etype
         self.from_user = from_user

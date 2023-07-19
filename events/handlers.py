@@ -11,7 +11,7 @@ from datetime import timedelta
 from os.path import splitext
 
 from django.core.cache import cache
-from sqlalchemy.sql import text
+from sqlalchemy import select, text
 import pymysql
 
 from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
@@ -534,12 +534,12 @@ def save_user_activities(session, records):
     if len(records) == 1 and records[0]['op_type'] == 'edit':
         record = records[0]
         _timestamp = record['timestamp'] - timedelta(minutes=30)
-        q = session.query(Activity).filter(Activity.timestamp > _timestamp)
-        q = q.filter(Activity.repo_id==record['repo_id'],
-                     Activity.op_type==record['op_type'],
-                     Activity.op_user==record['op_user'],
-                     Activity.path==record['path'])
-        row = q.first()
+        stmt = select(Activity).where(Activity.timestamp > _timestamp,
+                                      Activity.repo_id == record['repo_id'],
+                                      Activity.op_type == record['op_type'],
+                                      Activity.op_user == record['op_user'],
+                                      Activity.path == record['path']).limit(1)
+        row = session.scalars(stmt).first()
         if row:
             activity_id = row.id
             update_user_activity_timestamp(session, activity_id, record)

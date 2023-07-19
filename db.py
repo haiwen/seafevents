@@ -4,18 +4,24 @@ import logging
 import uuid
 from urllib.parse import quote_plus
 
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import create_engine
+from sqlalchemy.orm import mapped_column
+from sqlalchemy.sql.sqltypes import Integer, String
 from sqlalchemy.event import contains as has_event_listener, listen as add_event_listener
 from sqlalchemy.exc import DisconnectionError
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import Pool
 from sqlalchemy.ext.automap import automap_base
 
 logger = logging.getLogger(__name__)
 
+
 # base class of model classes in events.models and stats.models
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
+
+
 SeafBase = automap_base()
 
 
@@ -124,7 +130,7 @@ def prepare_db_tables(seafile_config):
         logger.error(e)
         raise RuntimeError("create db engine error: %s" % e)
 
-    SeafBase.prepare(engine, reflect=True)
+    SeafBase.prepare(autoload_with=engine)
 
 
 # This is used to fix the problem of "MySQL has gone away" that happens when
@@ -147,14 +153,16 @@ def ping_connection(dbapi_connection, connection_record, connection_proxy): # py
 
 class GroupIdLDAPUuidPair(Base):
     """
+    for ldap group sync
     """
     __tablename__ = 'GroupIdLDAPUuidPair'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    group_id = Column(Integer, unique=True, nullable=False)
-    group_uuid = Column(String(36), default=uuid.uuid4, unique=True, nullable=False)
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    group_id = mapped_column(Integer, unique=True, nullable=False)
+    group_uuid = mapped_column(String(36), default=uuid.uuid4, unique=True, nullable=False)
 
     def __init__(self, record):
+        super().__init__()
         self.group_id = record['group_id']
         self.group_uuid = record['group_uuid']
 

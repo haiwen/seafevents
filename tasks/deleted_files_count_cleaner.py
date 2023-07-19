@@ -5,6 +5,8 @@ import logging
 import datetime
 from threading import Thread, Event
 
+from sqlalchemy import delete
+
 from seafevents.db import init_db_session_class
 from seafevents.batch_delete_files_notice.models import DeletedFilesCount
 
@@ -37,7 +39,7 @@ class DeletedFilesCountTask(Thread):
         logger.info('Start clean delete_files_count')
         today = datetime.datetime.today()
         yesterday = (today - datetime.timedelta(days=1))
-        session.query(DeletedFilesCount).filter(DeletedFilesCount.deleted_time <= yesterday).delete()
+        session.execute(delete(DeletedFilesCount).where(DeletedFilesCount.deleted_time <= yesterday))
         session.commit()
         logger.info('Finished clean delete_files_count')
 

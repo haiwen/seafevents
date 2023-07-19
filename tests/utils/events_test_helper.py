@@ -4,7 +4,7 @@ import uuid
 import hashlib
 import datetime
 
-from sqlalchemy.sql import text, exists
+from sqlalchemy.sql import text, exists, select
 
 from seafevents.events.db import query_prev_record, update_file_history_record
 from seafevents.events.models import FileHistory
@@ -29,7 +29,7 @@ def save_file_history(session, record):
 
     if 'file_uuid' not in record:
         file_uuid = uuid.uuid4().__str__()
-        while session.query(exists().where(FileHistory.file_uuid == file_uuid)).scalar():
+        while session.scalar(select(exists().where(FileHistory.file_uuid == file_uuid))):
             file_uuid = uuid.uuid4().__str__()
         record['file_uuid'] = file_uuid
 

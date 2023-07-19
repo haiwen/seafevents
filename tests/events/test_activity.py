@@ -5,6 +5,8 @@ import time
 import pytest
 import datetime
 
+from sqlalchemy import select, delete
+
 from seafevents.tests.utils import EventTest
 from seafevents.events.db import save_user_activity, get_user_activities
 from seafevents.events.models import Activity
@@ -14,7 +16,7 @@ from seafevents.events.models import Activity
 class AcvitityTest(EventTest):
     def setUp(self):
         session = self.get_session()
-        session.query(Activity).delete()
+        session.execute(delete(Activity))
         session.commit()
         session.close()
 
@@ -31,13 +33,13 @@ class AcvitityTest(EventTest):
 
     def tearDown(self):
         session = self.get_session()
-        session.query(Activity).delete()
+        session.execute(delete(Activity))
         session.commit()
         session.close()
 
     def test_save_user_events(self):
         session = self.get_session()
-        rows = session.query(Activity).all()
+        rows = session.scalars(select(Activity)).all()
         self.assertEqual(len(rows), 0)
         session.close()
 
@@ -46,13 +48,13 @@ class AcvitityTest(EventTest):
         session.close()
 
         session = self.get_session()
-        rows = session.query(Activity).all()
+        rows = session.scalars(select(Activity)).all()
         self.assertEqual(len(rows), 1)
         session.close()
 
     def test_save_invalid_events(self):
         session = self.get_session()
-        rows = session.query(Activity).all()
+        rows = session.scalars(select(Activity)).all()
         self.assertEqual(len(rows), 0)
         session.close()
 
@@ -66,13 +68,13 @@ class AcvitityTest(EventTest):
         session.close()
 
         session = self.get_session()
-        rows = session.query(Activity).all()
+        rows = session.scalars(select(Activity)).all()
         self.assertEqual(len(rows), 0)
         session.close()
 
     def test_save_extra_event(self):
         session = self.get_session()
-        rows = session.query(Activity).all()
+        rows = session.scalars(select(Activity)).all()
         self.assertEqual(len(rows), 0)
         session.close()
 
@@ -84,7 +86,7 @@ class AcvitityTest(EventTest):
         session.close()
 
         session = self.get_session()
-        rows = session.query(Activity).all()
+        rows = session.scalars(select(Activity)).all()
         self.assertEqual(len(rows), 1)
         session.close()
 
