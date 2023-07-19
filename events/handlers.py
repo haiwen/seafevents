@@ -23,6 +23,10 @@ from seafevents.app.config import TIME_ZONE
 from seafevents.utils import get_opt_from_conf_or_env
 from .change_file_path import ChangeFilePathHandler
 from .models import Activity
+from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, save_deleted_files_msg
+from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
+
+recent_added_events = {'recent_added_events': []}
 
 
 def RepoUpdateEventHandler(config, session, msg):
@@ -109,6 +113,56 @@ def RepoUpdateEventHandler(config, session, msg):
                 enable_collab_server = config.getboolean('COLLAB_SERVER', 'enabled')
             if enable_collab_server:
                 send_message_to_collab_server(config, repo_id)
+
+            # deleted files notices
+            once_threshold = 0
+            total_threshold = 0
+            if config.has_option('DELETE FILES NOTICE', 'once_threshold'):
+                once_threshold = config.getint('DELETE FILES NOTICE', 'once_threshold')
+            if config.has_option('DELETE FILES NOTICE', 'total_threshold'):
+                total_threshold = config.getint('DELETE FILES NOTICE', 'total_threshold')
+
+            # cross repo move event will generate added and deleted events,
+            # so record the latest 10 added events in memory to filter cross repo move events
+            if (added_files or added_dirs) and not commit.description.startswith('Reverted') \
+                    and (once_threshold > 0 and total_threshold > 0):
+                added_obj_set = set()
+                for added_file in added_files:
+                    added_obj_set.add(added_file.obj_id)
+                for added_dir in added_dirs:
+                    added_obj_set.add(added_dir.obj_id)
+
+                if len(recent_added_events['recent_added_events']) < 10:
+                    recent_added_events['recent_added_events'].append(added_obj_set)
+                else:
+                    recent_added_events['recent_added_events'].pop(0)
+                    recent_added_events['recent_added_events'].append(added_obj_set)
+
+            if (deleted_files or deleted_dirs) and (once_threshold > 0 and total_threshold > 0):
+                deleted_obj_set = set()
+                for deleted_file in deleted_files:
+                    deleted_obj_set.add(deleted_file.obj_id)
+                for deleted_dir in deleted_dirs:
+                    deleted_obj_set.add(deleted_dir.obj_id)
+
+                if deleted_obj_set in recent_added_events['recent_added_events']:
+                    try:
+                        recent_added_events['recent_added_events'].remove(deleted_obj_set)
+                    except ValueError:
+                        pass
+                else:
+                    timestamp = datetime.datetime.fromtimestamp(msg['ctime'])
+                    deleted_time = datetime.datetime.fromtimestamp(msg['ctime']).strftime('%Y-%m-%d 00:00:00')
+                    files_count = get_deleted_files_count(repo_id, commit.version, deleted_files, deleted_dirs)
+                    if files_count > 0:
+                        save_deleted_files_count(session, repo_id, files_count, deleted_time)
+
+                    if files_count > once_threshold:
+                        save_deleted_files_msg(session, owner, repo_id, timestamp)
+
+                    total_count = get_deleted_files_total_count(session, repo_id, deleted_time)
+                    if total_count > total_threshold:
+                        save_deleted_files_msg(session, owner, repo_id, timestamp)
 
 
 def send_message_to_collab_server(config, repo_id):
