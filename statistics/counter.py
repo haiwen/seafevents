@@ -3,7 +3,7 @@ import hashlib
 import time
 from datetime import timedelta
 from datetime import datetime
-from sqlalchemy import func
+from sqlalchemy import func, select, update, null
 from sqlalchemy.sql import text
 from .models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic,\
                    MonthlyUserTraffic, MonthlySysTraffic
@@ -61,17 +61,15 @@ class FileOpsCounter(object):
         org_visited = {}
         org_modified = {}
         try:
-            q = self.edb_session.query(FileOpsStat.timestamp).filter(
-                                       FileOpsStat.timestamp==s_timestamp)
-            if q.first():
+            stmt = select(FileOpsStat).where(FileOpsStat.timestamp == s_timestamp).limit(1)
+            if self.edb_session.scalars(stmt).first():
                 self.edb_session.close()
                 return
 
             # Select 'Added', 'Deleted', 'Modified' info from FileUpdate
-            q = self.edb_session.query(FileUpdate.org_id, FileUpdate.timestamp, FileUpdate.file_oper).filter(
-                                       FileUpdate.timestamp.between(
-                                       s_timestamp, e_timestamp))
-            rows = q.all()
+            stmt = select(FileUpdate).where(
+                          FileUpdate.timestamp.between(s_timestamp, e_timestamp))
+            rows = self.edb_session.scalars(stmt).all()
             for row in rows:
                 org_id = row.org_id
                 if 'Added' in row.file_oper:
@@ -94,10 +92,9 @@ class FileOpsCounter(object):
                         org_modified[org_id] += 1
 
             # Select 'Visited' info from FileAudit
-            q = self.edb_session.query(FileAudit.org_id, func.count(FileAudit.eid)).filter(
-                                       FileAudit.timestamp.between(
-                                       s_timestamp, e_timestamp)).group_by(FileAudit.org_id)
-            rows = q.all()
+            stmt = select(FileAudit.org_id, func.count(FileAudit.eid)).where(
+                          FileAudit.timestamp.between(s_timestamp, e_timestamp)).group_by(FileAudit.org_id)
+            rows = self.edb_session.execute(stmt).all()
             for row in rows:
                 org_id = row[0]
                 total_visited += row[1]
@@ -141,15 +138,14 @@ class TotalStorageCounter(object):
         time_start = time.time()
         try:
             RepoSize = SeafBase.classes.RepoSize
-            VirtualRepo= SeafBase.classes.VirtualRepo
+            VirtualRepo = SeafBase.classes.VirtualRepo
             OrgRepo = SeafBase.classes.OrgRepo
 
-            q = self.seafdb_session.query(func.sum(RepoSize.size).label("size"),
-                                          OrgRepo.org_id).outerjoin(VirtualRepo,\
-                                          RepoSize.repo_id==VirtualRepo.repo_id).outerjoin(OrgRepo,\
-                                          RepoSize.repo_id==OrgRepo.repo_id).filter(\
-                                          VirtualRepo.repo_id == None).group_by(OrgRepo.org_id)
-            results = q.all()
+            stmt = select(func.sum(RepoSize.size).label("size"), OrgRepo.org_id).outerjoin(
+                          VirtualRepo, RepoSize.repo_id == VirtualRepo.repo_id).outerjoin(
+                          OrgRepo, RepoSize.repo_id == OrgRepo.repo_id).where(
+                          VirtualRepo.repo_id == null()).group_by(OrgRepo.org_id)
+            results = self.seafdb_session.execute(stmt).all()
         except Exception as e:
             self.seafdb_session.close()
             self.edb_session.close()
@@ -168,21 +164,20 @@ class TotalStorageCounter(object):
 
         try:
             for result in results:
-                org_id = result.org_id
-                org_size = result.size
+                org_id = result[1]
+                org_size = result[0]
                 if not org_id:
                     org_id = -1
 
-                q = self.edb_session.query(TotalStorageStat).filter(\
-                                           TotalStorageStat.org_id==org_id,
-                                           TotalStorageStat.timestamp==timestamp)
-                r = q.first()
+                stmt = select(TotalStorageStat).where(TotalStorageStat.org_id == org_id,
+                                                      TotalStorageStat.timestamp == timestamp).limit(1)
+                r = self.edb_session.scalars(stmt).first()
                 if not r:
                     newrecord = TotalStorageStat(org_id, timestamp, org_size)
                     self.edb_session.add(newrecord)
 
             self.edb_session.commit()
-            logging.info('[TotalStorageCounter] Finish counting total storage in %s seconds.',\
+            logging.info('[TotalStorageCounter] Finish counting total storage in %s seconds.',
                          str(time.time() - time_start))
         except Exception as e:
             logging.warning('[TotalStorageCounter] Failed to add record to TotalStorageStat: %s.', e)
@@ -250,19 +245,19 @@ class TrafficInfoCounter(object):
                 org_delta[(org_id, oper)] += size
 
             try:
-                q = self.edb_session.query(UserTraffic.size).filter(
-                                           UserTraffic.timestamp==date,
-                                           UserTraffic.user==user,
-                                           UserTraffic.org_id==org_id,
-                                           UserTraffic.op_type==oper)
-                result = q.first()
-                if result:
-                    size_in_db = result[0]
-                    self.edb_session.query(UserTraffic).filter(UserTraffic.timestamp==date,
-                                                               UserTraffic.user==user,
-                                                               UserTraffic.org_id==org_id,
-                                                               UserTraffic.op_type==oper).update(
-                                                               {"size": size + size_in_db})
+                stmt = select(UserTraffic.size).where(
+                                           UserTraffic.timestamp == date,
+                                           UserTraffic.user == user,
+                                           UserTraffic.org_id == org_id,
+                                           UserTraffic.op_type == oper).limit(1)
+                result = self.edb_session.scalars(stmt).first()
+                if result is not None:
+                    size_in_db = result
+                    stmt = update(UserTraffic).where(UserTraffic.timestamp == date,
+                                                     UserTraffic.user == user,
+                                                     UserTraffic.org_id == org_id,
+                                                     UserTraffic.op_type == oper).values(size=size + size_in_db)
+                    self.edb_session.execute(stmt)
                 else:
                     new_record = UserTraffic(user, date, oper, size, org_id)
                     self.edb_session.add(new_record)
@@ -281,17 +276,17 @@ class TrafficInfoCounter(object):
             oper = row[1]
             size = org_delta[row]
             try:
-                q = self.edb_session.query(SysTraffic.size).filter(
-                                           SysTraffic.timestamp==date,
-                                           SysTraffic.org_id==org_id,
-                                           SysTraffic.op_type==oper)
-                result = q.first()
-                if result:
-                    size_in_db = result[0]
-                    self.edb_session.query(SysTraffic).filter(SysTraffic.timestamp==date,
-                                                              SysTraffic.org_id==org_id,
-                                                              SysTraffic.op_type==oper).update(
-                                                              {"size": size + size_in_db})
+                stmt = select(SysTraffic.size).where(
+                                           SysTraffic.timestamp == date,
+                                           SysTraffic.org_id == org_id,
+                                           SysTraffic.op_type == oper).limit(1)
+                esult = self.edb_session.scalars(stmt).first()
+                if result is not None:
+                    size_in_db = result
+                    stmt = update(UserTraffic).where(SysTraffic.timestamp == date,
+                                                     SysTraffic.org_id == org_id,
+                                                     SysTraffic.op_type == oper).values(size=size + size_in_db)
+                    self.edb_session.execute(stmt)
                 else:
                     new_record = SysTraffic(date, oper, size, org_id)
                     self.edb_session.add(new_record)
@@ -318,21 +313,19 @@ class MonthlyTrafficCounter(object):
 
         try:
             # Get raw data from UserTraffic, then update MonthlyUserTraffic and MonthlySysTraffic.
-            q = self.edb_session.query(UserTraffic.user,
-                                       UserTraffic.org_id, UserTraffic.op_type,
-                                       func.sum(UserTraffic.size).label('size')).filter(
-                                       UserTraffic.timestamp.between(first_day, today)
-                                       ).group_by(UserTraffic.user, UserTraffic.org_id,
-                                       UserTraffic.op_type).order_by(UserTraffic.user)
-            results = q.all()
+            stmt = select(UserTraffic.user, UserTraffic.org_id,
+                          UserTraffic.op_type, func.sum(UserTraffic.size).label('size')).where(
+                          UserTraffic.timestamp.between(first_day, today)).group_by(
+                          UserTraffic.user, UserTraffic.org_id, UserTraffic.op_type).order_by(UserTraffic.user)
+            results = self.edb_session.execute(stmt).all()
 
             # The raw data is ordered by 'user', and also we count monthly data by user
             # format: user_size_dict[(username, org_id)] = {'web-file-upload': 10, 'web-file-download': 0...}
             last_key = ()
             cur_key = ()
             user_size_dict = {}
-            init_size_dict = {'web_file_upload': 0, 'web_file_download': 0, 'sync_file_download': 0, \
-                              'sync_file_upload':0, 'link_file_upload': 0, 'link_file_download': 0}
+            init_size_dict = {'web_file_upload': 0, 'web_file_download': 0, 'sync_file_download': 0,
+                              'sync_file_upload': 0, 'link_file_upload': 0, 'link_file_download': 0}
 
             org_size_dict = {}
 
@@ -340,11 +333,11 @@ class MonthlyTrafficCounter(object):
             # Update MonthlyUserTraffic.
             for result in results:
                 trans_count += 1
-                user = result.user
-                org_id = result.org_id
-                size = result.size
+                user = result[0]
+                org_id = result[1]
+                size = result[3]
                 # op_type in UserTraffic uses '-', convert to '_'
-                oper = result.op_type.replace('-', '_')
+                oper = result[2].replace('-', '_')
 
                 cur_key = (user, org_id)
                 if cur_key not in user_size_dict:
@@ -395,30 +388,30 @@ class MonthlyTrafficCounter(object):
             self.edb_session.close()
 
     def update_monthly_user_traffic_record(self, user, org_id, timestamp, size_dict):
-        q = self.edb_session.query(MonthlyUserTraffic.user).filter(
-                                   MonthlyUserTraffic.timestamp==timestamp,
-                                   MonthlyUserTraffic.user==user,
-                                   MonthlyUserTraffic.org_id==org_id)
-        if q.first():
-            self.edb_session.query(MonthlyUserTraffic).filter(
-                                   MonthlyUserTraffic.timestamp==timestamp,
-                                   MonthlyUserTraffic.user==user,
-                                   MonthlyUserTraffic.org_id==org_id).update(
-                                   size_dict)
+        stmt = select(MonthlyUserTraffic).where(
+                                   MonthlyUserTraffic.timestamp == timestamp,
+                                   MonthlyUserTraffic.user == user,
+                                   MonthlyUserTraffic.org_id == org_id).limit(1)
+        if self.edb_session.scalars(stmt).first():
+            stmt = update(MonthlyUserTraffic).where(
+                                   MonthlyUserTraffic.timestamp == timestamp,
+                                   MonthlyUserTraffic.user == user,
+                                   MonthlyUserTraffic.org_id == org_id).values(size_dict)
+            self.edb_session.execute(stmt)
         else:
             new_record = MonthlyUserTraffic(user, org_id, timestamp, size_dict)
             self.edb_session.add(new_record)
         self.user_item_count += 1
 
     def update_monthly_org_traffic_record(self, org_id, timestamp, size_dict):
-        q = self.edb_session.query(MonthlySysTraffic.org_id).filter(
-                                   MonthlySysTraffic.timestamp==timestamp,
-                                   MonthlySysTraffic.org_id==org_id)
-        if q.first():
-            self.edb_session.query(MonthlySysTraffic).filter(
-                                   MonthlySysTraffic.timestamp==timestamp,
-                                   MonthlySysTraffic.org_id==org_id).update(
-                                   size_dict)
+        stmt = select(MonthlySysTraffic).where(
+                                   MonthlySysTraffic.timestamp == timestamp,
+                                   MonthlySysTraffic.org_id == org_id).limit(1)
+        if self.edb_session.scalars(stmt).first():
+            stmt = update(MonthlySysTraffic).where(
+                                   MonthlySysTraffic.timestamp == timestamp,
+                                   MonthlySysTraffic.org_id == org_id).values(size_dict)
+            self.edb_session.execute(stmt)
         else:
             new_record = MonthlySysTraffic(timestamp, org_id, size_dict)
             self.edb_session.add(new_record)

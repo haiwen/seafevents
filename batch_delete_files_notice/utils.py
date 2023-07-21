@@ -2,6 +2,7 @@
 import json
 import logging
 
+from sqlalchemy import text
 from seafobj import fs_mgr
 
 from .db import clean_deleted_files_count
@@ -39,7 +40,7 @@ def save_deleted_files_msg(session, username, repo_id, timestamp):
                  VALUES (:to_user, :msg_type, :detail, :timestamp, :seen)"""
         detail = {"repo_id": repo_id}
         detail = json.dumps(detail)
-        session.execute(sql, {
+        session.execute(text(sql), {
             'to_user': username,
             'msg_type': 'deleted_files',
             'detail': detail,

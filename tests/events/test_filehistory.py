@@ -5,6 +5,8 @@ import time
 import pytest
 import datetime
 
+from sqlalchemy import delete
+
 from seafevents.tests.utils import EventTest, save_file_history
 from seafevents.events.db import get_file_history
 from seafevents.events.models import FileHistory
@@ -35,7 +37,7 @@ class AcvitityTest(EventTest):
 
     def remove_data(self):
         session = self.get_session()
-        session.query(FileHistory).delete()
+        session.execute(delete(FileHistory))
         session.commit()
         session.close()
 

@@ -5,10 +5,10 @@ import datetime
 from datetime import timedelta
 import hashlib
 
-from sqlalchemy import desc
+from sqlalchemy import desc, select, update, func
 from sqlalchemy.sql import exists
 
-from .models import Event, UserEvent, FileAudit, FileUpdate, PermAudit, \
+from .models import FileAudit, FileUpdate, PermAudit, \
         Activity, UserActivity, FileHistory
 
 
@@ -49,48 +49,6 @@ class UserActivityDetail(object):
     def __getitem__(self, key):
         return self.__dict__[key]
 
-# org_id > 0 --> get org events
-# org_id < 0 --> get non-org events
-# org_id = 0 --> get all events
-def _get_user_events(session, org_id, username, start, limit):
-    if start < 0:
-        logger.error('start must be non-negative')
-        raise RuntimeError('start must be non-negative')
-
-    if limit <= 0:
-        logger.error('limit must be positive')
-        raise RuntimeError('limit must be positive')
-
-    q = session.query(Event).filter(UserEvent.username == username)
-    if org_id > 0:
-        q = q.filter(UserEvent.org_id == org_id)
-    elif org_id < 0:
-        q = q.filter(UserEvent.org_id <= 0)
-
-    q = q.filter(UserEvent.eid == Event.uuid).order_by(desc(UserEvent.id)).slice(start, start + limit)
-
-    # select Event.etype, Event.timestamp, UserEvent.username from UserEvent, Event where UserEvent.username=username and UserEvent.org_id <= 0 and UserEvent.eid = Event.uuid order by UserEvent.id desc limit 0, 15;
-
-    events = q.all()
-    return [ UserEventDetail(org_id, username, ev) for ev in events ]
-
-def get_user_events(session, username, start, limit):
-    return _get_user_events(session, -1, username, start, limit)
-
-def get_org_user_events(session, org_id, username, start, limit):
-    """Org version of get_user_events"""
-    return _get_user_events(session, org_id, username, start, limit)
-
-def get_user_all_events(session, username, start, limit):
-    """Get all events of a user"""
-    return _get_user_events(session, 0, username, start, limit)
-
-def delete_event(session, uuid):
-    '''Delete the event with the given UUID
-    TODO: delete a list of uuid to reduce sql queries
-    '''
-    session.query(Event).filter(Event.uuid == uuid).delete()
-    session.commit()
 
 def _get_user_activities(session, username, start, limit):
     if start < 0:
@@ -101,10 +59,12 @@ def _get_user_activities(session, username, start, limit):
         logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
 
-    q = session.query(Activity).filter(UserActivity.username == username)
-    q = q.filter(UserActivity.activity_id == Activity.id)
-
-    events = q.order_by(desc(UserActivity.timestamp)).slice(start, start + limit).all()
+    stmt = select(Activity).where(
+        UserActivity.username == username,
+        UserActivity.activity_id == Activity.id).\
+        order_by(desc(UserActivity.timestamp)).\
+        slice(start, start + limit)
+    events = session.scalars(stmt).all()
 
     return [ UserActivityDetail(ev, username=username) for ev in events ]
 
@@ -114,11 +74,12 @@ def get_user_activities(session, username, start, limit):
 def _get_user_activities_by_timestamp(session, username, start, end):
     events = []
     try:
-        q = session.query(Activity).filter(UserActivity.username == username,
-                                           UserActivity.timestamp.between(start, end))
-        q = q.filter(UserActivity.activity_id == Activity.id)
-
-        events = q.order_by(UserActivity.timestamp).all()
+        stmt = select(Activity).where(
+            UserActivity.username == username,
+            UserActivity.timestamp.between(start, end),
+            UserActivity.activity_id == Activity.id).\
+            order_by(UserActivity.timestamp)
+        events = session.scalars(stmt).all()
     except Exception as e:
         logging.warning('Failed to get activities of %s: %s.', username, e)
     finally:
@@ -131,14 +92,14 @@ def get_user_activities_by_timestamp(session, username, start, end):
 
 def get_file_history(session, repo_id, path, start, limit, history_limit=-1):
     repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
-    current_item = session.query(FileHistory).filter(FileHistory.repo_id_path_md5 == repo_id_path_md5)\
-        .order_by(desc(FileHistory.id)).first()
+    current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
+                                   order_by(desc(FileHistory.id)).limit(1)).first()
 
     events = []
     total_count = 0
     if current_item:
-        total_count = session.query(FileHistory).filter(FileHistory.file_uuid == current_item.file_uuid).count()
-        q = session.query(FileHistory).filter(FileHistory.file_uuid == current_item.file_uuid)\
+        count_stmt = select(func.count(FileHistory.id)).where(FileHistory.file_uuid == current_item.file_uuid)
+        query_stmt = select(FileHistory).where(FileHistory.file_uuid == current_item.file_uuid)\
             .order_by(desc(FileHistory.id)).slice(start, start + limit + 1)
 
         if int(history_limit) >= 0:
@@ -146,15 +107,17 @@ def get_file_history(session, repo_id, path, start, limit, history_limit=-1):
             delta = timedelta(days=history_limit)
             history_time = present_time - delta
 
-            total_count = session.query(FileHistory).filter(FileHistory.file_uuid == current_item.file_uuid).\
-                filter(FileHistory.timestamp.between(history_time, present_time)).count()
-            q = session.query(FileHistory).filter(FileHistory.file_uuid == current_item.file_uuid).\
-                filter(FileHistory.timestamp.between(history_time, present_time)).\
-                order_by(desc(FileHistory.id)).slice(start, start + limit + 1)
+            count_stmt = select(func.count(FileHistory.id)).\
+                where(FileHistory.file_uuid == current_item.file_uuid,
+                      FileHistory.timestamp.between(history_time, present_time))
+            query_stmt = select(FileHistory).\
+                where(FileHistory.file_uuid == current_item.file_uuid,
+                      FileHistory.timestamp.between(history_time, present_time))\
+                .order_by(desc(FileHistory.id)).slice(start, start + limit + 1)
 
-        events = q.all()
+        total_count = session.scalar(count_stmt)
+        events = session.scalars(query_stmt).all()
         if events and len(events) == limit + 1:
-            next_start = start + limit
             events = events[:-1]
 
     return events, total_count
@@ -172,18 +135,19 @@ def save_user_activity(session, record):
     session.commit()
 
 def update_user_activity_timestamp(session, activity_id, record):
-    q = session.query(Activity).filter(Activity.id==activity_id)
-    q = q.update({"timestamp": record["timestamp"]})
-    q = session.query(UserActivity).filter(UserActivity.activity_id==activity_id)
-    q = q.update({"timestamp": record["timestamp"]})
+    activity_stmt = update(Activity).where(Activity.id == activity_id).\
+        values(timestamp=record["timestamp"])
+    session.execute(activity_stmt)
+    user_activity_stmt = update(UserActivity).where(UserActivity.activity_id == activity_id).\
+        values(timestamp=record["timestamp"])
+    session.execute(user_activity_stmt)
     session.commit()
 
 def update_file_history_record(session, history_id, record):
-    q = session.query(FileHistory).filter(FileHistory.id==history_id)
-    q = q.update({"timestamp": record["timestamp"],
-                  "file_id": record["obj_id"],
-                  "commit_id": record["commit_id"],
-                  "size": record["size"]})
+    stmt = update(FileHistory).where(FileHistory.id == history_id).\
+        values(timestamp=record["timestamp"], file_id=record["obj_id"],
+               commit_id=record["commit_id"], size=record["size"])
+    session.execute(stmt)
     session.commit()
 
 def query_prev_record(session, record):
@@ -195,13 +159,15 @@ def query_prev_record(session, record):
     else:
         repo_id_path_md5 = hashlib.md5((record['repo_id'] + record['path']).encode('utf8')).hexdigest()
 
-    q = session.query(FileHistory)
-    prev_item = q.filter(FileHistory.repo_id_path_md5 == repo_id_path_md5).order_by(desc(FileHistory.timestamp)).first()
+    stmt = select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).\
+        order_by(desc(FileHistory.timestamp)).limit(1)
+    prev_item = session.scalars(stmt).first()
 
     # The restore operation may not be the last record to be restored, so you need to switch to the last record
     if record['op_type'] == 'recover':
-        q = session.query(FileHistory)
-        prev_item = q.filter(FileHistory.file_uuid == prev_item.file_uuid).order_by(desc(FileHistory.timestamp)).first()
+        stmt = select(FileHistory).where(FileHistory.file_uuid == prev_item.file_uuid).\
+            order_by(desc(FileHistory.timestamp)).limit(1)
+        prev_item = session.scalars(stmt).first()
 
     return prev_item
 
@@ -226,7 +192,7 @@ def save_filehistory(session, fh_threshold, record):
     if 'file_uuid' not in record:
         file_uuid = uuid.uuid4().__str__()
         # avoid hash conflict
-        while session.query(exists().where(FileHistory.file_uuid == file_uuid)).scalar():
+        while session.scalar(select(exists().where(FileHistory.file_uuid == file_uuid))):
             file_uuid = uuid.uuid4().__str__()
         record['file_uuid'] = file_uuid
 
@@ -234,33 +200,6 @@ def save_filehistory(session, fh_threshold, record):
     session.add(filehistory)
     session.commit()
 
-def _save_user_events(session, org_id, etype, detail, usernames, timestamp):
-    if timestamp is None:
-        timestamp = datetime.datetime.utcnow()
-
-    if org_id > 0 and 'org_id' not in detail:
-        detail['org_id'] = org_id
-
-    event = Event(timestamp, etype, detail)
-    session.add(event)
-    session.commit()
-
-    for username in usernames:
-        user_event = UserEvent(org_id, username, event.uuid)
-        session.add(user_event)
-
-    session.commit()
-
-def save_user_events(session, etype, detail, usernames, timestamp):
-    """Save a user event. Detail is a dict which contains all event-speicific
-    information. A UserEvent will be created for every user in 'usernames'.
-
-    """
-    return _save_user_events(session, -1, etype, detail, usernames, timestamp)
-
-def save_org_user_events(session, org_id, etype, detail, usernames, timestamp):
-    """Org version of save_user_events"""
-    return _save_user_events(session, org_id, etype, detail, usernames, timestamp)
 
 def save_file_update_event(session, timestamp, user, org_id, repo_id,
                            commit_id, file_oper):
@@ -280,28 +219,28 @@ def get_events(session, obj, username, org_id, repo_id, file_path, start, limit)
         logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
 
-    q = session.query(obj)
+    stmt = select(obj)
 
     if username is not None:
         if hasattr(obj, 'user'):
-            q = q.filter(obj.user == username)
+            stmt = stmt.where(obj.user == username)
         else:
-            q = q.filter(obj.from_user == username)
+            stmt = stmt.where(obj.from_user == username)
 
     if repo_id is not None:
-        q = q.filter(obj.repo_id == repo_id)
+        stmt = stmt.where(obj.repo_id == repo_id)
 
     if file_path is not None and hasattr(obj, 'file_path'):
-        q = q.filter(obj.file_path == file_path)
+        stmt = stmt.where(obj.file_path == file_path)
 
     if org_id > 0:
-        q = q.filter(obj.org_id == org_id)
+        stmt = stmt.where(obj.org_id == org_id)
     elif org_id < 0:
-        q = q.filter(obj.org_id == -1)
+        stmt = stmt.where(obj.org_id == -1)
 
-    q = q.order_by(desc(obj.eid)).slice(start, start + limit)
+    stmt = stmt.order_by(desc(obj.eid)).slice(start, start + limit)
 
-    events = q.all()
+    events = session.scalars(stmt).all()
 
     return events
 
@@ -352,10 +291,11 @@ def get_event_log_by_time(session, log_type, tstart, tend):
         obj = FileUpdate
     elif log_type == 'file_audit':
         obj = FileAudit
-    elif log_type == 'perm_audit':
+    else:
         obj = PermAudit
 
-    q = session.query(obj)
-    q = q.filter(obj.timestamp.between(datetime.datetime.utcfromtimestamp(tstart),
-                                       datetime.datetime.utcfromtimestamp(tend)))
-    return q.all()
+    stmt = select(obj).where(obj.timestamp.between(datetime.datetime.utcfromtimestamp(tstart),
+                                                   datetime.datetime.utcfromtimestamp(tend)))
+    res = session.scalars(stmt).all()
+
+    return res

@@ -1,5 +1,5 @@
 # coding: utf-8
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, select, update
 
 from .models import VirusScanRecord, VirusFile
 from .scan_settings import logger
@@ -22,11 +22,11 @@ class DBOper(object):
             # select r.repo_id, b.commit_id from Repo r, Branch b
             # where r.repo_id = b.repo_id and b.name = "master"
             # and r.repo_id not in (select repo_id from VirtualRepo)
-            q = session.query(repo.repo_id, branch.commit_id).\
-                filter(repo.repo_id == branch.repo_id).filter(branch.name == 'master').\
-                filter(repo.repo_id.notin_(session.query(virtual_repo.repo_id)))
+            stmt = select(repo.repo_id, branch.commit_id).where(
+                repo.repo_id == branch.repo_id, branch.name == 'master',
+                repo.repo_id.not_in(select(virtual_repo.repo_id)))
 
-            rows = q.all()
+            rows = session.execute(stmt).unique().all()
             for row in rows:
                 repo_id, commit_id = row
                 scan_commit_id = self.get_scan_commit_id(repo_id)
@@ -42,8 +42,8 @@ class DBOper(object):
     def get_scan_commit_id(self, repo_id):
         session = self.edb_session()
         try:
-            q = session.query(VirusScanRecord).filter(VirusScanRecord.repo_id == repo_id)
-            r = q.first()
+            stmt = select(VirusScanRecord).where(VirusScanRecord.repo_id == repo_id).limit(1)
+            r = session.scalars(stmt).first()
             scan_commit_id = r.scan_commit_id if r else None
             return scan_commit_id
         except Exception as e:
@@ -54,13 +54,15 @@ class DBOper(object):
     def update_vscan_record(self, repo_id, scan_commit_id):
         session = self.edb_session()
         try:
-            q = session.query(VirusScanRecord).filter(VirusScanRecord.repo_id == repo_id)
-            r = q.first()
+            stmt = select(VirusScanRecord).where(VirusScanRecord.repo_id == repo_id).limit(1)
+            r = session.scalars(stmt).first()
             if not r:
                 vrecord = VirusScanRecord(repo_id, scan_commit_id)
                 session.add(vrecord)
             else:
-                r.scan_commit_id = scan_commit_id
+                stmt = update(VirusScanRecord).where(VirusScanRecord.repo_id == repo_id).\
+                    values(scan_commit_id=scan_commit_id)
+                session.execute(stmt)
 
             session.commit()
         except Exception as e:
@@ -96,16 +98,16 @@ def get_virus_files(session, repo_id, has_handled, start, limit):
         raise RuntimeError('has_handled must be True or False or None')
 
     try:
-        q = session.query(VirusFile)
+        stmt = select(VirusFile)
         if repo_id:
-            q = q.filter(VirusFile.repo_id == repo_id)
+            stmt = stmt.where(VirusFile.repo_id == repo_id)
         if has_handled is not None:
             if has_handled:
-                q = q.filter(or_(VirusFile.has_deleted == 1, VirusFile.has_ignored == 1))
+                stmt = stmt.where(or_(VirusFile.has_deleted == 1, VirusFile.has_ignored == 1))
             else:
-                q = q.filter(and_(VirusFile.has_deleted == 0, VirusFile.has_ignored == 0))
-        q = q.slice(start, start+limit)
-        return q.all()
+                stmt = stmt.where(and_(VirusFile.has_deleted == 0, VirusFile.has_ignored == 0))
+        stmt = stmt.slice(start, start+limit)
+        return session.scalars(stmt).all()
     except Exception as e:
         logger.warning('Failed to get virus files from db: %s.', e)
         return None
@@ -113,9 +115,8 @@ def get_virus_files(session, repo_id, has_handled, start, limit):
 
 def delete_virus_file(session, vid):
     try:
-        q = session.query(VirusFile).filter(VirusFile.vid == vid)
-        r = q.first()
-        r.has_deleted = 1
+        stmt = update(VirusFile).where(VirusFile.vid == vid).values(has_deleted=1)
+        session.execute(stmt)
         session.commit()
         return 0
     except Exception as e:
@@ -125,9 +126,8 @@ def delete_virus_file(session, vid):
 
 def operate_virus_file(session, vid, ignore):
     try:
-        q = session.query(VirusFile).filter(VirusFile.vid == vid)
-        r = q.first()
-        r.has_ignored = ignore
+        stmt = update(VirusFile).where(VirusFile.vid == vid).values(has_ignored=ignore)
+        session.execute(stmt)
         session.commit()
         return 0
     except Exception as e:
@@ -137,8 +137,8 @@ def operate_virus_file(session, vid, ignore):
 
 def get_virus_file_by_vid(session, vid):
     try:
-        q = session.query(VirusFile).filter(VirusFile.vid == vid)
-        return q.first()
+        stmt = select(VirusFile).where(VirusFile.vid == vid).limit(1)
+        return session.scalars(stmt).first()
     except Exception as e:
         logger.warning('Failed to get virus file by vid: %s.', e)
         return None

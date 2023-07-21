@@ -1,6 +1,8 @@
 import logging
 import uuid
 
+from sqlalchemy import select, delete
+
 from seafevents.db import GroupIdLDAPUuidPair
 
 logger = logging.getLogger(__name__)
@@ -25,10 +27,10 @@ def bytes2str(data):
 
 
 def get_group_uuid_pairs(session):
-    q = session.query(GroupIdLDAPUuidPair)
+    q = session.scalars(select(GroupIdLDAPUuidPair)).all()
     res = []
     for item in q:
-        data = {}
+        data = dict()
         data['group_id'] = item.group_id
         data['group_uuid'] = item.group_uuid
         res.append(data)
@@ -38,7 +40,7 @@ def get_group_uuid_pairs(session):
 
 
 def add_group_uuid_pair(session, group_id, group_uuid):
-    res = session.query(GroupIdLDAPUuidPair).filter_by(group_id=group_id).first()
+    res = session.scalars(select(GroupIdLDAPUuidPair).where(GroupIdLDAPUuidPair.group_id == group_id).limit(1)).first()
     if res:
         session.close()
         return
@@ -55,7 +57,8 @@ def add_group_uuid_pair(session, group_id, group_uuid):
 
 def remove_group_uuid_pair_by_id(session, group_id):
     try:
-        session.query(GroupIdLDAPUuidPair).filter_by(group_id=group_id).delete()
+        stmt = delete(GroupIdLDAPUuidPair).where(GroupIdLDAPUuidPair.group_id == group_id)
+        session.execute(stmt)
         session.commit()
     except Exception as e:
         logger.error('remote group_id:group_uuid pair failed. \n{}'.format(e))
@@ -65,8 +68,9 @@ def remove_group_uuid_pair_by_id(session, group_id):
 
 def remove_useless_group_uuid_pairs(session, group_ids):
     try:
-        session.query(GroupIdLDAPUuidPair).filter(
-            GroupIdLDAPUuidPair.group_id.not_in(group_ids)).delete(synchronize_session=False)
+        stmt = delete(GroupIdLDAPUuidPair).where(GroupIdLDAPUuidPair.group_id.not_in(group_ids)).\
+            execution_options(synchronize_session=False)
+        session.execute(stmt)
         session.commit()
     except Exception as e:
         logger.error('remote group_id:group_uuid pair failed. \n{}'.format(e))
