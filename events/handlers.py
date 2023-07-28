@@ -681,6 +681,8 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
             records.remove(record)
         if os.path.dirname(record['path']).startswith('/images/sdoc'):
             records.remove(record)
+        if os.path.dirname(record['path']).startswith('/Revisions'):
+            records.remove(record)
         if 'old_path' in record:
             record['old_path'] = record['old_path'].rstrip('/')
         record['path'] = record['path'].rstrip('/') if record['path'] != '/' else '/'
