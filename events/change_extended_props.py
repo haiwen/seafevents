@@ -66,16 +66,14 @@ class ChangeExtendedPropsHandler:
     def _change_dir_ex_props(self, repo_id, path, new_path):
         self._change_file_ex_props(repo_id, path, new_path)
         sql_temp = f"SELECT `_id`, `Path` FROM `{EX_PROPS_TABLE}` WHERE `Repo ID`='{repo_id}' AND `Path` LIKE '{path}/%'"
-        rows_map = {}
         path_column = None
         try:
             seatable_api = SeaTableAPI(SEATABLE_EX_PROPS_BASE_API_TOKEN, DTABLE_WEB_SERVER)
-            offset, step = 0, 1000
+            step = 1000
             metadata = None
             while True:
-                sql = sql_temp + f' LIMIT {offset}, {step}'
+                sql = sql_temp + f' LIMIT {step}'
                 resp_json = seatable_api.query(sql)
-                offset += step
                 results = resp_json['results']
                 metadata = resp_json['metadata']
                 if not path_column:
@@ -86,14 +84,14 @@ class ChangeExtendedPropsHandler:
                 if not path_column:  # It usually doesn't run here
                     logger.error('No Path column found!')
                     return
-                rows_map.update({row['_id']: row[path_column['key']] for row in results})
+                for row in results:
+                    row_id, row_path = row['_id'], row[path_column['key']]
+                    new_row_path = row_path.replace(path, new_path, 1)
+                    update_sql = f"UPDATE `{EX_PROPS_TABLE}` SET `Path`='{new_row_path}' WHERE `_id`='{row_id}'"
+                    logger.info('update_sql: %s', update_sql)
+                    seatable_api.query(update_sql)
                 if len(results) < step:
                     break
-            for row_id, row_path in rows_map.items():
-                new_row_path = row_path.replace(path, new_path, 1)
-                update_sql = f"UPDATE `{EX_PROPS_TABLE}` SET `Path`='{new_row_path}' WHERE `_id`='{row_id}'"
-                logger.info('update_sql: %s', update_sql)
-                seatable_api.query(update_sql)
         except Exception as e:
             logger.error('DTABLE_WEB_SERVER: %s, SEATABLE_EX_PROPS_BASE_API_TOKEN: %s auth error: %s', DTABLE_WEB_SERVER, SEATABLE_EX_PROPS_BASE_API_TOKEN, e)
             return
