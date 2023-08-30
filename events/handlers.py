@@ -22,6 +22,7 @@ from seafevents.events.db import save_file_audit_event, save_file_update_event, 
 from seafevents.app.config import TIME_ZONE
 from seafevents.utils import get_opt_from_conf_or_env
 from .change_file_path import ChangeFilePathHandler
+from .change_extended_props import ChangeExtendedPropsHandler
 from .models import Activity
 from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, save_deleted_files_msg
 from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
@@ -53,20 +54,25 @@ def RepoUpdateEventHandler(config, session, msg):
             added_files, deleted_files, added_dirs, deleted_dirs, modified_files,\
                 renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
 
-            if renamed_files or renamed_dirs or moved_files or moved_dirs or deleted_files:
+            if renamed_files or renamed_dirs or moved_files or moved_dirs or deleted_files or deleted_dirs:
                 changer = ChangeFilePathHandler(session)
+                ex_props_changer = ChangeExtendedPropsHandler()
                 for r_file in renamed_files:
                     changer.update_db_records(repo_id, r_file.path, r_file.new_path, 0)
-                    changer.change_file_ex_props(repo_id, r_file.path, r_file.new_path)
+                    ex_props_changer.change_file_ex_props(repo_id, r_file.path, r_file.new_path)
                 for r_dir in renamed_dirs:
                     changer.update_db_records(repo_id, r_dir.path, r_dir.new_path, 1)
+                    ex_props_changer.change_dir_ex_props(repo_id, r_dir.path, r_dir.new_path)
                 for m_file in moved_files:
                     changer.update_db_records(repo_id, m_file.path, m_file.new_path, 0)
-                    changer.change_file_ex_props(repo_id, m_file.path, m_file.new_path)
+                    ex_props_changer.change_file_ex_props(repo_id, m_file.path, m_file.new_path)
                 for m_dir in moved_dirs:
                     changer.update_db_records(repo_id, m_dir.path, m_dir.new_path, 1)
+                    ex_props_changer.change_dir_ex_props(repo_id, m_dir.path, m_dir.new_path)
                 for d_file in deleted_files:
-                    changer.delete_file_ex_props(repo_id, d_file.path)
+                    ex_props_changer.delete_file_ex_props(repo_id, d_file.path)
+                for d_dir in deleted_dirs:
+                    ex_props_changer.delete_dir_ex_props(repo_id, d_dir.path)
 
             users = []
             org_id = get_org_id_by_repo_id(repo_id)
