@@ -1,7 +1,5 @@
 SQLAlchemy==2.0.18
 redis
-reportlab==3.4.0
-pdfrw==0.4
 mock
 pytest
 pyjwt
