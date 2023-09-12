@@ -22,6 +22,7 @@ try:
     DTABLE_WEB_SERVER = getattr(seahub_settings, 'DTABLE_WEB_SERVER', None)
     SEATABLE_EX_PROPS_BASE_API_TOKEN = getattr(seahub_settings, 'SEATABLE_EX_PROPS_BASE_API_TOKEN', None)
     EX_PROPS_TABLE = getattr(seahub_settings, 'EX_PROPS_TABLE', None)
+    EX_EDITABLE_COLUMNS = getattr(seahub_settings, 'EX_EDITABLE_COLUMNS', None)
 except ImportError:
     logger.critical("Can not import seahub settings.")
     raise RuntimeError("Can not import seahub settings.")
