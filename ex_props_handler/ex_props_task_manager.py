@@ -122,7 +122,7 @@ class ExtendedPropsTaskManager:
                 sql = '''
                     INSERT INTO tags_fileuuidmap (uuid, repo_id, repo_id_parent_path_md5, parent_path, filename, is_dir) VALUES %s
                 ''' % (', '.join(["('%(uuid)s', '%(repo_id)s', '%(repo_id_parent_path_md5)s', '%(parent_path)s', '%(filename)s', '%(is_dir)s')" % value for value in values]))
-                session.execute(sql)
+                session.execute(text(sql))
                 session.commit()
         except Exception as e:
             logger.exception('query repo: %s some fileuuids error: %s', e)
@@ -136,7 +136,7 @@ class ExtendedPropsTaskManager:
         """
         path_2_row_id_map = {}
         for i in range(0, len(query_list), self.step):
-            paths_str = ', '.join(lambda x: f"'{x['path']}'", query_list[i: i+self.step])
+            paths_str = ', '.join(map(lambda x: f"'{x['path']}'", query_list[i: i+self.step]))
             sql = f"SELECT `_id`, `Path` FROM `{EX_PROPS_TABLE}` WHERE `Repo ID`='{repo_id}' AND `Path` IN ({paths_str})"
             try:
                 resp_json = seatable_api.query(sql, convert=True)
@@ -147,7 +147,7 @@ class ExtendedPropsTaskManager:
         return path_2_row_id_map
 
     def query_ex_props_by_path(self, repo_id, path, seatable_api: SeaTableAPI):
-        columns_str = ', '.join(lambda x: f"`{x}`", EX_EDITABLE_COLUMNS)
+        columns_str = ', '.join(map(lambda x: f"`{x}`", EX_EDITABLE_COLUMNS))
         sql = f"SELECT {columns_str} FROM `{EX_PROPS_TABLE}` WHERE `Repo ID` = '{repo_id}' AND `Path` = '{path}'"
         try:
             resp_json = seatable_api.query(sql, convert=True)
@@ -262,14 +262,17 @@ class ExtendedPropsTaskManager:
             logger.exception('folder_path: %s')
         finally:
             with self.worker_lock:
-                self.clear_worker()
+                self.clear_worker(repo_id, folder_path)
 
     def clear_worker(self, repo_id, folder_path):
+        empty_repo_ids = []
         for cur_repo_id, folder_paths in self.worker_map.items():
             if cur_repo_id == repo_id:
                 self.worker_map[cur_repo_id] = [item for item in folder_paths if item != folder_path]
             if not self.worker_map[repo_id]:
-                del self.worker_map[repo_id]
+                empty_repo_ids.append(repo_id)
+        for repo_id in empty_repo_ids:
+            del self.worker_map[repo_id]
 
 
 ex_props_task_manager = ExtendedPropsTaskManager()
