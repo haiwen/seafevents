@@ -3,6 +3,7 @@ import hashlib
 import os
 import stat
 from collections import defaultdict
+from datetime import datetime
 from threading import Thread, Lock
 from uuid import uuid4
 
@@ -16,6 +17,8 @@ from seafevents.db import init_db_session_class
 from seafevents.utils.seatable_api import SeaTableAPI
 
 logger = logging.getLogger(__name__)
+
+EMPTY_SHA1 = '0000000000000000000000000000000000000000'
 
 
 class QueryException(Exception):
@@ -127,7 +130,7 @@ class ExtendedPropsTaskManager:
         except Exception as e:
             logger.exception('query repo: %s some fileuuids error: %s', e)
         finally:
-            session.remove()
+            self.DB.remove()
         return file_path_2_uuid_map
 
     def query_path_2_row_id_map(self, repo_id, query_list, seatable_api: SeaTableAPI):
@@ -178,15 +181,15 @@ class ExtendedPropsTaskManager:
                 row = {
                     'Repo ID': repo_id,
                     'File': os.path.basename(insert_list[j]['path']),
-                    'UUID': insert_list[j]['fileuuid'],
+                    'UUID': insert_list[j].get('fileuuid'),
                     'Path': insert_list[j]['path'],
-                    '创建日期': context['创建日期'],
+                    '创建日期': str(datetime.fromtimestamp(insert_list[j]['mtime'])),
                     '文件负责人': context['文件负责人']
                 }
                 row.update(ex_props)
                 rows.append(row)
             try:
-                seatable_api.insert_rows_by_dtable_db(EX_PROPS_TABLE, rows)
+                seatable_api.batch_append_rows(EX_PROPS_TABLE, rows)
             except Exception as e:
                 logger.exception('update table: %s error: %s', EX_PROPS_TABLE, e)
 
@@ -213,16 +216,19 @@ class ExtendedPropsTaskManager:
             if not dirents:
                 continue
             for dirent in dirents:
+                dirent_path = os.path.join(current_path, dirent.obj_name)
                 if stat.S_ISDIR(dirent.mode):
-                    query_list.append({'path': dirent.path, 'type': 'dir'})
-                    stack.append(os.path.join(current_path, dirent.obj_name))
+                    query_list.append({'path': dirent_path, 'type': 'dir', 'mtime': dirent.mtime})
+                    stack.append(dirent_path)
                 else:
-                    query_list.append({'path': dirent.path, 'type': 'file'})
-                    file_query_list.append(dirent.path)
+                    if dirent.obj_id == EMPTY_SHA1:
+                        continue
+                    query_list.append({'path': dirent_path, 'type': 'file', 'mtime': dirent.mtime})
+                    file_query_list.append(dirent_path)
             # query ex-props
             if len(query_list) >= self.list_max:
                 file_path_2_uuid_map = self.query_fileuuids_map(repo_id, file_query_list)
-                path_2_row_id_map = self.query_path_2_row_id_map(query_list, seatable_api)
+                path_2_row_id_map = self.query_path_2_row_id_map(repo_id, query_list, seatable_api)
                 for query_item in query_list:
                     if query_item['path'] in path_2_row_id_map:
                         query_item['row_id'] = path_2_row_id_map.get(query_item['path'])
@@ -243,7 +249,7 @@ class ExtendedPropsTaskManager:
 
         # handle query/update/insert left
         file_path_2_uuid_map = self.query_fileuuids_map(repo_id, file_query_list)
-        path_2_row_id_map = self.query_path_2_row_id_map(query_list, seatable_api)
+        path_2_row_id_map = self.query_path_2_row_id_map(repo_id, query_list, seatable_api)
         for query_item in query_list:
             if query_item['path'] in path_2_row_id_map:
                 query_item['row_id'] = path_2_row_id_map.get(query_item['path'])

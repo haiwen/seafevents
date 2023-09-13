@@ -107,6 +107,15 @@ class SeaTableAPI:
         resp = requests.post(url, headers=self.headers, json=data)
         return parse_response(resp)
 
+    def batch_append_rows(self, table_name, rows):
+        url = f"{self.dtable_server_url.strip('/')}/api/v1/dtables/{self.dtable_uuid}/batch-append-rows/?from=dtable_web"
+        data = {
+            'table_name': table_name,
+            'rows': rows
+        }
+        resp = requests.post(url, headers=self.headers, json=data)
+        return parse_response(resp)
+
     def update_row(self, table_name, row_id, row):
         url = f"{self.dtable_server_url.strip('/')}/api/v1/dtables/{self.dtable_uuid}/rows/?from=dtable_web"
         data = {
