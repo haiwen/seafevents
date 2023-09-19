@@ -50,7 +50,7 @@ class UserActivityDetail(object):
         return self.__dict__[key]
 
 
-def _get_user_activities(session, username, start, limit):
+def _get_user_activities(session, username, start, limit, op_user=""):
     if start < 0:
         logger.error('start must be non-negative')
         raise RuntimeError('start must be non-negative')
@@ -59,17 +59,26 @@ def _get_user_activities(session, username, start, limit):
         logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
 
-    stmt = select(Activity).where(
-        UserActivity.username == username,
-        UserActivity.activity_id == Activity.id).\
-        order_by(desc(UserActivity.timestamp)).\
-        slice(start, start + limit)
+    if not op_user:
+        stmt = select(Activity).where(
+            UserActivity.username == username,
+            UserActivity.activity_id == Activity.id).\
+            order_by(desc(UserActivity.timestamp)).\
+            slice(start, start + limit)
+    else:
+        stmt = select(Activity).where(
+                UserActivity.username == username,
+                UserActivity.activity_id == Activity.id,
+                Activity.op_user == op_user). \
+                        order_by(desc(UserActivity.timestamp)). \
+                        slice(start, start + limit)
+
     events = session.scalars(stmt).all()
 
     return [ UserActivityDetail(ev, username=username) for ev in events ]
 
-def get_user_activities(session, username, start, limit):
-    return _get_user_activities(session, username, start, limit)
+def get_user_activities(session, username, start, limit, op_user=""):
+    return _get_user_activities(session, username, start, limit, op_user)
 
 def _get_user_activities_by_timestamp(session, username, start, end):
     events = []
