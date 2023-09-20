@@ -273,7 +273,7 @@ class ExtendedPropsTaskManager:
         try:
             self._set_folder(repo_id, folder_path, context)
         except Exception as e:
-            logger.exception('folder_path: %s')
+            logger.exception('folder_path: %s', e)
         finally:
             with self.worker_lock:
                 self.clear_worker(repo_id, folder_path)
