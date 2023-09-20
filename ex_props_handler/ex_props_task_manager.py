@@ -55,17 +55,22 @@ class ExtendedPropsTaskManager:
                 continue
             for cur_folder_path in folder_paths:
                 if cur_folder_path.startswith(folder_path):
-                    return False, 'sub_folder_running'
+                    return False, 'sub_folder_setting'
+                if folder_path.startswith(cur_folder_path):
+                    return False, 'higher_being_set'
         return True, None
 
     def can_set_item(self, repo_id, path):
+        """
+        :return: can_set -> bool or None, error_type -> string or None
+        """
         for cur_repo_id, folder_paths in self.worker_map.items():
             if repo_id != cur_repo_id:
                 continue
             for cur_folder_path in folder_paths:
                 if path.startswith(cur_folder_path):
-                    return False
-        return True
+                    return False, 'higher_being_set'
+        return True, None
 
     def add_set_task(self, repo_id, folder_path, context):
         """
@@ -101,14 +106,15 @@ class ExtendedPropsTaskManager:
                     parent_path_2_filenames_map[parent_path].append(filename)
                 for parent_path, filenames in parent_path_2_filenames_map.items():
                     md5 = self.md5_repo_id_parent_path(repo_id, parent_path)
-                    sql = "SELECT `uuid`, `filename` FROM `tags_fileuuidmap` WHERE repo_id=:repo_id AND repo_id_parent_path_md5=:md5 AND filename IN :filenames"
+                    sql = "SELECT `uuid`, `filename` FROM `tags_fileuuidmap` WHERE `repo_id`=:repo_id AND `repo_id_parent_path_md5`=:md5 AND `filename` IN :filenames"
                     results = session.execute(text(sql), {'repo_id': repo_id, 'md5': md5, 'filenames': filenames})
                     for uuid_item in results:
                         file_path_2_uuid_map[os.path.join(parent_path, uuid_item[1])] = uuid_item[0]
                     ## some filename no uuids
                     for filename in filenames:
-                        if os.path.join(parent_path, filename) not in file_path_2_uuid_map:
-                            no_uuid_file_paths.append({'file_path': file_path, 'uuid': uuid4().hex, 'repo_id_parent_path_md5': md5})
+                        cur_file_path = os.path.join(parent_path, filename)
+                        if cur_file_path not in file_path_2_uuid_map:
+                            no_uuid_file_paths.append({'file_path': cur_file_path, 'uuid': uuid4().hex, 'repo_id_parent_path_md5': md5})
             # create uuids
             for i in range(0, len(no_uuid_file_paths), self.step):
                 values = []
@@ -123,10 +129,12 @@ class ExtendedPropsTaskManager:
                         'is_dir': 0
                     })
                 sql = '''
-                    INSERT INTO tags_fileuuidmap (uuid, repo_id, repo_id_parent_path_md5, parent_path, filename, is_dir) VALUES %s
+                    INSERT INTO `tags_fileuuidmap` (`uuid`, `repo_id`, `repo_id_parent_path_md5`, `parent_path`, `filename`, `is_dir`) VALUES %s
                 ''' % (', '.join(["('%(uuid)s', '%(repo_id)s', '%(repo_id_parent_path_md5)s', '%(parent_path)s', '%(filename)s', '%(is_dir)s')" % value for value in values]))
                 session.execute(text(sql))
                 session.commit()
+                for j in range(i, min(i+self.step, len(no_uuid_file_paths))):
+                    file_path_2_uuid_map[no_uuid_file_paths[j]['file_path']] = no_uuid_file_paths[j]['uuid']
         except Exception as e:
             logger.exception('query repo: %s some fileuuids error: %s', e)
         finally:

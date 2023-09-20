@@ -23,17 +23,17 @@ def can_set_ex_props():
     if not repo_id or not isinstance(repo_id, str):
         return {'error_msg': 'repo_id invalid'}, 400
 
-    can_set = ex_props_task_manager.can_set_item(repo_id, path)
+    can_set, error_type = ex_props_task_manager.can_set_item(repo_id, path)
     if not can_set:
         return {
-            'can_set': False,
-            'error_type': 'higher_being_seted'
+            'can_set': can_set,
+            'error_type': error_type
         }
 
     return {'can_set': True}
 
 
-@app.route('/set-folder-ex-props', methods=['POST'])
+@app.route('/set-folder-items-ex-props', methods=['POST'])
 def set_folder_ex_props():
     try:
         data = json.loads(request.data)
@@ -49,10 +49,7 @@ def set_folder_ex_props():
 
     can_set = ex_props_task_manager.can_set_item(repo_id, path)
     if not can_set:
-        return {
-            'can_set': False,
-            'error_type': 'higher_being_set'
-        }
+        return {'error_type': 'higher_being_set'}
 
     resp_json = ex_props_task_manager.add_set_task(repo_id, path, data)
 
