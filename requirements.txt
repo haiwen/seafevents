@@ -4,3 +4,5 @@ mock
 pytest
 pyjwt
 pymysql
+gevent==22.10.*
+Flask==2.2.*
