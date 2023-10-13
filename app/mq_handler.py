@@ -42,6 +42,7 @@ class MessageHandler(object):
 
         msg_type = channel + ':' + msg['content'][:pos]
         if msg_type not in self._handlers:
+            logger.warning("invalid message type: %s", msg_type)
             return
 
         funcs = self._handlers.get(msg_type)
