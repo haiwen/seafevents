@@ -42,18 +42,22 @@ def RepoUpdateEventHandler(config, session, msg):
     commit = commit_mgr.load_commit(repo_id, 1, commit_id)
     if commit is None:
         commit = commit_mgr.load_commit(repo_id, 0, commit_id)
+    logging.info('Successfully loaded commit object.')
 
     # TODO: maybe handle merge commit.
     if commit is not None and commit.parent_id and not commit.second_parent_id:
 
         parent = commit_mgr.load_commit(repo_id, commit.version, commit.parent_id)
+        logging.info('Successfully loaded parent object.')
 
         if parent is not None:
             differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id,
                                   True, True)
             added_files, deleted_files, added_dirs, deleted_dirs, modified_files,\
                 renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
+            logging.info('Successfully diff commit object.')
 
+            logging.info('Start to change file path and extend props...')
             if renamed_files or renamed_dirs or moved_files or moved_dirs or deleted_files or deleted_dirs:
                 changer = ChangeFilePathHandler(session)
                 ex_props_changer = ChangeExtendedPropsHandler()
@@ -73,7 +77,9 @@ def RepoUpdateEventHandler(config, session, msg):
                     ex_props_changer.delete_file_ex_props(repo_id, d_file.path)
                 for d_dir in deleted_dirs:
                     ex_props_changer.delete_dir_ex_props(repo_id, d_dir.path)
+            logging.info('Successfully changed file path and extend props.')
 
+            logging.info('Start to query related users...')
             users = []
             org_id = get_org_id_by_repo_id(repo_id)
             if org_id > 0:
@@ -85,9 +91,11 @@ def RepoUpdateEventHandler(config, session, msg):
 
             if owner not in users:
                 users = users + [owner]
+            logging.info('Successfully queried related users, users count %s.' % len(users))
             if not users:
                 return
 
+            logging.info('Start to handle event msg...')
             time = datetime.datetime.utcfromtimestamp(msg['ctime'])
             if added_files or deleted_files or added_dirs or deleted_dirs or \
                     modified_files or renamed_files or moved_files or renamed_dirs or moved_dirs:
@@ -96,19 +104,24 @@ def RepoUpdateEventHandler(config, session, msg):
                 if config.has_option('FILE HISTORY', 'enabled'):
                     fh_enabled = config.getboolean('FILE HISTORY', 'enabled')
                 if fh_enabled:
+                    logging.info('Start to generate and save file history records...')
                     records = generate_filehistory_records(added_files, deleted_files,
                                     added_dirs, deleted_dirs, modified_files, renamed_files,
                                     moved_files, renamed_dirs, moved_dirs, commit, repo_id,
                                     parent, time)
                     save_file_histories(config, session, records)
+                    logging.info('Successfully generated and saved file history records.')
 
+                logging.info('Start to generate and save activities records...')
                 records = generate_activity_records(added_files, deleted_files,
                         added_dirs, deleted_dirs, modified_files, renamed_files,
                         moved_files, renamed_dirs, moved_dirs, commit, repo_id,
                         parent, users, time)
 
                 save_user_activities(session, records)
+                logging.info('Successfully generated and saved activities records.')
 
+                logging.info('Start to generate repo monitor records and save message...')
                 # save repo monitor recodes
                 records = generate_repo_monitor_records(repo_id, commit,
                                                         added_files, deleted_files,
@@ -117,12 +130,18 @@ def RepoUpdateEventHandler(config, session, msg):
                                                         moved_files, moved_dirs,
                                                         modified_files)
                 save_message_to_user_notification(session, records)
+                logging.info('Successfully generated repo monitor records and saved message.')
+
+            logging.info('Successfully handled event msg.')
 
             enable_collab_server = False
             if config.has_option('COLLAB_SERVER', 'enabled'):
                 enable_collab_server = config.getboolean('COLLAB_SERVER', 'enabled')
             if enable_collab_server:
+                logging.info('Start to send message to collab server.')
                 send_message_to_collab_server(config, repo_id)
+                logging.info('Successfully to send message to collab server.')
+
 
             # deleted files notices
             once_threshold = 0
@@ -132,23 +151,23 @@ def RepoUpdateEventHandler(config, session, msg):
             if config.has_option('DELETE FILES NOTICE', 'total_threshold'):
                 total_threshold = config.getint('DELETE FILES NOTICE', 'total_threshold')
 
+            logging.info('Start to save deleted files msg...')
             # cross repo move event will generate added and deleted events,
             # so record the latest 10 added events in memory to filter cross repo move events
-            if (added_files or added_dirs) and not commit.description.startswith('Reverted') \
-                    and (once_threshold > 0 and total_threshold > 0):
-                added_obj_set = set()
-                for added_file in added_files:
-                    added_obj_set.add(added_file.obj_id)
-                for added_dir in added_dirs:
-                    added_obj_set.add(added_dir.obj_id)
-
-                if len(recent_added_events['recent_added_events']) < 10:
-                    recent_added_events['recent_added_events'].append(added_obj_set)
-                else:
-                    recent_added_events['recent_added_events'].pop(0)
-                    recent_added_events['recent_added_events'].append(added_obj_set)
-
             if (deleted_files or deleted_dirs) and (once_threshold > 0 and total_threshold > 0):
+                if not commit.description.startswith('Reverted'):
+                    added_obj_set = set()
+                    for added_file in added_files:
+                        added_obj_set.add(added_file.obj_id)
+                    for added_dir in added_dirs:
+                        added_obj_set.add(added_dir.obj_id)
+
+                    if len(recent_added_events['recent_added_events']) < 10:
+                        recent_added_events['recent_added_events'].append(added_obj_set)
+                    else:
+                        recent_added_events['recent_added_events'].pop(0)
+                        recent_added_events['recent_added_events'].append(added_obj_set)
+
                 deleted_obj_set = set()
                 for deleted_file in deleted_files:
                     deleted_obj_set.add(deleted_file.obj_id)
@@ -173,6 +192,7 @@ def RepoUpdateEventHandler(config, session, msg):
                     total_count = get_deleted_files_total_count(session, repo_id, deleted_time)
                     if total_count > total_threshold:
                         save_deleted_files_msg(session, owner, repo_id, timestamp)
+            logging.info('Successfully saved deleted files msg.')
 
 
 def send_message_to_collab_server(config, repo_id):
