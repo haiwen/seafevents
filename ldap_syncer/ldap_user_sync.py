@@ -109,11 +109,12 @@ class LdapUserSync(LdapSync):
 
     def update_profile(self, email, db_user, ldap_user):
         try:
-            self.cursor.execute('select 1 from profile_profile where user=%s', [email])
+            self.cursor.execute('select is_manually_set_contact_email from profile_profile where user=%s', [email])
             if self.cursor.rowcount == 0:
                 self.add_profile(email, ldap_user)
                 return
             else:
+                profile_res = self.cursor.fetchall()
                 field = ''
                 val = []
                 if db_user.name != ldap_user.name:
@@ -125,7 +126,7 @@ class LdapUserSync(LdapSync):
                     else:
                         field += ', login_id=%s'
                     val.append(ldap_user.uid)
-                if ldap_user.cemail is not None and db_user.cemail != ldap_user.cemail:
+                if profile_res[0][0] == 0 and ldap_user.cemail is not None and db_user.cemail != ldap_user.cemail:
                     if field == '':
                         field += 'contact_email=%s'
                     else:
