@@ -14,7 +14,7 @@ class Activity(Base):
     """
     __tablename__ = 'Activity'
 
-    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     op_type = mapped_column(String(length=128), nullable=False)
     op_user = mapped_column(String(length=255), nullable=False)
     obj_type = mapped_column(String(length=128), nullable=False)
@@ -53,9 +53,9 @@ class UserActivity(Base):
     """
     __tablename__ = 'UserActivity'
 
-    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     username = mapped_column(String(length=255), nullable=False)
-    activity_id = mapped_column(Integer, ForeignKey('Activity.id', ondelete='CASCADE'))
+    activity_id = mapped_column(BigInteger, ForeignKey('Activity.id', ondelete='CASCADE'))
     timestamp = mapped_column(DateTime, nullable=False, index=True)
 
     __table_args__ = (Index('idx_username_timestamp',
@@ -75,7 +75,7 @@ class UserActivity(Base):
 class FileHistory(Base):
     __tablename__ = 'FileHistory'
 
-    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     op_type = mapped_column(String(length=128), nullable=False)
     op_user = mapped_column(String(length=255), nullable=False)
     timestamp = mapped_column(DateTime, nullable=False, index=True)
@@ -107,7 +107,7 @@ class FileHistory(Base):
 class FileAudit(Base):
     __tablename__ = 'FileAudit'
 
-    eid = mapped_column(Integer, primary_key=True, autoincrement=True)
+    eid = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     timestamp = mapped_column(DateTime, nullable=False, index=True)
     etype = mapped_column(String(length=128), nullable=False)
     user = mapped_column(String(length=255), nullable=False, index=True)
@@ -151,7 +151,7 @@ class FileAudit(Base):
 class FileUpdate(Base):
     __tablename__ = 'FileUpdate'
 
-    eid = mapped_column(Integer, primary_key=True, autoincrement=True)
+    eid = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     timestamp = mapped_column(DateTime, nullable=False, index=True)
     user = mapped_column(String(length=255), nullable=False)
     org_id = mapped_column(Integer, nullable=False)
@@ -188,7 +188,7 @@ class FileUpdate(Base):
 class PermAudit(Base):
     __tablename__ = 'PermAudit'
 
-    eid = mapped_column(Integer, primary_key=True, autoincrement=True)
+    eid = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     timestamp = mapped_column(DateTime, nullable=False)
     etype = mapped_column(String(length=128), nullable=False)
     from_user = mapped_column(String(length=255), nullable=False)
