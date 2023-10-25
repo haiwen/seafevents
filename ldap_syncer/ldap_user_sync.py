@@ -215,7 +215,9 @@ class LdapUserSync(LdapSync):
         email_list = list()
         for user in ldap_users:
             email_list.append(user[0])
-        users = ccnet_api.get_emailusers_in_list('DB', json.dumps(email_list))
+        users = list()
+        for i in range(0, len(email_list), 20):
+            users.append(ccnet_api.get_emailusers_in_list('DB', json.dumps(email_list[i: i+20])))
 
         # select all users attrs from profile_profile and profile_detailedprofile in one query
         email2attrs = {}  # is like: { 'some_one@seafile': {'name': 'leo', 'dept': 'dev', ...} ...}
