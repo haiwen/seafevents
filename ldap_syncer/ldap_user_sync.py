@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import json
 import uuid
 import logging
 
@@ -25,6 +24,17 @@ def gen_user_virtual_id():
 
 logger = logging.getLogger('ldap_sync')
 logger.setLevel(logging.DEBUG)
+
+
+class UserObj(object):
+    def __init__(self, user_id, email, ctime, is_staff, is_active, role, is_manual_set):
+        self.id = user_id
+        self.email = email
+        self.ctime = ctime
+        self.is_staff = is_staff
+        self.is_active = is_active
+        self.role = role
+        self.is_manual_set = is_manual_set
 
 
 class LdapUser(object):
@@ -215,7 +225,17 @@ class LdapUserSync(LdapSync):
         email_list = list()
         for user in ldap_users:
             email_list.append(user[0])
-        users = ccnet_api.get_emailusers_in_list('DB', json.dumps(email_list))
+        users = list()
+        try:
+            self.ccnet_db_cursor.execute("SELECT e.id, e.email, ctime, is_staff, is_active, role, is_manual_set FROM "
+                                         "`EmailUser` e LEFT JOIN UserRole r ON e.emali=r.email WHERE e.email IN %s",
+                                         [email_list])
+            res = self.ccnet_db_cursor.fetchall()
+        except Exception as e:
+            logger.error('get users from ccnet failed: %s' % e)
+            return user_data_db
+        for user in res:
+            users.append(UserObj(user[0], user[1], user[2], user[3], user[4], user[5], user[6]))
 
         # select all users attrs from profile_profile and profile_detailedprofile in one query
         email2attrs = {}  # is like: { 'some_one@seafile': {'name': 'leo', 'dept': 'dev', ...} ...}
@@ -517,3 +537,4 @@ class LdapUserSync(LdapSync):
                     self.sync_add_user(ldap_user, login_attr)
 
         self.close_seahub_db()
+        self.close_ccnet_db()
