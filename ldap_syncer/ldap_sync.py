@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import logging
 from threading import Thread
 
@@ -8,7 +9,7 @@ from seafevents.ldap_syncer.utils import bytes2str, add_group_uuid_pair
 
 from seaserv import get_group_dn_pairs
 
-from seafevents.app.config import seahub_settings
+from seafevents.app.config import get_config, seahub_settings
 
 
 logger = logging.getLogger(__name__)
@@ -56,9 +57,14 @@ class LdapSync(Thread):
         self.db_conn = None
         self.cursor = None
         self.init_seahub_db()
+        self.ccnet_db_conn = None
+        self.ccnet_db_cursor = None
+        self.init_ccnet_db()
 
         if self.cursor is None:
             raise RuntimeError('Failed to init seahub db.')
+        if self.ccnet_db_cursor is None:
+            raise RuntimeError('Failed to init ccnet db.')
 
     def init_seahub_db(self):
         try:
@@ -106,6 +112,52 @@ class LdapSync(Thread):
             self.cursor.close()
         if self.db_conn:
             self.db_conn.close()
+
+    def init_ccnet_db(self):
+        try:
+            import pymysql
+            pymysql.install_as_MySQLdb()
+        except ImportError as e:
+            logger.warning('Failed to init ccnet db: %s.' % e)
+            return
+
+        ccnet_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('CCNET_CONF_DIR')
+        if not ccnet_conf_dir:
+            logging.warning('Environment variable ccnet_conf_dir is not define')
+            return
+
+        ccnet_conf_path = os.path.join(ccnet_conf_dir, 'ccnet.conf')
+        ccnet_config = get_config(ccnet_conf_path)
+
+        if not ccnet_config.has_section('Database'):
+            logger.warning('Failed to init ccnet db, can not find db info in ccnet.conf.')
+            return
+
+        if ccnet_config.get('Database', 'ENGINE') != 'mysql':
+            logger.warning('Failed to init ccnet db, only mysql db supported.')
+            return
+
+        db_name = ccnet_config.get('Database', 'DB', fallback='ccnet')
+        db_host = ccnet_config.get('Database', 'HOST', fallback='127.0.0.1')
+        db_port = ccnet_config.getint('Database', 'PORT', fallback=3306)
+        db_user = ccnet_config.get('Database', 'USER')
+        db_passwd = ccnet_config.get('Database', 'PASSWD')
+
+        try:
+            self.ccnet_db_conn = pymysql.connect(host=db_host, port=db_port, user=db_user,
+                                                 passwd=db_passwd, db=db_name, charset='utf8')
+            self.ccnet_db_conn.autocommit(True)
+            self.ccnet_db_cursor = self.ccnet_db_conn.cursor()
+        except Exception as e:
+            self.cursor = None
+            logger.warning('Failed to init ccnet db: %s.' % e)
+            return
+
+    def close_ccnet_db(self):
+        if self.ccnet_db_cursor:
+            self.ccnet_db_cursor.close()
+        if self.ccnet_db_conn:
+            self.ccnet_db_conn.close()
 
     def run(self):
         if self.settings.enable_group_sync:
