@@ -5,7 +5,7 @@ import datetime
 from datetime import timedelta
 import hashlib
 
-from sqlalchemy import desc, select, update, func
+from sqlalchemy import desc, select, update, func, text
 from sqlalchemy.sql import exists
 
 from .models import FileAudit, FileUpdate, PermAudit, \
@@ -121,6 +121,102 @@ def get_file_history(session, repo_id, path, start, limit, history_limit=-1):
             events = events[:-1]
 
     return events, total_count
+
+def convert_file_history_to_dict(file_history):
+    new_file_history = {}
+    new_file_history['id'] = file_history.id
+    new_file_history['op_type'] = file_history.op_type
+    new_file_history['op_user'] = file_history.op_user
+    new_file_history['timestamp'] = file_history.timestamp
+    new_file_history['repo_id'] = file_history.repo_id
+    new_file_history['commit_id'] = file_history.commit_id
+    new_file_history['file_id'] = file_history.file_id
+    new_file_history['file_uuid'] = file_history.file_uuid
+    new_file_history['path'] = file_history.path
+    new_file_history['repo_id_path_md5'] = file_history.repo_id_path_md5
+    new_file_history['size'] = file_history.size
+    new_file_history['old_path'] = file_history.old_path
+
+    try:
+        new_file_history['count'] = file_history.count
+        new_file_history['date'] = file_history.date
+    except Exception as e:
+        pass
+    return new_file_history
+
+def get_file_history_by_day(session, repo_id, path, start, limit, to_tz, history_limit=-1):
+    repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
+    current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
+                                   order_by(desc(FileHistory.id)).limit(1)).first()
+    
+    new_events = []
+    if current_item:
+        query_stmt = select(
+                FileHistory.id, FileHistory.op_type, FileHistory.op_user, FileHistory.timestamp, FileHistory.repo_id, FileHistory.commit_id,
+                FileHistory.file_id, FileHistory.file_uuid, FileHistory.path, FileHistory.repo_id_path_md5, FileHistory.size, FileHistory.old_path,
+                func.date_format(func.convert_tz(FileHistory.timestamp, '+00:00', to_tz), '%Y-%m-%d 00:00:00').label('date'),
+                func.count(FileHistory.id).label('count'),
+                func.max(FileHistory.id).label('max_id')
+                )
+
+        if int(history_limit) >= 0:
+            present_time = datetime.datetime.utcnow()
+            delta = timedelta(days=history_limit)
+            history_time = present_time - delta
+            query_stmt = query_stmt.where(FileHistory.file_uuid == current_item.file_uuid, FileHistory.timestamp.between(history_time, present_time))
+        else:
+            query_stmt = query_stmt.where(FileHistory.file_uuid == current_item.file_uuid)
+
+        query_stmt = query_stmt.order_by(desc(FileHistory.id)).\
+                                group_by('date').\
+                                slice(start, start + limit + 1)
+
+        events = session.execute(query_stmt).all()
+        if events and len(events) == limit + 1:
+            events = events[:-1]
+
+        for event in events:
+            if event.max_id == event.id:
+                new_event = convert_file_history_to_dict(event)
+                new_events.append(new_event)
+            else:
+                max_record_sql = select(FileHistory).where(FileHistory.file_uuid == current_item.file_uuid, FileHistory.id == event.max_id).limit(1)
+                max_id_event = session.scalars(max_record_sql).first()
+                new_event = convert_file_history_to_dict(max_id_event)
+                new_event['count'] = event.count
+                new_event['date'] = event.date
+                new_events.append(new_event)
+
+    return new_events
+
+def get_file_daily_history_detail(session, repo_id, path, start_time, end_time, to_tz):
+    repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
+    current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
+                                   order_by(desc(FileHistory.id)).limit(1)).first()
+    
+    details = list()
+    try:
+        q = select(FileHistory.id, FileHistory.op_type, FileHistory.op_user, FileHistory.timestamp, FileHistory.repo_id, FileHistory.commit_id,
+                FileHistory.file_id, FileHistory.file_uuid, FileHistory.path, FileHistory.repo_id_path_md5, FileHistory.size, FileHistory.old_path,
+                func.date_format(func.convert_tz(FileHistory.timestamp, '+00:00', to_tz), '%Y-%m-%d 00:00:00').label('date')).\
+            where(FileHistory.file_uuid == current_item.file_uuid, func.convert_tz(FileHistory.timestamp, '+00:00', to_tz).between(start_time, end_time)).\
+            order_by(desc(FileHistory.id))
+        details = session.execute(q).all()
+    except Exception as e:
+        logger.error('Get table activities detail failed: %s' % e)
+
+    return details
+
+def get_next_file_history(session, repo_id, path, current_revision_id):
+    repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
+    current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
+                                   order_by(desc(FileHistory.id)).limit(1)).first()
+
+    query_stmt = select(FileHistory).where(FileHistory.file_uuid == current_item.file_uuid, FileHistory.id == current_revision_id).limit(1)
+    event = session.scalars(query_stmt).first()
+    next_query_stmt = select(FileHistory).where(FileHistory.file_uuid == current_item.file_uuid, FileHistory.timestamp > event.timestamp).limit(1)
+    next_event = session.scalars(next_query_stmt).first()
+    return convert_file_history_to_dict(next_event)
 
 def not_include_all_keys(record, keys):
     return any(record.get(k, None) is None for k in keys)
