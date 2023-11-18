@@ -228,7 +228,7 @@ class LdapUserSync(LdapSync):
         users = list()
         try:
             self.ccnet_db_cursor.execute("SELECT e.id, e.email, ctime, is_staff, is_active, role, is_manual_set FROM "
-                                         "`EmailUser` e LEFT JOIN UserRole r ON e.emali=r.email WHERE e.email IN %s",
+                                         "`EmailUser` e LEFT JOIN UserRole r ON e.email=r.email WHERE e.email IN %s",
                                          [email_list])
             res = self.ccnet_db_cursor.fetchall()
         except Exception as e:
