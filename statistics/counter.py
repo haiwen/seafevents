@@ -280,7 +280,7 @@ class TrafficInfoCounter(object):
                                            SysTraffic.timestamp == date,
                                            SysTraffic.org_id == org_id,
                                            SysTraffic.op_type == oper).limit(1)
-                esult = self.edb_session.scalars(stmt).first()
+                result = self.edb_session.scalars(stmt).first()
                 if result is not None:
                     size_in_db = result
                     stmt = update(UserTraffic).where(SysTraffic.timestamp == date,
