@@ -207,17 +207,6 @@ def get_file_daily_history_detail(session, repo_id, path, start_time, end_time, 
 
     return details
 
-def get_next_file_history(session, repo_id, path, current_revision_id):
-    repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
-    current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
-                                   order_by(desc(FileHistory.id)).limit(1)).first()
-
-    query_stmt = select(FileHistory).where(FileHistory.file_uuid == current_item.file_uuid, FileHistory.id == current_revision_id).limit(1)
-    event = session.scalars(query_stmt).first()
-    next_query_stmt = select(FileHistory).where(FileHistory.file_uuid == current_item.file_uuid, FileHistory.timestamp > event.timestamp).limit(1)
-    next_event = session.scalars(next_query_stmt).first()
-    return convert_file_history_to_dict(next_event)
-
 def not_include_all_keys(record, keys):
     return any(record.get(k, None) is None for k in keys)
 
