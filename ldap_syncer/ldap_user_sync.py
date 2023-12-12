@@ -226,14 +226,16 @@ class LdapUserSync(LdapSync):
         for user in ldap_users:
             email_list.append(user[0])
         users = list()
-        try:
-            self.ccnet_db_cursor.execute("SELECT e.id, e.email, ctime, is_staff, is_active, role, is_manual_set FROM "
-                                         "`EmailUser` e LEFT JOIN UserRole r ON e.email=r.email WHERE e.email IN %s",
-                                         [email_list])
-            res = self.ccnet_db_cursor.fetchall()
-        except Exception as e:
-            logger.error('get users from ccnet failed: %s' % e)
-            return user_data_db
+        res = list()
+        if email_list:
+            try:
+                self.ccnet_db_cursor.execute("SELECT e.id, e.email, ctime, is_staff, is_active, role, is_manual_set FROM "
+                                            "`EmailUser` e LEFT JOIN UserRole r ON e.email=r.email WHERE e.email IN %s",
+                                            [email_list])
+                res = self.ccnet_db_cursor.fetchall()
+            except Exception as e:
+                logger.error('get users from ccnet failed: %s' % e)
+                return user_data_db
         for user in res:
             users.append(UserObj(user[0], user[1], user[2], user[3], user[4], user[5], user[6]))
 
