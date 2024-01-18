@@ -682,18 +682,20 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
         record['old_path'] = de.path
         records.append(record)
 
+    filtered_records = []
     for record in records:
         if os.path.dirname(record['path']).startswith('/images/auto-upload'):
-            records.remove(record)
+            continue
         if os.path.dirname(record['path']).startswith('/images/sdoc'):
-            records.remove(record)
+            continue
         if os.path.dirname(record['path']).startswith('/_Internal'):
-            records.remove(record)
+            continue
         if 'old_path' in record:
             record['old_path'] = record['old_path'].rstrip('/')
         record['path'] = record['path'].rstrip('/') if record['path'] != '/' else '/'
+        filtered_records.append(record)
 
-    return records
+    return filtered_records
 
 def list_file_in_dir(repo_id, dirents, op_type):
     _dirents = copy.copy(dirents)
