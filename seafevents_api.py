@@ -7,7 +7,7 @@ from .app.config import is_repo_auto_del_enabled, is_search_enabled, is_audit_en
 
 
 def is_pro():
-    return True
+    return False
 
 
 def get_file_history_suffix(config):
