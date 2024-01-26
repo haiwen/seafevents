@@ -20,6 +20,7 @@ class IndexUpdater(object):
         self._interval = None
         self._index_office_pdf = None
         self._logfile = None
+        self._loglevel = None
         self._es_host = None
         self._es_port = None
 
@@ -33,6 +34,7 @@ class IndexUpdater(object):
         key_enabled = 'enabled'
         key_seafesdir = 'seafesdir'
         key_logfile = 'logfile'
+        key_loglevel = 'loglevel'
         key_index_interval = 'interval'
         key_index_office_pdf = 'index_office_pdf'
         key_es_host = 'es_host'
@@ -70,6 +72,9 @@ class IndexUpdater(object):
                                             key_logfile,
                                             'SEAFES_LOGFILE',
                                             default=default_logfile)
+
+        default_loglevel = 'warning'
+        loglevel = get_opt_from_conf_or_env(config, section_name, key_loglevel, default=default_loglevel)
 
         # [ index interval ]
         interval = get_opt_from_conf_or_env(config, section_name, key_index_interval,
@@ -114,6 +119,7 @@ class IndexUpdater(object):
         self._interval = interval
         self._index_office_pdf = index_office_pdf
         self._logfile = os.path.abspath(logfile)
+        self._loglevel = loglevel
         self._es_host = es_host
         self._es_port = es_port
 
@@ -125,7 +131,7 @@ class IndexUpdater(object):
         logging.info('search indexer is started, interval = %s sec', self._interval)
         IndexUpdateTimer(
             self._interval, self._seafesdir, self._index_office_pdf,
-            self._logfile, self._es_host, self._es_port
+            self._logfile, self._loglevel, self._es_host, self._es_port
         ).start()
 
     def is_enabled(self):
@@ -134,12 +140,13 @@ class IndexUpdater(object):
 
 class IndexUpdateTimer(Thread):
 
-    def __init__(self, interval, seafesdir, index_office_pdf, logfile, es_host, es_port):
+    def __init__(self, interval, seafesdir, index_office_pdf, logfile, loglevel, es_host, es_port):
         Thread.__init__(self)
         self._interval = interval
         self._seafesdir = seafesdir
         self._index_office_pdf = index_office_pdf
         self._logfile = logfile
+        self._loglevel = loglevel
         self._es_host = es_host
         self._es_port = es_port
         self.finished = Event()
@@ -155,6 +162,7 @@ class IndexUpdateTimer(Thread):
                         get_python_executable(),
                         '-m', 'seafes.index_local',
                         '--logfile', self._logfile,
+                        '--loglevel', self._loglevel,
                         'update',
                     ]
 
