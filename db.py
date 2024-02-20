@@ -56,10 +56,18 @@ def create_engine_from_conf(config, db='seafevent'):
         else:
             port = 3306
         username = config.get(db_sec, user)
-        passwd = config.get(db_sec, 'password')
         dbname = config.get(db_sec, db_name)
-        db_url = "mysql+pymysql://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
+
+        if config.has_option(db_sec, 'password'):
+            passwd = config.get(db_sec, 'password')
+            db_url = "mysql+pymysql://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
+
+        if config.has_option(db_sec, 'unix_socket'):
+            unix_socket = config.get(db_sec, 'unix_socket')
+            db_url = f"mysql+pymysql://{username}:@{host}:{port}/{dbname}?unix_socket={unix_socket}&charset=utf8"
+
         logger.info('[seafevents] database: mysql, name: %s', dbname)
+
     elif backend == 'oracle':
         if config.has_option(db_sec, 'host'):
             host = config.get(db_sec, 'host').lower()
