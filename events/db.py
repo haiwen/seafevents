@@ -103,6 +103,7 @@ def _get_user_activities(session, username, start, limit):
 
     q = session.query(Activity).filter(UserActivity.username == username)
     q = q.filter(UserActivity.activity_id == Activity.id)
+    
 
     events = q.order_by(desc(UserActivity.timestamp)).slice(start, start + limit).all()
 
