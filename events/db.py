@@ -67,8 +67,9 @@ def _get_user_activities(session, username, start, limit):
     stmt = (
         select(Activity)
         .where(Activity.id.in_(sub_query))
-        .slice(start, start + limit)
         .order_by(desc(Activity.timestamp))
+        .slice(start, start + limit)
+        
     )
     events = session.scalars(stmt).all()
 
