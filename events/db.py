@@ -58,13 +58,19 @@ def _get_user_activities(session, username, start, limit):
     if limit <= 0:
         logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
-    stmt = (  
-        select(Activity)  
-        .join(UserActivity, UserActivity.activity_id == Activity.id)  
-        .where(UserActivity.username == username,  )
-        .order_by(desc(UserActivity.timestamp))
+    
+    sub_query = ( 
+        select(UserActivity.activity_id)
+        .where(UserActivity.username == username)
+        
+    )
+    stmt = (
+        select(Activity)
+        .where(Activity.id.in_(sub_query))
         .slice(start, start + limit)
-    )  
+        .order_by(desc(Activity.timestamp))
+    )
+    print(str(stmt.compile(compile_kwargs={"literal_binds": True})), '1111111')
     events = session.scalars(stmt).all()
 
     return [ UserActivityDetail(ev, username=username) for ev in events ]
@@ -75,17 +81,23 @@ def get_user_activities(session, username, start, limit):
 def _get_user_activities_by_timestamp(session, username, start, end):
     events = []
     try:
-        stmt = (  
-            select(Activity)  
-            .join(UserActivity, UserActivity.activity_id == Activity.id)  
-            .where(  
-                and_(  
-                    UserActivity.username == username,  
-                    UserActivity.timestamp.between(start, end)  
-                ))
-            .order_by(UserActivity.timestamp)  
-        )  
+        sub_query = ( 
+            select(UserActivity.activity_id)
+                .where(
+                    and_(  
+                        UserActivity.username == username,  
+                        UserActivity.timestamp.between(start, end)  
+                    )
+                )
+        )
+        stmt = (
+            select(Activity)
+                .where(Activity.id.in_(sub_query))
+                .order_by(Activity.timestamp)
+        )
+        print(str(stmt.compile(compile_kwargs={"literal_binds": True})), '222222')
         events = session.scalars(stmt).all()
+        print(events, 'ppppp')
     except Exception as e:
         logging.warning('Failed to get activities of %s: %s.', username, e)
     finally:
