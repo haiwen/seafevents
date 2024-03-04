@@ -62,7 +62,7 @@ def _get_user_activities(session, username, start, limit):
         select(Activity)  
         .join(UserActivity, UserActivity.activity_id == Activity.id)  
         .where(UserActivity.username == username,  )
-        .order_by(UserActivity.timestamp)
+        .order_by(desc(UserActivity.timestamp))
         .slice(start, start + limit)
     )  
     events = session.scalars(stmt).all()
