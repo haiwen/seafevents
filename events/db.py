@@ -70,7 +70,6 @@ def _get_user_activities(session, username, start, limit):
         .slice(start, start + limit)
         .order_by(desc(Activity.timestamp))
     )
-    print(str(stmt.compile(compile_kwargs={"literal_binds": True})), '1111111')
     events = session.scalars(stmt).all()
 
     return [ UserActivityDetail(ev, username=username) for ev in events ]
@@ -95,9 +94,7 @@ def _get_user_activities_by_timestamp(session, username, start, end):
                 .where(Activity.id.in_(sub_query))
                 .order_by(Activity.timestamp)
         )
-        print(str(stmt.compile(compile_kwargs={"literal_binds": True})), '222222')
         events = session.scalars(stmt).all()
-        print(events, 'ppppp')
     except Exception as e:
         logging.warning('Failed to get activities of %s: %s.', username, e)
     finally:
