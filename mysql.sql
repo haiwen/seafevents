@@ -1,13 +1,3 @@
-CREATE TABLE IF NOT EXISTS `deleted_files_count` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `repo_id` varchar(36) NOT NULL,
-  `deleted_time` datetime NOT NULL,
-  `files_count` bigint(20) NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `ix_deleted_files_count_repo_id` (`repo_id`),
-  KEY `ix_deleted_files_count_deleted_time` (`deleted_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
 CREATE TABLE IF NOT EXISTS `ContentScanRecord` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `repo_id` varchar(36) NOT NULL,
