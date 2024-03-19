@@ -283,7 +283,7 @@ class TrafficInfoCounter(object):
                 result = self.edb_session.scalars(stmt).first()
                 if result is not None:
                     size_in_db = result
-                    stmt = update(UserTraffic).where(SysTraffic.timestamp == date,
+                    stmt = update(SysTraffic).where(SysTraffic.timestamp == date,
                                                      SysTraffic.org_id == org_id,
                                                      SysTraffic.op_type == oper).values(size=size + size_in_db)
                     self.edb_session.execute(stmt)
