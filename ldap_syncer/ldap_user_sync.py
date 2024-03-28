@@ -481,7 +481,7 @@ class LdapUserSync(LdapSync):
             return
 
         try:
-            self.cursor.execute("DELETE FROM social_auth_usersocialauth WHERR username=%s ", (email,))
+            self.cursor.execute("DELETE FROM social_auth_usersocialauth WHERE username=%s ", (email,))
         except Exception as e:
             logger.error('Delete user [%s] from social_auth_usersocialauth failed: %s' % (email, e))
             return
