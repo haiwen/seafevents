@@ -481,6 +481,7 @@ class LdapUserSync(LdapSync):
         except Exception as e:
             logger.warning('Deactive user [%s] failed: %s' % (email, e))
             return
+        self.duser += 1
 
     def sync_data(self, data_db, data_ldap):
         # sync deleted user in ldap to db
