@@ -474,35 +474,13 @@ class LdapUserSync(LdapSync):
             logger.debug('Reactivate user [%s] success.' % email)
 
     def sync_del_user(self, db_user, email):
+        """Set user.is_active = False
+        """
         try:
             ccnet_api.update_emailuser('DB', db_user.id, '!', db_user.is_staff, 0)
         except Exception as e:
             logger.warning('Deactive user [%s] failed: %s' % (email, e))
             return
-
-        try:
-            self.cursor.execute("DELETE FROM social_auth_usersocialauth WHERE username=%s ", (email,))
-        except Exception as e:
-            logger.error('Delete user [%s] from social_auth_usersocialauth failed: %s' % (email, e))
-            return
-        logger.debug('Deactive user [%s] success.' % email)
-        self.duser += 1
-
-        if self.cursor:
-            self.del_token('api2_token', email)
-            self.del_token('api2_tokenv2', email)
-        else:
-            logger.debug('Failed to connect seahub db, omit delete api token for user [%s].' %
-                          email)
-        try:
-            seafile_api.delete_repo_tokens_by_email(email)
-            logger.debug('Delete repo tokens for user %s success.', email)
-        except Exception as e:
-            logger.warning("Failed to delete repo tokens for user %s: %s." % (email, e))
-
-        if self.settings.load_extra_user_info_sync:
-            self.del_profile(email)
-            self.del_dept(email)
 
     def sync_data(self, data_db, data_ldap):
         # sync deleted user in ldap to db
