@@ -203,6 +203,17 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to delete token from %s for user %s: %s.' %
                             (tab, email, e))
 
+    def del_repo_api_token(self, tab, email):
+        try:
+            sql = 'delete from {0} where generated_by = %s'.format(tab)
+            self.cursor.execute(sql, [email])
+            if self.cursor.rowcount > 0:
+                logger.debug('Delete repo_api_token from %s for user %s success.' %
+                              (tab, email))
+        except Exception as e:
+            logger.warning('Failed to delete repo_api_token from %s for user %s: %s.' %
+                            (tab, email, e))
+
     def get_data_from_db(self):
         # user_id <-> LdapUser
         providers = list()
@@ -474,14 +485,27 @@ class LdapUserSync(LdapSync):
             logger.debug('Reactivate user [%s] success.' % email)
 
     def sync_del_user(self, db_user, email):
-        """Set user.is_active = False
+        """Set user.is_active = False, del tokens and repo tokens
         """
         try:
             ccnet_api.update_emailuser('DB', db_user.id, '!', db_user.is_staff, 0)
         except Exception as e:
             logger.warning('Deactive user [%s] failed: %s' % (email, e))
             return
+        logger.debug('Deactive user [%s] success.' % email)
         self.duser += 1
+
+        if self.cursor:
+            self.del_token('api2_token', email)
+            self.del_token('api2_tokenv2', email)
+            self.del_repo_api_token('repo_api_tokens', email)
+        else:
+            logger.debug('Failed to connect seahub db, omit delete api token for user [%s].' % email)
+        try:
+            seafile_api.delete_repo_tokens_by_email(email)
+            logger.debug('Delete repo tokens for user %s success.', email)
+        except Exception as e:
+            logger.warning("Failed to delete repo tokens for user %s: %s." % (email, e))
 
     def sync_data(self, data_db, data_ldap):
         # sync deleted user in ldap to db
