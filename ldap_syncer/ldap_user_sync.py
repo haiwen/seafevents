@@ -2,6 +2,11 @@
 
 import logging
 import sys
+import os
+import time
+
+from .utils_pingan import handle_mobfile, SPECIAL_ACCOUNT_TYPE
+
 logger = logging.getLogger('ldap_sync')
 logger.setLevel(logging.DEBUG)
 
@@ -11,6 +16,7 @@ from .ldap_conn import LdapConn
 from .ldap_sync import LdapSync
 from .utils import bytes2str
 from ldap import SCOPE_SUBTREE
+from datetime import datetime
 
 def default_ldap_role_mapping(role):
     return role
@@ -21,6 +27,14 @@ try:
     role_mapping = ldap_role_mapping
 except:
     role_mapping = default_ldap_role_mapping
+    
+    
+def recording_running_time(msg, start, end):
+    logger.debug("[运行时间]%s: 耗时：%s 毫秒" % (
+        msg,
+        (end - start) * 1000
+    )
+ )
 
 class LdapUser(object):
     def __init__(self, user_id, password, name, dept, uid, cemail,
@@ -56,6 +70,10 @@ class LdapUserSync(LdapSync):
 
         self.db_conn = None
         self.cursor = None
+        
+        
+        self.users_for_group_add = set()
+        self.users_for_group_del = set()
 
         self.init_seahub_db()
 
@@ -375,7 +393,6 @@ class LdapUserSync(LdapSync):
                 dept = user_attrs.get('dept', '')
                 uid = user_attrs.get('uid', '')
                 cemail = user_attrs.get('email', '')
-
             user_data_db[user.email] = LdapUser(user.id, user.password, name, dept,
                                                 uid, cemail,
                                                 1 if user.is_staff else 0,
@@ -397,18 +414,33 @@ class LdapUserSync(LdapSync):
 
         return uid_to_ldap_user
 
-    def get_data_from_ldap_by_server(self, config):
+    def get_data_from_ldap_by_server(self, config, use_duplicated_user_filter=False, scope_all=False):
         if not config.enable_user_sync:
             return {}
         ldap_conn = LdapConn(config.host, config.user_dn, config.passwd, config.follow_referrals)
         ldap_conn.create_conn()
         if not ldap_conn.conn:
             return None
-
         #  dn <-> LdapUser
         user_data_ldap = {}
+        
+        
+        # 扫描 AD 全域用户
+        if scope_all:
+            search_filter = '(objectClass=%s)' % config.user_object_class
+        
+        # 使用 自定义 Filter 查询额外的用户
+        elif use_duplicated_user_filter:
+            
+            if config.duplicated_user_filter:
+                search_filter = '(&(objectClass=%s)(%s))' % \
+                                (config.user_object_class,
+                                 config.duplicated_user_filter)
+            else:
+                return None
+        
         # search all users on base dn
-        if config.user_filter != '':
+        elif config.user_filter != '':
             search_filter = '(&(objectClass=%s)(%s))' % \
                              (config.user_object_class,
                               config.user_filter)
@@ -431,7 +463,7 @@ class LdapUserSync(LdapSync):
 
     def get_data_by_base_dn(self, config, ldap_conn, base_dn, search_filter):
         user_data_ldap = {}
-        search_attr = [config.login_attr, config.pwd_change_attr]
+        search_attr = [config.login_attr, config.pwd_change_attr, config.employee_type_attr]
 
         if config.role_name_attr:
             search_attr.append(config.role_name_attr)
@@ -461,7 +493,9 @@ class LdapUserSync(LdapSync):
             if not isinstance(attrs, dict):
                 continue
             if config.login_attr not in attrs:
-                continue
+                # ldap user 没有login_attr 属性，会忽略，这个 login_attr 是一个email
+                attrs[config.login_attr] = ['']
+                # continue
             if config.pwd_change_attr not in attrs:
                 password = ''
             else:
@@ -501,24 +535,57 @@ class LdapUserSync(LdapSync):
 
                 if config.uid_attr != '':
                    if config.uid_attr not in attrs:
-                       uid = ''
+                       continue
                    else:
                        uid = attrs[config.uid_attr][0]
-
+                
                 if config.cemail_attr != '':
                    if config.cemail_attr not in attrs:
                        cemail = ''
                    else:
                        cemail = attrs[config.cemail_attr][0]
 
+                    
+            # pingan custom: 判断用户账号的类型， 如果属于特殊账号或者黑名单，则跳过不同步， 同时移除安全组。
+            if config.employee_type_attr in attrs:
+                employee_type = attrs[config.employee_type_attr][0]
+                if employee_type in SPECIAL_ACCOUNT_TYPE:
+                    self.users_for_group_del.add(uid)
+                    continue
+            
+            # pingan custom: AD中没有邮箱，需要创建虚拟邮箱进行同步
             email = attrs[config.login_attr][0].lower()
+            if not email:
+                email = "%s@virtual.fcloud.com" % uid.strip()
+                email = email.lower()
+
             user_name = None if user_name is None else user_name.strip()
             user_data_ldap[email] = LdapUser(None, password, user_name, dept,
                                              uid, cemail, role = role)
 
         return user_data_ldap
 
-    def sync_add_user(self, ldap_user, email):
+    def add_or_update_user_role_time(self, email, role):
+        self.cursor.execute('select 1 from user_role_update_time where email=%s', [email])
+        if self.cursor.rowcount == 0:
+            sql = 'insert into user_role_update_time (email, role, update_at) values (%s,%s,%s)'
+            try:
+                self.cursor.execute(sql, (email, role, datetime.now()))
+                if self.cursor.rowcount == 1:
+                    logger.debug('Create role time to user %s successs.' % email)
+            except Exception as e:
+                logger.debug('Failed to create role time to user %s: %s.' % (email, e))
+    
+        else:
+            sql = 'update user_role_update_time set role=%s, update_at=%s where email=%s'
+            try:
+                self.cursor.execute(sql, (role, datetime.now(), email))
+                if self.cursor.rowcount == 1:
+                    logger.debug('Update role time to user %s successs.' % email)
+            except Exception as e:
+                logger.debug('Failed to update role time to user %s: %s.' % (email, e))
+
+    def sync_add_user(self, ldap_user, email, set_guest=False):
         user_id = add_ldap_user(email, ldap_user.password, 0,
                                 1 if self.settings.activate_user else 0)
         if user_id <= 0:
@@ -526,49 +593,78 @@ class LdapUserSync(LdapSync):
             return
         self.auser += 1
         logger.debug('Add user [%s] success.' % email)
-
-        ret = 0
-        if ldap_user.role:
-            role = role_mapping(ldap_user.role)
+        
+        #pingan custom: 新增用户维护访客角色, 加组
+        if set_guest:
+            role = 'guest'
             ret = ccnet_api.update_role_emailuser(email, role, False)
-
             if ret == 0:
                 self.arole += 1
+                self.add_or_update_user_role_time(email, role)
                 logger.debug('Add role [%s] for user [%s] success.' % (role, email))
-
             if ret < 0:
                 logger.warning('Add role [%s] for user [%s] failed.' % (role, email))
+                
+            # 加组
+            self.users_for_group_add.add(ldap_user.uid)
+        else:
+            ret = 0
+            if ldap_user.role:
+                role = role_mapping(ldap_user.role)
+                ret = ccnet_api.update_role_emailuser(email, role, False)
+    
+                if ret == 0:
+                    self.arole += 1
+                    self.add_or_update_user_role_time(email, role)
+                    logger.debug('Add role [%s] for user [%s] success.' % (role, email))
+    
+                if ret < 0:
+                    logger.warning('Add role [%s] for user [%s] failed.' % (role, email))
 
         if ldap_user.config.enable_extra_user_info_sync:
             self.add_profile(email, ldap_user)
             self.add_dept(email, ldap_user.dept)
-
-    def sync_update_user(self, ldap_user, db_user, email, new_email):
+            
+    def sync_update_user(self, ldap_user, db_user, email, new_email, set_guest=False):
         # PingAn customization: reactivate user when it's added back to AD.
-        if db_user.is_active == 0:
+        if (email != new_email) or (db_user.password != ldap_user.password) or (db_user.is_active==0):
             db_user.is_active = 1
+            rc = update_ldap_user(db_user.user_id, new_email, ldap_user.password,
+                                  db_user.is_staff, db_user.is_active)
+            if rc < 0:
+                logger.warning('Update user [%s] failed.' % email)
+            else:
+                logger.debug('Update user [%s] success.' % email)
+                self.uuser += 1
 
-        rc = update_ldap_user(db_user.user_id, new_email, ldap_user.password,
-                              db_user.is_staff, db_user.is_active)
-        if rc < 0:
-            logger.warning('Activate user [%s] failed.' % email)
-        else:
-            logger.debug('Activate user [%s] success.' % email)
-            self.uuser += 1
-
-        ret = 0
-
-        if ldap_user.role:
-            role = role_mapping(ldap_user.role)
-            if not db_user.is_manual_set and db_user.role != role:
+        # pingan custom：更新用户维护访客角色, 加组
+        if set_guest:
+            role = 'guest'
+            if db_user.role != role:
                 ret = ccnet_api.update_role_emailuser(email, role, False)
-
                 if ret == 0:
-                    self.urole += 1
-                    #logger.debug('Update role [%s] for user [%s] success.' % (role, email))
-
+                    self.arole += 1
+                    self.add_or_update_user_role_time(email, role)
+                    logger.debug('Update role [%s] for user [%s] success.' % (role, email))
                 if ret < 0:
                     logger.warning('Update role [%s] for user [%s] failed.' % (role, email))
+            # 加组
+            self.users_for_group_add.add(ldap_user.uid)
+
+        else:
+            ret = 0
+            if ldap_user.role:
+                role = role_mapping(ldap_user.role)
+                if not db_user.is_manual_set and db_user.role != role:
+                    ret = ccnet_api.update_role_emailuser(email, role, False)
+    
+                    if ret == 0:
+                        self.add_or_update_user_role_time(email, role)
+                        self.urole += 1
+                        #logger.debug('Update role [%s] for user [%s] success.' % (role, email))
+    
+                    if ret < 0:
+                        logger.warning('Update role [%s] for user [%s] failed.' % (role, email))
 
         if ldap_user.config.enable_extra_user_info_sync:
             self.update_profile(email, db_user, ldap_user)
@@ -801,6 +897,12 @@ class LdapUserSync(LdapSync):
                                 (new_user, old_user))
         except Exception as e:
             logger.warning('Failed to update MonthlyUserTraffic user to %s.' % new_user)
+            
+        try:
+            self.cursor.execute('update user_role_update_time set email=%s where email=%s',
+                                (new_user, old_user))
+        except Exception as e:
+            logger.warning('Failed to update user role times email to %s.' % new_user)
 
     def sync_del_user(self, db_user, email):
         ret = update_ldap_user(db_user.user_id, email, db_user.password,
@@ -825,15 +927,22 @@ class LdapUserSync(LdapSync):
 
     # Note: customized for PinaAn's requirements. Do not deactivate renamed users in ldap.
     # The checking of rename is based on profile_profile.login_id database field and uid attribute.
-    def sync_data(self, data_db, data_ldap):
-        email_to_uid = self.get_uid_from_profile()
-        uid_to_users = self.get_uid_to_users(email_to_uid)
-        uid_to_ldap_user = self.get_uid_to_ldap_user(data_ldap)
-        # used to find renamed users
-
+    def sync_data(self, data_db, data_ldap, data_ldap_all):
+        '''
+        
+        :param data_db:  seafile数据库中的用户数据
+        :param data_ldap:  AD 中安全组的用户数据
+        :param data_ldap_all:  AD 中全域的用户数据
+        :return: None
+        '''
+        email_to_uid = self.get_uid_from_profile() # profile用户
+        uid_to_users = self.get_uid_to_users(email_to_uid) # db 中ldap 用户
+        # uid_to_ldap_user = self.get_uid_to_ldap_user(data_ldap) #  AD 中安全组用户
+        uid_to_ldap_user_all = self.get_uid_to_ldap_user(data_ldap_all) # AD 中全域用户
+        
         # collect deleted users from ldap
         for k, v in uid_to_users.items():
-            if uid_to_ldap_user and k not in uid_to_ldap_user:
+            if uid_to_ldap_user_all and k not in uid_to_ldap_user_all:
                 del_users = uid_to_users[k]
                 for del_user in del_users:
                     if del_user in data_db and data_db[del_user].is_active == 1:
@@ -844,47 +953,48 @@ class LdapUserSync(LdapSync):
                                          'DEACTIVE_USER_IF_NOTFOUND option is not set, so not deactive it.' % del_user)
 
         # collect migrated users
-        nums = 0
-        for k, v in data_ldap.items():
-            if uid_to_users:
-                uid = v.uid.lower()
-                if uid in uid_to_users:
-                    found_active = False
-                    users = uid_to_users[uid]
-
-                    for user in users:
-                        if k == user:
-                            found_active = True
-                            break
-
-                    if found_active:
-                        for user in users:
-                            if k == user:
-                                continue
-                            nums = nums + 1
-                        continue
-
-                    for user in users:
-                        nums = nums + 1
-
-        if nums > 0:
-            logger.debug('%d users need migrate.' % nums)
+        # nums = 0
+        # for k, v in data_ldap_all.items():
+        #     if uid_to_users:
+        #         uid = v.uid.lower()
+        #         if uid in uid_to_users:
+        #             found_active = False
+        #             users = uid_to_users[uid]
+        #             for user in users:
+        #                 if k == user:
+        #                     found_active = True
+        #                     break
+        #
+        #             if found_active:
+        #                 for user in users:
+        #                     if k == user:
+        #                         continue
+        #                     nums = nums + 1
+        #                 continue
+        #
+        #             for user in users:
+        #                 nums = nums + 1
+        #
+        # if nums > 0:
+        #     logger.debug('%d users need migrate.' % nums)
 
         # sync new and existing users from ldap to db
-        for k, v in data_ldap.items():
+        for k, v in data_ldap_all.items():
+            set_guest = False
+            if k not in data_ldap.keys():  # 如果用户不在设置的安全组里
+                set_guest = True
             if uid_to_users:
                 uid = v.uid.lower()
                 if uid not in uid_to_users:
                     if self.settings.import_new_user:
-                        self.sync_add_user(v, k)
+                        self.sync_add_user(v, k, set_guest=set_guest)
                 else:
                     found_active = False
                     users = uid_to_users[uid]
-
                     for user in users:
                         if k == user:
-                            if user in data_db and data_db[user].is_active == 0:
-                                self.sync_update_user(v, data_db[user], user, k)
+                            if user in data_db:
+                                self.sync_update_user(v, data_db[user], user, k, set_guest=set_guest)
                             found_active = True
                             break
 
@@ -899,12 +1009,43 @@ class LdapUserSync(LdapSync):
                         continue
 
                     email = users[0]
-                    self.sync_update_user(v, data_db[email], email, k)
+                    self.sync_update_user(v, data_db[email], email, k, set_guest=set_guest)
                     for user in users:
                         self.sync_migrate_user(user, k)
                         if email != user:
                             del_ldap_user(data_db[user].user_id)
                             logger.debug('Delete user [%s] success.' % user)
                     self.update_profile_user_login_id(k, uid)
+                    
+        # 调用接口，处理加组，减组
+        uids_for_add = list(self.users_for_group_add)
+        uids_for_del = list(self.users_for_group_del)
+        
+        self.add_mobfiles(uids_for_add)
+        self.del_mobfiles(uids_for_del)
 
         self.close_seahub_db()
+        
+    
+    def add_mobfiles(self, uids):
+        try:
+            handle_mobfile(uids, 'checkaddum')
+        except Exception as e:
+            logger.debug("添加访客安全组出错：uid: %s, error: %s" % (uids[:5], e))
+        return
+    
+    def del_mobfiles(self, uids):
+        try:
+            handle_mobfile(uids, 'checkdelum')
+        except Exception as e:
+            logger.debug("移除访客安全组出错：uid: %s, error: %s" % (uids[:5], e))
+    
+    def cleanup_duplicated_ldap_data(self, data_ldap):
+        current_hour = datetime.today().hour
+        if current_hour != 6:
+            return
+        uids = []
+        for email, ldap_user_obj in data_ldap.items():
+            uids.append(ldap_user_obj.uid)
+        
+        self.del_mobfiles(uids)

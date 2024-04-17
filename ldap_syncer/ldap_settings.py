@@ -48,6 +48,13 @@ class LdapConfig(object):
         self.sync_group_as_department = False
         self.department_repo_permission = None
         self.department_name_attr = None
+        
+        
+        # pingan-custom: extra config
+        # duplicated_user_filter: 用于过滤即在组A又在组B诸如此类的用户
+        self.duplicated_user_filter = None
+        # employee_type_attr: AD 中的一个自定义属性，标识账号类型
+        self.employee_type_attr = 'employeeType'
 
 class Settings(object):
     def __init__(self, is_test=False):
@@ -171,6 +178,8 @@ class Settings(object):
         ldap_config.follow_referrals = self.get_option(ldap_sec, 'FOLLOW_REFERRALS', bool, True)
         ldap_config.user_filter = self.get_option(ldap_sec, 'FILTER')
         ldap_config.group_filter = self.get_option(ldap_sec, 'GROUP_FILTER')
+        
+        ldap_config.duplicated_user_filter = self.get_option(ldap_sec, 'DUPLICATED_USER_FILTER')
 
         if ldap_config.host == '' or ldap_config.user_dn == '' or ldap_config.passwd == '' or ldap_config.base_dn == '':
             if is_test:
