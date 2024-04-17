@@ -203,16 +203,41 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to delete token from %s for user %s: %s.' %
                             (tab, email, e))
 
-    def del_repo_api_token(self, tab, email):
+    def del_repo_api_token(self, email):
+        """del tokens and personal repo tokens (not group)
+        """
         try:
-            sql = 'delete from {0} where generated_by = %s'.format(tab)
-            self.cursor.execute(sql, [email])
-            if self.cursor.rowcount > 0:
-                logger.debug('Delete repo_api_token from %s for user %s success.' %
-                              (tab, email))
+            from seafevents.statistics.db import is_org
+            if is_org:
+                orgs = ccnet_api.get_orgs_by_user(email)
+                if orgs:
+                    org = orgs[0]
+                    org_id = org.org_id
+                else:
+                    org_id = None
+            repo_api_token_ids = []
+            select_sql = 'select id, repo_id from repo_api_tokens where generated_by = %s'
+            self.cursor.execute(select_sql, [email])
+            repo_api_tokens = self.cursor.fetchall()
+            for repo_api_token in repo_api_tokens:
+                repo_id = repo_api_token[1]
+                if org_id:
+                    shared_group_ids = seafile_api.org_get_shared_group_ids_by_repo(
+                        org_id, repo_id)
+                else:
+                    shared_group_ids = seafile_api.get_shared_group_ids_by_repo(
+                        repo_id)
+                if not shared_group_ids:
+                    repo_api_token_ids.append(repo_api_token[0])
+            if repo_api_token_ids:
+                del_sql = 'delete from repo_api_tokens where id in %s'
+                self.cursor.execute(del_sql, [repo_api_token_ids])
+                if self.cursor.rowcount > 0:
+                    logger.debug('Delete repo_api_token from repo_api_tokens for user %s success.' %
+                                ( email))
         except Exception as e:
-            logger.warning('Failed to delete repo_api_token from %s for user %s: %s.' %
-                            (tab, email, e))
+            logger.warning('Failed to delete repo_api_token from repo_api_tokens for user %s: %s.' %
+                            ( email, e))
 
     def get_data_from_db(self):
         # user_id <-> LdapUser
@@ -498,7 +523,7 @@ class LdapUserSync(LdapSync):
         if self.cursor:
             self.del_token('api2_token', email)
             self.del_token('api2_tokenv2', email)
-            self.del_repo_api_token('repo_api_tokens', email)
+            self.del_repo_api_token(email)
         else:
             logger.debug('Failed to connect seahub db, omit delete api token for user [%s].' % email)
         try:
