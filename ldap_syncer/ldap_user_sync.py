@@ -204,34 +204,26 @@ class LdapUserSync(LdapSync):
                             (tab, email, e))
 
     def del_repo_api_token(self, email):
-        """del tokens and personal repo tokens (not group)
+        """del personal repo api tokens (not department)
         """
         try:
             from seafevents.statistics.db import is_org
+            org_id = -1
             if is_org:
                 orgs = ccnet_api.get_orgs_by_user(email)
                 if orgs:
                     org = orgs[0]
                     org_id = org.org_id
-                else:
-                    org_id = None
-            repo_api_token_ids = []
-            select_sql = 'select id, repo_id from repo_api_tokens where generated_by = %s'
-            self.cursor.execute(select_sql, [email])
-            repo_api_tokens = self.cursor.fetchall()
-            for repo_api_token in repo_api_tokens:
-                repo_id = repo_api_token[1]
-                if org_id:
-                    shared_group_ids = seafile_api.org_get_shared_group_ids_by_repo(
-                        org_id, repo_id)
-                else:
-                    shared_group_ids = seafile_api.get_shared_group_ids_by_repo(
-                        repo_id)
-                if not shared_group_ids:
-                    repo_api_token_ids.append(repo_api_token[0])
-            if repo_api_token_ids:
-                del_sql = 'delete from repo_api_tokens where id in %s'
-                self.cursor.execute(del_sql, [repo_api_token_ids])
+            if org_id > 0:
+                owned_repos = seafile_api.get_org_owned_repo_list(
+                    org_id, email, ret_corrupted=True)
+            else:
+                owned_repos = seafile_api.get_owned_repo_list(
+                    email, ret_corrupted=True)
+            owned_repo_ids = [item.repo_id for item in owned_repos]
+            if owned_repo_ids:
+                sql = 'delete from repo_api_tokens where repo_id in %s'
+                self.cursor.execute(sql, [owned_repo_ids])
                 if self.cursor.rowcount > 0:
                     logger.debug('Delete repo_api_token from repo_api_tokens for user %s success.' %
                                 ( email))
