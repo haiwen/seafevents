@@ -203,6 +203,34 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to delete token from %s for user %s: %s.' %
                             (tab, email, e))
 
+    def del_repo_api_token(self, email):
+        """del personal repo api tokens (not department)
+        """
+        try:
+            from seafevents.statistics.db import is_org
+            org_id = -1
+            if is_org:
+                orgs = ccnet_api.get_orgs_by_user(email)
+                if orgs:
+                    org = orgs[0]
+                    org_id = org.org_id
+            if org_id > 0:
+                owned_repos = seafile_api.get_org_owned_repo_list(
+                    org_id, email, ret_corrupted=True)
+            else:
+                owned_repos = seafile_api.get_owned_repo_list(
+                    email, ret_corrupted=True)
+            owned_repo_ids = [item.repo_id for item in owned_repos]
+            if owned_repo_ids:
+                sql = 'delete from repo_api_tokens where repo_id in %s'
+                self.cursor.execute(sql, [owned_repo_ids])
+                if self.cursor.rowcount > 0:
+                    logger.debug('Delete repo_api_token from repo_api_tokens for user %s success.' %
+                                ( email))
+        except Exception as e:
+            logger.warning('Failed to delete repo_api_token from repo_api_tokens for user %s: %s.' %
+                            ( email, e))
+
     def get_data_from_db(self):
         # user_id <-> LdapUser
         providers = list()
@@ -474,14 +502,27 @@ class LdapUserSync(LdapSync):
             logger.debug('Reactivate user [%s] success.' % email)
 
     def sync_del_user(self, db_user, email):
-        """Set user.is_active = False
+        """Set user.is_active = False, del tokens and repo tokens
         """
         try:
             ccnet_api.update_emailuser('DB', db_user.id, '!', db_user.is_staff, 0)
         except Exception as e:
             logger.warning('Deactive user [%s] failed: %s' % (email, e))
             return
+        logger.debug('Deactive user [%s] success.' % email)
         self.duser += 1
+
+        if self.cursor:
+            self.del_token('api2_token', email)
+            self.del_token('api2_tokenv2', email)
+            self.del_repo_api_token(email)
+        else:
+            logger.debug('Failed to connect seahub db, omit delete api token for user [%s].' % email)
+        try:
+            seafile_api.delete_repo_tokens_by_email(email)
+            logger.debug('Delete repo tokens for user %s success.', email)
+        except Exception as e:
+            logger.warning("Failed to delete repo tokens for user %s: %s." % (email, e))
 
     def sync_data(self, data_db, data_ldap):
         # sync deleted user in ldap to db
