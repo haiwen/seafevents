@@ -15,13 +15,13 @@ if __name__ == "__main__":
     kw = {
         'format': '[%(asctime)s] [%(levelname)s] %(message)s',
         'datefmt': '%m/%d/%Y %H:%M:%S',
-        'level': logging.DEBUG,
+        'level': logging.INFO,
         'stream': sys.stdout
     }
     logging.basicConfig(**kw)
 
     from seafevents.virus_scanner.scan_settings import logger
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config-file',
