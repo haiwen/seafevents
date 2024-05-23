@@ -227,3 +227,21 @@ class PermAudit(Base):
                    RepoID = %s, FilePath = %s, Permission = %s>" % \
                     (self.etype, self.from_user, self.to,
                      self.repo_id, self.file_path, self.permission)
+
+
+class UserLogin(Base):
+    __tablename__ = 'sysadmin_extra_userloginlog'
+
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    login_date = mapped_column(DateTime, nullable=False)
+    username = mapped_column(String(length=255), nullable=False, index=True)
+    login_ip = mapped_column(String(length=45), nullable=False)
+    login_success = mapped_column(Integer, nullable=False)
+
+    def __init__(self, login_date, username, login_ip, login_success):
+        super().__init__()
+        self.login_date = login_date
+        self.username = username
+        self.login_ip = login_ip
+        self.login_success = login_success
+
