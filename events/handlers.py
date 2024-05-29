@@ -11,18 +11,20 @@ from datetime import timedelta
 from os.path import splitext
 
 from django.core.cache import cache
-from sqlalchemy import select, text
+from sqlalchemy import select, text, desc, func
 import pymysql
 
 from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
 from seafobj.commit_differ import DiffEntry
 from seafevents.events.db import save_file_audit_event, save_file_update_event, \
-        save_perm_audit_event, save_user_activity, save_filehistory, update_user_activity_timestamp
+        save_perm_audit_event, save_user_activity, save_filehistory, update_user_activity_timestamp, \
+        save_repo_trash, restore_repo_trash
 from seafevents.app.config import TIME_ZONE
 from seafevents.utils import get_opt_from_conf_or_env
 from .change_file_path import ChangeFilePathHandler
-from .models import Activity
+from .change_extended_props import ChangeExtendedPropsHandler
+from .models import Activity, FileTrash
 from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, save_deleted_files_msg
 from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
 
@@ -92,13 +94,13 @@ def RepoUpdateEventHandler(config, session, msg):
                                     parent, time)
                     save_file_histories(config, session, records)
 
-                records = generate_activity_records(added_files, deleted_files,
+                records, trash_records = generate_activity_records(added_files, deleted_files,
                         added_dirs, deleted_dirs, modified_files, renamed_files,
                         moved_files, renamed_dirs, moved_dirs, commit, repo_id,
                         parent, users, time)
 
                 save_user_activities(session, records)
-
+                save_repo_trashs(session, trash_records)
                 # save repo monitor recodes
                 records = generate_repo_monitor_records(repo_id, commit,
                                                         added_files, deleted_files,
@@ -107,6 +109,7 @@ def RepoUpdateEventHandler(config, session, msg):
                                                         moved_files, moved_dirs,
                                                         modified_files)
                 save_message_to_user_notification(session, records)
+
 
             enable_collab_server = False
             if config.has_option('COLLAB_SERVER', 'enabled'):
@@ -254,7 +257,6 @@ def generate_repo_monitor_records(repo_id, commit,
         records.append(added_files_record)
 
     if deleted_files:
-
         deleted_files_record = copy.copy(base_record)
         deleted_files_record["commit_diff"] = []
 
@@ -556,6 +558,36 @@ def save_user_activities(session, records):
         for record in records:
             save_user_activity(session, record)
 
+
+def save_repo_trashs(session, records):
+    for record in records:
+        if record['op_type'] == 'delete':
+            save_repo_trash(session, record)
+        if record['op_type'] == 'recover':
+            restore_repo_trash(session, record)
+
+
+def get_delete_records(session, repo_id, show_day, start, limit):
+    if show_day == 0:
+        return [], 0
+    elif show_day == -1:
+        stmt = select(FileTrash).where(FileTrash.repo_id == repo_id)
+        count_stmt = select(func.count(FileTrash.id)).where(FileTrash.repo_id == repo_id)
+
+    else:
+        _timestamp = datetime.datetime.now() - timedelta(days=show_day)
+        stmt = select(FileTrash).where(FileTrash.repo_id == repo_id,
+                                         FileTrash.delete_time > _timestamp,)
+        count_stmt = select(func.count(FileTrash.id)).where(FileTrash.repo_id == repo_id,
+                                                            FileTrash.delete_time > _timestamp,)
+
+    stmt = stmt.order_by(desc(FileTrash.delete_time))
+    total_count = session.scalar(count_stmt)
+    stmt = stmt.slice(start, start + limit)
+    res = session.scalars(stmt).all()
+
+    return res, total_count
+
 def generate_activity_records(added_files, deleted_files, added_dirs,
         deleted_dirs, modified_files, renamed_files, moved_files, renamed_dirs,
         moved_dirs, commit, repo_id, parent, related_users, time):
@@ -582,13 +614,27 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
         'op_user': getattr(commit, 'creator_name', ''),
         'repo_name': repo.repo_name
     }
+    base_trash_record = {
+        'commit_id': commit.parent_id,
+        'op_user': getattr(commit, 'creator_name', ''),
+        'timestamp': time,
+        'repo_id': repo_id,
+    }
     records = []
+    trash_records = []
 
     for de in added_files:
         record = copy.copy(base_record)
+        trash_record = copy.copy(base_trash_record)
         op_type = ''
         if commit.description.startswith('Reverted'):
             op_type = OP_RECOVER
+            trash_record['op_type'] = OP_RECOVER
+            trash_record['obj_id'] = de.obj_id
+            trash_record['obj_name'] = os.path.basename(de.path)
+            trash_record['path'] = '/' if os.path.dirname(de.path) == '/' else os.path.dirname(de.path) + '/'
+            trash_record['size'] = de.size
+            trash_records.append(trash_record)
         else:
             op_type = OP_CREATE
         record['op_type'] = op_type
@@ -607,11 +653,26 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
         record['path'] = de.path
         records.append(record)
 
+        trash_record = copy.copy(base_trash_record)
+        trash_record['obj_type'] = 'file'
+        trash_record['op_type'] = OP_DELETE
+        trash_record['obj_id'] = de.obj_id
+        trash_record['obj_name'] = os.path.basename(de.path)
+        trash_record['path'] = '/' if os.path.dirname(de.path) == '/' else os.path.dirname(de.path) + '/'
+        trash_record['size'] = de.size
+        trash_records.append(trash_record)
     for de in added_dirs:
         record = copy.copy(base_record)
+        trash_record = copy.copy(base_trash_record)
         op_type = ''
         if commit.description.startswith('Recovered'):
             op_type = OP_RECOVER
+            trash_record['op_type'] = OP_RECOVER
+            trash_record['obj_id'] = de.obj_id
+            trash_record['obj_name'] = os.path.basename(de.path)
+            trash_record['path'] = '/' if os.path.dirname(de.path) == '/' else os.path.dirname(de.path) + '/'
+            trash_record['size'] = de.size
+            trash_records.append(trash_record)
         else:
             op_type = OP_CREATE
         record['op_type'] = op_type
@@ -628,6 +689,14 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
         record['path'] = de.path
         records.append(record)
 
+        trash_record = copy.copy(base_trash_record)
+        trash_record['obj_type'] = 'dir'
+        trash_record['op_type'] = OP_DELETE
+        trash_record['obj_id'] = de.obj_id
+        trash_record['obj_name'] = os.path.basename(de.path)
+        trash_record['path'] = '/' if os.path.dirname(de.path) == '/' else os.path.dirname(de.path) + '/'
+        trash_record['size'] = de.size
+        trash_records.append(trash_record)
     for de in modified_files:
         record = copy.copy(base_record)
         op_type = ''
@@ -694,8 +763,7 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
             record['old_path'] = record['old_path'].rstrip('/')
         record['path'] = record['path'].rstrip('/') if record['path'] != '/' else '/'
         filtered_records.append(record)
-
-    return filtered_records
+    return filtered_records, trash_records
 
 def list_file_in_dir(repo_id, dirents, op_type):
     _dirents = copy.copy(dirents)
