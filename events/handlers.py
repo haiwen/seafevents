@@ -18,12 +18,13 @@ from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
 from seafobj.commit_differ import DiffEntry
 from seafevents.events.db import save_file_audit_event, save_file_update_event, \
-        save_perm_audit_event, save_user_activity, save_filehistory, update_user_activity_timestamp
+        save_perm_audit_event, save_user_activity, save_filehistory, update_user_activity_timestamp, \
+        save_repo_trash, restore_repo_trash
 from seafevents.app.config import TIME_ZONE
 from seafevents.utils import get_opt_from_conf_or_env
 from .change_file_path import ChangeFilePathHandler
 from .change_extended_props import ChangeExtendedPropsHandler
-from .models import Activity
+from .models import Activity, TrashRecord
 from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, save_deleted_files_msg
 from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
 
@@ -109,6 +110,8 @@ def RepoUpdateEventHandler(config, session, msg):
 
                 save_user_activities(session, records)
 
+                # save_repo_trash(session, records[0])
+                # save_repo_trashs(session, records)
                 # save repo monitor recodes
                 records = generate_repo_monitor_records(repo_id, commit,
                                                         added_files, deleted_files,
@@ -558,6 +561,30 @@ def save_user_activities(session, records):
     else:
         for record in records:
             save_user_activity(session, record)
+
+# def save_repo_trashs(session, records):
+#     for record in records:
+#         if record['op_type'] == 'delete':
+#             save_repo_trash(session, record)
+#         if record['op_type'] == 'recover':
+#             restore_repo_trash(session, record['obj_id'])
+
+
+def get_delete_records(session, repo_id, show_day, path):
+
+    if show_day == 0:
+        return
+    elif show_day == -1:
+        stmt = select(TrashRecord).where(TrashRecord.repo_id == repo_id,
+                                         TrashRecord.path.like(path + '%'))
+    else:
+        _timestamp = datetime.datetime.now() - timedelta(days=show_day)
+        stmt = select(TrashRecord).where(TrashRecord.delete_time > _timestamp,
+                                         TrashRecord.repo_id == repo_id,
+                                         TrashRecord.path.like(path+'%'))
+    res = session.scalars(stmt).all()
+
+    return res
 
 def generate_activity_records(added_files, deleted_files, added_dirs,
         deleted_dirs, modified_files, renamed_files, moved_files, renamed_dirs,

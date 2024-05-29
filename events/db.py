@@ -5,11 +5,11 @@ import datetime
 from datetime import timedelta
 import hashlib
 
-from sqlalchemy import desc, select, update, func, text, and_
+from sqlalchemy import desc, select, update, func, text, and_, delete
 from sqlalchemy.sql import exists
 
 from .models import FileAudit, FileUpdate, PermAudit, \
-        Activity, UserActivity, FileHistory
+        Activity, UserActivity, FileHistory, TrashRecord
 
 
 logger = logging.getLogger('seafevents')
@@ -234,6 +234,31 @@ def save_user_activity(session, record):
         user_activity = UserActivity(username, activity.id, record['timestamp'])
         session.add(user_activity)
     session.commit()
+
+def save_repo_trash(session, record):
+    repo_trash = TrashRecord(record)
+    session.add(repo_trash)
+    session.commit()
+
+def restore_repo_trash(session, repo_id, obj_name, path):
+   stmt = delete(TrashRecord).where(TrashRecord.repo_id == repo_id, TrashRecord.obj_name == obj_name,
+                                    TrashRecord.path == path)
+   session.execute(stmt)
+   session.commit()
+
+def clean_up_repo_trash(session, repo_id, keep_days):
+    if keep_days == 0:
+        stmt = delete(TrashRecord).where(TrashRecord.repo_id == repo_id)
+        session.execute(stmt)
+        session.commit()
+    else:
+        _timestamp = datetime.datetime.now() - timedelta(days=keep_days)
+        logger.warning(_timestamp)
+        logger.warning(TrashRecord.delete_time)
+        stmt = delete(TrashRecord).where(TrashRecord.repo_id == repo_id, TrashRecord.delete_time < _timestamp)
+        session.execute(stmt)
+        session.commit()
+
 
 def update_user_activity_timestamp(session, activity_id, record):
     activity_stmt = update(Activity).where(Activity.id == activity_id).\
