@@ -27,7 +27,7 @@ logger.setLevel(logging.DEBUG)
 
 
 class UserObj(object):
-    def __init__(self, user_id, email, ctime, is_staff, is_active, role, is_manual_set):
+    def __init__(self, user_id, email, ctime, is_staff, is_active, role, is_manual_set, id_in_org=''):
         self.id = user_id
         self.email = email
         self.ctime = ctime
@@ -35,11 +35,12 @@ class UserObj(object):
         self.is_active = is_active
         self.role = role
         self.is_manual_set = is_manual_set
+        self.id_in_org = id_in_org
 
 
 class LdapUser(object):
     def __init__(self, user_id, name, dept, uid, cemail,
-                 is_staff=0, is_active=1, role='', is_manual_set=False):
+                 is_staff=0, is_active=1, role='', is_manual_set=False, id_in_org=''):
         self.id = user_id
         self.name = name
         self.dept = dept
@@ -49,6 +50,7 @@ class LdapUser(object):
         self.is_active = is_active
         self.role = role
         self.is_manual_set = is_manual_set
+        self.id_in_org = id_in_org
 
 
 class LdapUserSync(LdapSync):
@@ -105,6 +107,21 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to add profile %s to user %s: %s.' %
                             (val, email, e))
 
+    def add_id_in_org(self, email, ldap_user):
+        if ldap_user.id_in_org:
+            field = 'virtual_id, id_in_org, org_id'
+            qmark = '%s, %s, %s'
+            val = [email, ldap_user.id_in_org, -1]
+            sql = 'insert into id_in_org_tuple (%s) values (%s)' % (field, qmark)
+            try:
+                self.cursor.execute(sql, val)
+                if self.cursor.rowcount == 1:
+                    logger.debug('Add id_in_org %s to user %s successs.' %
+                                (val, email))
+            except Exception as e:
+                logger.warning('Failed to add id_in_org %s to user %s: %s.' %
+                                (val, email, e))
+
     def add_dept(self, email, dept):
         try:
             self.cursor.execute('insert into profile_detailedprofile (user,department,telephone) '
@@ -153,6 +170,31 @@ class LdapUserSync(LdapSync):
                     self.uprofile += 1
         except Exception as e:
             logger.warning('Failed to update user %s profile: %s.' %
+                            (email, e))
+
+    def update_id_in_org(self, email, db_user, ldap_user):
+        try:
+            self.cursor.execute('select 1 from id_in_org_tuple where user=%s', [email])
+            if self.cursor.rowcount == 0:
+                self.add_id_in_org(email, ldap_user)
+                return
+            else:
+                field = ''
+                val = []
+                if db_user.id_in_org != ldap_user.id_in_org:
+                    field += 'id_in_org=%s'
+                    val.append(ldap_user.id_in_org)
+                if field == '':
+                    # no change
+                    return
+                val.append(email)
+                sql = 'update id_in_org_tuple set %s where virtual_id=%%s' % field
+                self.cursor.execute(sql, val)
+                if self.cursor.rowcount == 1:
+                    logger.debug('Update user %s id_in_org to %s success.' %
+                                  (email, val))
+        except Exception as e:
+            logger.warning('Failed to update user %s id_in_org: %s.' %
                             (email, e))
 
     def update_dept(self, email, dept):
@@ -253,6 +295,17 @@ class LdapUserSync(LdapSync):
         email_list = list()
         for user in ldap_users:
             email_list.append(user[0])
+
+        id_in_org_dict = {}
+        if email_list:
+            try:
+                self.cursor.execute("SELECT virtual_id,id_in_org FROM id_in_org_tuple WHERE `virtual_id` IN %s",
+                                    [email_list])
+                id_in_org_res = self.cursor.fetchall()
+                id_in_org_dict = {row[0]: row[1] for row in id_in_org_res}
+            except Exception as e:
+                logger.error('get id_in_org from db failed: %s' % e)
+
         users = list()
         res = list()
         if email_list:
@@ -265,7 +318,8 @@ class LdapUserSync(LdapSync):
                 logger.error('get users from ccnet failed: %s' % e)
                 return user_data_db
         for user in res:
-            users.append(UserObj(user[0], user[1], user[2], user[3], user[4], user[5], user[6]))
+            id_in_org = id_in_org_dict.get(user[1], '')
+            users.append(UserObj(user[0], user[1], user[2], user[3], user[4], user[5], user[6], id_in_org))
 
         # select all users attrs from profile_profile and profile_detailedprofile in one query
         email2attrs = {}  # is like: { 'some_one@seafile': {'name': 'leo', 'dept': 'dev', ...} ...}
@@ -428,6 +482,12 @@ class LdapUserSync(LdapSync):
                    else:
                         uid = attrs[config.uid_attr][0]
 
+                if config.id_in_org_attr != '':
+                   if config.id_in_org_attr not in attrs:
+                       id_in_org = ''
+                   else:
+                        id_in_org = attrs[config.id_in_org_attr][0]
+
                 if config.cemail_attr != '':
                    if config.cemail_attr not in attrs:
                        cemail = ''
@@ -436,7 +496,7 @@ class LdapUserSync(LdapSync):
 
             email = attrs[config.login_attr][0].lower()
             user_name = None if user_name is None else user_name.strip()
-            user_data_ldap[email] = LdapUser(None, user_name, dept, uid, cemail, role=role)
+            user_data_ldap[email] = LdapUser(None, user_name, dept, uid, cemail, role=role, id_in_org=id_in_org)
 
         return user_data_ldap
 
@@ -469,6 +529,7 @@ class LdapUserSync(LdapSync):
 
         if ldap_user.config.enable_extra_user_info_sync:
             self.add_profile(virtual_id, ldap_user)
+            self.add_id_in_org(virtual_id, ldap_user)
             self.add_dept(virtual_id, ldap_user.dept)
 
     def sync_update_user(self, ldap_user, db_user, email):
@@ -486,6 +547,7 @@ class LdapUserSync(LdapSync):
 
         if ldap_user.config.enable_extra_user_info_sync:
             self.update_profile(email, db_user, ldap_user)
+            self.update_id_in_org(email, db_user, ldap_user)
             if ldap_user.dept != db_user.dept:
                 self.update_dept(email, ldap_user.dept)
 
