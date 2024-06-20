@@ -22,6 +22,9 @@ try:
     DTABLE_WEB_SERVER = getattr(seahub_settings, 'DTABLE_WEB_SERVER', None)
     SEATABLE_EX_PROPS_BASE_API_TOKEN = getattr(seahub_settings, 'SEATABLE_EX_PROPS_BASE_API_TOKEN', None)
     EX_PROPS_TABLE = getattr(seahub_settings, 'EX_PROPS_TABLE', None)
+    SECRET_KEY = getattr(seahub_settings, 'SECRET_KEY', '')
+    FILE_SERVER_ROOT = getattr(seahub_settings, 'FILE_SERVER_ROOT', '')
+    SEAHUB_SERVER = getattr(seahub_settings, 'SERVICE_URL', '')
 except ImportError:
     logger.critical("Can not import seahub settings.")
     raise RuntimeError("Can not import seahub settings.")

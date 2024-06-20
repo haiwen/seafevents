@@ -2,6 +2,8 @@
 import os
 import logging
 import argparse
+from gevent import monkey
+monkey.patch_all()
 
 from seafevents.db import create_db_tables, prepare_db_tables
 from seafevents.utils import write_pidfile

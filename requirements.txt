@@ -4,3 +4,7 @@ mock
 pytest
 pyjwt
 pymysql
+Flask
+gevent
+pypandoc
+html2text
