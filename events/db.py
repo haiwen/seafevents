@@ -450,13 +450,13 @@ def get_event_log_by_time_to_excel(session, tstart, tend, log_type, task_id):
         obj = FileAudit
         stmt = select(obj).where(obj.timestamp.between(datetime.datetime.utcfromtimestamp(tstart),
                                                        datetime.datetime.utcfromtimestamp(tend)))
+        stmt = stmt.order_by(desc(obj.timestamp))
         res = session.scalars(stmt).all()
 
         head = [_("User"), _("Type"), _("IP"), _("Device"), _("Date"),
                 _("Library Name"), _("Library ID"), _("Library Owner"), _("File Path")]
         data_list = []
 
-        res.sort(key=lambda x: x.timestamp, reverse=True)
         for ev in res:
             event_type, ev.show_device = generate_file_audit_event_type(ev)
 
@@ -483,21 +483,21 @@ def get_event_log_by_time_to_excel(session, tstart, tend, log_type, task_id):
             logger.error('Failed to export excel')
             raise RuntimeError('Failed to export excel')
 
-        target_dir = '/tmp/seafile_events/'
+        target_dir = os.path.join('/tmp/seafile_events/', task_id)
         os.makedirs(target_dir, exist_ok=True)
-        excel_name = task_id + 'file-access-logs.xlsx'
+        excel_name = 'file-access-logs.xlsx'
         target_path = os.path.join(target_dir, excel_name)
         wb.save(target_path)
     elif log_type == 'fileupdate':
         obj = FileUpdate
         stmt = select(obj).where(obj.timestamp.between(datetime.datetime.utcfromtimestamp(tstart),
                                                        datetime.datetime.utcfromtimestamp(tend)))
+        stmt = stmt.order_by(desc(obj.timestamp))
         res = session.scalars(stmt).all()
         head = [_("User"), _("Date"), _("Library Name"), _("Library ID"),
                 _("Library Owner"), _("Action")]
         data_list = []
 
-        res.sort(key=lambda x: x.timestamp, reverse=True)
         for ev in res:
 
             repo_id = ev.repo_id
@@ -522,9 +522,9 @@ def get_event_log_by_time_to_excel(session, tstart, tend, log_type, task_id):
             logger.error('Failed to export excel')
             raise RuntimeError('Failed to export excel')
 
-        target_dir = '/tmp/seafile_events/'
+        target_dir = os.path.join('/tmp/seafile_events/', task_id)
         os.makedirs(target_dir, exist_ok=True)
-        excel_name = task_id + 'file-update-logs.xlsx'
+        excel_name = 'file-update-logs.xlsx'
         target_path = os.path.join(target_dir, excel_name)
         wb.save(target_path)
 
@@ -532,12 +532,12 @@ def get_event_log_by_time_to_excel(session, tstart, tend, log_type, task_id):
         obj = PermAudit
         stmt = select(obj).where(obj.timestamp.between(datetime.datetime.utcfromtimestamp(tstart),
                                                        datetime.datetime.utcfromtimestamp(tend)))
+        stmt = stmt.order_by(desc(obj.timestamp))
         res = session.scalars(stmt).all()
         head = [_("From"), _("To"), _("Action"), _("Permission"), _("Library"),
                 _("Folder Path"), _("Date")]
         data_list = []
 
-        res.sort(key=lambda x: x.timestamp, reverse=True)
         for ev in res:
             repo = seafile_api.get_repo(ev.repo_id)
             repo_name = repo.repo_name if repo else _('Deleted')
@@ -580,15 +580,16 @@ def get_event_log_by_time_to_excel(session, tstart, tend, log_type, task_id):
             logger.error('Failed to export excel')
             raise RuntimeError('Failed to export excel')
 
-        target_dir = '/tmp/seafile_events/'
+        target_dir = os.path.join('/tmp/seafile_events/', task_id)
         os.makedirs(target_dir, exist_ok=True)
-        excel_name = task_id + 'perm-audit-logs.xlsx'
+        excel_name = 'perm-audit-logs.xlsx'
         target_path = os.path.join(target_dir, excel_name)
         wb.save(target_path)
     elif log_type == 'loginadmin':
         obj = UserLogin
         stmt = select(obj).where(obj.login_date.between(datetime.datetime.utcfromtimestamp(tstart),
                                                        datetime.datetime.utcfromtimestamp(tend)))
+        stmt = stmt.order_by(desc(obj.login_date))
         res = session.scalars(stmt).all()
 
         head = [_("Name"), _("IP"), _("Status"), _("Time")]
@@ -604,9 +605,9 @@ def get_event_log_by_time_to_excel(session, tstart, tend, log_type, task_id):
             logger.error('Failed to export excel')
             raise RuntimeError('Failed to export excel')
 
-        target_dir = '/tmp/seafile_events/'
+        target_dir = os.path.join('/tmp/seafile_events/', task_id)
         os.makedirs(target_dir, exist_ok=True)
-        excel_name = task_id + 'login-logs.xlsx'
+        excel_name = 'login-logs.xlsx'
         target_path = os.path.join(target_dir, excel_name)
         wb.save(target_path)
     else:
