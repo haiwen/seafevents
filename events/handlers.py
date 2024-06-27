@@ -428,7 +428,7 @@ def save_message_to_user_notification(session, records):
         return
 
     repo_id_monitor_users = {}
-    
+
     for record in records:
 
         repo_id = record.get('repo_id')
@@ -546,7 +546,7 @@ def save_message_to_user_notification(session, records):
 
 def save_user_activities(session, records):
     if not records:
-        return None
+        return
     # If a file was edited many times by same user in 30 minutes, just update timestamp.
     if len(records) == 1 and records[0]['op_type'] == 'edit':
         record = records[0]
