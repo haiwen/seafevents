@@ -4,6 +4,9 @@ import logging
 import atexit
 import configparser
 import subprocess
+import datetime
+import pytz
+from seafevents.app.config import TIME_ZONE
 
 logger = logging.getLogger(__name__)
 pyexec = None
@@ -196,3 +199,34 @@ def parse_interval(interval, default):
         return default
     else:
         return val
+
+
+def dt(value):
+    """Convert 32/64 bits timestamp to datetime object.
+    """
+    try:
+        return datetime.datetime.utcfromtimestamp(value)
+    except ValueError:
+        # TODO: need a better way to handle 64 bits timestamp.
+        return datetime.datetime.utcfromtimestamp(value / 1000000)
+
+
+def timestamp_to_isoformat_timestr(timestamp):
+    try:
+        min_ts = -(1 << 31)
+        max_ts = (1 << 31) - 1
+        if min_ts <= timestamp <= max_ts:
+            dt_obj = datetime.datetime.fromtimestamp(timestamp)
+        else:
+            dt_obj = datetime.datetime.fromtimestamp(timestamp / 1000000)
+
+        time_zone = pytz.timezone(TIME_ZONE)
+        dt_obj = dt_obj.replace(microsecond=0)
+        aware_datetime = dt_obj.replace(tzinfo=time_zone)
+        target_timezone = pytz.timezone(str(time_zone))
+        localized_datetime = target_timezone.normalize(aware_datetime.astimezone(pytz.UTC))
+        isoformat_timestr = localized_datetime.isoformat()
+        return isoformat_timestr
+    except Exception as e:
+        logger.error(e)
+        return ''

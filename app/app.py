@@ -4,6 +4,10 @@ from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         WorkWinxinNoticeSender, FileUpdatesSender, RepoOldFileAutoDelScanner,\
         DeletedFilesCountCleaner
 
+from seafevents.repo_metadata.index_master import RepoMetadataIndexMaster
+from seafevents.repo_metadata.index_worker import RepoMetadataIndexWorker
+from seafevents.seafevent_server.seafevent_server import SeafEventServer
+
 
 class App(object):
     def __init__(self, config, ccnet_config, seafile_config,
@@ -17,6 +21,9 @@ class App(object):
             self._events_handler = EventsHandler(config)
             self._count_traffic_task = CountTrafficInfo(config)
             self._update_login_record_task = CountUserActivity(config)
+            self._index_master = RepoMetadataIndexMaster(config)
+            self._index_worker = RepoMetadataIndexWorker(config)
+            self._seafevent_server = SeafEventServer(self, config)
 
         if self._bg_tasks_enabled:
             self._index_updater = IndexUpdater(config)
@@ -35,6 +42,9 @@ class App(object):
             self._events_handler.start()
             self._update_login_record_task.start()
             self._count_traffic_task.start()
+            self._index_master.start()
+            self._index_worker.start()
+            self._seafevent_server.start()
 
         if self._bg_tasks_enabled:
             self._file_updates_sender.start()
