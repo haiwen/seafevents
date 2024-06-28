@@ -12,7 +12,7 @@ def RepoMetadataUpdateHandler(config, redis_connection, msg):
         if redis_connection.publish('metadata_update', msg['content']) > 0:
             logging.debug('Publish event: %s' % msg['content'])
         else:
-            logging.info('No one subscribed to repo_metadata channel, event (%s) has not been send' % msg['content'])
+            logging.info('No one subscribed to metadata_update channel, event (%s) has not been send' % msg['content'])
     except Exception as e:
         logging.error(e)
         logging.error("Failed to publish metadata_update event: %s " % msg['content'])

@@ -16,6 +16,9 @@ class RedisClient(object):
 
     def _parse_config(self, config, socket_connect_timeout, socket_timeout):
 
+        if not config.has_section('REDIS'):
+            return
+
         if config.has_option('REDIS', 'server'):
             self._host = config.get('REDIS', 'server')
 

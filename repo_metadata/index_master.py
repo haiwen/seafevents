@@ -57,7 +57,7 @@ class RepoMetadataIndexMaster(Thread):
             message = p.get_message()
             if message is not None and isinstance(message['data'], str) and message['data'].count('\t') == 2:
                 self.mq.lpush('metadata_task', message['data'])
-                logger.info('%s has been add to task queue' % message['data'])
+                logger.info('%s has been add to metadata task queue' % message['data'])
 
             if message is None:
                 # prevent waste resource when no message has been send

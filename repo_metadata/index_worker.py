@@ -126,7 +126,6 @@ class RepoMetadataIndexWorker(object):
     def add_to_undo_task(self, mq, repo_id, commit_id):
         """Push task back to the end of the queue.
         """
-        # mq.lpush('metadata_task', '\t'.join(['repo-update', repo_id, commit_id]))
         mq.lpush('metadata_task', '\t'.join(['repo-update', repo_id, commit_id]))
         logger.debug('%s push back task (%s, %s) to the queue' %
                      (self.tname, repo_id, commit_id))

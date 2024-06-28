@@ -202,9 +202,6 @@ class RepoMetadata:
         self.metadata_server_api.delete_rows(repo_id, METADATA_TABLE.id, row_ids)
 
     def rename_files(self, repo_id, renamed_files):
-
-        # 重命名成功了，但是最后修改 from_commit 和 to_commit 失败了，会造成下一次的时候会进行recovery，
-        # 但是recovery时，根据file_name 和 parent_dir 又查不到md-server 中的记录，因为上次时，md-server 中的记录修改成功了
         if not renamed_files:
             return
 
@@ -239,12 +236,8 @@ class RepoMetadata:
             new_row = path_to_file_dict.get(key)
 
             new_path = new_row.new_path
-            # new_parent_dir 需要吗？重命名文件应该是不会修改到parent_dir的
             new_parent_dir = os.path.dirname(new_path)
             new_file_name = os.path.basename(new_path)
-
-            # update_row = [row_id, new_parent_dir, new_file_name, new_row.modifier,
-            #               timestamp_to_isoformat_timestr(new_row.mtime)]
 
             update_row = {
                 METADATA_COLUMN_ID.name: row_id,
@@ -255,18 +248,8 @@ class RepoMetadata:
             }
             updated_rows.append(update_row)
 
-        # columns = [
-        #     METADATA_COLUMN_ID,
-        #     METADATA_COLUMN_PARENT_DIR,
-        #     METADATA_COLUMN_NAME,
-        #     METADATA_COLUMN_MODIFIER,
-        #     METADATA_COLUMN_MODIFIED_TIME,
-        # ]
-
         if not updated_rows:
             return
-
-        # 重命名文件 不会导致 parent_dir modifier, mtime 发生变化，这三个参数可以去掉
 
         self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
 
@@ -307,27 +290,14 @@ class RepoMetadata:
 
             new_path = new_row.new_path
             new_parent_dir = os.path.dirname(new_path)
-            new_file_name = os.path.basename(new_path)
-
-            # update_row = [row_id, new_parent_dir]
             update_row = {
                 METADATA_COLUMN_ID.name: row_id,
                 METADATA_COLUMN_PARENT_DIR.name: new_parent_dir,
             }
             updated_rows.append(update_row)
 
-        # columns = [
-        #     METADATA_COLUMN_ID,
-        #     METADATA_COLUMN_PARENT_DIR,
-        #     # METADATA_COLUMN_NAME,
-        #     # METADATA_COLUMN_MODIFIER,
-        #     # METADATA_COLUMN_MODIFIED_TIME,
-        # ]
-
         if not updated_rows:
             return
-
-        # 重命名文件 不会导致 file_name modifier, mtime 发生变化，这三个参数可以去掉
 
         self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
 
@@ -367,7 +337,6 @@ class RepoMetadata:
                     }
                     updated_rows.append(update_row)
                 else:
-                    # 文件夹中的子文件 子文件夹, 只修改parent_dir
                     old_dir_prefix = os.path.join(parent_dir, dir_name)
                     new_dir_prefix = os.path.join(new_parent_dir, new_name)
                     new_parent_dir = p_dir.replace(old_dir_prefix, new_dir_prefix)
@@ -375,7 +344,6 @@ class RepoMetadata:
                     update_row = {
                         METADATA_COLUMN_ID.name: row_id,
                         METADATA_COLUMN_PARENT_DIR.name: new_parent_dir,
-                        # METADATA_COLUMN_NAME.name: name,
                     }
                     updated_rows.append(update_row)
 
@@ -416,7 +384,6 @@ class RepoMetadata:
                     }
                     updated_rows.append(update_row)
                 else:
-                    # 文件夹中的子文件 子文件夹, 只修改parent_dir
                     old_dir_prefix = os.path.join(parent_dir, dir_name)
                     new_dir_prefix = os.path.join(new_parent_dir, new_name)
                     new_parent_dir = p_dir.replace(old_dir_prefix, new_dir_prefix)
@@ -424,7 +391,6 @@ class RepoMetadata:
                     update_row = {
                         METADATA_COLUMN_ID.name: row_id,
                         METADATA_COLUMN_PARENT_DIR.name: new_parent_dir,
-                        # METADATA_COLUMN_NAME.name: name,
                     }
                     updated_rows.append(update_row)
 
