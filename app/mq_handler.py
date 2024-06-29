@@ -9,6 +9,7 @@ import seafevents.events_publisher.handlers as publisher_handlers
 import seafevents.statistics.handlers as stats_handlers
 from seafevents.db import init_db_session_class
 from seafevents.app.event_redis import RedisClient
+import seafevents.repo_metadata.handlers as metadata_handler
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class MessageHandler(object):
         funcs = self._handlers.get(msg_type)
         for func in funcs:
             try:
-                if func.__name__ == 'RepoUpdatePublishHandler':
+                if func.__name__ == 'RepoUpdatePublishHandler' or func.__name__ == 'RepoMetadataUpdateHandler':
                     func(config, redis_connection, msg)
                 else:
                     func(config, session, msg)
@@ -83,6 +84,7 @@ def init_message_handlers(config):
     events_handlers.register_handlers(message_handler, enable_audit)
     stats_handlers.register_handlers(message_handler)
     publisher_handlers.register_handlers(message_handler)
+    metadata_handler.register_handlers(message_handler)
 
 
 class EventsHandler(object):

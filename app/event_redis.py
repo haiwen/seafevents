@@ -15,11 +15,8 @@ class RedisClient(object):
         self._parse_config(config, socket_connect_timeout, socket_timeout)
 
     def _parse_config(self, config, socket_connect_timeout, socket_timeout):
-        mq_type = ''
-        if config.has_option('EVENTS PUBLISH', 'mq_type'):
-            mq_type = config.get('EVENTS PUBLISH', 'mq_type').upper()
-        if mq_type != 'REDIS':
-            logging.warning("Unknown database backend: %s" % mq_type)
+
+        if not config.has_section('REDIS'):
             return
 
         if config.has_option('REDIS', 'server'):

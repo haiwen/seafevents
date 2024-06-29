@@ -4,6 +4,11 @@ from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         WorkWinxinNoticeSender, FileUpdatesSender, RepoOldFileAutoDelScanner,\
         DeletedFilesCountCleaner
 
+from seafevents.repo_metadata.index_master import RepoMetadataIndexMaster
+from seafevents.repo_metadata.index_worker import RepoMetadataIndexWorker
+from seafevents.seafevent_server.seafevent_server import SeafEventServer
+from seafevents.app.config import ENABLE_METADATA_MANAGEMENT
+
 
 class App(object):
     def __init__(self, config, ccnet_config, seafile_config,
@@ -17,6 +22,7 @@ class App(object):
             self._events_handler = EventsHandler(config)
             self._count_traffic_task = CountTrafficInfo(config)
             self._update_login_record_task = CountUserActivity(config)
+            self._seafevent_server = SeafEventServer(self, config)
 
         if self._bg_tasks_enabled:
             self._index_updater = IndexUpdater(config)
@@ -29,12 +35,16 @@ class App(object):
             self._file_updates_sender = FileUpdatesSender()
             self._repo_old_file_auto_del_scanner = RepoOldFileAutoDelScanner(config)
             self._deleted_files_count_cleaner = DeletedFilesCountCleaner(config)
+            if ENABLE_METADATA_MANAGEMENT:
+                self._index_master = RepoMetadataIndexMaster(config)
+                self._index_worker = RepoMetadataIndexWorker(config)
 
     def serve_forever(self):
         if self._fg_tasks_enabled:
             self._events_handler.start()
             self._update_login_record_task.start()
             self._count_traffic_task.start()
+            self._seafevent_server.start()
 
         if self._bg_tasks_enabled:
             self._file_updates_sender.start()
@@ -47,3 +57,6 @@ class App(object):
             self._content_scanner.start()
             self._repo_old_file_auto_del_scanner.start()
             self._deleted_files_count_cleaner.start()
+            if ENABLE_METADATA_MANAGEMENT:
+                self._index_master.start()
+                self._index_worker.start()
