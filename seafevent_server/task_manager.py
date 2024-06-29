@@ -65,6 +65,8 @@ class IndexTask:
     def __str__(self):
         return f'<IndexTask {self.id} {self.readable_id} {self.func.__name__} {self.status}>'
 
+from seafevents.app.event_redis import RedisClient
+from seafevents.repo_metadata.metadata_manager import ZERO_OBJ_ID
 
 class TaskManager:
 
@@ -79,6 +81,7 @@ class TaskManager:
             'workers': 3,
             'expire_time': 30 * 60
         }
+        self._redis_connection = None
         self._db_session_class = None
         self._metadata_server_api = None
         self.repo_metadata = None
@@ -95,28 +98,18 @@ class TaskManager:
         self._metadata_server_api = MetadataServerAPI('seafevents')
         self.repo_metadata = RepoMetadata(self._metadata_server_api)
         self.metadata_manager = MetadataManager(self._db_session_class, self.repo_metadata)
+        self._redis_connection = RedisClient(config).connection
 
     def get_pending_or_running_task(self, readable_id):
         task = self.readable_id2task_map.get(readable_id)
         return task
 
     def add_init_metadata_task(self, username, repo_id):
-
-        readable_id = repo_id
-        with self.check_task_lock:
-            task = self.get_pending_or_running_task(readable_id)
-            if task:
-                return task.id
-
-            task_id = str(uuid.uuid4())
-            task = IndexTask(task_id, readable_id, self.metadata_manager.create_metadata,
-                             (repo_id, )
-                             )
-            self.tasks_map[task_id] = task
-            self.readable_id2task_map[task.readable_id] = task
-            self.tasks_queue.put(task)
-
-            return task_id
+        msg_content = "init_metadata\t" + repo_id + '\t' + ZERO_OBJ_ID
+        if self._redis_connection.publish('metadata_update', msg_content) > 0:
+            logging.debug('Publish event: %s' % msg_content)
+        else:
+            logging.info('No one subscribed to metadata_update channel, event (%s) has not been send' % msg_content)
 
     def query_task(self, task_id):
         return self.tasks_map.get(task_id)

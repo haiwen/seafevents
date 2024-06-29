@@ -3,35 +3,43 @@ import requests, jwt, time
 from seafevents.app.config import METADATA_SERVER_SECRET_KEY, METADATA_SERVER_URL
 
 
-class StructureTable(object):
-    def __init__(self, id, name):
-        self.id = id
+class MetadataTable(object):
+    def __init__(self, table_id, name):
+        self.id = table_id
         self.name = name
 
+    @property
+    def columns(self):
+        return MetadataColumns()
 
-class StructureColumn(object):
+
+class MetadataColumns(object):
+    def __init__(self):
+        self.id = MetadataColumn('_id', '_id', 'text')
+        self.file_creator = MetadataColumn('_file_creator', '_file_creator', 'text')
+        self.file_ctime = MetadataColumn('_file_ctime', '_file_ctime', 'date')
+        self.file_modifier = MetadataColumn('_file_modifier', '_file_modifier', 'text')
+        self.file_mtime = MetadataColumn('_file_mtime', '_file_mtime', 'date')
+        self.parent_dir = MetadataColumn('_parent_dir', '_parent_dir', 'text')
+        self.file_name = MetadataColumn('_name', '_name', 'text')
+        self.is_dir = MetadataColumn('_is_dir', '_is_dir', 'text')
+
+
+class MetadataColumn(object):
     def __init__(self, key, name, type):
         self.key = key
         self.name = name
         self.type = type
 
-    def to_build_column_dict(self):
+    def to_dict(self):
         return {
             'key': self.key,
             'name': self.name,
             'type': self.type
         }
 
-#metadata base
-METADATA_TABLE = StructureTable('0001', 'Table1')
-METADATA_COLUMN_ID = StructureColumn('_id', '_id', 'text')
-METADATA_COLUMN_CREATOR = StructureColumn('_file_creator', '_file_creator', 'text')
-METADATA_COLUMN_CREATED_TIME = StructureColumn('_file_ctime', '_file_ctime', 'date')
-METADATA_COLUMN_MODIFIER = StructureColumn('_file_modifier', '_file_modifier', 'text')
-METADATA_COLUMN_MODIFIED_TIME = StructureColumn('_file_mtime', '_file_mtime', 'date')
-METADATA_COLUMN_PARENT_DIR = StructureColumn('_parent_dir', '_parent_dir', 'text')
-METADATA_COLUMN_NAME = StructureColumn('_name', '_name', 'text')
-METADATA_COLUMN_IS_DIR = StructureColumn('_is_dir', '_is_dir', 'text')
+
+METADATA_TABLE = MetadataTable('0001', 'Table1')
 
 
 def parse_response(response):
