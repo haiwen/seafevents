@@ -223,6 +223,8 @@ def generate_repo_monitor_records(repo_id, commit,
     #            'version': 1}}
 
     repo = seafile_api.get_repo(repo_id)
+    if repo.repo_type == 'wiki':
+        return []
     base_record = {
         'op_user': getattr(commit, 'creator_name', ''),
         'repo_id': repo_id,
@@ -421,6 +423,9 @@ def generate_repo_monitor_records(repo_id, commit,
 
 
 def save_message_to_user_notification(session, records):
+    
+    if not records:
+        return
 
     repo_id_monitor_users = {}
 
@@ -540,6 +545,8 @@ def save_message_to_user_notification(session, records):
 
 
 def save_user_activities(session, records):
+    if not records:
+        return
     # If a file was edited many times by same user in 30 minutes, just update timestamp.
     if len(records) == 1 and records[0]['op_type'] == 'edit':
         record = records[0]
@@ -574,6 +581,9 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
     OBJ_DIR = 'dir'
 
     repo = seafile_api.get_repo(repo_id)
+    if repo.repo_type == 'wiki':
+        return []
+    
     base_record = {
         'commit_id': commit.commit_id,
         'timestamp': time,
@@ -852,7 +862,6 @@ def FileUpdateEventHandler(config, session, msg):
     creator_name = getattr(commit, 'creator_name', '')
     if creator_name is None:
         creator_name = ''
-
     save_file_update_event(session, time, creator_name, org_id,
                            repo_id, commit_id, commit.desc)
 
