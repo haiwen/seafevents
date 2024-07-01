@@ -240,11 +240,11 @@ def save_repo_trash(session, record):
     session.add(repo_trash)
     session.commit()
 
-def restore_repo_trash(session, repo_id, obj_name, path):
-   stmt = delete(TrashRecord).where(TrashRecord.repo_id == repo_id, TrashRecord.obj_name == obj_name,
-                                    TrashRecord.path == path)
-   session.execute(stmt)
-   session.commit()
+def restore_repo_trash(session, record):
+    stmt = delete(TrashRecord).where(TrashRecord.repo_id == record['repo_id'], TrashRecord.obj_name == record['obj_name'],
+                                    TrashRecord.path == record['path'])
+    session.execute(stmt)
+    session.commit()
 
 def clean_up_repo_trash(session, repo_id, keep_days):
     if keep_days == 0:
