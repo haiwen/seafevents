@@ -4,11 +4,13 @@ import threading
 import logging
 import time
 import uuid
+from seafevents.db import init_db_session_class
+from seafevents.app.event_redis import RedisClient
 
 logger = logging.getLogger('seafevents')
 
 
-class TaskManager(object):
+class EventExportTaskManager(object):
 
     def __init__(self):
         self.tasks_map = {}
@@ -16,14 +18,27 @@ class TaskManager(object):
         self.tasks_queue = queue.Queue(10)
         self.current_task_info = {}
         self.threads = []
+        self.conf = {
+            'workers': 3,
+            'expire_time': 30 * 60
+        }
+
+    def init(self, app, workers, task_expire_time, config):
+        self.app = app
+        self.conf['expire_time'] = task_expire_time
+        self.conf['workers'] = workers
+        self.config = config
+
+        self._db_session_class = init_db_session_class(config)
+        self._redis_connection = RedisClient(config).connection
 
     def is_valid_task_id(self, task_id):
         return task_id in (self.tasks_map.keys() | self.task_results_map.keys())
 
-    def add_export_logs_task(self, session, tstart, tend, log_type):
-        from .db import get_event_log_by_time_to_excel
+    def add_export_logs_task(self, tstart, tend, log_type):
+        from . import get_event_log_by_time_to_excel
         task_id = str(uuid.uuid4())
-        task = (get_event_log_by_time_to_excel, (session, tstart, tend, log_type, task_id))
+        task = (get_event_log_by_time_to_excel, (self._db_session_class, tstart, tend, log_type, task_id))
 
         self.tasks_queue.put(task_id)
         self.tasks_map[task_id] = task
@@ -79,7 +94,7 @@ class TaskManager(object):
                 self.tasks_map.pop(task_id, None)
 
     def run(self):
-        thread_num = 3
+        thread_num = self.conf['workers']
         for i in range(thread_num):
             t_name = 'TaskManager Thread-' + str(i)
             t = threading.Thread(target=self.handle_task, name=t_name)
@@ -88,4 +103,4 @@ class TaskManager(object):
             t.start()
 
 
-task_manager = TaskManager()
+event_export_task_manager = EventExportTaskManager()
