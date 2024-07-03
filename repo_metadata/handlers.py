@@ -1,7 +1,10 @@
 import logging
+from seafevents.app.config import ENABLE_METADATA_MANAGEMENT
 
 
 def RepoMetadataUpdateHandler(config, redis_connection, msg):
+    if not ENABLE_METADATA_MANAGEMENT:
+        return
 
     elements = msg['content'].split('\t')
     if len(elements) != 3:
