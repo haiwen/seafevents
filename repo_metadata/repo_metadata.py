@@ -75,7 +75,7 @@ class RepoMetadata:
         if not deleted_files:
             return
 
-        sql = f'SELECT `{METADATA_TABLE.columns.file_name.name}` FROM `{METADATA_TABLE.name}` WHERE'
+        sql = f'SELECT `{METADATA_TABLE.columns.id.name}` FROM `{METADATA_TABLE.name}` WHERE'
         need_deleted = False
         for file in deleted_files:
             path = file.path.rstrip('/')
