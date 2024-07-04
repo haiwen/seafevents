@@ -336,7 +336,7 @@ class RepoMetadata:
                    f' (`{METADATA_TABLE.columns.parent_dir.name}` LIKE ?)'
             parameters.append(parent_dir)
             parameters.append(dir_name)
-            parameters.append(old_path)
+            parameters.append(old_path + '%')
             query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
             sql = base_sql
 
@@ -389,7 +389,7 @@ class RepoMetadata:
                    f' (`{METADATA_TABLE.columns.parent_dir.name}` LIKE ?)'
             parameters.append(parent_dir)
             parameters.append(dir_name)
-            parameters.append(old_path)
+            parameters.append(old_path + '%')
             query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
             sql = base_sql
 
