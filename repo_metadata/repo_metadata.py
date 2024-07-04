@@ -77,6 +77,7 @@ class RepoMetadata:
 
         sql = f'SELECT `{METADATA_TABLE.columns.id.name}` FROM `{METADATA_TABLE.name}` WHERE'
         need_deleted = False
+        parameters = []
         for file in deleted_files:
             path = file.path.rstrip('/')
             if self.is_excluded_path(path):
@@ -84,12 +85,14 @@ class RepoMetadata:
             need_deleted = True
             parent_dir = os.path.dirname(path)
             file_name = os.path.basename(path)
-            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = "{parent_dir}" AND `{METADATA_TABLE.columns.file_name.name}` = "{file_name}") OR'
+            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR'
+            parameters.append(parent_dir)
+            parameters.append(file_name)
 
         if not need_deleted:
             return
         sql = sql.rstrip(' OR')
-        query_result = self.metadata_server_api.query_rows(repo_id, sql).get('results', [])
+        query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
 
         if not query_result:
             return
@@ -107,6 +110,7 @@ class RepoMetadata:
         sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}` FROM `{METADATA_TABLE.name}` WHERE'
         path_to_file_dict = {}
         need_update = False
+        parameters = []
         for file in modified_files:
             path = file.path.rstrip('/')
             if self.is_excluded_path(path):
@@ -117,12 +121,14 @@ class RepoMetadata:
             key = parent_dir + file_name
             path_to_file_dict[key] = file
 
-            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = "{parent_dir}" AND `{METADATA_TABLE.columns.file_name.name}` = "{file_name}") OR'
+            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR'
+            parameters.append(parent_dir)
+            parameters.append(file_name)
 
         if not need_update:
             return
         sql = sql.rstrip(' OR')
-        query_result = self.metadata_server_api.query_rows(repo_id, sql).get('results', [])
+        query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
 
         if not query_result:
             return
@@ -179,6 +185,7 @@ class RepoMetadata:
             return
         sql = f'SELECT `{METADATA_TABLE.columns.id.name}` FROM `{METADATA_TABLE.name}` WHERE'
         need_delete = False
+        parameters = []
         for d in deleted_dirs:
             path = d.path.rstrip('/')
             if self.is_excluded_path(path):
@@ -186,12 +193,14 @@ class RepoMetadata:
             need_delete = True
             parent_dir = os.path.dirname(path)
             dir_name = os.path.basename(path)
-            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = "{parent_dir}" AND `{METADATA_TABLE.columns.file_name.name}` = "{dir_name}") OR'
+            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR'
+            parameters.append(parent_dir)
+            parameters.append(dir_name)
 
         if not need_delete:
             return
         sql = sql.rstrip(' OR')
-        query_result = self.metadata_server_api.query_rows(repo_id, sql).get('results', [])
+        query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
 
         if not query_result:
             return
@@ -209,6 +218,7 @@ class RepoMetadata:
         sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}` FROM `{METADATA_TABLE.name}` WHERE'
         path_to_file_dict = {}
         need_update = False
+        parameters = []
         for file in renamed_files:
             path = file.path.rstrip('/')
             if self.is_excluded_path(path):
@@ -219,11 +229,13 @@ class RepoMetadata:
             key = parent_dir + file_name
             path_to_file_dict[key] = file
 
-            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = "{parent_dir}" AND `{METADATA_TABLE.columns.file_name.name}` = "{file_name}") OR'
+            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR'
+            parameters.append(parent_dir)
+            parameters.append(file_name)
         if not need_update:
             return
         sql = sql.rstrip(' OR')
-        query_result = self.metadata_server_api.query_rows(repo_id, sql).get('results', [])
+        query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
 
         if not query_result:
             return
@@ -261,6 +273,7 @@ class RepoMetadata:
         sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}` FROM `{METADATA_TABLE.name}` WHERE'
         path_to_file_dict = {}
         need_update = False
+        parameters = []
         for file in moved_files:
             path = file.path.rstrip('/')
             if self.is_excluded_path(path):
@@ -271,12 +284,14 @@ class RepoMetadata:
             key = parent_dir + file_name
             path_to_file_dict[key] = file
 
-            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = "{parent_dir}" AND `{METADATA_TABLE.columns.file_name.name}` = "{file_name}") OR'
+            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR'
+            parameters.append(parent_dir)
+            parameters.append(file_name)
 
         if not need_update:
             return
         sql = sql.rstrip(' OR')
-        query_result = self.metadata_server_api.query_rows(repo_id, sql).get('results', [])
+        query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
 
         if not query_result:
             return
@@ -305,8 +320,10 @@ class RepoMetadata:
     def rename_dirs(self, repo_id, renamed_dirs):
         if not renamed_dirs:
             return
-        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}` FROM `{METADATA_TABLE.name}` WHERE'
+        base_sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}` FROM `{METADATA_TABLE.name}` WHERE'
+        sql = base_sql
         for d in renamed_dirs:
+            parameters = []
             old_path = d.path.rstrip('/')
             parent_dir = os.path.dirname(old_path)
             dir_name = os.path.basename(old_path)
@@ -315,9 +332,13 @@ class RepoMetadata:
             if self.is_excluded_path(old_path):
                 continue
 
-            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = "{parent_dir}" AND `{METADATA_TABLE.columns.file_name.name}` = "{dir_name}") OR' \
-                   f' (`{METADATA_TABLE.columns.parent_dir.name}` LIKE "{old_path}%")'
-            query_result = self.metadata_server_api.query_rows(repo_id, sql).get('results', [])
+            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR' \
+                   f' (`{METADATA_TABLE.columns.parent_dir.name}` LIKE ?)'
+            parameters.append(parent_dir)
+            parameters.append(dir_name)
+            parameters.append(old_path)
+            query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
+            sql = base_sql
 
             if not query_result:
                 return
@@ -353,8 +374,10 @@ class RepoMetadata:
     def move_dirs(self, repo_id, moved_dirs):
         if not moved_dirs:
             return
-        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}` FROM `{METADATA_TABLE.name}` WHERE'
+        base_sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}` FROM `{METADATA_TABLE.name}` WHERE'
+        sql = base_sql
         for d in moved_dirs:
+            parameters = []
             old_path = d.path.rstrip('/')
             parent_dir = os.path.dirname(old_path)
             dir_name = os.path.basename(old_path)
@@ -362,12 +385,16 @@ class RepoMetadata:
                 continue
 
             new_path = d.new_path
-            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = "{parent_dir}" AND `{METADATA_TABLE.columns.file_name.name}` = "{dir_name}") OR' \
-                   f' (`{METADATA_TABLE.columns.parent_dir.name}` LIKE "{old_path}%")'
-            query_result = self.metadata_server_api.query_rows(repo_id, sql).get('results', [])
+            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR' \
+                   f' (`{METADATA_TABLE.columns.parent_dir.name}` LIKE ?)'
+            parameters.append(parent_dir)
+            parameters.append(dir_name)
+            parameters.append(old_path)
+            query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
+            sql = base_sql
 
             if not query_result:
-                return
+                continue
 
             updated_rows = []
             for row in query_result:
