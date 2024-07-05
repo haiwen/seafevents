@@ -73,7 +73,7 @@ def get_sys_logs_task():
         logger.error(e)
         return make_response((e, 500))
 
-    return task_id
+    return make_response(({'task_id': task_id}, 200))
 
 
 @app.route('/query-export-status', methods=['GET'])
