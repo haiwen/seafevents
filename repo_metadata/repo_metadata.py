@@ -2,10 +2,6 @@ import os
 import logging
 
 from seafevents.repo_metadata.metadata_server_api import METADATA_TABLE
-    # METADATA_COLUMN_ID, \
-    # METADATA_COLUMN_CREATOR, METADATA_COLUMN_CREATED_TIME, METADATA_COLUMN_MODIFIER, \
-    # METADATA_COLUMN_MODIFIED_TIME, METADATA_COLUMN_PARENT_DIR, METADATA_COLUMN_NAME, METADATA_COLUMN_IS_DIR
-
 from seafevents.utils import timestamp_to_isoformat_timestr
 
 logger = logging.getLogger(__name__)
@@ -64,7 +60,7 @@ class RepoMetadata:
                 METADATA_TABLE.columns.file_mtime.name: timestamp_to_isoformat_timestr(mtime),
                 METADATA_TABLE.columns.parent_dir.name: parent_dir,
                 METADATA_TABLE.columns.file_name.name: file_name,
-                METADATA_TABLE.columns.is_dir.name: 'False',
+                METADATA_TABLE.columns.is_dir.name: False,
             }
             rows.append(row)
         if not rows:
@@ -170,7 +166,7 @@ class RepoMetadata:
                 METADATA_TABLE.columns.file_mtime.name: timestamp_to_isoformat_timestr(mtime),
                 METADATA_TABLE.columns.parent_dir.name: parent_dir,
                 METADATA_TABLE.columns.file_name.name: file_name,
-                METADATA_TABLE.columns.is_dir.name: 'True',
+                METADATA_TABLE.columns.is_dir.name: True,
 
             }
             rows.append(row)

@@ -22,7 +22,7 @@ class MetadataColumns(object):
         self.file_mtime = MetadataColumn('_file_mtime', '_file_mtime', 'date')
         self.parent_dir = MetadataColumn('_parent_dir', '_parent_dir', 'text')
         self.file_name = MetadataColumn('_name', '_name', 'text')
-        self.is_dir = MetadataColumn('_is_dir', '_is_dir', 'text')
+        self.is_dir = MetadataColumn('_is_dir', '_is_dir', 'checkbox')
 
 
 class MetadataColumn(object):
