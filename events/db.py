@@ -11,10 +11,8 @@ from sqlalchemy.sql import exists
 from .models import FileAudit, FileUpdate, PermAudit, \
         Activity, UserActivity, FileHistory
 
-import os
 
 logger = logging.getLogger('seafevents')
-
 
 class UserEventDetail(object):
     """Regular objects which can be used by seahub without worrying about ORM"""
@@ -60,18 +58,16 @@ def _get_user_activities(session, username, start, limit):
     if limit <= 0:
         logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
-
+    
     sub_query = (
         select(UserActivity.activity_id)
         .where(UserActivity.username == username)
-
     )
     stmt = (
         select(Activity)
         .where(Activity.id.in_(sub_query))
         .order_by(desc(Activity.timestamp))
         .slice(start, start + limit)
-
     )
     events = session.scalars(stmt).all()
 
@@ -166,7 +162,7 @@ def get_file_history_by_day(session, repo_id, path, start, limit, to_tz, history
     repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
     current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
                                    order_by(desc(FileHistory.id)).limit(1)).first()
-
+    
     new_events = []
     if current_item:
         query_stmt = select(
@@ -211,7 +207,7 @@ def get_file_daily_history_detail(session, repo_id, path, start_time, end_time, 
     repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
     current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
                                    order_by(desc(FileHistory.id)).limit(1)).first()
-
+    
     details = list()
     try:
         q = select(FileHistory.id, FileHistory.op_type, FileHistory.op_user, FileHistory.timestamp, FileHistory.repo_id, FileHistory.commit_id,
@@ -402,6 +398,3 @@ def get_event_log_by_time(session, log_type, tstart, tend):
     res = session.scalars(stmt).all()
 
     return res
-
-
-
