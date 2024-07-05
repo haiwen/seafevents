@@ -19,9 +19,6 @@ try:
     import seahub.settings as seahub_settings
     TIME_ZONE = getattr(seahub_settings, 'TIME_ZONE', 'UTC')
     ENABLE_WORK_WEIXIN = getattr(seahub_settings, 'ENABLE_WORK_WEIXIN', False)
-    DTABLE_WEB_SERVER = getattr(seahub_settings, 'DTABLE_WEB_SERVER', None)
-    SEATABLE_EX_PROPS_BASE_API_TOKEN = getattr(seahub_settings, 'SEATABLE_EX_PROPS_BASE_API_TOKEN', None)
-    EX_PROPS_TABLE = getattr(seahub_settings, 'EX_PROPS_TABLE', None)
     SEAHUB_SECRET_KEY = getattr(seahub_settings, 'SECRET_KEY', '')
     METADATA_SERVER_SECRET_KEY = getattr(seahub_settings, 'METADATA_SERVER_SECRET_KEY', '')
     METADATA_SERVER_URL = getattr(seahub_settings, 'METADATA_SERVER_URL', '')
