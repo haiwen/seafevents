@@ -16,23 +16,25 @@ class Base(DeclarativeBase):
     pass
 
 
-logger = logging.getLogger('seafes')
+logger = logging.getLogger('seafevents')
+
 
 def create_engine_from_conf(config_file):
     seaf_conf = configparser.ConfigParser()
     seaf_conf.read(config_file)
-    backend = seaf_conf.get('database', 'type')
+    backend = seaf_conf.get('DATABASE', 'type')
+
     if backend == 'mysql':
         db_server = 'localhost'
         db_port = 3306
 
-        if seaf_conf.has_option('database', 'host'):
-            db_server = seaf_conf.get('database', 'host')
-        if seaf_conf.has_option('database', 'port'):
-            db_port = seaf_conf.getint('database', 'port')
-        db_username = seaf_conf.get('database', 'user')
-        db_passwd = seaf_conf.get('database', 'password')
-        db_name = seaf_conf.get('database', 'db_name')
+        if seaf_conf.has_option('DATABASE', 'host'):
+            db_server = seaf_conf.get('DATABASE', 'host')
+        if seaf_conf.has_option('DATABASE', 'port'):
+            db_port = seaf_conf.getint('DATABASE', 'port')
+        db_username = seaf_conf.get('DATABASE', 'username')
+        db_passwd = seaf_conf.get('DATABASE', 'password')
+        db_name = seaf_conf.get('DATABASE', 'name')
         db_url = "mysql+pymysql://%s:%s@%s:%s/%s?charset=utf8" % \
                  (db_username, quote_plus(db_passwd),
                  db_server, db_port, db_name)

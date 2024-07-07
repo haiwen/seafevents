@@ -3,11 +3,12 @@ from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
         WorkWinxinNoticeSender, FileUpdatesSender, RepoOldFileAutoDelScanner,\
         DeletedFilesCountCleaner
+from seafevents.semantic_search.semantic_search import SemanticSearch
 
 from seafevents.repo_metadata.index_master import RepoMetadataIndexMaster
 from seafevents.repo_metadata.index_worker import RepoMetadataIndexWorker
 from seafevents.seafevent_server.seafevent_server import SeafEventServer
-from seafevents.app.config import ENABLE_METADATA_MANAGEMENT
+from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_SEAFILE_AI
 
 
 class App(object):
@@ -38,6 +39,8 @@ class App(object):
             if ENABLE_METADATA_MANAGEMENT:
                 self._index_master = RepoMetadataIndexMaster(config)
                 self._index_worker = RepoMetadataIndexWorker(config)
+            if ENABLE_SEAFILE_AI:
+                self._sem_app = SemanticSearch()
 
     def serve_forever(self):
         if self._fg_tasks_enabled:
