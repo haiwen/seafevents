@@ -43,7 +43,6 @@ def create_engine_from_conf(config, db='seafevent'):
         if not os.path.isabs(path):
             path = os.path.join(os.path.abspath('.'), path)
         db_url = "sqlite:///%s" % path
-        logger.info('[seafevents] database: sqlite3, path: %s', path)
         need_connection_pool_fix = False
     elif backend == 'mysql':
         if config.has_option(db_sec, 'host'):
@@ -66,8 +65,6 @@ def create_engine_from_conf(config, db='seafevent'):
             unix_socket = config.get(db_sec, 'unix_socket')
             db_url = f"mysql+pymysql://{username}:@{host}:{port}/{dbname}?unix_socket={unix_socket}&charset=utf8"
 
-        logger.info('[seafevents] database: mysql, name: %s', dbname)
-
     elif backend == 'oracle':
         if config.has_option(db_sec, 'host'):
             host = config.get(db_sec, 'host').lower()
@@ -84,7 +81,6 @@ def create_engine_from_conf(config, db='seafevent'):
         db_url = "oracle://%s:%s@%s:%s/%s" % (username, quote_plus(passwd),
                 host, port, service_name)
 
-        logger.info('[seafevents] database: oracle, service_name: %s', service_name)
     else:
         logger.error("Unknown database backend: %s" % backend)
         raise RuntimeError("Unknown database backend: %s" % backend)
