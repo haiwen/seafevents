@@ -64,11 +64,11 @@ def get_sys_logs_task():
                                     event_export_task_manager.threads_is_alive()))
         return make_response(('seafevent server busy,.', 400))
 
-    tstart = request.args.get('start_time')
-    tend = request.args.get('end_time')
+    start_time = request.args.get('start_time')
+    end_time = request.args.get('end_time')
     log_type = request.args.get('log_type')
     try:
-        task_id = event_export_task_manager.add_export_logs_task(tstart, tend, log_type)
+        task_id = event_export_task_manager.add_export_logs_task(start_time, end_time, log_type)
     except Exception as e:
         logger.error(e)
         return make_response((e, 500))

@@ -33,10 +33,10 @@ class EventExportTaskManager(object):
     def is_valid_task_id(self, task_id):
         return task_id in (self.tasks_map.keys() | self.task_results_map.keys())
 
-    def add_export_logs_task(self, tstart, tend, log_type):
+    def add_export_logs_task(self, start_time, end_time, log_type):
         from . import get_event_log_by_time_to_excel
         task_id = str(uuid.uuid4())
-        task = (get_event_log_by_time_to_excel, (self._db_session_class, tstart, tend, log_type, task_id))
+        task = (get_event_log_by_time_to_excel, (self._db_session_class, start_time, end_time, log_type, task_id))
 
         self.tasks_queue.put(task_id)
         self.tasks_map[task_id] = task
