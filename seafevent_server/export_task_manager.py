@@ -5,7 +5,6 @@ import logging
 import time
 import uuid
 from seafevents.db import init_db_session_class
-from seafevents.app.event_redis import RedisClient
 
 logger = logging.getLogger('seafevents')
 
@@ -30,7 +29,6 @@ class EventExportTaskManager(object):
         self.config = config
 
         self._db_session_class = init_db_session_class(config)
-        self._redis_connection = RedisClient(config).connection
 
     def is_valid_task_id(self, task_id):
         return task_id in (self.tasks_map.keys() | self.task_results_map.keys())

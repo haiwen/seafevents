@@ -1,34 +1,20 @@
 # -*- coding: utf-8 -*-
+import os
 import logging
 import datetime
 import ast
+
+from flask import make_response
 from sqlalchemy import desc, select, update, func, text, and_
 from sqlalchemy.sql import exists
-from .utils import write_xls, utc_to_local, generate_file_audit_event_type
-from .export_task_manager import event_export_task_manager
-from flask import make_response
+
+from seafevents.seafevent_server.utils import write_xls, utc_to_local, generate_file_audit_event_type
+from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seaserv import seafile_api, ccnet_api
-import os
 from seafevents.events.models import FileAudit, FileUpdate, PermAudit, \
-    Activity, UserLogin
+    UserLogin
 
 logger = logging.getLogger('seafevents')
-
-
-def get_sys_logs_task(tstart, tend, log_type):
-    if event_export_task_manager.tasks_queue.full():
-        logger.warning('seafile io server busy, queue size: %d, current tasks: %s, threads is_alive: %s'
-                       % (event_export_task_manager.tasks_queue.qsize(), event_export_task_manager.current_task_info,
-                          event_export_task_manager.threads_is_alive()))
-        return make_response(('seafile io server busy.', 400))
-
-    try:
-        task_id = event_export_task_manager.add_export_logs_task(tstart, tend, log_type)
-    except Exception as e:
-        logger.error(e)
-        return make_response((e, 500))
-
-    return task_id
 
 
 def query_status(task_id):
@@ -70,6 +56,7 @@ def get_event_log_by_time_to_excel(session, tstart, tend, log_type, task_id):
                                                        datetime.datetime.utcfromtimestamp(tend)))
         stmt = stmt.order_by(desc(obj.timestamp))
         res = session.scalars(stmt).all()
+        session.close()
 
         head = ["User", "Type", "IP", "Device", "Date",
                 "Library Name", "Library ID", "Library Owner", "File Path"]
@@ -112,6 +99,8 @@ def get_event_log_by_time_to_excel(session, tstart, tend, log_type, task_id):
                                                        datetime.datetime.utcfromtimestamp(tend)))
         stmt = stmt.order_by(desc(obj.timestamp))
         res = session.scalars(stmt).all()
+        session.close()
+
         head = ["User", "Date", "Library Name", "Library ID",
                 "Library Owner", "Action"]
         data_list = []
@@ -152,6 +141,8 @@ def get_event_log_by_time_to_excel(session, tstart, tend, log_type, task_id):
                                                        datetime.datetime.utcfromtimestamp(tend)))
         stmt = stmt.order_by(desc(obj.timestamp))
         res = session.scalars(stmt).all()
+        session.close()
+
         head = ["From", "To", "Action", "Permission", "Library",
                 "Folder Path", "Date"]
         data_list = []
@@ -209,6 +200,7 @@ def get_event_log_by_time_to_excel(session, tstart, tend, log_type, task_id):
                                                         datetime.datetime.utcfromtimestamp(tend)))
         stmt = stmt.order_by(desc(obj.login_date))
         res = session.scalars(stmt).all()
+        session.close()
 
         head = ["Name", "IP", "Status", "Time"]
         data_list = []

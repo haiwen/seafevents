@@ -37,7 +37,7 @@ def add_init_metadata_task():
 
     if task_manager.tasks_queue.full():
         logger.warning('seafevent server busy, queue size: %d' % (task_manager.tasks_queue.qsize(), ))
-        return make_response(('dtable io server busy.', 400))
+        return make_response(('seafevent server busy.', 400))
 
     username = request.args.get('username')
     repo_id = request.args.get('repo_id')
@@ -59,13 +59,13 @@ def get_sys_logs_task():
         return make_response((error, 403))
 
     if event_export_task_manager.tasks_queue.full():
-        logger.warning('seafile io server busy, queue size: %d, current tasks: %s, threads is_alive: %s'
+        logger.warning('seafevent server busy, queue size: %d, current tasks: %s, threads is_alive: %s'
                                  % (event_export_task_manager.tasks_queue.qsize(), task_manager.current_task_info,
                                     event_export_task_manager.threads_is_alive()))
-        return make_response(('seafile io server busy.', 400))
+        return make_response(('seafevent server busy,.', 400))
 
-    tstart = request.args.get('tstart')
-    tend = request.args.get('tend')
+    tstart = request.args.get('start_time')
+    tend = request.args.get('end_time')
     log_type = request.args.get('log_type')
     try:
         task_id = event_export_task_manager.add_export_logs_task(tstart, tend, log_type)
