@@ -1,11 +1,10 @@
-import os
 import queue
 import threading
 import logging
 import time
 import uuid
 from seafevents.db import init_db_session_class
-from seafevents.seafevent_server import get_event_log_by_time_to_excel
+from seafevents.seafevent_server.utils import get_event_log_by_time_to_excel
 
 logger = logging.getLogger('seafevents')
 
@@ -13,6 +12,8 @@ logger = logging.getLogger('seafevents')
 class EventExportTaskManager(object):
 
     def __init__(self):
+        self.app = None
+        self._db_session_class = None
         self.tasks_map = {}
         self.task_results_map = {}
         self.tasks_queue = queue.Queue(10)
@@ -27,8 +28,6 @@ class EventExportTaskManager(object):
         self.app = app
         self.conf['expire_time'] = task_expire_time
         self.conf['workers'] = workers
-        self.config = config
-
         self._db_session_class = init_db_session_class(config)
 
     def is_valid_task_id(self, task_id):
