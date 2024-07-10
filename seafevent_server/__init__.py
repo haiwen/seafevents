@@ -4,11 +4,9 @@ import logging
 import datetime
 import ast
 
-from flask import make_response
-from sqlalchemy import desc, select, update
+from sqlalchemy import desc, select
 
 from seafevents.seafevent_server.utils import write_xls, utc_to_local, generate_file_audit_event_type
-from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seaserv import seafile_api, ccnet_api
 from seafevents.events.models import FileAudit, FileUpdate, PermAudit, \
     UserLogin
@@ -22,17 +20,14 @@ def get_event_log_by_time_to_excel(session, start_time, end_time, log_type, task
             session = session()
         except Exception as e:
             session = None
-            logger.error('create db session failed. ERROR: {}'.format(e))
             raise Exception('create db session failed. ERROR: {}'.format(e))
         try:
             start_time = ast.literal_eval(start_time)
             end_time = ast.literal_eval(end_time)
         except Exception as e:
-            logger.error(e)
             raise RuntimeError('Invalid time range parameter')
 
         if not isinstance(start_time, (int, float)) or not isinstance(end_time, (int, float)):
-            logger.error('Invalid time range parameter')
             raise RuntimeError('Invalid time range parameter')
 
         if log_type == 'fileaudit':
@@ -69,7 +64,6 @@ def get_event_log_by_time_to_excel(session, start_time, end_time, log_type, task
 
             wb = write_xls('file-access-logs', head, data_list)
             if not wb:
-                logger.error('Failed to export excel')
                 raise RuntimeError('Failed to export excel')
 
             target_dir = os.path.join('/tmp/seafile_events/', task_id)
@@ -202,10 +196,8 @@ def get_event_log_by_time_to_excel(session, start_time, end_time, log_type, task
             target_path = os.path.join(target_dir, excel_name)
             wb.save(target_path)
         else:
-            logger.error('Invalid log_type parameter')
             raise RuntimeError('Invalid log_type parameter')
     except Exception as e:
-        logger.error(e)
         raise RuntimeError('Internal Server Error')
     finally:
         if session:

@@ -5,6 +5,7 @@ import logging
 import time
 import uuid
 from seafevents.db import init_db_session_class
+from seafevents.seafevent_server import get_event_log_by_time_to_excel
 
 logger = logging.getLogger('seafevents')
 
@@ -34,7 +35,6 @@ class EventExportTaskManager(object):
         return task_id in (self.tasks_map.keys() | self.task_results_map.keys())
 
     def add_export_logs_task(self, start_time, end_time, log_type):
-        from . import get_event_log_by_time_to_excel
         task_id = str(uuid.uuid4())
         task = (get_event_log_by_time_to_excel, (self._db_session_class, start_time, end_time, log_type, task_id))
 
