@@ -11,7 +11,7 @@ from ldap import SCOPE_SUBTREE
 try:
     from custom_functions import ldap_role_mapping
 except ImportError:
-    def ldap_role_mapping(role):
+    def ldap_role_mapping(role, role_list=None):
         return role
 
 
@@ -39,7 +39,7 @@ class UserObj(object):
 
 class LdapUser(object):
     def __init__(self, user_id, name, dept, uid, cemail,
-                 is_staff=0, is_active=1, role='', is_manual_set=False):
+                 is_staff=0, is_active=1, role='', is_manual_set=False, role_list=None):
         self.id = user_id
         self.name = name
         self.dept = dept
@@ -48,6 +48,7 @@ class LdapUser(object):
         self.is_staff = is_staff
         self.is_active = is_active
         self.role = role
+        self.role_list = role_list
         self.is_manual_set = is_manual_set
 
 
@@ -395,11 +396,13 @@ class LdapUserSync(LdapSync):
             uid = None
             cemail = None
             role = None
+            role_list = None
 
             if config.role_name_attr not in attrs:
                 role = ''
             else:
                 role = attrs[config.role_name_attr][0]
+                role_list = [role.decode() for role in attrs[config.role_name_attr]]
 
             if config.enable_extra_user_info_sync:
                 if config.first_name_attr not in attrs:
@@ -436,7 +439,7 @@ class LdapUserSync(LdapSync):
 
             email = attrs[config.login_attr][0].lower()
             user_name = None if user_name is None else user_name.strip()
-            user_data_ldap[email] = LdapUser(None, user_name, dept, uid, cemail, role=role)
+            user_data_ldap[email] = LdapUser(None, user_name, dept, uid, cemail, role=role, role_list=role_list)
 
         return user_data_ldap
 
@@ -457,7 +460,7 @@ class LdapUserSync(LdapSync):
 
         ret = 0
         if ldap_user.role:
-            role = ldap_role_mapping(ldap_user.role)
+            role = ldap_role_mapping(ldap_user.role, ldap_user.role_list)
             ret = ccnet_api.update_role_emailuser(virtual_id, role, False)
 
             if ret == 0:
@@ -473,7 +476,7 @@ class LdapUserSync(LdapSync):
 
     def sync_update_user(self, ldap_user, db_user, email):
         if ldap_user.role:
-            role = ldap_role_mapping(ldap_user.role)
+            role = ldap_role_mapping(ldap_user.role, ldap_user.role_list)
             if not db_user.is_manual_set and db_user.role != role:
                 ret = ccnet_api.update_role_emailuser(email, role, False)
 
