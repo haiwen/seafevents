@@ -59,17 +59,15 @@ def _get_user_activities(session, username, start, limit):
         logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
     
-    sub_query = ( 
+    sub_query = (
         select(UserActivity.activity_id)
         .where(UserActivity.username == username)
-        
     )
     stmt = (
         select(Activity)
         .where(Activity.id.in_(sub_query))
         .order_by(desc(Activity.timestamp))
         .slice(start, start + limit)
-        
     )
     events = session.scalars(stmt).all()
 
@@ -81,12 +79,12 @@ def get_user_activities(session, username, start, limit):
 def _get_user_activities_by_timestamp(session, username, start, end):
     events = []
     try:
-        sub_query = ( 
+        sub_query = (
             select(UserActivity.activity_id)
                 .where(
-                    and_(  
-                        UserActivity.username == username,  
-                        UserActivity.timestamp.between(start, end)  
+                    and_(
+                        UserActivity.username == username,
+                        UserActivity.timestamp.between(start, end)
                     )
                 )
         )
