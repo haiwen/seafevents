@@ -3,45 +3,6 @@ import requests, jwt, time
 from seafevents.app.config import METADATA_SERVER_SECRET_KEY, METADATA_SERVER_URL
 
 
-class MetadataTable(object):
-    def __init__(self, table_id, name):
-        self.id = table_id
-        self.name = name
-
-    @property
-    def columns(self):
-        return MetadataColumns()
-
-
-class MetadataColumns(object):
-    def __init__(self):
-        self.id = MetadataColumn('_id', '_id', 'text')
-        self.file_creator = MetadataColumn('_file_creator', '_file_creator', 'text')
-        self.file_ctime = MetadataColumn('_file_ctime', '_file_ctime', 'date')
-        self.file_modifier = MetadataColumn('_file_modifier', '_file_modifier', 'text')
-        self.file_mtime = MetadataColumn('_file_mtime', '_file_mtime', 'date')
-        self.parent_dir = MetadataColumn('_parent_dir', '_parent_dir', 'text')
-        self.file_name = MetadataColumn('_name', '_name', 'text')
-        self.is_dir = MetadataColumn('_is_dir', '_is_dir', 'checkbox')
-
-
-class MetadataColumn(object):
-    def __init__(self, key, name, type):
-        self.key = key
-        self.name = name
-        self.type = type
-
-    def to_dict(self):
-        return {
-            'key': self.key,
-            'name': self.name,
-            'type': self.type
-        }
-
-
-METADATA_TABLE = MetadataTable('0001', 'Table1')
-
-
 def parse_response(response):
     if response.status_code >= 400 or response.status_code < 200:
         raise ConnectionError(response.status_code, response.text)
