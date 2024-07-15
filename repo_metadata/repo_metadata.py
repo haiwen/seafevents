@@ -1,7 +1,7 @@
 import os
 import logging
 
-from seafevents.repo_metadata.metadata_server_api import METADATA_TABLE
+from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_by_name
 from seafevents.utils import timestamp_to_isoformat_timestr
 
 logger = logging.getLogger(__name__)
@@ -49,6 +49,7 @@ class RepoMetadata:
             parent_dir = os.path.dirname(path)
             file_name = os.path.basename(path)
             modifier = de.modifier
+            file_type = get_file_type_by_name(file_name)
 
             if self.is_excluded_path(path):
                 continue
@@ -62,6 +63,9 @@ class RepoMetadata:
                 METADATA_TABLE.columns.file_name.name: file_name,
                 METADATA_TABLE.columns.is_dir.name: False,
             }
+
+            if file_type:
+                row[METADATA_TABLE.columns.file_type.name] = file_type
             rows.append(row)
         if not rows:
             return
@@ -436,6 +440,7 @@ class RepoMetadata:
         self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.parent_dir.to_dict())
         self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.file_name.to_dict())
         self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.is_dir.to_dict())
+        self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.file_type.to_dict())
 
     def create_base(self, repo_id):
         self.metadata_server_api.create_base(repo_id)
