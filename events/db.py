@@ -90,12 +90,17 @@ def _get_user_activities_by_timestamp(session, username, start, end):
                     )
                 )
         )
-        stmt = (
-            select(Activity)
-                .where(Activity.id.in_(sub_query))
-                .order_by(Activity.timestamp)
-        )
-        events = session.scalars(stmt).all()
+
+        activity_ids = session.scalars(sub_query).all()
+
+        events = []
+        if activity_ids:
+            stmt = (
+                select(Activity)
+                    .where(Activity.id.in_(activity_ids))
+                    .order_by(Activity.timestamp)
+            )
+            events = session.scalars(stmt).all()
     except Exception as e:
         logging.warning('Failed to get activities of %s: %s.', username, e)
     finally:
