@@ -151,7 +151,7 @@ def start_index_local():
     repo_status_index = RepoStatusIndex(seasearch_api, REPO_STATUS_FILE_INDEX_NAME)
     repo_file_index = RepoFileIndex(seasearch_api)
 
-    embedding_api = SeaEmbeddingAPI(config.APP_NAME, config.SEA_EMBEDDING_SERVER)
+    embedding_api = SeaEmbeddingAPI(config.SEA_EMBEDDING_SERVER)
     workers = config.INDEX_MANAGER_WORKERS
 
     try:

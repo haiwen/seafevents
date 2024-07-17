@@ -4,9 +4,7 @@ from gevent.pywsgi import WSGIServer
 from seafevents.seafevent_server.request_handler import app as application
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
-from seafevents.semantic_search.semantic_search import sem_app
 from seafevents.semantic_search.index_task.index_task_manager import index_task_manager
-from seafevents.semantic_search.index_task.filename_index_updater import repo_filename_index_updater
 from seafevents.app.config import ENABLE_SEAFILE_AI
 
 
@@ -24,12 +22,8 @@ class SeafEventServer(Thread):
 
         if ENABLE_SEAFILE_AI:
             # semantic search index task
-            sem_app.init()
-            index_task_manager.init(sem_app)
-            repo_filename_index_updater.init(sem_app)
-
+            index_task_manager.init()
             index_task_manager.start()
-            repo_filename_index_updater.start()
 
         self._server = WSGIServer((self._host, int(self._port)), application)
 

@@ -7,8 +7,15 @@ from threading import Thread, Lock
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.gevent import GeventScheduler
 
+from seafevents.semantic_search.index_store.index_manager import IndexManager
+from seafevents.semantic_search.index_store.repo_status_index import RepoStatusIndex
+from seafevents.semantic_search.index_store.repo_file_index import RepoFileIndex
+from seafevents.semantic_search.index_store.repo_file_name_index import RepoFileNameIndex
+from seafevents.semantic_search.utils.seasearch_api import SeaSearchAPI
+from seafevents.semantic_search.utils.sea_embedding_api import SeaEmbeddingAPI
+from seafevents.semantic_search.utils.constants import REPO_STATUS_FILE_INDEX_NAME
+from seafevents.repo_data import repo_data
 from seafevents.semantic_search import config
-
 
 logger = logging.getLogger(__name__)
 
@@ -78,9 +85,19 @@ class IndexTaskManager:
         }
         self.sched.add_job(self.clear_expired_tasks, CronTrigger(minute='*/10'))
         self.sched.add_job(self.cron_update_library_sdoc_indexes, CronTrigger(hour='*'))
+        self.index_manager = None
+        self.repo_file_index = None
 
-    def init(self, app):
-        self.app = app
+    def init(self):
+        self.index_manager = IndexManager()
+        self.seasearch_api = SeaSearchAPI(config.SEASEARCH_SERVER, config.SEASEARCH_TOKEN)
+        self.repo_data = repo_data
+        self.embedding_api = SeaEmbeddingAPI(config.SEA_EMBEDDING_SERVER)
+        # for semantic search
+        self.repo_status_index = RepoStatusIndex(self.seasearch_api, REPO_STATUS_FILE_INDEX_NAME)
+        self.repo_file_index = RepoFileIndex(self.seasearch_api)
+        # for keyword search
+        self.repo_filename_index = RepoFileNameIndex(self.seasearch_api, self.repo_data)
 
     def get_pending_or_running_task(self, readable_id):
         task = self.readable_id2task_map.get(readable_id)
@@ -94,8 +111,8 @@ class IndexTaskManager:
                 return task.id
 
             task_id = str(uuid.uuid4())
-            task = IndexTask(task_id, readable_id, self.app.index_manager.create_library_sdoc_index,
-                             (repo_id, self.app.embedding_api, self.app.repo_file_index, self.app.repo_status_index, commit_id)
+            task = IndexTask(task_id, readable_id, self.index_manager.create_library_sdoc_index,
+                             (repo_id, self.embedding_api, self.repo_file_index, self.repo_status_index, commit_id)
                              )
 
             self.tasks_map[task_id] = task
@@ -105,11 +122,11 @@ class IndexTaskManager:
             return task_id
 
     def keyword_search(self, query, repos, count, suffixes):
-        return self.app.index_manager.keyword_search(query, repos, self.app.repo_filename_index, count, suffixes)
+        return self.index_manager.keyword_search(query, repos, self.repo_filename_index, count, suffixes)
 
     def hybrid_search(self, query, repo, count):
-        return self.app.index_manager.hybrid_search(query, repo, self.app.repo_filename_index,
-                                                    self.app.embedding_api, self.app.repo_file_index, count)
+        return self.index_manager.hybrid_search(query, repo, self.repo_filename_index,
+                                                    self.embedding_api, self.repo_file_index, count)
 
     def add_update_a_library_sdoc_index_task(self, repo_id, commit_id):
         readable_id = repo_id
@@ -119,8 +136,8 @@ class IndexTaskManager:
                 return task.id
 
             task_id = str(uuid.uuid4())
-            task = IndexTask(task_id, readable_id, self.app.index_manager.update_library_sdoc_index,
-                             (repo_id, self.app.embedding_api, self.app.repo_file_index, self.app.repo_status_index,
+            task = IndexTask(task_id, readable_id, self.index_manager.update_library_sdoc_index,
+                             (repo_id, self.embedding_api, self.repo_file_index, self.repo_status_index,
                               commit_id)
                              )
             self.tasks_map[task_id] = task
@@ -130,10 +147,10 @@ class IndexTaskManager:
             return task_id
 
     def update_library_sdoc_indexes(self):
-        index_repos = self.app.index_manager.list_index_repos()
+        index_repos = self.index_manager.list_index_repos()
         for repo in index_repos:
             repo_id = repo[0]
-            commit_id = self.app.repo_data.get_repo_head_commit(repo_id)
+            commit_id = self.repo_data.get_repo_head_commit(repo_id)
             self.add_update_a_library_sdoc_index_task(repo_id, commit_id)
 
     def cron_update_library_sdoc_indexes(self):

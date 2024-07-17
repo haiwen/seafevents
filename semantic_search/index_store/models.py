@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime
-from seafevents.semantic_search.db import Base
+from seafevents.db import Base
 
 
 class IndexRepo(Base):

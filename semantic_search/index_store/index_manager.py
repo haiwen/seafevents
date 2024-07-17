@@ -5,9 +5,10 @@ from datetime import datetime
 
 from sqlalchemy.sql import text
 
+from seafevents.app.config import get_config
+from seafevents.db import init_db_session_class
 from seafevents.semantic_search import config 
 from seafevents.semantic_search.utils.constants import ZERO_OBJ_ID, REPO_FILENAME_INDEX_PREFIX
-from seafevents.semantic_search.db import init_db_session_class
 from seafevents.semantic_search.index_store.models import IndexRepo
 from seafevents.semantic_search.index_store.utils import rank_fusion, filter_hybrid_searched_files
 
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 class IndexManager():
     def __init__(self):
         self.evtconf = os.environ['EVENTS_CONFIG_FILE']
-        self._db_session_class = init_db_session_class(self.evtconf)
+        self._db_session_class = init_db_session_class(get_config(self.evtconf))
 
     def create_index_repo_db(self, repo_id):
         with self._db_session_class() as db_session:

@@ -8,7 +8,7 @@ from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 
 from seafevents.semantic_search.index_task.index_task_manager import index_task_manager
-from seafevents.semantic_search.semantic_search import sem_app
+from seafevents.repo_data import repo_data
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
@@ -117,13 +117,13 @@ def library_sdoc_indexes():
     if not repo_id:
         return {'error_msg': 'repo_id invalid.'}, 400
 
-    commit_id = sem_app.repo_data.get_repo_head_commit(repo_id)
+    commit_id = repo_data.get_repo_head_commit(repo_id)
 
     if not commit_id:
         return {'error_msg': 'repo invalid.'}, 400
 
     try:
-        is_exist = sem_app.repo_file_index.check_index(repo_id)
+        is_exist = index_task_manager.repo_file_index.check_index(repo_id)
     except Exception as e:
         logger.exception(e)
         return {'error_msg': 'Internet server error.'}, 500
@@ -137,7 +137,7 @@ def library_sdoc_indexes():
         return {'task_id': task.id}, 200
 
     try:
-        sem_app.index_manager.create_index_repo_db(repo_id)
+        index_task_manager.index_manager.create_index_repo_db(repo_id)
     except Exception as e:
         logger.exception(e)
         return {'error_msg': 'Internet server error.'}, 500
@@ -201,7 +201,7 @@ def library_sdoc_index():
         return {'error_msg': 'repo_id invalid'}, 400
 
     try:
-        index_repo = sem_app.index_manager.get_index_repo_by_repo_id(repo_id)
+        index_repo = index_task_manager.index_manager.get_index_repo_by_repo_id(repo_id)
     except Exception as e:
         logger.exception(e)
         return {'error_msg': 'Internet server error.'}, 500
@@ -216,7 +216,7 @@ def library_sdoc_index():
             return {'error_msg': 'library sdoc index is running'}, 400
 
         try:
-            sem_app.index_manager.delete_library_sdoc_index_by_repo_id(repo_id, sem_app.repo_file_index, sem_app.repo_status_index)
+            index_task_manager.index_manager.delete_library_sdoc_index_by_repo_id(repo_id, index_task_manager.repo_file_index, index_task_manager.repo_status_index)
         except Exception as e:
             logger.exception(e)
             return {'error_msg': 'Internet server error.'}, 500
@@ -224,7 +224,7 @@ def library_sdoc_index():
         return {'success': True}, 200
 
     elif request.method == 'PUT':
-        commit_id = sem_app.repo_data.get_repo_head_commit(repo_id)
+        commit_id = repo_data.get_repo_head_commit(repo_id)
 
         if not commit_id:
             return {'error_msg': 'repo invalid.'}, 400
@@ -272,7 +272,7 @@ def query_library_index_state():
         return {'error_msg': 'repo_id invalid'}, 400
 
     try:
-        is_exist = sem_app.index_manager.get_index_repo_by_repo_id(repo_id)
+        is_exist = index_task_manager.index_manager.get_index_repo_by_repo_id(repo_id)
     except Exception as e:
         logger.exception(e)
         return {'error_msg': 'Internet server error.'}, 500

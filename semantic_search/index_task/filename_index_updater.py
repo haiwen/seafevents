@@ -4,6 +4,13 @@ from threading import Thread
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.gevent import GeventScheduler
 
+from seafevents.semantic_search.index_store.index_manager import IndexManager
+from seafevents.semantic_search.index_store.repo_status_index import RepoStatusIndex
+from seafevents.semantic_search.index_store.repo_file_name_index import RepoFileNameIndex
+from seafevents.semantic_search.utils.constants import REPO_STATUS_FILENAME_INDEX_NAME
+from seafevents.semantic_search.utils.seasearch_api import SeaSearchAPI
+from seafevents.repo_data import repo_data
+from seafevents.semantic_search import config
 
 logger = logging.getLogger(__name__)
 
@@ -15,11 +22,12 @@ class RepoFilenameIndexUpdater():
         self._index_manager = None
         self._repo_data = None
 
-    def init(self, app): 
-        self._repo_status_filename_index = app.repo_status_filename_index
-        self._repo_filename_index = app.repo_filename_index
-        self._index_manager = app.index_manager
-        self._repo_data = app.repo_data
+    def init(self): 
+        self.seasearch_api = SeaSearchAPI(config.SEASEARCH_SERVER, config.SEASEARCH_TOKEN)
+        self._repo_status_filename_index = RepoStatusIndex(self.seasearch_api, REPO_STATUS_FILENAME_INDEX_NAME)
+        self._repo_filename_index = RepoFileNameIndex(self.seasearch_api, repo_data)
+        self._index_manager = IndexManager()
+        self._repo_data = repo_data
 
     def start(self):
         RepoFilenameIndexUpdaterTimer(

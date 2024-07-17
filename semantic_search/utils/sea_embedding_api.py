@@ -22,8 +22,7 @@ def parse_response(response):
 
 class SeaEmbeddingAPI(object):
 
-    def __init__(self, username, sea_embedding_url, time_out=180):
-        self.username = username
+    def __init__(self, sea_embedding_url, time_out=180):
         self.sea_embedding_url = sea_embedding_url.rstrip('/')
         self.time_out = time_out
 
