@@ -1,5 +1,6 @@
 import os
 import random
+import math
 
 from seafevents.app.config import METADATA_FILE_TYPES
 
@@ -37,12 +38,12 @@ def gen_select_options(option_names):
 
 
 def gen_option_id(id_set):
-    _id = str(random.random() * (10 ** 6))
+    _id = str(math.floor(random.uniform(0.1, 1) * (10 ** 6)))
 
     while True:
         if _id not in id_set:
             return _id
-        _id = str(random.random() * (10 ** 6))
+        _id = str(math.floor(random.uniform(0.1, 1) * (10 ** 6)))
 
 
 class MetadataTable(object):
