@@ -1,8 +1,6 @@
 import os
 import logging
 
-from seafevents.app.config import get_config
-
 logger = logging.getLogger(__name__)
 
 
@@ -45,9 +43,6 @@ SUPPORT_INDEX_FILE_TYPES = [
     '.pptx',
     '.pdf',
 ]
-
-
-CONF_DIR = '/opt/seafile/conf/'
 
 try:
     import seahub.settings as seahub_settings
