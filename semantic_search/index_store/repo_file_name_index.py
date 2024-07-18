@@ -3,7 +3,6 @@ import os
 import logging
 
 from seafevents.semantic_search.utils import get_library_diff_files, md5, is_sys_dir_or_file
-from seafevents.semantic_search import config
 from seafevents.semantic_search.utils.constants import REPO_FILENAME_INDEX_PREFIX
 
 logger = logging.getLogger(__name__)
@@ -60,11 +59,11 @@ class RepoFileNameIndex(object):
         }
     }
 
-    shard_num = config.SHARD_NUM
 
-    def __init__(self, seasearch_api, repo_data):
+    def __init__(self, seasearch_api, repo_data, shard_num):
         self.seasearch_api = seasearch_api
         self.repo_data = repo_data
+        self.shard_num = shard_num
 
     def create_index_if_missing(self, index_name):
         if not self.seasearch_api.check_index_mapping(index_name).get('is_exist'):

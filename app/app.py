@@ -8,7 +8,7 @@ from seafevents.repo_metadata.index_master import RepoMetadataIndexMaster
 from seafevents.repo_metadata.index_worker import RepoMetadataIndexWorker
 from seafevents.seafevent_server.seafevent_server import SeafEventServer
 from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_SEAFILE_AI
-from seafevents.semantic_search.index_task.filename_index_updater import repo_filename_index_updater
+from seafevents.semantic_search.index_task.filename_index_updater import RepoFilenameIndexUpdater
 
 
 class App(object):
@@ -40,7 +40,7 @@ class App(object):
                 self._index_master = RepoMetadataIndexMaster(config)
                 self._index_worker = RepoMetadataIndexWorker(config)
             if ENABLE_SEAFILE_AI:
-                repo_filename_index_updater.init()
+                self._repo_filename_index_updater = RepoFilenameIndexUpdater(config)
 
     def serve_forever(self):
         if self._fg_tasks_enabled:
@@ -64,4 +64,4 @@ class App(object):
                 self._index_master.start()
                 self._index_worker.start()
             if ENABLE_SEAFILE_AI:
-                repo_filename_index_updater.start()
+                self._repo_filename_index_updater.start()

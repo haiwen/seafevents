@@ -22,7 +22,7 @@ class SeafEventServer(Thread):
 
         if ENABLE_SEAFILE_AI:
             # semantic search index task
-            index_task_manager.init()
+            index_task_manager.init(config)
             index_task_manager.start()
 
         self._server = WSGIServer((self._host, int(self._port)), application)

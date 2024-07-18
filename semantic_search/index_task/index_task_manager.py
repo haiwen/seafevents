@@ -78,26 +78,55 @@ class IndexTaskManager:
         self.readable_id2task_map = {}  # {task_readable_id: task} in queue or running
         self.check_task_lock = Lock()   # lock access to readable_id2task_map
         self.sched = GeventScheduler()
-        self.app = None
-        self.conf = {
-            'workers': config.INDEX_MANAGER_WORKERS,
-            'expire_time': config.INDEX_TASK_EXPIRE_TIME
-        }
+
         self.sched.add_job(self.clear_expired_tasks, CronTrigger(minute='*/10'))
         self.sched.add_job(self.cron_update_library_sdoc_indexes, CronTrigger(hour='*'))
-        self.index_manager = None
-        self.repo_file_index = None
 
-    def init(self):
-        self.index_manager = IndexManager()
-        self.seasearch_api = SeaSearchAPI(config.SEASEARCH_SERVER, config.SEASEARCH_TOKEN)
+    def init(self, config):
+        self._parse_config(config)
+        self.conf = {
+            'workers': self.index_manager_workers,
+            'expire_time': self.index_task_expire_time
+        }
+        self.index_manager = IndexManager(self.retrieval_num)
+        self.seasearch_api = SeaSearchAPI(self.seasearch_server, self.seasearch_token)
         self.repo_data = repo_data
-        self.embedding_api = SeaEmbeddingAPI(config.SEA_EMBEDDING_SERVER)
+        self.embedding_api = SeaEmbeddingAPI(self.sea_embedding_server, self.sea_embedding_key)
         # for semantic search
-        self.repo_status_index = RepoStatusIndex(self.seasearch_api, REPO_STATUS_FILE_INDEX_NAME)
-        self.repo_file_index = RepoFileIndex(self.seasearch_api)
+        self.repo_status_index = RepoStatusIndex(
+            self.seasearch_api, REPO_STATUS_FILE_INDEX_NAME
+        )
+        self.repo_file_index = RepoFileIndex(
+            self.seasearch_api,
+            self.dimension,
+            self.vector_m,
+            self.shard_num,
+            self.threshold,
+            self.file_sentence_limit,
+        )
         # for keyword search
         self.repo_filename_index = RepoFileNameIndex(self.seasearch_api, self.repo_data)
+
+    def _parse_config(self, config):
+        self.seasearch_server = config['SEMANTIC_SEARCH']['seasearch_server']
+        self.seasearch_token = config['SEMANTIC_SEARCH']['seasearch_token']
+        self.sea_embedding_server = config['SEMANTIC_SEARCH']['sea_embedding_server']
+        self.sea_embedding_key = config['SEMANTIC_SEARCH']['sea_embedding_key']
+
+        self.index_manager_workers = int(
+            config['SEMANTIC_SEARCH']['index_manager_workers']
+        )
+        self.index_task_expire_time = int(
+            config['SEMANTIC_SEARCH']['index_task_expire_time']
+        )
+        self.retrieval_num = int(config['SEMANTIC_SEARCH']['retrieval_num'])
+        self.dimension = int(config['SEMANTIC_SEARCH']['embedding_dimension'])
+        self.vector_m = int(config['SEMANTIC_SEARCH']['seasearch_vector_m'])
+        self.shard_num = int(config['SEMANTIC_SEARCH']['seasearch_shard_num'])
+        self.threshold = float(config['SEMANTIC_SEARCH']['threshold'])
+        self.file_sentence_limit = int(
+            config['SEMANTIC_SEARCH']['embedding_file_sentence_limit']
+        )
 
     def get_pending_or_running_task(self, readable_id):
         task = self.readable_id2task_map.get(readable_id)

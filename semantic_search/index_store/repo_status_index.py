@@ -1,6 +1,3 @@
-from seafevents.semantic_search import config
-
-
 class RepoStatus(object):
     def __init__(self, repo_id, from_commit, to_commit):
         self.repo_id = repo_id
@@ -41,7 +38,6 @@ class RepoStatusIndex():
         },
     }
 
-    shard_num = config.SHARD_NUM
 
     def __init__(self, seasearch_api, index_name):
         self.index_name = index_name

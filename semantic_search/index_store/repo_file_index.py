@@ -1,7 +1,6 @@
 import os
 import logging
 
-from seafevents.semantic_search import config
 from seafevents.semantic_search.index_store.utils import parse_file_to_sentences, bulk_add_sentences_to_index
 from seafevents.semantic_search.utils import get_library_diff_files, is_sys_dir_or_file
 
@@ -13,31 +12,33 @@ SEASEARCH_QUERY_PATH_DOC_STEP = 20
 
 
 class RepoFileIndex(object):
-    """
-        index name is repo id
-    """
-    mapping = {
-        "properties": {
-            "vec": {
-                "type": "vector",
-                "dims": config.DIMENSION,
-                "vec_index_type": "ivf_pq",
-                "nbits": 4,
-                "m": config.VECTOR_M
-            },
-            "path": {
-                "type": "keyword"
-            },
-            'content': {
-                'type': 'text'
+
+    def __init__(self, seasearch_api, dimension, vector_m, shard_num, threshold, file_sentence_limit):
+        self.seasearch_api = seasearch_api
+        """
+            index name is repo id
+        """
+        self.mapping = {
+            "properties": {
+                "vec": {
+                    "type": "vector",
+                    "dims": dimension,
+                    "vec_index_type": "ivf_pq",
+                    "nbits": 4,
+                    "m": vector_m
+                },
+                "path": {
+                    "type": "keyword"
+                },
+                'content': {
+                    'type': 'text'
+                }
             }
         }
-    }
 
-    shard_num = config.SHARD_NUM
-
-    def __init__(self, seasearch_api):
-        self.seasearch_api = seasearch_api
+        self.shard_num = shard_num
+        self.threshold = threshold
+        self.file_sentence_limit = file_sentence_limit
 
     def create_index(self, index_name):
         data = {
@@ -84,7 +85,7 @@ class RepoFileIndex(object):
             if origin_path and not path.startswith(origin_path):
                 continue
 
-            if score < config.THRESHOLD:
+            if score < self.threshold:
                 continue
 
             if searched_result.get(path):
@@ -211,6 +212,6 @@ class RepoFileIndex(object):
 
     def add_file(self, index_name, file_info, commit_id, embedding_api, path):
         sentences = parse_file_to_sentences(index_name, file_info, commit_id)
-        sentences = sentences[0: config.FILE_SENTENCE_LIMIT]
+        sentences = sentences[0: self.file_sentence_limit]
         limit = int(SEASEARCH_BULK_OPETATE_LIMIT / 2)
         bulk_add_sentences_to_index(self.seasearch_api, embedding_api, index_name, path, sentences, limit)

@@ -10,24 +10,23 @@ from seafevents.semantic_search.index_store.repo_file_name_index import RepoFile
 from seafevents.semantic_search.utils.constants import REPO_STATUS_FILENAME_INDEX_NAME
 from seafevents.semantic_search.utils.seasearch_api import SeaSearchAPI
 from seafevents.repo_data import repo_data
-from seafevents.semantic_search import config
 
 logger = logging.getLogger(__name__)
 
 
-class RepoFilenameIndexUpdater():
-    def __init__(self):
-        self._repo_status_filename_index = None
-        self._repo_filename_index = None
-        self._index_manager = None
-        self._repo_data = None
-
-    def init(self): 
-        self.seasearch_api = SeaSearchAPI(config.SEASEARCH_SERVER, config.SEASEARCH_TOKEN)
+class RepoFilenameIndexUpdater(object):
+    def __init__(self, config):
+        self._parse_config(config)
+        self.seasearch_api = SeaSearchAPI(self.SEASEARCH_SERVER, self.SEASEARCH_TOKEN)
         self._repo_status_filename_index = RepoStatusIndex(self.seasearch_api, REPO_STATUS_FILENAME_INDEX_NAME)
-        self._repo_filename_index = RepoFileNameIndex(self.seasearch_api, repo_data)
+        self._repo_filename_index = RepoFileNameIndex(self.seasearch_api, repo_data, self.shard_num)
         self._index_manager = IndexManager()
         self._repo_data = repo_data
+
+    def _parse_config(self, config):
+        self.seasearch_server = config['SEMANTIC_SEARCH']['seasearch_server']
+        self.seasearch_token = config['SEMANTIC_SEARCH']['seasearch_token']
+        self.shard_num = int(config['SEMANTIC_SEARCH']['seasearch_shard_num'])
 
     def start(self):
         RepoFilenameIndexUpdaterTimer(
@@ -92,5 +91,3 @@ class RepoFilenameIndexUpdaterTimer(Thread):
             logging.exception('periodical update filename index error: %s', e)
 
         sched.start()
-
-repo_filename_index_updater = RepoFilenameIndexUpdater()

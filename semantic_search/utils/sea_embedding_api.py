@@ -4,7 +4,6 @@ import jwt
 import time
 import json
 
-from seafevents.semantic_search.config import SEA_EMBEDDING_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -22,13 +21,14 @@ def parse_response(response):
 
 class SeaEmbeddingAPI(object):
 
-    def __init__(self, sea_embedding_url, time_out=180):
+    def __init__(self, sea_embedding_url, sea_embedding_key, time_out=180):
         self.sea_embedding_url = sea_embedding_url.rstrip('/')
         self.time_out = time_out
+        self.sea_embedding_key = sea_embedding_key
 
     def gen_headers(self):
         payload = {'exp': int(time.time()) + 300, }
-        token = jwt.encode(payload, SEA_EMBEDDING_KEY, algorithm='HS256')
+        token = jwt.encode(payload, self.sea_embedding_key, algorithm='HS256')
         return {"Authorization": "Token %s" % token}
 
     def embeddings(self, input):

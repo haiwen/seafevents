@@ -7,7 +7,6 @@ from sqlalchemy.sql import text
 
 from seafevents.app.config import get_config
 from seafevents.db import init_db_session_class
-from seafevents.semantic_search import config 
 from seafevents.semantic_search.utils.constants import ZERO_OBJ_ID, REPO_FILENAME_INDEX_PREFIX
 from seafevents.semantic_search.index_store.models import IndexRepo
 from seafevents.semantic_search.index_store.utils import rank_fusion, filter_hybrid_searched_files
@@ -16,9 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 class IndexManager():
-    def __init__(self):
+    def __init__(self, retrieval_num):
         self.evtconf = os.environ['EVENTS_CONFIG_FILE']
         self._db_session_class = init_db_session_class(get_config(self.evtconf))
+        self.retrieval_num = retrieval_num
 
     def create_index_repo_db(self, repo_id):
         with self._db_session_class() as db_session:
@@ -73,7 +73,7 @@ class IndexManager():
         logger.info('library: %s, save library file to SeaSearch success', repo_id)
 
     def search_children_in_library(self, query, repo, embedding_api, repo_file_index, count=20):
-        return repo_file_index.search_files(repo, config.RETRIEVAL_NUM, embedding_api, query)[:count]
+        return repo_file_index.search_files(repo, self.retrieval_num, embedding_api, query)[:count]
 
     def update_library_sdoc_index(self, repo_id, embedding_api, repo_file_index, repo_status_index, new_commit_id):
         try:

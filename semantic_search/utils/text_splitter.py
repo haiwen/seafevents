@@ -2,7 +2,7 @@ import re
 import logging
 from transformers import AutoTokenizer
 
-from seafevents.semantic_search.config import MODEL_VOCAB_PATH
+from seafevents.semantic_search.utils.constants import MODEL_VOCAB_PATH
 logger = logging.getLogger(__name__)
 
 
