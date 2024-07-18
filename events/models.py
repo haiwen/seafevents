@@ -245,3 +245,34 @@ class UserLogin(Base):
         self.login_ip = login_ip
         self.login_success = login_success
 
+class FileTrash(Base):
+    __tablename__ = 'FileTrash'
+
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user = mapped_column(String(length=255), nullable=False)
+    obj_type = mapped_column(String(length=128), nullable=False)
+    obj_id = mapped_column(String(length=40), nullable=False)
+    obj_name = mapped_column(String(length=255), nullable=False)
+    delete_time = mapped_column(DateTime, nullable=False, index=True)
+
+    repo_id = mapped_column(String(length=36), nullable=False)
+    commit_id = mapped_column(String(length=40))
+    path = mapped_column(Text, nullable=False)
+    size = mapped_column(BigInteger, nullable=False)
+
+    def __init__(self, record):
+        super().__init__()
+        self.user = record['op_user']
+        self.obj_type = record['obj_type']
+        self.obj_id = record.get('obj_id', "")
+        self.obj_name = record['obj_name']
+        self.delete_time = record['timestamp']
+        self.repo_id = record['repo_id']
+        self.path =record['path']
+        self.commit_id = record.get('commit_id', None)
+        self.size = record.get('size', 0)
+
+
+    def __str__(self):
+        return 'FileTrash<id: %s, type: %s, repo_id: %s>' % \
+            (self.id, self.obj_type, self.repo_id)
