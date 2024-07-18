@@ -23,7 +23,6 @@ from seafevents.events.db import save_file_audit_event, save_file_update_event, 
 from seafevents.app.config import TIME_ZONE
 from seafevents.utils import get_opt_from_conf_or_env
 from .change_file_path import ChangeFilePathHandler
-from .change_extended_props import ChangeExtendedPropsHandler
 from .models import Activity, FileTrash
 from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, save_deleted_files_msg
 from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
