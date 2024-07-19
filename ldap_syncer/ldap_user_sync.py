@@ -8,11 +8,18 @@ from .ldap_sync import LdapSync
 from .utils import bytes2str
 from ldap import SCOPE_SUBTREE
 
+USE_LDAP_ROLE_LIST_MAPPING = False
 try:
     from custom_functions import ldap_role_mapping
 except ImportError:
-    def ldap_role_mapping(role, role_list=None):
+    def ldap_role_mapping(role):
         return role
+try:
+    from custom_functions import ldap_role_list_mapping
+    USE_LDAP_ROLE_LIST_MAPPING = True
+except ImportError:
+    def ldap_role_list_mapping(role_list):
+        return role_list[0] if role_list else ''
 
 
 VIRTUAL_ID_EMAIL_DOMAIN = '@auth.local'
@@ -402,7 +409,7 @@ class LdapUserSync(LdapSync):
                 role = ''
             else:
                 role = attrs[config.role_name_attr][0]
-                role_list = [role.decode() for role in attrs[config.role_name_attr]]
+                role_list = [role for role in attrs[config.role_name_attr]]
 
             if config.enable_extra_user_info_sync:
                 if config.first_name_attr not in attrs:
@@ -460,7 +467,10 @@ class LdapUserSync(LdapSync):
 
         ret = 0
         if ldap_user.role:
-            role = ldap_role_mapping(ldap_user.role, ldap_user.role_list)
+            if not USE_LDAP_ROLE_LIST_MAPPING:
+                role = ldap_role_mapping(ldap_user.role)
+            else:
+                role = ldap_role_list_mapping(ldap_user.role_list)
             ret = ccnet_api.update_role_emailuser(virtual_id, role, False)
 
             if ret == 0:
@@ -476,7 +486,10 @@ class LdapUserSync(LdapSync):
 
     def sync_update_user(self, ldap_user, db_user, email):
         if ldap_user.role:
-            role = ldap_role_mapping(ldap_user.role, ldap_user.role_list)
+            if not USE_LDAP_ROLE_LIST_MAPPING:
+                role = ldap_role_mapping(ldap_user.role)
+            else:
+                role = ldap_role_list_mapping(ldap_user.role_list)
             if not db_user.is_manual_set and db_user.role != role:
                 ret = ccnet_api.update_role_emailuser(email, role, False)
 
