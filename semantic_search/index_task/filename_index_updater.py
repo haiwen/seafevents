@@ -69,7 +69,7 @@ def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_inde
         if len(repo_commits) == 0:
             break
 
-        for repo_id, commit_id in repo_commits.items():
+        for repo_id, commit_id in repo_commits:
             all_repos.append(repo_id)
 
             index_manager.update_library_filename_index(repo_id, commit_id, repo_filename_index, repo_status_filename_index)
