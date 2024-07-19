@@ -10,6 +10,7 @@ from seafevents.seafevent_server.seafevent_server import SeafEventServer
 from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_SEAFILE_AI
 from seafevents.semantic_search.index_task.filename_index_updater import RepoFilenameIndexUpdater
 
+
 class App(object):
     def __init__(self, config, ccnet_config, seafile_config,
                  foreground_tasks_enabled=True,

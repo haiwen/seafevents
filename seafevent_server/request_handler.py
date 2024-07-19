@@ -8,6 +8,7 @@ from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seafevents.semantic_search.index_task.index_task_manager import index_task_manager
 
+
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
 

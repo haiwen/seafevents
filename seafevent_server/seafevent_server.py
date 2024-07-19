@@ -7,6 +7,7 @@ from seafevents.seafevent_server.export_task_manager import event_export_task_ma
 from seafevents.app.config import ENABLE_SEAFILE_AI
 from seafevents.semantic_search.index_task.index_task_manager import index_task_manager
 
+
 class SeafEventServer(Thread):
 
     def __init__(self, app, config):
