@@ -1,11 +1,12 @@
 import jwt
 import logging
+import json
 
 from flask import Flask, request, make_response
 from seafevents.app.config import SEAHUB_SECRET_KEY
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
-
+from seafevents.semantic_search.index_task.index_task_manager import index_task_manager
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
@@ -96,3 +97,35 @@ def query_status():
         return make_response((error, 500))
     return make_response(({'is_finished': is_finished}, 200))
 
+
+@app.route('/search', methods=['POST'])
+def search():
+    is_valid = check_auth_token(request)
+    if not is_valid:
+        return {'error_msg': 'Permission denied'}, 403
+
+    try:
+        data = json.loads(request.data)
+    except Exception as e:
+        logger.exception(e)
+        return {'error_msg': 'Bad request.'}, 400
+
+    query = data.get('query').strip()
+    repos = data.get('repos')
+    suffixes = data.get('suffixes')
+    # search_filename_only = data.get('search_filename_only')
+
+    if not query:
+        return {'error_msg': 'query invalid.'}, 400
+
+    if not repos:
+        return {'error_msg': 'repos invalid.'}, 400
+
+    try:
+        count = int(data.get('count'))
+    except:
+        count = 20
+
+    results = index_task_manager.keyword_search(query, repos, count, suffixes)
+
+    return {'results': results}, 200
