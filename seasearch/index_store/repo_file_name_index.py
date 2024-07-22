@@ -2,8 +2,8 @@ import json
 import os
 import logging
 
-from seafevents.semantic_search.utils import get_library_diff_files, md5, is_sys_dir_or_file
-from seafevents.semantic_search.utils.constants import REPO_FILENAME_INDEX_PREFIX
+from seafevents.seasearch.utils import get_library_diff_files, md5, is_sys_dir_or_file
+from seafevents.seasearch.utils.constants import REPO_FILENAME_INDEX_PREFIX
 
 logger = logging.getLogger(__name__)
 

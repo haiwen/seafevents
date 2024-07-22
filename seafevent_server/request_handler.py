@@ -6,7 +6,7 @@ from flask import Flask, request, make_response
 from seafevents.app.config import SEAHUB_SECRET_KEY
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
-from seafevents.semantic_search.index_task.index_task_manager import index_task_manager
+from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 
 
 app = Flask(__name__)
@@ -114,7 +114,6 @@ def search():
     query = data.get('query').strip()
     repos = data.get('repos')
     suffixes = data.get('suffixes')
-    # search_filename_only = data.get('search_filename_only')
 
     if not query:
         return {'error_msg': 'query invalid.'}, 400

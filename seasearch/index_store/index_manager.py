@@ -1,63 +1,12 @@
 import logging
 import time
-from datetime import datetime
 
-from sqlalchemy.sql import text
-
-from seafevents.semantic_search.utils.constants import ZERO_OBJ_ID, REPO_FILENAME_INDEX_PREFIX
-from seafevents.db import init_db_session_class
-from seafevents.semantic_search.index_store.models import IndexRepo
+from seafevents.seasearch.utils.constants import ZERO_OBJ_ID, REPO_FILENAME_INDEX_PREFIX
 
 logger = logging.getLogger(__name__)
 
 
 class IndexManager(object):
-    def __init__(self, config):
-        self._db_session_class = init_db_session_class(config)
-
-    def create_index_repo_db(self, repo_id):
-        with self._db_session_class() as db_session:
-            index_repo = IndexRepo(repo_id, datetime.now(), datetime.now())
-            db_session.add(index_repo)
-            db_session.commit()
-
-    def delete_index_repo_db(self, repo_id):
-        with self._db_session_class() as db_session:
-            db_session.query(IndexRepo).filter(IndexRepo.repo_id == repo_id).delete()
-            db_session.commit()
-
-    def update_index_repo_db(self, repo_id):
-        with self._db_session_class() as db_session:
-            index_repo = db_session.query(IndexRepo). \
-                filter(IndexRepo.repo_id == repo_id)
-            index_repo.update({"updated": datetime.now()})
-            db_session.commit()
-
-    def get_index_repo_by_repo_id(self, repo_id):
-        with self._db_session_class() as db_session:
-            return db_session.query(IndexRepo).filter(IndexRepo.repo_id == repo_id).first()
-
-    def list_index_repos(self):
-        with self._db_session_class() as db_session:
-            sql = """
-                    SELECT `repo_id` FROM index_repo
-                    """
-
-            index_repos = db_session.execute(text(sql))
-            return index_repos
-
-    def get_index_repos_by_size(self, start, size):
-        with self._db_session_class() as db_session:
-            sql = """
-                    SELECT `repo_id`
-                    FROM index_repo LIMIT :start, :size
-                    """
-
-            index_repos = db_session.execute(text(sql), {
-                'start': start,
-                'size': size,
-            })
-            return index_repos
 
     def update_library_filename_index(self, repo_id, commit_id, repo_filename_index, repo_status_filename_index):
         try:

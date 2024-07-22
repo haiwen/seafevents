@@ -1,7 +1,7 @@
 import logging
 import hashlib
 
-from seafevents.semantic_search.utils.commit_differ import CommitDiffer
+from seafevents.seasearch.utils.commit_differ import CommitDiffer
 
 from seafobj import fs_mgr, commit_mgr
 from seafobj.exceptions import GetObjectError

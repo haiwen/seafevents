@@ -3,12 +3,13 @@ from threading import Thread
 
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.gevent import GeventScheduler
-from seafevents.semantic_search.index_store.index_manager import IndexManager
-from seafevents.semantic_search.index_store.repo_file_name_index import RepoFileNameIndex
-from seafevents.semantic_search.index_store.repo_status_index import RepoStatusIndex
-from seafevents.semantic_search.utils.constants import REPO_STATUS_FILENAME_INDEX_NAME
-from seafevents.semantic_search.utils.seasearch_api import SeaSearchAPI
+from seafevents.seasearch.index_store.index_manager import IndexManager
+from seafevents.seasearch.index_store.repo_file_name_index import RepoFileNameIndex
+from seafevents.seasearch.index_store.repo_status_index import RepoStatusIndex
+from seafevents.seasearch.utils.constants import REPO_STATUS_FILENAME_INDEX_NAME
+from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.repo_data import repo_data
+from seafevents.utils import parse_bool, get_opt_from_conf_or_env
 
 
 logger = logging.getLogger(__name__)
@@ -16,9 +17,43 @@ logger = logging.getLogger(__name__)
 
 class RepoFilenameIndexUpdater(object):
     def __init__(self, config):
+        self._enabled = False
+
+        self.seasearch_api = None
+        self._repo_data = None
+        self._repo_status_filename_index = None
+        self._repo_filename_index = None
+        self._index_manager = None
+        self._parse_config(config)
+
+    def _parse_config(self, config):
+        """Parse fimename index update related parts of events.conf"""
+        section_name = 'SEASEARCH'
+        key_enabled = 'enabled'
+
+        if not config.has_section(section_name):
+            return
+
+        # [ enabled ]
+        enabled = get_opt_from_conf_or_env(config, section_name, key_enabled, default=False)
+        enabled = parse_bool(enabled)
+        if not enabled:
+            return
+        self._enabled = True
+
+        seasearch_url = get_opt_from_conf_or_env(
+            config, section_name, 'seasearch_url', 'SEASEARCH_URL', None
+        )
+        seasearch_token = get_opt_from_conf_or_env(
+            config, section_name, 'seasearch_token', 'SEASEARCH_TOKEN', None
+        )
+        seasearch_shard_num = get_opt_from_conf_or_env(
+            config, section_name, 'seasearch_shard_num', 'SEASEARCH_SHARD_NUM', None
+        )
+
         self.seasearch_api = SeaSearchAPI(
-            config['SEMANTIC_SEARCH']['seasearch_url'],
-            config['SEMANTIC_SEARCH']['seasearch_token'],
+            seasearch_url,
+            seasearch_token,
         )
         self._repo_data = repo_data
         self._repo_status_filename_index = RepoStatusIndex(
@@ -27,11 +62,17 @@ class RepoFilenameIndexUpdater(object):
         self._repo_filename_index = RepoFileNameIndex(
             self.seasearch_api,
             self._repo_data,
-            int(config['SEMANTIC_SEARCH']['seasearch_shard_num']),
+            int(seasearch_shard_num),
         )
-        self._index_manager = IndexManager(config)
+        self._index_manager = IndexManager()
+
+    def is_enabled(self):
+        return self._enabled
 
     def start(self):
+        if not self.is_enabled():
+            return
+
         RepoFilenameIndexUpdaterTimer(
             self._repo_status_filename_index,
             self._repo_filename_index,

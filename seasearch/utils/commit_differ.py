@@ -1,5 +1,5 @@
 # coding: UTF-8
-from seafevents.semantic_search.utils.constants import ZERO_OBJ_ID
+from seafevents.seasearch.utils.constants import ZERO_OBJ_ID
 
 from seafobj import fs_mgr
 
