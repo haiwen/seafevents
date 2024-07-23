@@ -29,7 +29,7 @@ def create_engine_from_conf(config_file):
         if seaf_conf.has_option('database', 'host'):
             db_server = seaf_conf.get('database', 'host')
         if seaf_conf.has_option('database', 'port'):
-            db_port =seaf_conf.getint('database', 'port')
+            db_port = seaf_conf.getint('database', 'port')
         db_username = seaf_conf.get('database', 'user')
         db_passwd = seaf_conf.get('database', 'password')
         db_name = seaf_conf.get('database', 'db_name')

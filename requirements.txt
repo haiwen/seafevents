@@ -7,3 +7,6 @@ pymysql
 gevent==24.2.*
 Flask==2.2.*
 apscheduler
+unstructured[docx,pptx]
+transformers
+ndjson
