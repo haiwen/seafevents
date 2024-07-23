@@ -69,27 +69,25 @@ class RepoMetadataIndexWorker(object):
         logger.info('%s starting update metadata work' % self.tname)
         try:
             while not self.should_stop.isSet():
-                self.should_stop.wait(5)
-                if not self.should_stop.is_set():
-                    try:
-                        res = self.mq.brpop('metadata_task', timeout=30)
-                        if res is not None:
-                            key, value = res
-                            msg = value.split('\t')
-                            if len(msg) != 3:
-                                logger.info('Bad message: %s' % str(msg))
-                            else:
-                                op_type, repo_id, commit_id = msg[0], msg[1], msg[2]
-                                self.worker_task_handler(self.mq, repo_id, commit_id, op_type, self.should_stop)
-                    except (ResponseError, NoMQAvailable, TimeoutError) as e:
-                        logger.error('The connection to the redis server failed: %s' % e)
+                try:
+                    res = self.mq.brpop('metadata_task', timeout=30)
+                    if res is not None:
+                        key, value = res
+                        msg = value.split('\t')
+                        if len(msg) != 2:
+                            logger.info('Bad message: %s' % str(msg))
+                        else:
+                            op_type, repo_id = msg[0], msg[1]
+                            self.worker_task_handler(self.mq, repo_id, op_type, self.should_stop)
+                except (ResponseError, NoMQAvailable, TimeoutError) as e:
+                    logger.error('The connection to the redis server failed: %s' % e)
         except Exception as e:
             logger.error('%s Handle Worker Task Error' % self.tname)
             logger.error(e, exc_info=True)
             # prevent case that redis break at program running.
             time.sleep(0.3)
 
-    def worker_task_handler(self, mq, repo_id, commit_id, op_type, should_stop):
+    def worker_task_handler(self, mq, repo_id, op_type, should_stop):
         # Python cannot kill threads, so stop it generate more locked key.
         if not should_stop.isSet():
             # set key-value if does not exist which will expire 30 minutes later
@@ -110,7 +108,7 @@ class RepoMetadataIndexWorker(object):
                             (self.tname, repo_id, lock_key))
             else:
                 # the repo is updated by other thread, push back to the queue
-                self.add_to_undo_task(mq, repo_id, commit_id)
+                self.add_to_undo_task(mq, repo_id)
 
     def update_metadata(self, repo_id, op_type):
         commit_id = repo_data.get_repo_head_commit(repo_id)
@@ -126,12 +124,11 @@ class RepoMetadataIndexWorker(object):
         except Exception as e:
             logger.exception('update repo: %s metadata error: %s', repo_id, e)
 
-    def add_to_undo_task(self, mq, repo_id, commit_id):
+    def add_to_undo_task(self, mq, repo_id):
         """Push task back to the end of the queue.
         """
-        mq.lpush('metadata_task', '\t'.join(['repo-update', repo_id, commit_id]))
-        logger.debug('%s push back task (%s, %s) to the queue' %
-                     (self.tname, repo_id, commit_id))
+        mq.lpush('metadata_task', '\t'.join(['repo-update', repo_id]))
+        logger.debug('%s push back task (%s) to the queue' % (self.tname, repo_id))
 
         # avoid get the same task repeatedly
         time.sleep(0.5)
