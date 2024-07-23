@@ -159,10 +159,10 @@ def start_index_local():
     seafevents_conf = os.path.join(conf_path, 'seafevents.conf')
     config = get_config(seafevents_conf)
     seasearch_url = get_opt_from_conf_or_env(
-        config, section_name, 'url'
+        config, section_name, 'seasearch_url'
     )
     seasearch_token = get_opt_from_conf_or_env(
-        config, section_name, 'token'
+        config, section_name, 'seasearch_token'
     )
 
     index_manager = IndexManager()
@@ -192,10 +192,10 @@ def delete_indices():
     seafevents_conf = os.path.join(conf_path, 'seafevents.conf')
     config = get_config(seafevents_conf)
     seasearch_url = get_opt_from_conf_or_env(
-        config, section_name, 'url'
+        config, section_name, 'seasearch_url'
     )
     seasearch_token = get_opt_from_conf_or_env(
-        config, section_name, 'token'
+        config, section_name, 'seasearch_token'
     )
 
     seasearch_api = SeaSearchAPI(seasearch_url, seasearch_token)

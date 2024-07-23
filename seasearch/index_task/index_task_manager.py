@@ -3,6 +3,7 @@ import logging
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.index_store.repo_file_name_index import RepoFileNameIndex
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
+from seafevents.seasearch.config import SHARD_NUM
 from seafevents.repo_data import repo_data
 from seafevents.utils import parse_bool, get_opt_from_conf_or_env
 
@@ -43,13 +44,10 @@ class IndexTaskManager:
         self._enabled = True
 
         seasearch_url = get_opt_from_conf_or_env(
-            config, section_name, 'url'
+            config, section_name, 'seasearch_url'
         )
         seasearch_token = get_opt_from_conf_or_env(
-            config, section_name, 'token'
-        )
-        seasearch_shard_num = get_opt_from_conf_or_env(
-            config, section_name, 'shard_num'
+            config, section_name, 'seasearch_token'
         )
     
         self.seasearch_api = SeaSearchAPI(
@@ -61,7 +59,7 @@ class IndexTaskManager:
         self._repo_filename_index = RepoFileNameIndex(
             self.seasearch_api,
             self._repo_data,
-            int(seasearch_shard_num),
+            int(SHARD_NUM),
         )
 
     def keyword_search(self, query, repos, count, suffixes):
