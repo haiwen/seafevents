@@ -6,6 +6,22 @@ import logging
 import argparse
 import threading
 
+
+def set_env():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    ppparent_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+    sys.path.append(ppparent_dir)
+    conf_path = os.environ.get('CONF_PATH')
+    os.environ['CCNET_CONF_DIR'] = conf_path
+    os.environ['SEAFILE_CONF_DIR'] = os.path.join(conf_path, 'seafile-data')
+    os.environ['EVENTS_CONFIG_FILE'] = os.path.join(conf_path, 'seafevents.conf')
+    os.environ['SEAFES_DIR'] = '/data/dev/seafes/'
+    os.environ['SEAHUB_DIR'] = '/data/dev/seahub/'
+    os.environ['SEAFILE_RPC_PIPE_PATH'] = '/opt/seafile-data'
+
+set_env()
+
+
 from seafobj import commit_mgr, fs_mgr, block_mgr
 from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.app.config import get_config
@@ -68,7 +84,7 @@ class RepoFileNameIndexLocal(object):
                 if len(repo_commits) == 0:
                     NO_TASKS = True
                     break
-                for repo_id, commit_id in repo_commits.items():
+                for repo_id, commit_id in repo_commits:
                     repos_queue.put((repo_id, commit_id))
                     repos[repo_id] = commit_id
                 start += per_size
@@ -143,16 +159,16 @@ def start_index_local():
     seafevents_conf = os.path.join(conf_path, 'seafevents.conf')
     config = get_config(seafevents_conf)
     seasearch_url = get_opt_from_conf_or_env(
-        config, section_name, 'seasearch_url', 'SEASEARCH_URL', None
+        config, section_name, 'url'
     )
     seasearch_token = get_opt_from_conf_or_env(
-        config, section_name, 'seasearch_token', 'SEASEARCH_TOKEN', None
+        config, section_name, 'token'
     )
 
     index_manager = IndexManager()
     seasearch_api = SeaSearchAPI(seasearch_url, seasearch_token)
     repo_status_filename_index = RepoStatusIndex(seasearch_api, REPO_STATUS_FILENAME_INDEX_NAME)
-    repo_filename_index = RepoFileNameIndex(seasearch_api, repo_data)
+    repo_filename_index = RepoFileNameIndex(seasearch_api, repo_data, shard_num=1)
 
     try:
         index_local = RepoFileNameIndexLocal(index_manager, repo_status_filename_index, repo_filename_index,repo_data)
@@ -176,15 +192,15 @@ def delete_indices():
     seafevents_conf = os.path.join(conf_path, 'seafevents.conf')
     config = get_config(seafevents_conf)
     seasearch_url = get_opt_from_conf_or_env(
-        config, section_name, 'seasearch_url', 'SEASEARCH_URL', None
+        config, section_name, 'url'
     )
     seasearch_token = get_opt_from_conf_or_env(
-        config, section_name, 'seasearch_token', 'SEASEARCH_TOKEN', None
+        config, section_name, 'token'
     )
 
     seasearch_api = SeaSearchAPI(seasearch_url, seasearch_token)
     repo_status_filename_index = RepoStatusIndex(seasearch_api, REPO_STATUS_FILENAME_INDEX_NAME)
-    repo_filename_index = RepoFileNameIndex(seasearch_api, repo_data)
+    repo_filename_index = RepoFileNameIndex(seasearch_api, repo_data, shard_num=1)
 
     start, count = 0, 1000
     while True:
@@ -198,7 +214,7 @@ def delete_indices():
         if len(repo_commits) == 0:
             break
 
-        for repo_id, commit_id in repo_commits.items():
+        for repo_id, commit_id in repo_commits:
             repo_filename_index_name = REPO_FILENAME_INDEX_PREFIX + repo_id
             repo_filename_index.delete_index_by_index_name(repo_filename_index_name)
 
@@ -267,7 +283,7 @@ def do_lock_win32(fn):
 
 
 def do_lock_linux(fn):
-    from seafile_ai import portalocker
+    from seafevents.seasearch.script import portalocker
     global lockfile
     lockfile = open(fn, 'w')
     try:

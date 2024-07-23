@@ -26,7 +26,12 @@ class IndexTaskManager:
         """Parse fimename index update related parts of events.conf"""
         section_name = 'SEASEARCH'
         key_enabled = 'enabled'
+        es_section_name = 'INDEX FILES'
 
+        if config.has_section(es_section_name):
+            es_enabled = get_opt_from_conf_or_env(config, es_section_name, key_enabled, default=False)
+            if es_enabled := parse_bool(es_enabled):
+                return
         if not config.has_section(section_name):
             return
 
@@ -38,13 +43,13 @@ class IndexTaskManager:
         self._enabled = True
 
         seasearch_url = get_opt_from_conf_or_env(
-            config, section_name, 'seasearch_url', 'SEASEARCH_URL', None
+            config, section_name, 'url'
         )
         seasearch_token = get_opt_from_conf_or_env(
-            config, section_name, 'seasearch_token', 'SEASEARCH_TOKEN', None
+            config, section_name, 'token'
         )
         seasearch_shard_num = get_opt_from_conf_or_env(
-            config, section_name, 'seasearch_shard_num', 'SEASEARCH_SHARD_NUM', None
+            config, section_name, 'shard_num'
         )
     
         self.seasearch_api = SeaSearchAPI(
