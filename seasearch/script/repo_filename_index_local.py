@@ -6,22 +6,6 @@ import logging
 import argparse
 import threading
 
-
-def set_env():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    ppparent_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
-    sys.path.append(ppparent_dir)
-    conf_path = os.environ.get('CONF_PATH')
-    os.environ['CCNET_CONF_DIR'] = conf_path
-    os.environ['SEAFILE_CONF_DIR'] = os.path.join(conf_path, 'seafile-data')
-    os.environ['EVENTS_CONFIG_FILE'] = os.path.join(conf_path, 'seafevents.conf')
-    os.environ['SEAFES_DIR'] = '/data/dev/seafes/'
-    os.environ['SEAHUB_DIR'] = '/data/dev/seahub/'
-    os.environ['SEAFILE_RPC_PIPE_PATH'] = '/opt/seafile-data'
-
-set_env()
-
-
 from seafobj import commit_mgr, fs_mgr, block_mgr
 from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.app.config import get_config
