@@ -6,9 +6,8 @@ from apscheduler.schedulers.gevent import GeventScheduler
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.index_store.repo_file_name_index import RepoFileNameIndex
 from seafevents.seasearch.index_store.repo_status_index import RepoStatusIndex
-from seafevents.seasearch.utils.constants import REPO_STATUS_FILENAME_INDEX_NAME
+from seafevents.seasearch.utils.constants import REPO_STATUS_FILENAME_INDEX_NAME, SHARD_NUM
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
-from seafevents.seasearch.config import SHARD_NUM
 from seafevents.repo_data import repo_data
 from seafevents.utils import parse_bool, get_opt_from_conf_or_env
 
