@@ -130,16 +130,3 @@ class MetadataManager(object):
                         'update repo_metadata set from_commit=:from_commit, to_commit=:to_commit, enabled=:enabled where repo_id=:repo_id'),
                     {'from_commit': commit_id, 'to_commit': new_commit_id, 'repo_id': repo_id, 'enabled': 1})
                 session.commit()
-
-    def create_metadata(self, repo_id):
-        new_commit_id = repo_data.get_repo_head_commit(repo_id)
-        old_commit_id = ZERO_OBJ_ID
-
-        # delete base to prevent dirty data caused by last failure
-        self.repo_metadata.delete_base(repo_id)
-
-        self.repo_metadata.create_base(repo_id)
-        self.begin_create_metadata(repo_id, old_commit_id, new_commit_id)
-        self.update_metadata_index(repo_id, old_commit_id, new_commit_id)
-        self.finish_update_metadata(repo_id, new_commit_id)
-
