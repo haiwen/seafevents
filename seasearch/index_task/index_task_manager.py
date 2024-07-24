@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class IndexTaskManager:
     def __init__(self):
-        self._enabled = False
+        self.enabled = False
 
         self.seasearch_api = None
         self._repo_data = None
@@ -41,7 +41,7 @@ class IndexTaskManager:
         enabled = parse_bool(enabled)
         if not enabled:
             return
-        self._enabled = True
+        self.enabled = True
 
         seasearch_url = get_opt_from_conf_or_env(
             config, section_name, 'seasearch_url'

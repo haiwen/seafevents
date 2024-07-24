@@ -105,6 +105,9 @@ def search():
     if not is_valid:
         return {'error_msg': 'Permission denied'}, 403
 
+    # Check seasearch is enable
+    if not index_task_manager.enabled:
+        return {'error_msg': 'Seasearch is not enabled by seafevents.conf'}
     try:
         data = json.loads(request.data)
     except Exception as e:
