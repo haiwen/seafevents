@@ -1,7 +1,12 @@
 import os
 import logging
+import exifread
 
-from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_by_name
+from io import BytesIO
+
+from seafobj import commit_mgr, fs_mgr
+
+from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_by_name, get_latlng
 from seafevents.utils import timestamp_to_isoformat_timestr
 
 logger = logging.getLogger(__name__)
@@ -15,13 +20,13 @@ class RepoMetadata:
         self.metadata_server_api = metadata_server_api
 
     def update(self, repo_id, added_files, deleted_files, added_dirs, deleted_dirs, modified_files,
-                        renamed_files, moved_files, renamed_dirs, moved_dirs):
+                        renamed_files, moved_files, renamed_dirs, moved_dirs, commit_id):
 
         # delete added_files delete added dirs for preventing duplicate insertions
         self.delete_files(repo_id, added_files)
         self.delete_dirs(repo_id, added_dirs)
 
-        self.add_files(repo_id, added_files)
+        self.add_files(repo_id, added_files, commit_id)
         self.delete_files(repo_id, deleted_files)
         self.add_dirs(repo_id, added_dirs)
         self.delete_dirs(repo_id, deleted_dirs)
@@ -39,11 +44,13 @@ class RepoMetadata:
             if path.startswith(ex_path):
                 return True
 
-    def add_files(self, repo_id, added_files):
+    def add_files(self, repo_id, added_files, commit_id):
         if not added_files:
             return
+
         rows = []
         for de in added_files:
+            logger.info(de.__dict__)
             path = de.path.rstrip('/')
             mtime = de.mtime
             parent_dir = os.path.dirname(path)
@@ -66,6 +73,16 @@ class RepoMetadata:
 
             if file_type:
                 row[METADATA_TABLE.columns.file_type.name] = file_type
+            if file_type == '_picture':
+                obj_id = de.obj_id
+                new_commit = commit_mgr.load_commit(repo_id, 0, commit_id)
+                version = new_commit.get_version()
+                f = fs_mgr.load_seafile(repo_id, version, obj_id)
+                content = f.get_content()
+                exif_content = exifread.process_file(BytesIO(content))
+                lat, lng = get_latlng(exif_content)
+                logger.info({'lng': lng, 'lat': lat})
+                row[METADATA_TABLE.columns.location.name] = {'lng': lng, 'lat': lat}
             rows.append(row)
         if not rows:
             return
@@ -441,6 +458,7 @@ class RepoMetadata:
         self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.file_name.to_dict())
         self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.is_dir.to_dict())
         self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.file_type.to_dict())
+        self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.location.to_dict())
 
     def create_base(self, repo_id):
         self.metadata_server_api.create_base(repo_id)

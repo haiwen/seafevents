@@ -26,6 +26,23 @@ def get_file_type_by_name(filename):
     return file_type
 
 
+def get_latlng(content):
+    lat_lng_info = {
+        "lat_key": "GPS GPSLatitudeRef",
+        "lat_value": "GPS GPSLatitude",
+        "lng_key": "GPS GPSLongitudeRef",
+        "lng_value": "GPS GPSLongitude"
+    }
+    for key in lat_lng_info.values():
+        if key not in content:
+            return "", ""
+    lat_list = content[lat_lng_info["lat_value"]].values
+    lat = int(lat_list[0]) + int(lat_list[1]) / 60 + float(lat_list[2]) / 3600
+    lng_list = content[lat_lng_info["lng_value"]].values
+    lng = int(lng_list[0]) + int(lng_list[1]) / 60 + float(lng_list[2]) / 3600
+    return lat, lng
+
+
 def gen_select_options(option_names):
     options = []
 
@@ -68,6 +85,7 @@ class MetadataColumns(object):
         self.is_dir = MetadataColumn('_is_dir', '_is_dir', 'checkbox')
         self.file_type = MetadataColumn('_file_type', '_file_type', 'single-select',
                                         {'options': gen_select_options(list(METADATA_FILE_TYPES.keys()))})
+        self.location = MetadataColumn('_location', '_location', 'geolocation', {'geo_format': 'lng_lat'})
 
 
 class MetadataColumn(object):
