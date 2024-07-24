@@ -27,12 +27,7 @@ class IndexTaskManager:
         """Parse fimename index update related parts of events.conf"""
         section_name = 'SEASEARCH'
         key_enabled = 'enabled'
-        es_section_name = 'INDEX FILES'
 
-        if config.has_section(es_section_name):
-            es_enabled = get_opt_from_conf_or_env(config, es_section_name, key_enabled, default=False)
-            if es_enabled := parse_bool(es_enabled):
-                return
         if not config.has_section(section_name):
             return
 
