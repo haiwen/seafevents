@@ -17,7 +17,6 @@ from seafevents.seasearch.index_store.repo_status_index import RepoStatusIndex
 from seafevents.seasearch.utils.constants import REPO_STATUS_FILENAME_INDEX_NAME, REPO_FILENAME_INDEX_PREFIX
 from seafevents.seasearch.index_store.repo_file_name_index import RepoFileNameIndex
 
-MAX_ERRORS_ALLOWED = 1000
 logger = logging.getLogger('seasearch')
 
 UPDATE_FILE_LOCK = os.path.join(os.path.dirname(__file__), 'update.lock')
@@ -139,8 +138,7 @@ def start_index_local():
     if not check_concurrent_update():
         return
     section_name = 'SEASEARCH'
-    conf_path = os.environ.get('CONF_PATH') or os.environ.get('SEAFILE_CENTRAL_CONF_DIR')
-    seafevents_conf = os.path.join(conf_path, 'seafevents.conf')
+    seafevents_conf = os.environ.get('EVENTS_CONFIG_FILE')
     config = get_config(seafevents_conf)
     seasearch_url = get_opt_from_conf_or_env(
         config, section_name, 'seasearch_url'
