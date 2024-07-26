@@ -1,7 +1,7 @@
 import os
 import logging
 
-from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_by_name
+from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_by_name, get_latlng
 from seafevents.utils import timestamp_to_isoformat_timestr
 
 logger = logging.getLogger(__name__)
@@ -15,13 +15,13 @@ class RepoMetadata:
         self.metadata_server_api = metadata_server_api
 
     def update(self, repo_id, added_files, deleted_files, added_dirs, deleted_dirs, modified_files,
-                        renamed_files, moved_files, renamed_dirs, moved_dirs):
+                        renamed_files, moved_files, renamed_dirs, moved_dirs, commit_id):
 
         # delete added_files delete added dirs for preventing duplicate insertions
         self.delete_files(repo_id, added_files)
         self.delete_dirs(repo_id, added_dirs)
 
-        self.add_files(repo_id, added_files)
+        self.add_files(repo_id, added_files, commit_id)
         self.delete_files(repo_id, deleted_files)
         self.add_dirs(repo_id, added_dirs)
         self.delete_dirs(repo_id, deleted_dirs)
@@ -39,9 +39,10 @@ class RepoMetadata:
             if path.startswith(ex_path):
                 return True
 
-    def add_files(self, repo_id, added_files):
+    def add_files(self, repo_id, added_files, commit_id):
         if not added_files:
             return
+
         rows = []
         for de in added_files:
             path = de.path.rstrip('/')
@@ -66,6 +67,13 @@ class RepoMetadata:
 
             if file_type:
                 row[METADATA_TABLE.columns.file_type.name] = file_type
+            if file_type == '_picture':
+                obj_id = de.obj_id
+                try:
+                    lat, lng = get_latlng(repo_id, commit_id, obj_id)
+                    row[METADATA_TABLE.columns.location.name] = {'lng': lng, 'lat': lat}
+                except:
+                    pass
             rows.append(row)
         if not rows:
             return
@@ -441,6 +449,7 @@ class RepoMetadata:
         self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.file_name.to_dict())
         self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.is_dir.to_dict())
         self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.file_type.to_dict())
+        self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.location.to_dict())
 
     def create_base(self, repo_id):
         self.metadata_server_api.create_base(repo_id)

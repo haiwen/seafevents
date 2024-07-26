@@ -1,6 +1,11 @@
 import os
 import random
 import math
+import exifread
+
+from io import BytesIO
+
+from seafobj import commit_mgr, fs_mgr
 
 from seafevents.app.config import METADATA_FILE_TYPES
 
@@ -24,6 +29,31 @@ def get_file_type_by_name(filename):
     file_ext = os.path.splitext(filename)[1][1:].lower()
     file_type = FILEEXT_TYPE_MAP.get(file_ext)
     return file_type
+
+
+def get_latlng(repo_id, commit_id, obj_id):
+    lat_lng_info = {
+        "lat_key": "GPS GPSLatitudeRef",
+        "lat_value": "GPS GPSLatitude",
+        "lng_key": "GPS GPSLongitudeRef",
+        "lng_value": "GPS GPSLongitude"
+    }
+
+    new_commit = commit_mgr.load_commit(repo_id, 0, commit_id)
+    version = new_commit.get_version()
+    f = fs_mgr.load_seafile(repo_id, version, obj_id)
+    content = f.get_content()
+    exif_content = exifread.process_file(BytesIO(content))
+
+    for key in lat_lng_info.values():
+        if key not in exif_content:
+            return "", ""
+
+    lat_list = exif_content[lat_lng_info["lat_value"]].values
+    lat = int(lat_list[0]) + int(lat_list[1]) / 60 + float(lat_list[2]) / 3600
+    lng_list = exif_content[lat_lng_info["lng_value"]].values
+    lng = int(lng_list[0]) + int(lng_list[1]) / 60 + float(lng_list[2]) / 3600
+    return lat, lng
 
 
 def gen_select_options(option_names):
@@ -68,6 +98,7 @@ class MetadataColumns(object):
         self.is_dir = MetadataColumn('_is_dir', '_is_dir', 'checkbox')
         self.file_type = MetadataColumn('_file_type', '_file_type', 'single-select',
                                         {'options': gen_select_options(list(METADATA_FILE_TYPES.keys()))})
+        self.location = MetadataColumn('_location', '_location', 'geolocation', {'geo_format': 'lng_lat'})
 
 
 class MetadataColumn(object):
