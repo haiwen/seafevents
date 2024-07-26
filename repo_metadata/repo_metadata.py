@@ -1,10 +1,5 @@
 import os
 import logging
-import exifread
-
-from io import BytesIO
-
-from seafobj import commit_mgr, fs_mgr
 
 from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_by_name, get_latlng
 from seafevents.utils import timestamp_to_isoformat_timestr
@@ -50,7 +45,6 @@ class RepoMetadata:
 
         rows = []
         for de in added_files:
-            logger.info(de.__dict__)
             path = de.path.rstrip('/')
             mtime = de.mtime
             parent_dir = os.path.dirname(path)
@@ -75,14 +69,11 @@ class RepoMetadata:
                 row[METADATA_TABLE.columns.file_type.name] = file_type
             if file_type == '_picture':
                 obj_id = de.obj_id
-                new_commit = commit_mgr.load_commit(repo_id, 0, commit_id)
-                version = new_commit.get_version()
-                f = fs_mgr.load_seafile(repo_id, version, obj_id)
-                content = f.get_content()
-                exif_content = exifread.process_file(BytesIO(content))
-                lat, lng = get_latlng(exif_content)
-                logger.info({'lng': lng, 'lat': lat})
-                row[METADATA_TABLE.columns.location.name] = {'lng': lng, 'lat': lat}
+                try:
+                    lat, lng = get_latlng(repo_id, commit_id, obj_id)
+                    row[METADATA_TABLE.columns.location.name] = {'lng': lng, 'lat': lat}
+                except:
+                    pass
             rows.append(row)
         if not rows:
             return
