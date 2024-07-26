@@ -53,7 +53,11 @@ class RepoFileNameIndex(object):
                 'seafile_file_name_ngram_tokenizer': {
                     'type': 'ngram',
                     'min_gram': 4,
-                    'max_gram': 4
+                    'max_gram': 4,
+                    'token_chars': [
+                        'letter',
+                        'digit'
+                    ]
                 }
             }
         }
