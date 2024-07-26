@@ -80,7 +80,7 @@ class RepoMetadataIndexWorker(object):
                                 logger.info('Bad message: %s' % str(msg))
                             else:
                                 op_type, repo_id, commit_id = msg[0], msg[1], msg[2]
-                                self.worker_task_handler(self.mq, repo_id, commit_id, op_type, self.should_stop)
+                                self.worker_task_handler(self.mq, repo_id, commit_id, self.should_stop)
                     except (ResponseError, NoMQAvailable, TimeoutError) as e:
                         logger.error('The connection to the redis server failed: %s' % e)
         except Exception as e:
@@ -89,7 +89,7 @@ class RepoMetadataIndexWorker(object):
             # prevent case that redis break at program running.
             time.sleep(0.3)
 
-    def worker_task_handler(self, mq, repo_id, commit_id, op_type, should_stop):
+    def worker_task_handler(self, mq, repo_id, commit_id, should_stop):
         # Python cannot kill threads, so stop it generate more locked key.
         if not should_stop.isSet():
             # set key-value if does not exist which will expire 30 minutes later
@@ -100,7 +100,7 @@ class RepoMetadataIndexWorker(object):
                             (threading.currentThread().getName(), repo_id))
                 lock_key = self._get_lock_key(repo_id)
                 self.locked_keys.add(lock_key)
-                self.update_metadata(repo_id, op_type)
+                self.update_metadata(repo_id)
                 try:
                     self.locked_keys.remove(lock_key)
                 except KeyError:
@@ -112,17 +112,14 @@ class RepoMetadataIndexWorker(object):
                 # the repo is updated by other thread, push back to the queue
                 self.add_to_undo_task(mq, repo_id, commit_id)
 
-    def update_metadata(self, repo_id, op_type):
+    def update_metadata(self, repo_id):
         commit_id = repo_data.get_repo_head_commit(repo_id)
         if not commit_id:
             # invalid repo without head commit id
             logger.error("invalid repo : %s " % repo_id)
             return
         try:
-            if op_type == 'init_metadata':
-                self.metadata_manager.create_metadata(repo_id)
-            else:
-                self.metadata_manager.update_metadata(repo_id, commit_id)
+            self.metadata_manager.update_metadata(repo_id, commit_id)
         except Exception as e:
             logger.exception('update repo: %s metadata error: %s', repo_id, e)
 

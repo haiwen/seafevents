@@ -73,6 +73,13 @@ def is_search_enabled(config):
             return False
     return False
 
+def is_seasearch_enabled(config):
+    if config.has_option('SEASEARCH', 'enabled'):
+        try:
+            return config.getboolean('SEASEARCH', 'enabled')
+        except ValueError:
+            return False
+    return False  
 
 def is_audit_enabled(config):
     if config.has_option('Audit', 'enabled'):
