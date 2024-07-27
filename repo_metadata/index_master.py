@@ -48,7 +48,7 @@ class RepoMetadataIndexMaster(object):
         Thread(target=self.event_receive, name='event_receive_thread', daemon=True).start()
 
     def task_check(self):
-        logger.info('metadata master task check start')
+        logger.info('Metadata master task check thread started')
         while True:
             now_time = self.now()
             copied_pending_tasks = deepcopy(self.pending_tasks)
@@ -65,13 +65,13 @@ class RepoMetadataIndexMaster(object):
                     # update updated time
                     self.executed_tasks[repo_id] = self.now()
 
-                    if len(self.executed_tasks) > MAX_UPDATE_REPO_LIMIT:
-                        self.executed_tasks.popitem(last=False)
+            while len(self.executed_tasks) > MAX_UPDATE_REPO_LIMIT:
+                self.executed_tasks.popitem(last=False)
 
             time.sleep(5)
 
     def event_receive(self):
-        logger.info('metadata master starting work')
+        logger.info('metadata master event receive thread started')
         while True:
             try:
                 self.master_handler()
