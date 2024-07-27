@@ -33,22 +33,26 @@ class RepoMetadataIndexWorker(object):
         self.mq_server = '127.0.0.1'
         self.mq_port = 6379
         self.mq_password = ''
+        self.worker_num = 3
         self._parse_config(config)
 
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
 
     def _parse_config(self, config):
-        section_name = 'REDIS'
+        redis_section_name = 'REDIS'
         key_server = 'server'
         key_port = 'port'
         key_password = 'password'
 
-        if not config.has_section(section_name):
-            return
+        if config.has_section(redis_section_name):
+            self.mq_server = get_opt_from_conf_or_env(config, redis_section_name, key_server, default='')
+            self.mq_port = get_opt_from_conf_or_env(config, redis_section_name, key_port, default=6379)
+            self.mq_password = get_opt_from_conf_or_env(config, redis_section_name, key_password, default='')
 
-        self.mq_server = get_opt_from_conf_or_env(config, section_name, key_server, default='')
-        self.mq_port = get_opt_from_conf_or_env(config, section_name, key_port, default=6379)
-        self.mq_password = get_opt_from_conf_or_env(config, section_name, key_password, default='')
+        metadata_section_name = 'METADATA'
+        key_index_workers = 'index_workers'
+        if config.has_section(metadata_section_name):
+            self.worker_num = get_opt_from_conf_or_env(config, metadata_section_name, key_index_workers, default=3)
 
     def _get_lock_key(self, repo_id):
         """Return lock key in redis.
@@ -60,7 +64,7 @@ class RepoMetadataIndexWorker(object):
         return threading.current_thread().name
 
     def start(self):
-        for i in range(2):
+        for i in range(int(self.worker_num)):
             threading.Thread(target=self.worker_handler, name='subscribe_' + str(i),
                               daemon=True).start()
         threading.Thread(target=self.refresh_lock, name='refresh_thread', daemon=True).start()
@@ -69,27 +73,25 @@ class RepoMetadataIndexWorker(object):
         logger.info('%s starting update metadata work' % self.tname)
         try:
             while not self.should_stop.isSet():
-                self.should_stop.wait(5)
-                if not self.should_stop.is_set():
-                    try:
-                        res = self.mq.brpop('metadata_task', timeout=30)
-                        if res is not None:
-                            key, value = res
-                            msg = value.split('\t')
-                            if len(msg) != 3:
-                                logger.info('Bad message: %s' % str(msg))
-                            else:
-                                op_type, repo_id, commit_id = msg[0], msg[1], msg[2]
-                                self.worker_task_handler(self.mq, repo_id, commit_id, self.should_stop)
-                    except (ResponseError, NoMQAvailable, TimeoutError) as e:
-                        logger.error('The connection to the redis server failed: %s' % e)
+                try:
+                    res = self.mq.brpop('metadata_task', timeout=30)
+                    if res is not None:
+                        key, value = res
+                        msg = value.split('\t')
+                        if len(msg) != 2:
+                            logger.info('Bad message: %s' % str(msg))
+                        else:
+                            op_type, repo_id = msg[0], msg[1]
+                            self.worker_task_handler(self.mq, repo_id, self.should_stop)
+                except (ResponseError, NoMQAvailable, TimeoutError) as e:
+                    logger.error('The connection to the redis server failed: %s' % e)
         except Exception as e:
             logger.error('%s Handle Worker Task Error' % self.tname)
             logger.error(e, exc_info=True)
             # prevent case that redis break at program running.
             time.sleep(0.3)
 
-    def worker_task_handler(self, mq, repo_id, commit_id, should_stop):
+    def worker_task_handler(self, mq, repo_id, should_stop):
         # Python cannot kill threads, so stop it generate more locked key.
         if not should_stop.isSet():
             # set key-value if does not exist which will expire 30 minutes later
@@ -110,7 +112,7 @@ class RepoMetadataIndexWorker(object):
                             (self.tname, repo_id, lock_key))
             else:
                 # the repo is updated by other thread, push back to the queue
-                self.add_to_undo_task(mq, repo_id, commit_id)
+                self.add_to_undo_task(mq, repo_id)
 
     def update_metadata(self, repo_id):
         commit_id = repo_data.get_repo_head_commit(repo_id)
@@ -123,12 +125,12 @@ class RepoMetadataIndexWorker(object):
         except Exception as e:
             logger.exception('update repo: %s metadata error: %s', repo_id, e)
 
-    def add_to_undo_task(self, mq, repo_id, commit_id):
+    def add_to_undo_task(self, mq, repo_id):
         """Push task back to the end of the queue.
         """
-        mq.lpush('metadata_task', '\t'.join(['repo-update', repo_id, commit_id]))
-        logger.debug('%s push back task (%s, %s) to the queue' %
-                     (self.tname, repo_id, commit_id))
+        mq.lpush('metadata_task', '\t'.join(['repo-update', repo_id]))
+        logger.debug('%s push back task (%s,) to the queue' %
+                     (self.tname, repo_id))
 
         # avoid get the same task repeatedly
         time.sleep(0.5)
