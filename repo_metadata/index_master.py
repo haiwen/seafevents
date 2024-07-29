@@ -63,30 +63,29 @@ class RepoMetadataIndexMaster(Thread):
         else:
             logger.info('metadata master starting listen')
 
-        check_interval = 5
-        task_check_time = self.now()
         while True:
-            message = p.get_message()
-            if message is None:
-                # prevent waste resource when no message has been send
-                time.sleep(5)
+            # get all messages
+            while True:
+                message = p.get_message()
+                if not message:
+                    break
 
-            if message and isinstance(message['data'], str) and message['data'].count('\t') == 2:
-                msg = message['data'].split('\t')
-                op_type, repo_id, commit_id = msg[0], msg[1], msg[2]
-                if op_type == 'init_metadata':
-                    data = op_type + '\t' + repo_id
-                    self.mq.lpush('metadata_task', data)
-                    logger.debug('init metadata: %s has been add to metadata task queue' % message['data'])
-                elif op_type == 'repo-update':
-                    self.pending_tasks[repo_id] = commit_id
-                else:
-                    logger.warning('op_type invalid, repo_id: %s, op_type: %s' % (repo_id, op_type))
+                if message and isinstance(message['data'], str) and message['data'].count('\t') == 2:
+                    msg = message['data'].split('\t')
+                    op_type, repo_id, commit_id = msg[0], msg[1], msg[2]
+                    if op_type == 'init_metadata':
+                        data = op_type + '\t' + repo_id
+                        self.mq.lpush('metadata_task', data)
+                        logger.debug('init metadata: %s has been add to metadata task queue' % message['data'])
+                    elif op_type == 'repo-update':
+                        self.pending_tasks[repo_id] = commit_id
+                    else:
+                        logger.warning('op_type invalid, repo_id: %s, op_type: %s' % (repo_id, op_type))
 
-            now_time = self.now()
-            # check task per 5 seconds
-            if (now_time - task_check_time) > check_interval and len(self.pending_tasks) > 0:
+            # check task
+            if len(self.pending_tasks) > 0:
                 copied_pending_tasks = deepcopy(self.pending_tasks)
+                now_time = self.now()
                 for repo_id, commit_id in copied_pending_tasks.items():
                     last_updated_time = self.executed_tasks.get(repo_id, 0)
                     op_type = 'update_metadata'
@@ -96,12 +95,11 @@ class RepoMetadataIndexMaster(Thread):
                         self.mq.lpush('metadata_task', data)
                         self.pending_tasks.pop(repo_id)
 
-                        # update last check time
-                        task_check_time = now_time
-
                         # update updated time
                         self.executed_tasks[repo_id] = now_time
-                        logger.debug('update metadata: %s has been add to metadata task queue' % message['data'])
+                        logger.debug('update metadata: %s has been add to metadata task queue' % data)
 
                 while len(self.executed_tasks) > MAX_UPDATE_REPO_LIMIT:
                     self.executed_tasks.popitem(last=False)
+
+            time.sleep(2)
