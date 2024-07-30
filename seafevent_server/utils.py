@@ -3,12 +3,13 @@ import ast
 import logging
 import openpyxl
 import datetime
+import pytz
 
-from django.utils import timezone
 from sqlalchemy import desc, select
 
 from seaserv import seafile_api, ccnet_api
 from seafevents.events.models import FileAudit, FileUpdate, PermAudit, UserLogin
+from seafevents.app.config import TIME_ZONE
 
 logger = logging.getLogger('seafevents')
 
@@ -45,9 +46,9 @@ def write_xls(sheet_name, head, data_list):
 
 def utc_to_local(dt):
     # change from UTC timezone to current seahub timezone
-    tz = timezone.get_default_timezone()
+    tz = pytz.timezone(TIME_ZONE)
     utc = dt.replace(tzinfo=datetime.timezone.utc)
-    local = timezone.make_naive(utc, tz)
+    local = utc.astimezone(tz).replace(tzinfo=None)
 
     return local
 
