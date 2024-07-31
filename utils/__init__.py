@@ -220,10 +220,10 @@ def timestamp_to_isoformat_timestr(timestamp):
         else:
             dt_obj = datetime.datetime.fromtimestamp(timestamp / 1000000)
 
-        time_zone = pytz.timezone(TIME_ZONE)
         dt_obj = dt_obj.replace(microsecond=0)
-        aware_datetime = dt_obj.replace(tzinfo=time_zone)
-        target_timezone = pytz.timezone(str(time_zone))
+        target_timezone = pytz.timezone(TIME_ZONE)
+        aware_datetime = target_timezone.localize(dt=dt_obj)
+
         localized_datetime = target_timezone.normalize(aware_datetime.astimezone(pytz.UTC))
         isoformat_timestr = localized_datetime.isoformat()
         return isoformat_timestr
