@@ -2,8 +2,9 @@ import os
 import logging
 from gevent.pool import Pool
 
-from seafevents.repo_metadata.ai.utils.openai_api import OpenAIAPI, get_llm_url
+from seafevents.repo_metadata.ai.utils.openai_api import OpenAIAPI
 from seafevents.repo_metadata.ai.utils.sdoc2md import sdoc2md
+from seafevents.repo_metadata.ai.ai_server import metadata_ai_server
 from seafevents.repo_metadata.ai.constants import LLM_INPUT_CHARACTERS_LIMIT
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.repo_metadata import EXCLUDED_PATHS
@@ -15,18 +16,23 @@ logger = logging.getLogger(__name__)
 
 
 def gen_doc_summary(content):
-    llm_url, url_type = get_llm_url()
-    if url_type == 'proxy':
+    llm_type = metadata_ai_server.llm_type
+    llm_url = metadata_ai_server.llm_url
+
+    if llm_type == 'open-ai-proxy':
         openai_api = OpenAIAPI(llm_url)
-    system_content = 'You are a document summarization expert. I need you to generate a concise summary of a document that is no longer than 40 words. The summary should capture the main points and themes of the document clearly and effectively.The output language is the same as the input language. If it seems there is no content provided for summarization, just output word: None'
-    system_prompt = {"role": "system", "content": system_content}
-    user_prompt = {"role": "user", "content": content}
-    messages = [system_prompt, user_prompt]
-    summary = openai_api.chat_completions(messages)
-    return summary
+        system_content = 'You are a document summarization expert. I need you to generate a concise summary of a document that is no longer than 40 words. The summary should capture the main points and themes of the document clearly and effectively.The output language is the same as the input language. If it seems there is no content provided for summarization, just output word: None'
+        system_prompt = {"role": "system", "content": system_content}
+        user_prompt = {"role": "user", "content": content}
+        messages = [system_prompt, user_prompt]
+        summary = openai_api.chat_completions(messages)
+        return summary
+    else:
+        logger.error('llm_type is not set correctly in seafevents.conf')
+        return None
 
 
-def create_summary_of_sdoc_in_repo(repo_id):
+def create_summary_of_doc_in_repo(repo_id):
     metadata_server_api = MetadataServerAPI('seafevents')
     sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}` FROM `{METADATA_TABLE.name}`'
     query_result = metadata_server_api.query_rows(repo_id, sql).get('results', [])
@@ -54,7 +60,7 @@ def create_summary_of_sdoc_in_repo(repo_id):
             }
             updated_summary_rows.append(updated_row)
 
-    pool = Pool(50)
+    pool = Pool(10)
     logger.info(f'Start summarizing sdoc in repo {repo_id}')
     for row in query_result:
         pool.spawn(process_row, row)
@@ -67,7 +73,7 @@ def create_summary_of_sdoc_in_repo(repo_id):
     return {'success': True}
 
 
-def update_single_sdoc_summary(repo_id, file_path):
+def update_single_doc_summary(repo_id, file_path):
     metadata_server_api = MetadataServerAPI('seafevents')
     parent_dir = os.path.dirname(file_path)
     file_name = os.path.basename(file_path)
@@ -79,6 +85,8 @@ def update_single_sdoc_summary(repo_id, file_path):
         sdoc_content = get_file_by_path(repo_id, file_path)
         md_content = sdoc2md(sdoc_content)[0:LLM_INPUT_CHARACTERS_LIMIT]
         summary_text = gen_doc_summary(md_content)
+        if summary_text in ['None', 'none']:
+            summary_text  = ''
 
         parameters.append(parent_dir)
         parameters.append(file_name)
@@ -90,8 +98,8 @@ def update_single_sdoc_summary(repo_id, file_path):
             METADATA_TABLE.columns.summary.name: summary_text,
         }
         updated_summary_row.append(updated_row)
-        if updated_summary_row:
-            metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_summary_row)
+    if updated_summary_row:
+        metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_summary_row)
     return {'success': True}
 
 

@@ -7,8 +7,8 @@ from seafevents.app.config import SEAHUB_SECRET_KEY
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
-from seafevents.repo_metadata.ai.gen_summary import create_summary_of_sdoc_in_repo, \
-    update_single_sdoc_summary
+from seafevents.repo_metadata.ai.gen_summary import create_summary_of_doc_in_repo, \
+    update_single_doc_summary
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
@@ -135,8 +135,8 @@ def search():
     return {'results': results}, 200
 
 
-@app.route('/create-summary-of-sdoc-in-repo', methods=['POST'])
-def create_sdoc_summary():
+@app.route('/create-summary-of-doc-in-repo', methods=['POST'])
+def create_doc_summary():
     is_valid, error = check_auth_token(request)
     if not is_valid:
         return make_response((error, 403))
@@ -151,13 +151,13 @@ def create_sdoc_summary():
 
     if not repo_id:
         return {'error_msg': 'repo_id invalid.'}, 400
-    create_status = create_summary_of_sdoc_in_repo(repo_id)
+    create_status = create_summary_of_doc_in_repo(repo_id)
 
     return create_status
 
 
-@app.route('/update-single-sdoc-summary', methods=['POST'])
-def update_sdoc_summary():
+@app.route('/update-single-doc-summary', methods=['POST'])
+def update_doc_summary():
     is_valid, error = check_auth_token(request)
     if not is_valid:
         return make_response((error, 403))
@@ -176,6 +176,6 @@ def update_sdoc_summary():
     if not file_path:
         return {'error_msg': 'file_path invalid.'}, 400
 
-    update_status = update_single_sdoc_summary(repo_id, file_path)
+    update_status = update_single_doc_summary(repo_id, file_path)
 
     return update_status
