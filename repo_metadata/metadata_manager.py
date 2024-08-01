@@ -6,7 +6,6 @@ from sqlalchemy import text
 
 from seafobj.exceptions import GetObjectError
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
-from seafevents.repo_data import repo_data
 
 
 logger = logging.getLogger(__name__)
@@ -54,8 +53,11 @@ class MetadataManager(object):
         self.repo_metadata = repo_metadata
 
     def update_metadata_index(self, repo_id, old_commit_id, new_commit_id):
+        files = get_diff_files(repo_id, old_commit_id, new_commit_id)
+        if not files:
+            return
         added_files, deleted_files, added_dirs, deleted_dirs, modified_files, renamed_files, moved_files, \
-        renamed_dirs, moved_dirs = get_diff_files(repo_id, old_commit_id, new_commit_id)
+        renamed_dirs, moved_dirs = files
 
         self.repo_metadata.update(repo_id, added_files, deleted_files, added_dirs, deleted_dirs, modified_files,
                                   renamed_files, moved_files, renamed_dirs, moved_dirs, new_commit_id)

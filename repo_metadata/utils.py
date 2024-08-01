@@ -25,10 +25,10 @@ def gen_fileext_type_map():
 FILEEXT_TYPE_MAP = gen_fileext_type_map()
 
 
-def get_file_type_by_name(filename):
+def get_file_type_ext_by_name(filename):
     file_ext = os.path.splitext(filename)[1][1:].lower()
     file_type = FILEEXT_TYPE_MAP.get(file_ext)
-    return file_type
+    return file_type, file_ext
 
 
 def get_latlng(repo_id, commit_id, obj_id):

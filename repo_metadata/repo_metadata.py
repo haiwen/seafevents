@@ -1,12 +1,13 @@
 import os
 import logging
 
-from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_by_name, get_latlng
+from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_ext_by_name, get_latlng
 from seafevents.utils import timestamp_to_isoformat_timestr
 
 logger = logging.getLogger(__name__)
 
 EXCLUDED_PATHS = ['/_Internal', '/images']
+METADATA_OP_LIMIT = 1000
 
 
 class RepoMetadata:
@@ -39,67 +40,7 @@ class RepoMetadata:
             if path.startswith(ex_path):
                 return True
 
-    def add_files(self, repo_id, added_files, commit_id):
-        if not added_files:
-            return
-
-        rows = []
-        for de in added_files:
-            path = de.path.rstrip('/')
-            mtime = de.mtime
-            parent_dir = os.path.dirname(path)
-            file_name = os.path.basename(path)
-            modifier = de.modifier
-            file_type = get_file_type_by_name(file_name)
-
-            if self.is_excluded_path(path):
-                continue
-
-            row = {
-                METADATA_TABLE.columns.file_creator.name: modifier,
-                METADATA_TABLE.columns.file_ctime.name: timestamp_to_isoformat_timestr(mtime),
-                METADATA_TABLE.columns.file_modifier.name: modifier,
-                METADATA_TABLE.columns.file_mtime.name: timestamp_to_isoformat_timestr(mtime),
-                METADATA_TABLE.columns.parent_dir.name: parent_dir,
-                METADATA_TABLE.columns.file_name.name: file_name,
-                METADATA_TABLE.columns.is_dir.name: False,
-            }
-
-            if file_type:
-                row[METADATA_TABLE.columns.file_type.name] = file_type
-            if file_type == '_picture':
-                obj_id = de.obj_id
-                try:
-                    lat, lng = get_latlng(repo_id, commit_id, obj_id)
-                    row[METADATA_TABLE.columns.location.name] = {'lng': lng, 'lat': lat}
-                except:
-                    pass
-            rows.append(row)
-        if not rows:
-            return
-        self.metadata_server_api.insert_rows(repo_id, METADATA_TABLE.id, rows)
-
-    def delete_files(self, repo_id, deleted_files):
-        if not deleted_files:
-            return
-
-        sql = f'SELECT `{METADATA_TABLE.columns.id.name}` FROM `{METADATA_TABLE.name}` WHERE'
-        need_deleted = False
-        parameters = []
-        for file in deleted_files:
-            path = file.path.rstrip('/')
-            if self.is_excluded_path(path):
-                continue
-            need_deleted = True
-            parent_dir = os.path.dirname(path)
-            file_name = os.path.basename(path)
-            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR'
-            parameters.append(parent_dir)
-            parameters.append(file_name)
-
-        if not need_deleted:
-            return
-        sql = sql.rstrip(' OR')
+    def delete_rows_by_query(self, repo_id, sql, parameters):
         query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
 
         if not query_result:
@@ -108,34 +49,15 @@ class RepoMetadata:
         row_ids = []
         for row in query_result:
             row_ids.append(row[METADATA_TABLE.columns.id.name])
+            if len(row_ids) >= METADATA_OP_LIMIT:
+                self.metadata_server_api.delete_rows(repo_id, METADATA_TABLE.id, row_ids)
+                row_ids = []
 
+        if not row_ids:
+            return
         self.metadata_server_api.delete_rows(repo_id, METADATA_TABLE.id, row_ids)
 
-    def update_files(self, repo_id, modified_files):
-        if not modified_files:
-            return
-
-        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}` FROM `{METADATA_TABLE.name}` WHERE'
-        path_to_file_dict = {}
-        need_update = False
-        parameters = []
-        for file in modified_files:
-            path = file.path.rstrip('/')
-            if self.is_excluded_path(path):
-                continue
-            need_update = True
-            parent_dir = os.path.dirname(path)
-            file_name = os.path.basename(path)
-            key = parent_dir + file_name
-            path_to_file_dict[key] = file
-
-            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR'
-            parameters.append(parent_dir)
-            parameters.append(file_name)
-
-        if not need_update:
-            return
-        sql = sql.rstrip(' OR')
+    def update_rows_by_query(self, repo_id, sql, parameters, path_to_file_dict):
         query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
 
         if not query_result:
@@ -156,7 +78,118 @@ class RepoMetadata:
             }
             updated_rows.append(update_row)
 
+            if len(updated_rows) >= METADATA_OP_LIMIT:
+                self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
+                updated_rows = []
+
+        if not updated_rows:
+            return
         self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
+
+    def add_files(self, repo_id, added_files, commit_id):
+        if not added_files:
+            return
+
+        rows = []
+        for de in added_files:
+            path = de.path.rstrip('/')
+            mtime = de.mtime
+            parent_dir = os.path.dirname(path)
+            file_name = os.path.basename(path)
+            modifier = de.modifier
+            file_type, file_ext = get_file_type_ext_by_name(file_name)
+
+            if self.is_excluded_path(path):
+                continue
+
+            row = {
+                METADATA_TABLE.columns.file_creator.name: modifier,
+                METADATA_TABLE.columns.file_ctime.name: timestamp_to_isoformat_timestr(mtime),
+                METADATA_TABLE.columns.file_modifier.name: modifier,
+                METADATA_TABLE.columns.file_mtime.name: timestamp_to_isoformat_timestr(mtime),
+                METADATA_TABLE.columns.parent_dir.name: parent_dir,
+                METADATA_TABLE.columns.file_name.name: file_name,
+                METADATA_TABLE.columns.is_dir.name: False,
+            }
+
+            if file_type:
+                row[METADATA_TABLE.columns.file_type.name] = file_type
+            if file_type == '_picture' and file_ext != 'png':
+                obj_id = de.obj_id
+                try:
+                    lat, lng = get_latlng(repo_id, commit_id, obj_id)
+                    row[METADATA_TABLE.columns.location.name] = {'lng': lng, 'lat': lat}
+                except:
+                    pass
+            rows.append(row)
+
+            if len(rows) >= METADATA_OP_LIMIT:
+                self.metadata_server_api.insert_rows(repo_id, METADATA_TABLE.id, rows)
+                rows = []
+        if not rows:
+            return
+        self.metadata_server_api.insert_rows(repo_id, METADATA_TABLE.id, rows)
+
+    def delete_files(self, repo_id, deleted_files):
+        if not deleted_files:
+            return
+
+        base_sql = f'SELECT `{METADATA_TABLE.columns.id.name}` FROM `{METADATA_TABLE.name}` WHERE'
+        sql = base_sql
+        parameters = []
+        for file in deleted_files:
+            path = file.path.rstrip('/')
+            if self.is_excluded_path(path):
+                continue
+            parent_dir = os.path.dirname(path)
+            file_name = os.path.basename(path)
+            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR'
+            parameters.append(parent_dir)
+            parameters.append(file_name)
+
+            if len(parameters) >= METADATA_OP_LIMIT:
+                sql = sql.rstrip(' OR')
+                self.delete_rows_by_query(repo_id, sql, parameters)
+                sql = base_sql
+                parameters = []
+
+        if not parameters:
+            return
+        sql = sql.rstrip(' OR')
+        self.delete_rows_by_query(repo_id, sql, parameters)
+
+    def update_files(self, repo_id, modified_files):
+        if not modified_files:
+            return
+
+        base_sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}` FROM `{METADATA_TABLE.name}` WHERE'
+        sql = base_sql
+        path_to_file_dict = {}
+        parameters = []
+        for file in modified_files:
+            path = file.path.rstrip('/')
+            if self.is_excluded_path(path):
+                continue
+            parent_dir = os.path.dirname(path)
+            file_name = os.path.basename(path)
+            key = parent_dir + file_name
+            path_to_file_dict[key] = file
+
+            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR'
+            parameters.append(parent_dir)
+            parameters.append(file_name)
+
+            if len(parameters) >= METADATA_OP_LIMIT:
+                sql = sql.rstrip(' OR')
+                self.update_rows_by_query(repo_id, sql, parameters, path_to_file_dict)
+                sql = base_sql
+                parameters = []
+                path_to_file_dict = {}
+
+        if not parameters:
+            return
+        sql = sql.rstrip(' OR')
+        self.update_rows_by_query(repo_id, sql, parameters, path_to_file_dict)
 
     def add_dirs(self, repo_id, added_dirs):
         if not added_dirs:
@@ -183,6 +216,9 @@ class RepoMetadata:
             }
             rows.append(row)
 
+            if len(rows) >= METADATA_OP_LIMIT:
+                self.metadata_server_api.insert_rows(repo_id, METADATA_TABLE.id, rows)
+                rows = []
         if not rows:
             return
 
@@ -191,33 +227,28 @@ class RepoMetadata:
     def delete_dirs(self, repo_id, deleted_dirs):
         if not deleted_dirs:
             return
-        sql = f'SELECT `{METADATA_TABLE.columns.id.name}` FROM `{METADATA_TABLE.name}` WHERE'
-        need_delete = False
+        base_sql = f'SELECT `{METADATA_TABLE.columns.id.name}` FROM `{METADATA_TABLE.name}` WHERE'
+        sql = base_sql
         parameters = []
         for d in deleted_dirs:
             path = d.path.rstrip('/')
             if self.is_excluded_path(path):
                 continue
-            need_delete = True
             parent_dir = os.path.dirname(path)
             dir_name = os.path.basename(path)
             sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR'
             parameters.append(parent_dir)
             parameters.append(dir_name)
+            if len(parameters) >= METADATA_OP_LIMIT:
+                sql = sql.rstrip(' OR')
+                self.delete_rows_by_query(repo_id, sql, parameters)
+                sql = base_sql
+                parameters = []
 
-        if not need_delete:
+        if not parameters:
             return
         sql = sql.rstrip(' OR')
-        query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
-
-        if not query_result:
-            return
-
-        row_ids = []
-        for row in query_result:
-            row_ids.append(row[METADATA_TABLE.columns.id.name])
-
-        self.metadata_server_api.delete_rows(repo_id, METADATA_TABLE.id, row_ids)
+        self.delete_rows_by_query(repo_id, sql, parameters)
 
     def rename_files(self, repo_id, renamed_files):
         if not renamed_files:
