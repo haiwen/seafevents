@@ -23,7 +23,7 @@ def parse_response(response):
 
 def get_llm_url():
     section_name = 'AI'
-    llm_url, url_type = None
+    llm_url, url_type = None, None
 
     config_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR')
     if config_dir:
@@ -41,7 +41,7 @@ def get_llm_url():
 
     llm_type = get_opt_from_conf_or_env(config, section_name, 'llm_type', 'LLM_TYPE')
     if llm_type == 'open-ai-proxy':
-        llm_url = get_opt_from_conf_or_env(config, section_name, 'openai_proxy_url', 'OPENAI_PROXY_URL')
+        llm_url = get_opt_from_conf_or_env(config, section_name, 'llm_url', 'LLM_URL')
         url_type = 'proxy'
 
     if not llm_url:

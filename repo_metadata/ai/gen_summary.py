@@ -13,7 +13,6 @@ from seafevents.repo_metadata.utils import METADATA_TABLE
 logger = logging.getLogger(__name__)
 
 
-
 def gen_doc_summary(content):
     llm_url, url_type = get_llm_url()
     if url_type == 'proxy':
@@ -35,10 +34,7 @@ def create_summary_of_sdoc_in_repo(repo_id):
     def process_row(row):
         parent_dir = row[METADATA_TABLE.columns.parent_dir.name]
         file_name = row[METADATA_TABLE.columns.file_name.name]
-        if parent_dir == '/':
-            path = parent_dir + file_name
-        else:
-            path = parent_dir + '/' + file_name
+        path = os.path.join(parent_dir, file_name)
         if _is_excluded_path(path):
             return
 
@@ -67,6 +63,34 @@ def create_summary_of_sdoc_in_repo(repo_id):
     if updated_summary_rows:
         metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_summary_rows)
     logger.info(f'Finish summarizing sdoc in repo {repo_id}')
+    return {'success': True}
+
+
+def update_single_sdoc_summary(repo_id, file_path):
+    metadata_server_api = MetadataServerAPI('seafevents')
+    parent_dir = os.path.dirname(file_path)
+    file_name = os.path.basename(file_path)
+    _, file_ext = os.path.splitext(file_name)
+    sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}` FROM `{METADATA_TABLE.name}` WHERE  (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?)'
+    parameters = []
+    updated_summary_row = []
+    if file_ext == '.sdoc':
+        sdoc_content = get_file_by_path(repo_id, file_path)
+        md_content = sdoc2md(sdoc_content)
+        summary_text = gen_doc_summary(md_content)
+
+        parameters.append(parent_dir)
+        parameters.append(file_name)
+        query_result = metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
+        row_id = query_result[0][METADATA_TABLE.columns.id.name]
+
+        updated_row = {
+            METADATA_TABLE.columns.id.name: row_id,
+            METADATA_TABLE.columns.summary.name: summary_text,
+        }
+        updated_summary_row.append(updated_row)
+        if updated_summary_row:
+            metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_summary_row)
     return {'success': True}
 
 

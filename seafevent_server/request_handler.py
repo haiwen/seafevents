@@ -7,7 +7,8 @@ from seafevents.app.config import SEAHUB_SECRET_KEY
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
-from seafevents.repo_metadata.ai.gen_summary import create_summary_of_sdoc_in_repo
+from seafevents.repo_metadata.ai.gen_summary import create_summary_of_sdoc_in_repo, \
+    update_single_sdoc_summary
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
@@ -153,3 +154,28 @@ def create_sdoc_summary():
     create_status = create_summary_of_sdoc_in_repo(repo_id)
 
     return create_status
+
+
+@app.route('/update-single-sdoc-summary', methods=['POST'])
+def update_sdoc_summary():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+
+    try:
+        data = json.loads(request.data)
+    except Exception as e:
+        logger.exception(e)
+        return {'error_msg': 'Bad request.'}, 400
+    
+    repo_id = data.get('repo_id')
+    file_path = data.get('file_path')
+
+    if not repo_id:
+        return {'error_msg': 'repo_id invalid.'}, 400
+    if not file_path:
+        return {'error_msg': 'file_path invalid.'}, 400
+
+    update_status = update_single_sdoc_summary(repo_id, file_path)
+
+    return update_status
