@@ -21,8 +21,10 @@ def parse_response(response):
             pass
 
 
-def get_openai_proxy_url():
+def get_llm_url():
     section_name = 'AI'
+    llm_url, url_type = None
+
     config_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR')
     if config_dir:
         config_file = os.path.join(config_dir, 'seafevents.conf')
@@ -37,10 +39,14 @@ def get_openai_proxy_url():
     if not config.has_section(section_name):
         return
 
-    openai_proxy_url = get_opt_from_conf_or_env(config, section_name, 'openai_proxy_url', 'OPENAI_PROXY_URL')
-    if not openai_proxy_url:
-        raise ValueError("OPENAI_PROXY_URL not found in the configuration file or environment variables.")
-    return openai_proxy_url
+    llm_type = get_opt_from_conf_or_env(config, section_name, 'llm_type', 'LLM_TYPE')
+    if llm_type == 'open-ai-proxy':
+        llm_url = get_opt_from_conf_or_env(config, section_name, 'openai_proxy_url', 'OPENAI_PROXY_URL')
+        url_type = 'proxy'
+
+    if not llm_url:
+        raise ValueError("llm_url not found in the configuration file or environment variables.")
+    return llm_url, url_type
 
 
 class OpenAIAPI:

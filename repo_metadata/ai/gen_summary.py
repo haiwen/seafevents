@@ -2,7 +2,7 @@ import os
 import logging
 from gevent.pool import Pool
 
-from seafevents.repo_metadata.ai.utils.openai_api import OpenAIAPI, get_openai_proxy_url
+from seafevents.repo_metadata.ai.utils.openai_api import OpenAIAPI, get_llm_url
 from seafevents.repo_metadata.ai.utils.sdoc2md import sdoc2md
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.repo_metadata import EXCLUDED_PATHS
@@ -15,13 +15,14 @@ logger = logging.getLogger(__name__)
 
 
 def gen_doc_summary(content):
-    openai_proxy_url = get_openai_proxy_url()
-    openai = OpenAIAPI(openai_proxy_url)
+    llm_url, url_type = get_llm_url()
+    if url_type == 'proxy':
+        openai_api = OpenAIAPI(llm_url)
     system_content = 'You are a document summarization expert. I need you to generate a concise summary of a document that is no longer than 40 words. The summary should capture the main points and themes of the document clearly and effectively.The output language is the same as the input language. If it seems there is no content provided for summarization, just output word: None'
     system_prompt = {"role": "system", "content": system_content}
     user_prompt = {"role": "user", "content": content}
     messages = [system_prompt, user_prompt]
-    summary = openai.chat_completions(messages)
+    summary = openai_api.chat_completions(messages)
     return summary
 
 
