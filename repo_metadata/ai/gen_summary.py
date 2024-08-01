@@ -4,6 +4,7 @@ from gevent.pool import Pool
 
 from seafevents.repo_metadata.ai.utils.openai_api import OpenAIAPI, get_llm_url
 from seafevents.repo_metadata.ai.utils.sdoc2md import sdoc2md
+from seafevents.repo_metadata.ai.constants import LLM_INPUT_CHARACTERS_LIMIT
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.repo_metadata import EXCLUDED_PATHS
 from seafevents.repo_metadata.utils import get_file_by_path
@@ -42,7 +43,7 @@ def create_summary_of_sdoc_in_repo(repo_id):
         _, ext = os.path.splitext(file_name)
         if ext == '.sdoc':
             sdoc_content = get_file_by_path(repo_id, path)
-            md_content = sdoc2md(sdoc_content)
+            md_content = sdoc2md(sdoc_content)[0:LLM_INPUT_CHARACTERS_LIMIT]
             summary_text = gen_doc_summary(md_content)
             if summary_text in ['None', 'none']:
                 return
@@ -76,7 +77,7 @@ def update_single_sdoc_summary(repo_id, file_path):
     updated_summary_row = []
     if file_ext == '.sdoc':
         sdoc_content = get_file_by_path(repo_id, file_path)
-        md_content = sdoc2md(sdoc_content)
+        md_content = sdoc2md(sdoc_content)[0:LLM_INPUT_CHARACTERS_LIMIT]
         summary_text = gen_doc_summary(md_content)
 
         parameters.append(parent_dir)
