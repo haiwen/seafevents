@@ -35,16 +35,16 @@ class FaceManager(object):
     def get_face(self, repo_id, path):
         with self.session() as session:
             sql = "SELECT face_id FROM repo_image_face WHERE repo_id='%s' AND path='%s'" % (repo_id, path)
-            face = session.execute(text(sql)).fetchone()
+            res = session.execute(text(sql)).fetchone()
 
-        return face
+        return res
 
     def get_path_by_face_id(self, repo_id, face_id):
         with self.session() as session:
             sql = "SELECT * FROM repo_image_face WHERE repo_id='%s' AND face_id='%s'" % (repo_id, face_id)
-            path = session.execute(text(sql)).fetchone()
+            res = session.execute(text(sql)).fetchone()
 
-        return path
+        return res
 
     def insert_faces(self, repo_id, face_id, path):
         with self.session() as session:
