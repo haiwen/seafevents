@@ -1,6 +1,5 @@
 import logging
 import queue
-import uuid
 from datetime import datetime
 from threading import Thread, Lock
 
@@ -8,9 +7,6 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.gevent import GeventScheduler
 
 from seafevents.db import init_db_session_class
-from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
-from seafevents.repo_metadata.repo_metadata import RepoMetadata
-from seafevents.repo_metadata.metadata_manager import MetadataManager
 
 
 logger = logging.getLogger(__name__)
@@ -68,6 +64,7 @@ class IndexTask:
 from seafevents.app.event_redis import RedisClient
 from seafevents.repo_metadata.metadata_manager import ZERO_OBJ_ID
 
+
 class TaskManager:
 
     def __init__(self):
@@ -83,9 +80,6 @@ class TaskManager:
         }
         self._redis_connection = None
         self._db_session_class = None
-        self._metadata_server_api = None
-        self.repo_metadata = None
-        self.metadata_manager = None
 
         self.sched.add_job(self.clear_expired_tasks, CronTrigger(minute='*/30'))
 
@@ -95,9 +89,6 @@ class TaskManager:
         self.conf['workers'] = workers
 
         self._db_session_class = init_db_session_class(config)
-        self._metadata_server_api = MetadataServerAPI('seafevents')
-        self.repo_metadata = RepoMetadata(self._metadata_server_api)
-        self.metadata_manager = MetadataManager(self._db_session_class, self.repo_metadata)
         self._redis_connection = RedisClient(config).connection
 
     def get_pending_or_running_task(self, readable_id):

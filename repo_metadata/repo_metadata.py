@@ -1,8 +1,10 @@
+import json
 import os
 import logging
 
-from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_ext_by_name, get_latlng
+from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_ext_by_name, get_image_info
 from seafevents.utils import timestamp_to_isoformat_timestr
+
 
 logger = logging.getLogger(__name__)
 
@@ -12,8 +14,10 @@ METADATA_OP_LIMIT = 1000
 
 class RepoMetadata:
 
-    def __init__(self, metadata_server_api):
+    def __init__(self, metadata_server_api, face_manager, face_recognition):
         self.metadata_server_api = metadata_server_api
+        self.face_manager = face_manager
+        self.face_recognition = face_recognition
 
     def update(self, repo_id, added_files, deleted_files, added_dirs, deleted_dirs, modified_files,
                         renamed_files, moved_files, renamed_dirs, moved_dirs, commit_id):
@@ -117,10 +121,13 @@ class RepoMetadata:
             if file_type == '_picture' and file_ext != 'png':
                 obj_id = de.obj_id
                 try:
-                    lat, lng = get_latlng(repo_id, commit_id, obj_id)
+                    lat, lng, embeddings = get_image_info(repo_id, commit_id, obj_id, path, self.face_manager,
+                                                          self.face_recognition)
+                    embeddings = [e.tolist() for e in embeddings]
                     row[METADATA_TABLE.columns.location.name] = {'lng': lng, 'lat': lat}
-                except:
-                    pass
+                    row[METADATA_TABLE.columns.features.name] = json.dumps(embeddings) if embeddings else ''
+                except Exception as e:
+                    logger.exception('Failed to get image info error: %s' % e)
             rows.append(row)
 
             if len(rows) >= METADATA_OP_LIMIT:
@@ -141,6 +148,14 @@ class RepoMetadata:
             path = file.path.rstrip('/')
             if self.is_excluded_path(path):
                 continue
+
+            file_name = os.path.basename(path)
+            file_type, _ = get_file_type_ext_by_name(file_name)
+            if file_type == '_picture':
+                face = self.face_manager.get_face(repo_id, path)
+                if face:
+                    self.face_manager.delete_faces(repo_id, path)
+
             parent_dir = os.path.dirname(path)
             file_name = os.path.basename(path)
             sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR'

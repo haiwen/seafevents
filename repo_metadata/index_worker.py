@@ -11,6 +11,8 @@ from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.repo_metadata import RepoMetadata
 from seafevents.repo_metadata.metadata_manager import MetadataManager
+from seafevents.repo_metadata.face_manager import FaceManager
+from seafevents.repo_metadata.face_recognition import FaceRecognition
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,9 @@ class RepoMetadataIndexWorker(object):
     def __init__(self, config):
         self._db_session_class = init_db_session_class(config)
         self.metadata_server_api = MetadataServerAPI('seafevents')
-        self.repo_metadata = RepoMetadata(self.metadata_server_api)
+        self.face_manager = FaceManager(self._db_session_class)
+        self.face_recognition = FaceRecognition(config)
+        self.repo_metadata = RepoMetadata(self.metadata_server_api, self.face_manager, self.face_recognition)
 
         self.metadata_manager = MetadataManager(self._db_session_class, self.repo_metadata)
 
