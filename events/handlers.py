@@ -49,10 +49,13 @@ def RepoUpdateEventHandler(config, session, msg):
         parent = commit_mgr.load_commit(repo_id, commit.version, commit.parent_id)
 
         if parent is not None:
-            differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id,
-                                  True, True)
-            added_files, deleted_files, added_dirs, deleted_dirs, modified_files,\
-                renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
+            description = commit.description
+            if description.startswith('Deleted') and 'more' in description:
+                differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id, False, False)
+            else:
+                differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id, True, True)
+            added_files, deleted_files, added_dirs, deleted_dirs, modified_files, \
+            renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
 
             if renamed_files or renamed_dirs or moved_files or moved_dirs:
                 changer = ChangeFilePathHandler(session)
