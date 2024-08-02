@@ -85,10 +85,11 @@ def update_faces_db(repo_id, faces, compare_faces, path, face_manager, face_reco
             face_id = item
         face_ids.append(face_id)
     face = face_manager.get_face(repo_id, path)
-    if face:
-        face_manager.update_faces(repo_id, json.dumps(face_ids), path)
-    else:
-        face_manager.insert_faces(repo_id, json.dumps(face_ids), path)
+    for face_id in face_ids:
+        if face:
+            face_manager.update_faces(repo_id, face_id, path)
+        else:
+            face_manager.insert_faces(repo_id, face_id, path)
 
 
 def gen_select_options(option_names):

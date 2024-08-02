@@ -155,6 +155,9 @@ class RepoMetadata:
                 face = self.face_manager.get_face(repo_id, path)
                 if face:
                     self.face_manager.delete_faces(repo_id, path)
+                    face_id = face[0]
+                    if not self.face_manager.get_path_by_face_id(repo_id, face_id):
+                        self.face_manager.delete_face_feature(repo_id, face_id)
 
             parent_dir = os.path.dirname(path)
             file_name = os.path.basename(path)

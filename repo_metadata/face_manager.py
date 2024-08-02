@@ -34,23 +34,30 @@ class FaceManager(object):
 
     def get_face(self, repo_id, path):
         with self.session() as session:
-            sql = "SELECT face_ids FROM repo_image_face WHERE repo_id='%s' AND path='%s'" % (repo_id, path)
+            sql = "SELECT face_id FROM repo_image_face WHERE repo_id='%s' AND path='%s'" % (repo_id, path)
             face = session.execute(text(sql)).fetchone()
 
         return face
 
-    def insert_faces(self, repo_id, face_ids, path):
+    def get_path_by_face_id(self, repo_id, face_id):
+        with self.session() as session:
+            sql = "SELECT * FROM repo_image_face WHERE repo_id='%s' AND face_id='%s'" % (repo_id, face_id)
+            path = session.execute(text(sql)).fetchone()
+
+        return path
+
+    def insert_faces(self, repo_id, face_id, path):
         with self.session() as session:
             session.execute(
-                text("INSERT INTO repo_image_face (`repo_id`, `face_ids`, `path`) VALUES (:repo_id, :face_ids, :path)"),
-                {'repo_id': repo_id, 'face_ids': face_ids, 'path': path})
+                text("INSERT INTO repo_image_face (`repo_id`, `face_id`, `path`) VALUES (:repo_id, :face_id, :path)"),
+                {'repo_id': repo_id, 'face_id': face_id, 'path': path})
             session.commit()
 
-    def update_faces(self, repo_id, face_ids, path):
+    def update_faces(self, repo_id, face_id, path):
         with self.session() as session:
             session.execute(
-                text("UPDATE repo_image_face SET face_ids=:face_ids WHERE repo_id=:repo_id AND path=:path"),
-                {'repo_id': repo_id, 'face_ids': face_ids, 'path': path})
+                text("UPDATE repo_image_face SET face_id=:face_id WHERE repo_id=:repo_id AND path=:path"),
+                {'repo_id': repo_id, 'face_id': face_id, 'path': path})
             session.commit()
 
     def delete_faces(self, repo_id, path):

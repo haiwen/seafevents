@@ -10,7 +10,7 @@ class FaceRecognition:
         if config.has_section(self.AI_section_name) and config.has_option(self.AI_section_name, 'face_recognition_model_path'):
             self.model_path = config.get(self.AI_section_name, 'face_recognition_model_path')
         else:
-            self.model_path = '~/.insightface'
+            self.model_path = './stats-logs'
         self.gpu_id = gpu_id
         self.threshold = threshold
         self.det_thresh = det_thresh
