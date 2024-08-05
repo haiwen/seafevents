@@ -1,0 +1,13 @@
+export CCNET_CONF_DIR=$CONF_PATH
+export SEAFILE_CONF_DIR=$CONF_PATH/seafile-data
+export EVENTS_CONFIG_FILE=$CONF_PATH/seafevents.conf
+export PYTHONPATH=$COMPILE_PATH:$CONF_PATH:$PYTHONPATH:/usr/lib/python3.8/dist-packages:/usr/lib/python3.8/site-packages:/usr/local/lib/python3.8/dist-packages:/usr/local/lib/python3.8/site-packages:/data/dev/seahub/thirdpart:/data/dev/pyes/pyes:/data/dev/portable-python-libevent/libevent:/data/dev/seafobj:/data/dev/seahub/seahub/:/data/dev/
+export SEAHUB_DIR=/data/dev/seahub/
+export SEAFILE_RPC_PIPE_PATH=/opt/seafile-data
+
+
+if [[ $# == 1 && $1 == "clear" ]]; then
+    python -m seafevents.seasearch.script.wiki_index_local clear
+else
+    python -m seafevents.seasearch.script.wiki_index_local update
+fi

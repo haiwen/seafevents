@@ -3,6 +3,7 @@ import logging
 from sqlalchemy.sql import text
 
 from seafevents.repo_data.db import init_db_session_class
+from seafevents.seasearch.utils.constants import REPO_TYPE_WIKI
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,25 @@ class RepoData(object):
             else:
                 cmd = """SELECT repo_id, update_time FROM RepoInfo WHERE repo_id IN {}""".format(tuple(repo_ids))
             res = session.execute(text(cmd)).fetchall()
+            return res
+        except Exception as e:
+            raise e
+        finally:
+            session.close()
+
+    def _get_wiki_repo_id_commit_id(self, start, count):
+        session = self.db_session()
+        try:
+            cmd = """SELECT RepoInfo.repo_id, Branch.commit_id, RepoInfo.type
+                     FROM RepoInfo
+                     INNER JOIN Branch ON RepoInfo.repo_id = Branch.repo_id
+                     WHERE Branch.name = :name
+                     AND RepoInfo.type = :repo_type
+                     limit :start, :count;"""
+            res = session.execute(text(cmd), {'name': 'master',
+                                              'repo_type': REPO_TYPE_WIKI,
+                                              'start': start,
+                                              'count': count}).fetchall()
             return res
         except Exception as e:
             raise e
@@ -106,7 +126,8 @@ class RepoData(object):
         if not repo_ids:
             return []
         try:
-            cmd = """SELECT repo_id from VirtualRepo WHERE repo_id IN {}""".format(tuple(repo_ids))
+            formatted_ids = ", ".join("'{}'".format(id) for id in repo_ids)
+            cmd = """SELECT repo_id from VirtualRepo WHERE repo_id IN ({})""".format(formatted_ids)
             res = session.execute(text(cmd)).fetchall()
             return res
         except Exception as e:
@@ -149,6 +170,13 @@ class RepoData(object):
             logger.error(e)
             return self._get_repo_id_commit_id(start, count)
 
+    def get_wiki_repo_id_commit_id(self, start, count):
+        try:
+            return self._get_wiki_repo_id_commit_id(start, count)
+        except Exception as e:
+            logger.error(e)
+            return self._get_wiki_repo_id_commit_id(start, count)
+
     def get_repo_head_commit(self, repo_id):
         try:
             return self._get_repo_head_commit(repo_id)
@@ -162,6 +190,5 @@ class RepoData(object):
         except Exception as e:
             logger.error(e)
             return self._get_virtual_repo_in_repos(repo_ids)
-
 
 repo_data = RepoData()

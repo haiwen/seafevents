@@ -140,4 +140,3 @@ class Lock(object):
     def __exit__(self, type, value, tb):
         if self.fh:
             self.fh.close()
-
