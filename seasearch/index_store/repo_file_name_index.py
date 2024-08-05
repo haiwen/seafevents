@@ -1,4 +1,3 @@
-import json
 import os
 import logging
 
@@ -173,6 +172,7 @@ class RepoFileNameIndex(object):
             bulk_search_params.append(index_info)
             bulk_search_params.append(data)
             search_path = None
+
 
         results = self.seasearch_api.m_search(bulk_search_params)
         files = []
