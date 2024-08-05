@@ -2,12 +2,15 @@ import os
 import random
 import math
 import exifread
+import requests
+import json
 
 from io import BytesIO
+from urllib.parse import quote as urlquote
 
 from seafobj import commit_mgr, fs_mgr
-
-from seafevents.app.config import METADATA_FILE_TYPES
+from seaserv import seafile_api
+from seafevents.app.config import METADATA_FILE_TYPES, FILE_SERVER
 
 
 def gen_fileext_type_map():
@@ -20,6 +23,24 @@ def gen_fileext_type_map():
             ext_to_type[file_ext] = file_type
 
     return ext_to_type
+
+
+def gen_file_get_url(token, filename):
+    return '%s/files/%s/%s' % (FILE_SERVER, token, urlquote(filename))
+
+
+def get_file_by_path(repo_id, path):
+    file_id = seafile_api.get_file_id_by_path(repo_id, path)
+    filename = os.path.basename(path)
+    token = seafile_api.get_fileserver_access_token(
+        repo_id, file_id, 'download', username='sys_summary_sdoc', use_onetime=True
+    )
+    url = gen_file_get_url(token, filename)
+    content =requests.get(url, timeout=10).content.decode()
+
+    if content:
+        content = json.loads(content)
+    return content
 
 
 FILEEXT_TYPE_MAP = gen_fileext_type_map()
@@ -99,6 +120,7 @@ class MetadataColumns(object):
         self.file_type = MetadataColumn('_file_type', '_file_type', 'single-select',
                                         {'options': gen_select_options(list(METADATA_FILE_TYPES.keys()))})
         self.location = MetadataColumn('_location', '_location', 'geolocation', {'geo_format': 'lng_lat'})
+        self.summary = MetadataColumn('_summary', '_summary', 'long-text')
 
 
 class MetadataColumn(object):

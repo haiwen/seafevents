@@ -5,6 +5,8 @@ from seafevents.seafevent_server.request_handler import app as application
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
+from seafevents.repo_metadata.ai.ai_server import metadata_ai_server
+from seafevents.app.config import ENABLE_METADATA_MANAGEMENT
 
 
 class SeafEventServer(Thread):
@@ -21,6 +23,9 @@ class SeafEventServer(Thread):
         self._server = WSGIServer((self._host, int(self._port)), application)
         
         index_task_manager.init(config)
+
+        if ENABLE_METADATA_MANAGEMENT:
+            metadata_ai_server.init(config)
 
     def _parse_config(self, config):
         if config.has_option('SEAF-EVENT-SERVER', 'host'):
