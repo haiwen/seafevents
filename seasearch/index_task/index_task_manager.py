@@ -2,6 +2,7 @@ import logging
 
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.index_store.repo_file_name_index import RepoFileNameIndex
+from seafevents.seasearch.index_store.wiki_index import WikiIndex
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.seasearch.utils.constants import SHARD_NUM
 from seafevents.repo_data import repo_data
@@ -19,6 +20,7 @@ class IndexTaskManager:
         self._repo_data = None
         self.index_manager = None
         self._repo_filename_index = None
+        self._wiki_index = None
 
     def init(self, config):
         self._parse_config(config)
@@ -56,11 +58,18 @@ class IndexTaskManager:
             self._repo_data,
             int(SHARD_NUM),
         )
+        self._wiki_index = WikiIndex(
+            self.seasearch_api,
+            self._repo_data,
+            int(SHARD_NUM),
+        )
 
     def keyword_search(self, query, repos, count, suffixes, search_path):
         return self.index_manager.keyword_search(
             query, repos, self._repo_filename_index, count, suffixes, search_path
         )
 
+    def wiki_search(self, query, wikis, count):
+        return self.index_manager.wiki_search(query, wikis, self._wiki_index, count)
 
 index_task_manager = IndexTaskManager()
