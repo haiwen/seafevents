@@ -1,4 +1,5 @@
 import logging
+import json
 
 
 def RepoUpdatePublishHandler(config, redis_connection, msg):
@@ -15,9 +16,14 @@ def RepoUpdatePublishHandler(config, redis_connection, msg):
         logging.warning("Unknown database backend: %s" % mq_type)
         return
 
-    elements = msg['content'].split('\t')
-    if len(elements) != 3:
-        logging.warning("got bad message: %s", elements)
+    try:
+        elements = json.loads(msg['content'])
+    except:
+        logging.warning("got bad message: %s", msg)
+        return
+
+    if len(elements.keys()) != 3:
+        logging.warning("got bad message: %s", msg)
         return
 
     try:
