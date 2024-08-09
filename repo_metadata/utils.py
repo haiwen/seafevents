@@ -67,6 +67,21 @@ def gen_select_options(option_names):
         id_set.add(option_id)
     return options
 
+FILE_TYPE_DATA_OPTIONS = {
+    '_picture': { 'name': '_picture', 'color': '#FFFCB5', 'textColor': '#202428', 'id': '_picture' },
+    '_document': { 'name': '_document', 'color': '#B7CEF9', 'textColor': '#202428', 'id': '_document' },
+    '_video': { 'name': '_video', 'color': '#9860E5', 'textColor': '#FFFFFF', 'borderColor': '#844BD2', 'id': '_video' },
+    '_audio': { 'name': '_audio', 'color': '#FBD44A', 'textColor': '#FFFFFF', 'borderColor': '#E5C142', 'id': '_audio' },
+    '_code': { 'name': '_code', 'color': '#4ad8fb', 'textColor': '#FFFFFF', 'borderColor': '#4283e5', 'id': '_code' },
+}
+
+def gen_file_type_options(option_names):
+    options = []
+
+    for option_name in option_names:
+        options.append(FILE_TYPE_DATA_OPTIONS[option_name])
+    return options
+
 
 def gen_option_id(id_set):
     _id = str(math.floor(random.uniform(0.1, 1) * (10 ** 6)))
@@ -98,7 +113,7 @@ class MetadataColumns(object):
         self.file_name = MetadataColumn('_name', '_name', 'text')
         self.is_dir = MetadataColumn('_is_dir', '_is_dir', 'checkbox')
         self.file_type = MetadataColumn('_file_type', '_file_type', 'single-select',
-                                        {'options': gen_select_options(list(METADATA_FILE_TYPES.keys()))})
+                                        {'options': gen_file_type_options(list(METADATA_FILE_TYPES.keys()))})
         self.location = MetadataColumn('_location', '_location', 'geolocation', {'geo_format': 'lng_lat'})
 
 
