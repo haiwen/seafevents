@@ -8,6 +8,7 @@ from io import BytesIO
 from seafobj import commit_mgr, fs_mgr
 
 from seafevents.app.config import METADATA_FILE_TYPES
+from seafevents.repo_metadata.view_data_sql import view_data_2_sql
 
 
 def gen_fileext_type_map():
@@ -121,3 +122,8 @@ class MetadataColumn(object):
 
 
 METADATA_TABLE = MetadataTable('0001', 'Table1')
+
+
+def gen_view_data_sql(table, columns, view, start, limit):
+    return view_data_2_sql(table, columns, view, start, limit)
+
