@@ -1,5 +1,6 @@
 import time
 import logging
+import json
 from threading import Thread
 
 from seaserv import seafile_api
@@ -36,12 +37,16 @@ class MessageHandler(object):
             funcs.append(func)
 
     def handle_message(self, config, session, redis_connection, channel, msg):
-        pos = msg['content'].find('\t')
-        if pos == -1:
+        try:
+            content = json.loads(msg.get('content'))
+        except:
             logger.warning("invalid message format: %s", msg)
             return
 
-        msg_type = channel + ':' + msg['content'][:pos]
+        if not content.get('msg_type'):
+            return
+
+        msg_type = channel + ':' + content.get('msg_type')
         if msg_type not in self._handlers:
             return
 

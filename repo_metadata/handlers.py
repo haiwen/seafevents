@@ -1,4 +1,5 @@
 import logging
+import json
 from seafevents.app.config import ENABLE_METADATA_MANAGEMENT
 
 
@@ -6,9 +7,12 @@ def RepoMetadataUpdateHandler(config, redis_connection, msg):
     if not ENABLE_METADATA_MANAGEMENT:
         return
 
-    elements = msg['content'].split('\t')
-    if len(elements) != 3:
-        logging.warning("got bad message: %s", elements)
+    content = json.loads(msg['content'])
+    msg_type = content.get('msg_type')
+    repo_id = content.get('repo_id')
+    commit_id = content.get('commit_id')
+    if not msg_type or not repo_id or not commit_id:
+        logging.warning("got bad message: %s", msg)
         return
 
     try:
