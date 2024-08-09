@@ -31,13 +31,18 @@ recent_added_events = {'recent_added_events': []}
 
 
 def RepoUpdateEventHandler(config, session, msg):
-    elements = msg['content'].split('\t')
-    if len(elements) != 3:
-        logging.warning("got bad message: %s", elements)
+    try:
+        elements = json.loads(msg['content'])
+    except:
+        logging.warning("got bad message: %s", msg)
         return
 
-    repo_id = elements[1]
-    commit_id = elements[2]
+    repo_id = elements.get('repo_id')
+    commit_id = elements.get('commit_id')
+
+    if not repo_id or not commit_id:
+        logging.warning("repo_id: %s, or commit_id: %s invalid.", repo_id, commit_id)
+        return
 
     commit = commit_mgr.load_commit(repo_id, 1, commit_id)
     if commit is None:
@@ -417,7 +422,7 @@ def generate_repo_monitor_records(repo_id, commit,
 
 
 def save_message_to_user_notification(session, records):
-    
+
     if not records:
         return
 
@@ -607,7 +612,7 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
     repo = seafile_api.get_repo(repo_id)
     if repo.repo_type == 'wiki':
         return []
-    
+
     base_record = {
         'commit_id': commit.commit_id,
         'timestamp': time,
@@ -902,13 +907,17 @@ def should_record(config, record):
 
 
 def FileUpdateEventHandler(config, session, msg):
-    elements = msg['content'].split('\t')
-    if len(elements) != 3:
-        logging.warning("got bad message: %s", elements)
+    try:
+        elements = json.loads(msg['content'])
+    except:
+        logging.warning("got bad message: %s", msg)
         return
 
-    repo_id = elements[1]
-    commit_id = elements[2]
+    repo_id = elements.get('repo_id')
+    commit_id = elements.get('commit_id')
+    if not repo_id or not commit_id:
+        logging.debug("repo_id: %s, or commit_id: %s invalid.", repo_id, commit_id)
+        return
 
     org_id = get_org_id_by_repo_id(repo_id)
 
@@ -926,18 +935,19 @@ def FileUpdateEventHandler(config, session, msg):
                            repo_id, commit_id, commit.desc)
 
 def FileAuditEventHandler(config, session, msg):
-    elements = msg['content'].split('\t')
-    if len(elements) != 6:
-        logging.warning("got bad message: %s", elements)
+    try:
+        elements = json.loads(msg['content'])
+    except:
+        logging.warning("got bad message: %s", msg)
         return
 
     timestamp = datetime.datetime.utcfromtimestamp(msg['ctime'])
-    msg_type = elements[0]
-    user_name = elements[1]
-    ip = elements[2]
-    user_agent = elements[3]
-    repo_id = elements[4]
-    file_path = elements[5]
+    msg_type = elements.get('msg_type')
+    user_name = elements.get('user_name')
+    ip = elements.get('ip')
+    user_agent = elements.get('user_agent')
+    repo_id = elements.get('repo_id')
+    file_path = elements.get('file_path')
     if not file_path.startswith('/'):
         file_path = '/' + file_path
 
@@ -947,18 +957,19 @@ def FileAuditEventHandler(config, session, msg):
                           user_agent, org_id, repo_id, file_path)
 
 def PermAuditEventHandler(config, session, msg):
-    elements = msg['content'].split('\t')
-    if len(elements) != 7:
-        logging.warning("got bad message: %s", elements)
+    try:
+        elements = json.loads(msg['content'])
+    except:
+        logging.warning("got bad message: %s", msg)
         return
 
     timestamp = datetime.datetime.utcfromtimestamp(msg['ctime'])
-    etype = elements[1]
-    from_user = elements[2]
-    to = elements[3]
-    repo_id = elements[4]
-    file_path = elements[5]
-    perm = elements[6]
+    etype = elements.get('etype')
+    from_user = elements.get('from_user')
+    to = elements.get('to')
+    repo_id = elements.get('repo_id')
+    file_path = elements.get('file_path')
+    perm = elements.get('perm')
 
     org_id = get_org_id_by_repo_id(repo_id)
 
@@ -968,30 +979,32 @@ def PermAuditEventHandler(config, session, msg):
 
 def DraftPublishEventHandler(config, session, msg):
 
-    elements = msg['content'].split('\t')
-    if len(elements) != 6:
-        logging.warning("got bad message: %s", elements)
+    try:
+        elements = json.loads(msg['content'])
+    except:
+        logging.warning("got bad message: %s", msg)
         return
 
     record = dict()
+    repo_id = elements.get('repo_id')
     record["timestamp"] = datetime.datetime.utcfromtimestamp(msg['ctime'])
-    record["op_type"] = elements[0]
-    record["obj_type"] = elements[1]
-    record["repo_id"] = elements[2]
-    repo = seafile_api.get_repo(elements[2])
+    record["op_type"] = elements.get('msg_type')
+    record["obj_type"] = elements.get('obj_type')
+    record["repo_id"] = repo_id
+    record["op_user"] = elements.get('user_name')
+    record["path"] = elements.get('path')
+    record["old_path"] = elements.get('old_path')
+    repo = seafile_api.get_repo(repo_id)
     record["repo_name"] = repo.name if repo else ''
-    record["op_user"] = elements[3]
-    record["path"] = elements[4]
-    record["old_path"] = elements[5]
 
     users = []
-    org_id = get_org_id_by_repo_id(elements[2])
+    org_id = get_org_id_by_repo_id(repo_id)
     if org_id > 0:
-        users.extend(seafile_api.org_get_shared_users_by_repo(org_id, elements[2]))
-        owner = seafile_api.get_org_repo_owner(elements[2])
+        users.extend(seafile_api.org_get_shared_users_by_repo(org_id, repo_id))
+        owner = seafile_api.get_org_repo_owner(repo_id)
     else:
-        users.extend(seafile_api.get_shared_users_by_repo(elements[2]))
-        owner = seafile_api.get_repo_owner(elements[2])
+        users.extend(seafile_api.get_shared_users_by_repo(repo_id))
+        owner = seafile_api.get_repo_owner(repo_id)
 
     if owner not in users:
         users = users + [owner]
