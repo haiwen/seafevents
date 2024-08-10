@@ -105,7 +105,7 @@ class TaskManager:
         return task
 
     def add_init_metadata_task(self, username, repo_id):
-        msg_content = "init_metadata\t" + repo_id + '\t' + ZERO_OBJ_ID
+        msg_content = "init-metadata\t" + repo_id + '\t' + ZERO_OBJ_ID
         if self._redis_connection.publish('metadata_update', msg_content) > 0:
             logging.debug('Publish event: %s' % msg_content)
         else:
