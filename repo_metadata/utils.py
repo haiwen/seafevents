@@ -67,19 +67,11 @@ def gen_select_options(option_names):
         id_set.add(option_id)
     return options
 
-FILE_TYPE_DATA_OPTIONS = {
-    '_picture': { 'name': '_picture', 'color': '#FFFCB5', 'textColor': '#202428', 'id': '_picture' },
-    '_document': { 'name': '_document', 'color': '#B7CEF9', 'textColor': '#202428', 'id': '_document' },
-    '_video': { 'name': '_video', 'color': '#9860E5', 'textColor': '#FFFFFF', 'borderColor': '#844BD2', 'id': '_video' },
-    '_audio': { 'name': '_audio', 'color': '#FBD44A', 'textColor': '#FFFFFF', 'borderColor': '#E5C142', 'id': '_audio' },
-    '_code': { 'name': '_code', 'color': '#4ad8fb', 'textColor': '#FFFFFF', 'borderColor': '#4283e5', 'id': '_code' },
-}
-
-def gen_file_type_options(option_names):
+def gen_file_type_options(option_ids):
     options = []
 
-    for option_name in option_names:
-        options.append(FILE_TYPE_DATA_OPTIONS[option_name])
+    for option_id in option_ids:
+        options.append({ 'id': option_id, 'name': option_id })
     return options
 
 
