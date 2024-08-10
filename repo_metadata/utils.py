@@ -67,6 +67,13 @@ def gen_select_options(option_names):
         id_set.add(option_id)
     return options
 
+def gen_file_type_options(option_ids):
+    options = []
+
+    for option_id in option_ids:
+        options.append({ 'id': option_id, 'name': option_id })
+    return options
+
 
 def gen_option_id(id_set):
     _id = str(math.floor(random.uniform(0.1, 1) * (10 ** 6)))
@@ -98,7 +105,7 @@ class MetadataColumns(object):
         self.file_name = MetadataColumn('_name', '_name', 'text')
         self.is_dir = MetadataColumn('_is_dir', '_is_dir', 'checkbox')
         self.file_type = MetadataColumn('_file_type', '_file_type', 'single-select',
-                                        {'options': gen_select_options(list(METADATA_FILE_TYPES.keys()))})
+                                        {'options': gen_file_type_options(list(METADATA_FILE_TYPES.keys()))})
         self.location = MetadataColumn('_location', '_location', 'geolocation', {'geo_format': 'lng_lat'})
 
 
