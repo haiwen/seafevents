@@ -128,12 +128,12 @@ class RepoMetadataIndexWorker(object):
     def add_to_undo_task(self, mq, repo_id):
         """Push task back to the end of the queue.
         """
+        # avoid get the same task repeatedly
+        time.sleep(0.1)
         mq.lpush('metadata_task', '\t'.join(['repo-update', repo_id]))
         logger.debug('%s push back task (%s,) to the queue' %
                      (self.tname, repo_id))
 
-        # avoid get the same task repeatedly
-        time.sleep(0.5)
 
     def refresh_lock(self):
         logger.info('%s Starting refresh locks' % self.tname)
