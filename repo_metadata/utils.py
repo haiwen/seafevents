@@ -108,6 +108,9 @@ class MetadataColumns(object):
                                         {'options': gen_file_type_options(list(METADATA_FILE_TYPES.keys()))})
         self.location = MetadataColumn('_location', '_location', 'geolocation', {'geo_format': 'lng_lat'})
         self.obj_id = MetadataColumn('_obj_id', '_obj_id', 'text')
+        self.size = MetadataColumn('_size', '_size', 'number')
+        self.suffix = MetadataColumn('_suffix', '_suffix', 'text')
+        self.file_details = MetadataColumn('_file_details', '_file_details', 'long-text')
 
 
 class MetadataColumn(object):
