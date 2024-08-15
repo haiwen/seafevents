@@ -3,7 +3,6 @@ import logging
 
 from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_ext_by_name, get_latlng
 from seafevents.utils import timestamp_to_isoformat_timestr
-from seaserv import seafile_api
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,7 @@ class RepoMetadata:
         self.delete_files(repo_id, deleted_files)
         self.add_dirs(repo_id, added_dirs)
         self.delete_dirs(repo_id, deleted_dirs)
-        self.update_files(repo_id, modified_files, commit_id)
+        self.update_files(repo_id, modified_files)
 
         # self.rename_files(repo_id, renamed_files)
         # self.move_files(repo_id, moved_files)
@@ -78,34 +77,6 @@ class RepoMetadata:
                 METADATA_TABLE.columns.file_mtime.name: timestamp_to_isoformat_timestr(new_row.mtime),
                 METADATA_TABLE.columns.obj_id.name: new_row.obj_id,
                 METADATA_TABLE.columns.size.name: new_row.size,
-            }
-            updated_rows.append(update_row)
-
-            if len(updated_rows) >= METADATA_OP_LIMIT:
-                self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
-                updated_rows = []
-
-        if not updated_rows:
-            return
-        self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
-
-    def update_dir_rows_by_query(self, repo_id, sql, parameters, path_to_obj_id):
-        query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
-
-        if not query_result:
-            return
-
-        updated_rows = []
-        for row in query_result:
-            row_id = row[METADATA_TABLE.columns.id.name]
-            parent_dir = row[METADATA_TABLE.columns.parent_dir.name]
-            file_name = row[METADATA_TABLE.columns.file_name.name]
-            key = os.path.join(parent_dir, file_name)
-            obj_id = path_to_obj_id.get(key)
-
-            update_row = {
-                METADATA_TABLE.columns.id.name: row_id,
-                METADATA_TABLE.columns.obj_id.name: obj_id
             }
             updated_rows.append(update_row)
 
@@ -194,7 +165,7 @@ class RepoMetadata:
         sql = sql.rstrip(' OR')
         self.delete_rows_by_query(repo_id, sql, parameters)
 
-    def update_files(self, repo_id, modified_files, commit_id):
+    def update_files(self, repo_id, modified_files):
         if not modified_files:
             return
 
@@ -202,10 +173,6 @@ class RepoMetadata:
         sql = base_sql
         path_to_file_dict = {}
         parameters = []
-
-        parent_dir_sql = base_sql
-        dir_parameters = []
-        path_to_obj_id = {}
         for file in modified_files:
             path = file.path.rstrip('/')
             if self.is_excluded_path(path):
@@ -226,39 +193,9 @@ class RepoMetadata:
                 parameters = []
                 path_to_file_dict = {}
 
-            # update parent dir obj_id
-            dir_paths = parent_dir.strip('/').split('/')
-            # ['level1 folder', 'level2 folder', 'level3 folder']
-            dir_parent_dir_name = '/'
-            for dir_path in dir_paths:
-                parent_dir_sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR'
-                parent_dir_parameter = dir_parent_dir_name
-
-                dir_parameters.append(parent_dir_parameter)
-                dir_parameters.append(dir_path)
-
-                if dir_parent_dir_name == '/':
-                    dir_parent_dir_name = os.path.join(dir_parent_dir_name, dir_path)
-                else:
-                    dir_parent_dir_name = os.path.join(dir_parent_dir_name.rstrip('/'), dir_path)
-
-                obj_id = seafile_api.get_dir_id_by_commit_and_path(repo_id, commit_id, dir_parent_dir_name)
-                path_to_obj_id[dir_parent_dir_name] = obj_id
-
-            if len(dir_parameters) >= METADATA_OP_LIMIT:
-                parent_dir_sql = parent_dir_sql.rstrip(' OR')
-                self.update_dir_rows_by_query(repo_id, parent_dir_sql, dir_parameters, path_to_obj_id)
-                parent_dir_sql = base_sql
-                dir_parameters = []
-                path_to_obj_id = {}
-
         if parameters:
             sql = sql.rstrip(' OR')
             self.update_rows_by_query(repo_id, sql, parameters, path_to_file_dict)
-
-        if dir_parameters:
-            parent_dir_sql = parent_dir_sql.rstrip(' OR')
-            self.update_dir_rows_by_query(repo_id, parent_dir_sql, dir_parameters, path_to_obj_id)
 
     def add_dirs(self, repo_id, added_dirs):
         if not added_dirs:
@@ -272,7 +209,6 @@ class RepoMetadata:
             parent_dir = os.path.dirname(path)
             file_name = os.path.basename(path)
             mtime = de.mtime
-            obj_id = de.obj_id
 
             row = {
                 METADATA_TABLE.columns.file_creator.name: '',
@@ -282,7 +218,6 @@ class RepoMetadata:
                 METADATA_TABLE.columns.parent_dir.name: parent_dir,
                 METADATA_TABLE.columns.file_name.name: file_name,
                 METADATA_TABLE.columns.is_dir.name: True,
-                METADATA_TABLE.columns.obj_id.name: obj_id,
 
             }
             rows.append(row)
