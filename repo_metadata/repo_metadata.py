@@ -75,6 +75,8 @@ class RepoMetadata:
                 METADATA_TABLE.columns.id.name: row_id,
                 METADATA_TABLE.columns.file_modifier.name: new_row.modifier,
                 METADATA_TABLE.columns.file_mtime.name: timestamp_to_isoformat_timestr(new_row.mtime),
+                METADATA_TABLE.columns.obj_id.name: new_row.obj_id,
+                METADATA_TABLE.columns.size.name: new_row.size,
             }
             updated_rows.append(update_row)
 
@@ -94,6 +96,8 @@ class RepoMetadata:
         for de in added_files:
             path = de.path.rstrip('/')
             mtime = de.mtime
+            obj_id = de.obj_id
+            size = de.size
             parent_dir = os.path.dirname(path)
             file_name = os.path.basename(path)
             modifier = de.modifier
@@ -110,6 +114,9 @@ class RepoMetadata:
                 METADATA_TABLE.columns.parent_dir.name: parent_dir,
                 METADATA_TABLE.columns.file_name.name: file_name,
                 METADATA_TABLE.columns.is_dir.name: False,
+                METADATA_TABLE.columns.obj_id.name: obj_id,
+                METADATA_TABLE.columns.size.name: size,
+                METADATA_TABLE.columns.suffix.name: file_ext,
             }
 
             if file_type:
@@ -186,10 +193,9 @@ class RepoMetadata:
                 parameters = []
                 path_to_file_dict = {}
 
-        if not parameters:
-            return
-        sql = sql.rstrip(' OR')
-        self.update_rows_by_query(repo_id, sql, parameters, path_to_file_dict)
+        if parameters:
+            sql = sql.rstrip(' OR')
+            self.update_rows_by_query(repo_id, sql, parameters, path_to_file_dict)
 
     def add_dirs(self, repo_id, added_dirs):
         if not added_dirs:
@@ -468,20 +474,3 @@ class RepoMetadata:
 
     def delete_base(self, repo_id):
         self.metadata_server_api.delete_base(repo_id)
-
-    def init_columns(self, repo_id):
-        # initial md-server base and insert records
-        # Add columns: creator, created_time, modifier, modified_time, parent_dir, name
-        self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.file_creator.to_dict())
-        self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.file_ctime.to_dict())
-        self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.file_modifier.to_dict())
-        self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.file_mtime.to_dict())
-        self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.parent_dir.to_dict())
-        self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.file_name.to_dict())
-        self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.is_dir.to_dict())
-        self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.file_type.to_dict())
-        self.metadata_server_api.add_column(repo_id, METADATA_TABLE.id, METADATA_TABLE.columns.location.to_dict())
-
-    def create_base(self, repo_id):
-        self.metadata_server_api.create_base(repo_id)
-        self.init_columns(repo_id)

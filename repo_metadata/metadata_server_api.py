@@ -53,7 +53,7 @@ class MetadataServerAPI:
         }
         response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response)
-    
+
     def insert_rows(self, base_id, table_id, rows):
         headers = self.gen_headers(base_id)
         url = f'{self.server_url}/api/v1/base/{base_id}/rows'
@@ -63,7 +63,7 @@ class MetadataServerAPI:
             }
         response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response)
-    
+
     def update_rows(self, base_id, table_id, rows):
         headers = self.gen_headers(base_id)
         url = f'{self.server_url}/api/v1/base/{base_id}/rows'
@@ -94,4 +94,14 @@ class MetadataServerAPI:
             post_data['params'] = params
         url = f'{self.server_url}/api/v1/base/{base_id}/query'
         response = requests.post(url, json=post_data, headers=headers, timeout=self.timeout)
+        return parse_response(response)
+
+    def add_columns(self, base_id, table_id, columns):
+        headers = self.gen_headers(base_id)
+        url = f'{METADATA_SERVER_URL}/api/v1/base/{base_id}/columns'
+        data = {
+            'table_id': table_id,
+            'columns': columns
+        }
+        response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response)
