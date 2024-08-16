@@ -1,3 +1,13 @@
+CREATE TABLE IF NOT EXISTS `deleted_files_count` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `repo_id` varchar(36) NOT NULL,
+  `deleted_time` datetime NOT NULL,
+  `files_count` bigint(20) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `ix_deleted_files_count_repo_id` (`repo_id`),
+  KEY `ix_deleted_files_count_deleted_time` (`deleted_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 CREATE TABLE IF NOT EXISTS `ContentScanRecord` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `repo_id` varchar(36) NOT NULL,
@@ -18,7 +28,7 @@ CREATE TABLE IF NOT EXISTS `ContentScanResult` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `Activity` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `op_type` varchar(128) NOT NULL,
   `op_user` varchar(255) NOT NULL,
   `obj_type` varchar(128) NOT NULL,
@@ -32,19 +42,19 @@ CREATE TABLE IF NOT EXISTS `Activity` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `UserActivity` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `username` varchar(255) NOT NULL,
-  `activity_id` int(11) DEFAULT NULL,
+  `activity_id` bigint(20) DEFAULT NULL,
   `timestamp` datetime NOT NULL,
   PRIMARY KEY (`id`),
   KEY `activity_id` (`activity_id`),
   KEY `ix_UserActivity_timestamp` (`timestamp`),
   KEY `idx_username_timestamp` (`username`,`timestamp`),
-  CONSTRAINT `useractivity_ibfk_1` FOREIGN KEY (`activity_id`) REFERENCES `Activity` (`id`) ON DELETE CASCADE
+  CONSTRAINT `UserActivity_ibfk_1` FOREIGN KEY (`activity_id`) REFERENCES `Activity` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `FileHistory` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `op_type` varchar(128) NOT NULL,
   `op_user` varchar(255) NOT NULL,
   `timestamp` datetime NOT NULL,
@@ -62,7 +72,7 @@ CREATE TABLE IF NOT EXISTS `FileHistory` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `FileAudit` (
-  `eid` int(11) NOT NULL AUTO_INCREMENT,
+  `eid` bigint(20) NOT NULL AUTO_INCREMENT,
   `timestamp` datetime NOT NULL,
   `etype` varchar(128) NOT NULL,
   `user` varchar(255) NOT NULL,
@@ -80,7 +90,7 @@ CREATE TABLE IF NOT EXISTS `FileAudit` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `FileUpdate` (
-  `eid` int(11) NOT NULL AUTO_INCREMENT,
+  `eid` bigint(20) NOT NULL AUTO_INCREMENT,
   `timestamp` datetime NOT NULL,
   `user` varchar(255) NOT NULL,
   `org_id` int(11) NOT NULL,
@@ -94,7 +104,7 @@ CREATE TABLE IF NOT EXISTS `FileUpdate` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `PermAudit` (
-  `eid` int(11) NOT NULL AUTO_INCREMENT,
+  `eid` bigint(20) NOT NULL AUTO_INCREMENT,
   `timestamp` datetime NOT NULL,
   `etype` varchar(128) NOT NULL,
   `from_user` varchar(255) NOT NULL,
