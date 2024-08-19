@@ -108,9 +108,14 @@ def run_ldap_sync(settings):
         logging.debug('Both user and group sync are disabled, stop ldap sync.')
         return
     if settings.enable_user_sync:
-        LdapUserSync(settings).start()
+        ldap_user_sync_thread = LdapUserSync(settings)
+        ldap_user_sync_thread.start()
+        ldap_user_sync_thread.join()
+    # wait for user sync to be finished, then start group sync
     if settings.enable_group_sync or settings.sync_department_from_ou:
-        LdapGroupSync(settings).start()
+        ldap_group_sync_thread = LdapGroupSync(settings)
+        ldap_group_sync_thread.start()
+        ldap_group_sync_thread.join()
 
 
 if __name__ == '__main__':
