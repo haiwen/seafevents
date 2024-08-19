@@ -552,6 +552,7 @@ class LdapUserSync(LdapSync):
                                  'DEACTIVE_USER_IF_NOTFOUND option is not set, so not deactive it.' % login_attr)
 
         # sync undeleted user in ldap to db
+        email_is_manual_set_map = {}
         for login_attr, ldap_user in data_ldap.items():
             if login_attr in self.login_attr_email_map:
                 email = self.login_attr_email_map[login_attr]
@@ -561,6 +562,15 @@ class LdapUserSync(LdapSync):
                 user = ccnet_api.get_emailuser(login_attr)
                 # if exists and password is '!', means that the user is an older version user
                 if user and user.password == '!':
+                    if not email_is_manual_set_map:
+                        try:
+                            self.ccnet_db_cursor.execute("SELECT email, is_manual_set FROM UserRole")
+                            res = self.ccnet_db_cursor.fetchall()
+                            for item in res:
+                                email_is_manual_set_map[item[0]] = item[1]
+                        except Exception as e:
+                            logger.error('get user is_manual_set failed: %s' % e)
+                    user.is_manual_set = email_is_manual_set_map.get(user.email)
                     self.sync_update_user(ldap_user, user, user.email)
                     try:
                         self.cursor.execute("INSERT INTO social_auth_usersocialauth (username,provider,uid,extra_data) "
