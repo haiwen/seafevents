@@ -1,5 +1,6 @@
 # coding: utf-8
 import logging
+import json
 import logging.handlers
 
 from datetime import datetime
@@ -14,13 +15,15 @@ def UserLoginEventHandler(config, session, msg):
         logging.info('statistics is disabled')
         return
 
-    elements = msg['content'].split('\t')
-    if len(elements) != 4:
-        logging.warning("got bad message: %s", elements)
+    try:
+        elements = json.loads(msg['content'])
+    except:
+        logging.warning("got bad message: %s", msg)
         return
-    username = elements[1]
-    timestamp = elements[2]
-    org_id = elements[3]
+
+    username = elements.get('user_name')
+    timestamp = elements.get('timestamp')
+    org_id = elements.get('org_id')
     _timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
 
     update_hash_record(session, username, _timestamp, org_id)
@@ -34,16 +37,17 @@ def FileStatsEventHandler(config, session, msg):
         logging.info('statistics is disabled')
         return
 
-    elements = msg['content'].split('\t')
-    if len(elements) != 4:
-        logging.warning("got bad message: %s", elements)
+    try:
+        elements = json.loads(msg['content'])
+    except:
+        logging.warning("got bad message: %s", msg)
         return
 
     timestamp = datetime.utcfromtimestamp(msg['ctime'])
-    oper = elements[0]
-    user_name = elements[1]
-    repo_id = elements[2]
-    size = int(elements[3])
+    oper = elements.get('msg_type')
+    user_name = elements.get('user_name')
+    repo_id = elements.get('repo_id')
+    size = int(elements.get('bytes'))
 
     save_traffic_info(session, timestamp, user_name, repo_id, oper, size)
 
