@@ -66,9 +66,16 @@ class RepoMetadataIndexMaster(Thread):
                 if not message:
                     break
 
-                if message and isinstance(message['data'], str) and message['data'].count('\t') == 2:
-                    msg = message['data'].split('\t')
-                    op_type, repo_id, commit_id = msg[0], msg[1], msg[2]
+                try:
+                    data = json.loads(message['data'])
+                except:
+                    logger.warning('index master message: invalid.', message)
+                    data = None
+
+                if data:
+                    op_type = data.get('msg_type')
+                    repo_id = data.get('repo_id')
+                    commit_id = data.get('commit_id')
                     if op_type == 'init-metadata':
                         data = op_type + '\t' + repo_id
                         self.mq.lpush('metadata_task', data)

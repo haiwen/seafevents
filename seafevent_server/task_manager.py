@@ -108,7 +108,7 @@ class TaskManager:
         import json
 
         msg_content = {
-            'msg_type': 'init_metadata',
+            'msg_type': 'init-metadata',
             'repo_id': repo_id,
             'commit_id': ZERO_OBJ_ID,
         }
