@@ -62,7 +62,7 @@ def get_sys_logs_task():
 
     if event_export_task_manager.tasks_queue.full():
         logger.warning('seafevent server busy, queue size: %d, current tasks: %s, threads is_alive: %s'
-                                 % (event_export_task_manager.tasks_queue.qsize(), task_manager.current_task_info,
+                                 % (event_export_task_manager.tasks_queue.qsize(), event_export_task_manager.current_task_info,
                                     event_export_task_manager.threads_is_alive()))
         return make_response(('seafevent server busy,.', 400))
 
