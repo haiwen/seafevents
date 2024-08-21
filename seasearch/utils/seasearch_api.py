@@ -1,7 +1,6 @@
 import json
 import logging
 import requests
-import ndjson
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +15,23 @@ def parse_response(response):
             return json.loads(response.text)
         except:
             pass
+
+
+class Encoder(json.JSONEncoder):
+    def encode(self, obj, *args, **kwargs):
+        lines = []
+        for each in obj:
+            line = super(Encoder, self).encode(each, *args, **kwargs)
+            lines.append(line)
+        return '\n'.join(lines)
+
+
+def ndjson_dumps(*args, **kwargs):
+    """
+    dumps data to ndjson format as seasearch parameter
+    """
+    kwargs.setdefault('cls', Encoder)
+    return json.dumps(*args, **kwargs)
 
 
 class SeaSearchAPI(object):
@@ -54,7 +70,7 @@ class SeaSearchAPI(object):
         this option includes add, update and delete index or document
         """
         url = self.server + '/es/' + index_name + '/_bulk'
-        data = ndjson.dumps(data)
+        data = ndjson_dumps(data)
         response = requests.post(url, headers=self.headers, data=data, timeout=self.timeout)
         data = parse_response(response)
         error = data.get('error')
@@ -78,7 +94,7 @@ class SeaSearchAPI(object):
         url = self.server + '/es/_msearch'
         if unify_score:
             url += '?unify_score=true'
-        data = ndjson.dumps(data)
+        data = ndjson_dumps(data)
         response = requests.post(url, headers=self.headers, data=data, timeout=self.timeout)
         return parse_response(response)
 
