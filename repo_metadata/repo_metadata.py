@@ -1,3 +1,4 @@
+import json
 import os
 import logging
 
@@ -12,8 +13,9 @@ METADATA_OP_LIMIT = 1000
 
 class RepoMetadata:
 
-    def __init__(self, metadata_server_api):
+    def __init__(self, metadata_server_api, redis_mq):
         self.metadata_server_api = metadata_server_api
+        self.redis_mq = redis_mq
 
     def update(self, repo_id, added_files, deleted_files, added_dirs, deleted_dirs, modified_files,
                         renamed_files, moved_files, renamed_dirs, moved_dirs, commit_id):
@@ -93,6 +95,7 @@ class RepoMetadata:
             return
 
         rows = []
+        obj_ids = []
         for de in added_files:
             path = de.path.rstrip('/')
             mtime = de.mtime
@@ -121,21 +124,37 @@ class RepoMetadata:
 
             if file_type:
                 row[METADATA_TABLE.columns.file_type.name] = file_type
-            if file_type == '_picture' and file_ext != 'png':
-                obj_id = de.obj_id
-                try:
-                    lat, lng = get_latlng(repo_id, commit_id, obj_id)
-                    row[METADATA_TABLE.columns.location.name] = {'lng': lng, 'lat': lat}
-                except:
-                    pass
+            if file_type == '_picture' and file_ext not in ('png', 'gif'):
+                obj_ids.append(de.obj_id)
             rows.append(row)
 
             if len(rows) >= METADATA_OP_LIMIT:
                 self.metadata_server_api.insert_rows(repo_id, METADATA_TABLE.id, rows)
+
+                if obj_ids:
+                    data = {
+                        'task_type': 'location_extract',
+                        'repo_id': repo_id,
+                        'commit_id': commit_id,
+                        'obj_ids': obj_ids
+                    }
+                    self.add_slow_task_to_queue(json.dumps(data))
+                    obj_ids = []
                 rows = []
         if not rows:
             return
         self.metadata_server_api.insert_rows(repo_id, METADATA_TABLE.id, rows)
+        if obj_ids:
+            data = {
+                'task_type': 'location_extract',
+                'repo_id': repo_id,
+                'commit_id': commit_id,
+                'obj_ids': obj_ids
+            }
+            self.add_slow_task_to_queue(json.dumps(data))
+
+    def add_slow_task_to_queue(self, data):
+        self.redis_mq.lpush('metadata_slow_task', data)
 
     def delete_files(self, repo_id, deleted_files):
         if not deleted_files:

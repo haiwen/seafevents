@@ -22,9 +22,6 @@ class RepoMetadataIndexWorker(object):
     def __init__(self, config):
         self._db_session_class = init_db_session_class(config)
         self.metadata_server_api = MetadataServerAPI('seafevents')
-        self.repo_metadata = RepoMetadata(self.metadata_server_api)
-
-        self.metadata_manager = MetadataManager(self._db_session_class, self.repo_metadata)
 
         self.should_stop = threading.Event()
         self.LOCK_TIMEOUT = 1800  # 30 minutes
@@ -37,6 +34,8 @@ class RepoMetadataIndexWorker(object):
         self._parse_config(config)
 
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
+        self.repo_metadata = RepoMetadata(self.metadata_server_api, self.mq)
+        self.metadata_manager = MetadataManager(self._db_session_class, self.repo_metadata)
 
     def _parse_config(self, config):
         redis_section_name = 'REDIS'
