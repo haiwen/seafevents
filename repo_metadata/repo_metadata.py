@@ -15,18 +15,69 @@ class RepoMetadata:
     def __init__(self, metadata_server_api):
         self.metadata_server_api = metadata_server_api
 
+    def cal_renamed_and_moved_files(self, added_files, deleted_files):
+        obj_id_to_file = {file.obj_id: file for file in added_files if not self.is_excluded_path(file.path)}
+
+        need_updated_files = []
+        new_deleted_files = []
+        for file in deleted_files:
+            if self.is_excluded_path(file.path):
+                continue
+            add_file = obj_id_to_file.get(file.obj_id)
+            if add_file:
+                need_updated_files.append(add_file)
+                obj_id_to_file.pop(file.obj_id)
+            else:
+                new_deleted_files.append(file)
+        new_added_files = list(obj_id_to_file.values())
+
+        return new_added_files, new_deleted_files, need_updated_files
+
+    def update_renamed_or_moved_files(self, repo_id, renamed_or_moved_files):
+        if not renamed_or_moved_files:
+            return
+
+        base_sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `_obj_id` IN ('
+        sql = base_sql
+        obj_id_to_file_dict = {}
+        parameters = []
+        for file in renamed_or_moved_files:
+            path = file.path.rstrip('/')
+            if self.is_excluded_path(path):
+                continue
+            obj_id = file.obj_id
+            obj_id_to_file_dict[obj_id] = file
+
+            sql += f'?, '
+            parameters.append(obj_id)
+
+            if len(parameters) >= METADATA_OP_LIMIT:
+                sql = sql.rstrip(', ') + ')'
+                self.update_rows_by_obj_ids(repo_id, sql, parameters, obj_id_to_file_dict)
+                sql = base_sql
+                parameters = []
+                obj_id_to_file_dict = {}
+        if parameters:
+            sql = sql.rstrip(', ') + ')'
+            self.update_rows_by_obj_ids(repo_id, sql, parameters, obj_id_to_file_dict)
+
     def update(self, repo_id, added_files, deleted_files, added_dirs, deleted_dirs, modified_files,
                         renamed_files, moved_files, renamed_dirs, moved_dirs, commit_id):
 
+        new_added_files, new_deleted_files, renamed_or_moved_files = self.cal_renamed_and_moved_files(added_files, deleted_files)
+
         # delete added_files delete added dirs for preventing duplicate insertions
-        self.delete_files(repo_id, added_files)
+        self.delete_files(repo_id, new_added_files)
         self.delete_dirs(repo_id, added_dirs)
 
-        self.add_files(repo_id, added_files, commit_id)
-        self.delete_files(repo_id, deleted_files)
+        self.add_files(repo_id, new_added_files, commit_id)
+        self.delete_files(repo_id, new_deleted_files)
+        # update renamed or moved files
+        self.update_renamed_or_moved_files(repo_id, renamed_or_moved_files)
         self.add_dirs(repo_id, added_dirs)
         self.delete_dirs(repo_id, deleted_dirs)
-        self.update_files(repo_id, modified_files)
+        # update normal updated files
+        self.update_modified_files(repo_id, modified_files)
 
         # self.rename_files(repo_id, renamed_files)
         # self.move_files(repo_id, moved_files)
@@ -77,6 +128,39 @@ class RepoMetadata:
                 METADATA_TABLE.columns.file_mtime.name: timestamp_to_isoformat_timestr(new_row.mtime),
                 METADATA_TABLE.columns.obj_id.name: new_row.obj_id,
                 METADATA_TABLE.columns.size.name: new_row.size,
+            }
+            updated_rows.append(update_row)
+
+            if len(updated_rows) >= METADATA_OP_LIMIT:
+                self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
+                updated_rows = []
+
+        if not updated_rows:
+            return
+        self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
+
+    def update_rows_by_obj_ids(self, repo_id, sql, parameters, obj_id_to_file_dict):
+        query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
+
+        if not query_result:
+            return
+
+        updated_rows = []
+        for row in query_result:
+            row_id = row[METADATA_TABLE.columns.id.name]
+            obj_id = row[METADATA_TABLE.columns.obj_id.name]
+            new_row = obj_id_to_file_dict.get(obj_id)
+
+            path = new_row.path.rstrip('/')
+            parent_dir = os.path.dirname(path)
+            file_name = os.path.basename(path)
+            file_type, file_ext = get_file_type_ext_by_name(file_name)
+
+            update_row = {
+                METADATA_TABLE.columns.id.name: row_id,
+                METADATA_TABLE.columns.parent_dir.name: parent_dir,
+                METADATA_TABLE.columns.file_name.name: file_name,
+                METADATA_TABLE.columns.suffix.name: file_ext
             }
             updated_rows.append(update_row)
 
@@ -165,7 +249,7 @@ class RepoMetadata:
         sql = sql.rstrip(' OR')
         self.delete_rows_by_query(repo_id, sql, parameters)
 
-    def update_files(self, repo_id, modified_files):
+    def update_modified_files(self, repo_id, modified_files):
         if not modified_files:
             return
 
