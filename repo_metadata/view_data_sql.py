@@ -1030,15 +1030,58 @@ class SQLGenerator(object):
             ', '.join(clauses)
         )
 
-    def _filter_2_sql(self):
+    def _basic_filters_2_sql(self):
+        basic_filters = self.view.get('basic_filters', [])
+        filter_conjunction = 'AND'
+        if not basic_filters:
+            return ''
+        
+        filter_string_list = []
+        filter_conjunction_split = " %s " % filter_conjunction
+        
+        for filter_item in basic_filters:
+            column_key = filter_item.get('column_key')
+            column_name = filter_item.get('column_name')
+            # skip when the column key or name is missing
+            if not (column_key or column_name):
+                continue
+            column = column_key and self._get_column_by_key(column_key)
+            if not column:
+                column = column_name and self._get_column_by_name(column_name)    
+            if not column:
+                raise ValueError('Column not found column_key: %s column_name: %s' % (column_key, column_name))
+            if column.get('key') == '_is_dir':
+                filter_term = filter_item.get('filter_term', 'all')
+                if filter_term == 'file':
+                    filter_item['filter_term'] = False
+                elif filter_term == 'folder':
+                    filter_item['filter_term'] = True
+                else:
+                    continue
+            column_type = column.get('type')
+            operator_cls = _get_operator_by_type(column_type)
+            if not operator_cls:
+                raise ValueError('filter: %s not support to sql' % filter_item)
+            operator = operator_cls(column, filter_item)
+            sql_condition = _filter2sql(operator)
+            if not sql_condition:
+                continue
+            filter_string_list.append(sql_condition)
+
+        if filter_string_list:
+            return "%s" % (
+                filter_conjunction_split.join(filter_string_list)
+            )
+        else:
+            return ''
+
+    def _filters_2_sql(self):
         filters = self.view.get('filters', [])
         filter_conjunction = self.view.get('filter_conjunction', 'And')
         if not filters:
             return ''
-
-        filter_header = 'WHERE '
+        
         filter_string_list = []
-        filter_content = ''
         filter_conjunction_split = " %s " % filter_conjunction
         for filter_item in filters:
             column_key = filter_item.get('column_key')
@@ -1060,16 +1103,39 @@ class SQLGenerator(object):
             if not sql_condition:
                 continue
             filter_string_list.append(sql_condition)
+        
         if filter_string_list:
-            filter_content = "%s" % (
+            return "%s" % (
                 filter_conjunction_split.join(filter_string_list)
             )
         else:
             return ''
-        return "%s%s" % (
-            filter_header,
-            filter_content
-        )
+    
+    def _filter_2_sql(self):
+        filter_header = 'WHERE'
+        basic_filters_sql = self._basic_filters_2_sql()
+        filters_sql = self._filters_2_sql()
+
+        if not basic_filters_sql and not filters_sql:
+            return ''
+        
+        if basic_filters_sql and filters_sql:
+            return "%s (%s) AND (%s)" % (
+                filter_header,
+                basic_filters_sql,
+                filters_sql,
+            )
+        
+        if basic_filters_sql and not filters_sql:
+            return "%s %s" % (
+                filter_header,
+                basic_filters_sql,
+            )
+
+        return "%s %s" % (
+                filter_header,
+                filters_sql,
+            )
 
     def _limit_2_sql(self):
         return '%s %s, %s' % (
