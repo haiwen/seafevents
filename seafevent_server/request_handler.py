@@ -77,6 +77,30 @@ def get_sys_logs_task():
 
     return make_response(({'task_id': task_id}, 200))
 
+@app.route('/add-init-org-export-log-task', methods=['GET'])
+def get_org_logs_task():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+
+    if event_export_task_manager.tasks_queue.full():
+        logger.warning('seafevent server busy, queue size: %d, current tasks: %s, threads is_alive: %s'
+                                 % (event_export_task_manager.tasks_queue.qsize(), event_export_task_manager.current_task_info,
+                                    event_export_task_manager.threads_is_alive()))
+        return make_response(('seafevent server busy,.', 400))
+
+    start_time = request.args.get('start_time')
+    end_time = request.args.get('end_time')
+    log_type = request.args.get('log_type')
+    org_id = request.args.get('org_id')
+    try:
+        task_id = event_export_task_manager.add_org_export_logs_task(start_time, end_time, log_type, org_id)
+    except Exception as e:
+        logger.error(e)
+        return make_response((e, 500))
+
+    return make_response(({'task_id': task_id}, 200))
+
 
 @app.route('/query-export-status', methods=['GET'])
 def query_status():
