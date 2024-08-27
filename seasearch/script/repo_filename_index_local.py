@@ -57,7 +57,7 @@ class RepoFileNameIndexLocal(object):
         while True:
             global NO_TASKS
             try:
-                repo_commits = self.repo_data.get_repo_id_commit_id(start, per_size)
+                repo_commits = self.repo_data.get_normal_repo_commit(start, per_size)
             except Exception as e:
                 logger.error("Error: %s" % e)
                 NO_TASKS = True
@@ -187,7 +187,7 @@ def delete_indices():
     start, count = 0, 1000
     while True:
         try:
-            repo_commits = repo_data.get_repo_id_commit_id(start, count)
+            repo_commits = repo_data.get_normal_repo_commit(start, count)
         except Exception as e:
             logger.error("Error: %s" % e)
             return

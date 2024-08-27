@@ -98,7 +98,7 @@ def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_inde
     all_repos = []
     while True:
         try:
-            repo_commits = repo_data.get_repo_id_commit_id(start, count)
+            repo_commits = repo_data.get_normal_repo_commit(start, count)
         except Exception as e:
             logger.error("Error: %s" % e)
             return

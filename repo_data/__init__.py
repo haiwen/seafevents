@@ -22,13 +22,14 @@ class RepoData(object):
             res.append(i)
         return res
 
-    def _get_repo_id_commit_id(self, start, count):
+    def _get_normal_repo_commit(self, start, count):
         session = self.db_session()
         try:
-            cmd = """SELECT repo_id, commit_id
-                     FROM Branch WHERE name = :name
-                     AND repo_id NOT IN (SELECT repo_id from VirtualRepo)
-                     limit :start, :count"""
+            cmd = """SELECT RepoInfo.repo_id, Branch.commit_id
+                     FROM RepoInfo
+                     INNER JOIN Branch ON RepoInfo.repo_id = Branch.repo_id
+                     WHERE RepoInfo.type is NULL AND Branch.name = :name AND RepoInfo.repo_id NOT IN (SELECT repo_id from VirtualRepo)
+                     limit :start, :count;"""
             res = [(r[0], r[1]) for r in session.execute(text(cmd),
                                                          {'name': 'master',
                                                           'start': start,
@@ -52,11 +53,11 @@ class RepoData(object):
         finally:
             session.close()
 
-    def _get_all_repo_list(self):
+    def _get_all_normal_repo_list(self):
         session = self.db_session()
         try:
-            cmd = """SELECT r.repo_id, c.file_count FROM Repo r LEFT JOIN RepoFileCount c
-            ON r.repo_id = c.repo_id"""
+            cmd = """SELECT r.repo_id, c.file_count FROM RepoInfo r LEFT JOIN RepoFileCount c
+            ON r.repo_id = c.repo_id where r.type is NULL"""
             res = session.execute(text(cmd))
             return self.to_dict(res)
         except Exception as e:
@@ -97,12 +98,12 @@ class RepoData(object):
             logger.error(e)
             return self._get_repo_name_mtime_size(repo_id)
 
-    def get_all_repo_list(self):
+    def get_all_normal_repo_list(self):
         try:
-            return self._get_all_repo_list()
+            return self._get_all_normal_repo_list()
         except Exception as e:
             logger.error(e)
-            return self._get_all_repo_list()
+            return self._get_all_normal_repo_list()
 
     def get_all_trash_repo_list(self):
         try:
@@ -111,12 +112,12 @@ class RepoData(object):
             logger.error(e)
             return self._get_all_trash_repo_list()
 
-    def get_repo_id_commit_id(self, start, count):
+    def get_normal_repo_commit(self, start, count):
         try:
-            return self._get_repo_id_commit_id(start, count)
+            return self._get_normal_repo_commit(start, count)
         except Exception as e:
             logger.error(e)
-            return self._get_repo_id_commit_id(start, count)
+            return self._get_normal_repo_commit(start, count)
 
     def get_repo_head_commit(self, repo_id):
         try:
