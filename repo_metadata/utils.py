@@ -135,6 +135,6 @@ class MetadataColumn(object):
 METADATA_TABLE = MetadataTable('0001', 'Table1')
 
 
-def gen_view_data_sql(table, columns, view, start, limit):
-    return view_data_2_sql(table, columns, view, start, limit)
+def gen_view_data_sql(table, columns, view, start, limit, username = '', id_in_org = ''):
+    return view_data_2_sql(table, columns, view, start, limit, username, id_in_org)
 
