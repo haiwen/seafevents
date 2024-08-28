@@ -117,6 +117,7 @@ def search():
     query = data.get('query').strip()
     repos = data.get('repos')
     suffixes = data.get('suffixes')
+    search_path = data.get('search_path')
 
     if not query:
         return {'error_msg': 'query invalid.'}, 400
@@ -129,6 +130,6 @@ def search():
     except:
         count = 20
 
-    results = index_task_manager.keyword_search(query, repos, count, suffixes)
+    results = index_task_manager.keyword_search(query, repos, count, suffixes, search_path)
 
     return {'results': results}, 200
