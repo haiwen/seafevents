@@ -1049,14 +1049,14 @@ class SQLGenerator(object):
                 column = column_name and self._get_column_by_name(column_name)
             if not column:
                 raise ValueError('Column not found column_key: %s column_name: %s' % (column_key, column_name))
-            column_type = column.get('type')
-            operator_cls = _get_operator_by_type(column_type)
             
             if filter_item.get('filter_predicate') == 'include_me':
                 filter_item['filter_term'] = [self.username]
             if filter_item.get('filter_predicate') == 'is_current_user_ID':
                 filter_item['filter_term'] = self.id_in_org
-
+            
+            column_type = column.get('type')
+            operator_cls = _get_operator_by_type(column_type)
             if not operator_cls:
                 raise ValueError('filter: %s not support to sql' % filter_item)
             operator = operator_cls(column, filter_item)
