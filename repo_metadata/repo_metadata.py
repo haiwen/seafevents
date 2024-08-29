@@ -2,8 +2,9 @@ import json
 import os
 import logging
 
-from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_ext_by_name, get_latlng
+from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_ext_by_name
 from seafevents.utils import timestamp_to_isoformat_timestr
+from seafevents.repo_metadata.metadata_manager import ZERO_OBJ_ID
 
 logger = logging.getLogger(__name__)
 
@@ -18,20 +19,32 @@ class RepoMetadata:
         self.redis_mq = redis_mq
 
     def cal_renamed_and_moved_files(self, added_files, deleted_files):
-        obj_id_to_file = {file.obj_id: file for file in added_files if not self.is_excluded_path(file.path)}
+
+        need_added_files = []
+        obj_id_to_file = {}
+        for file in added_files:
+            if self.is_excluded_path(file.path):
+                continue
+
+            obj_id = file.obj_id
+            if obj_id == ZERO_OBJ_ID:
+                need_added_files.append(file)
+            else:
+                obj_id_to_file[obj_id] = file
 
         need_updated_files = []
         new_deleted_files = []
         for file in deleted_files:
             if self.is_excluded_path(file.path):
                 continue
+            obj_id = file.obj_id
             add_file = obj_id_to_file.get(file.obj_id)
-            if add_file:
+            if add_file and obj_id != ZERO_OBJ_ID:
                 need_updated_files.append(add_file)
                 obj_id_to_file.pop(file.obj_id)
             else:
                 new_deleted_files.append(file)
-        new_added_files = list(obj_id_to_file.values())
+        new_added_files = list(obj_id_to_file.values()) + need_added_files
 
         return new_added_files, new_deleted_files, need_updated_files
 
