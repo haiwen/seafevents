@@ -54,6 +54,8 @@ class RepoFileNameIndexLocal(object):
 
         start, per_size = 0, 1000
         repos = {}
+        virtual_repos = repo_data.get_all_virtual_repos()
+        virtual_repo_set = {repo[0] for repo in virtual_repos}
         while True:
             global NO_TASKS
             try:
@@ -68,6 +70,8 @@ class RepoFileNameIndexLocal(object):
                     NO_TASKS = True
                     break
                 for repo_id, commit_id in repo_commits:
+                    if repo_id in virtual_repo_set:
+                        continue
                     repos_queue.put((repo_id, commit_id))
                     repos[repo_id] = commit_id
                 start += per_size
@@ -103,7 +107,7 @@ class RepoFileNameIndexLocal(object):
                     self.incr_error()
 
         logger.info(
-            "%s worker updated at %s time" 
+            "%s worker updated at %s time"
             % (threading.currentThread().getName(),
                time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time())))
         )
@@ -184,6 +188,9 @@ def delete_indices():
     repo_status_filename_index = RepoStatusIndex(seasearch_api, REPO_STATUS_FILENAME_INDEX_NAME)
     repo_filename_index = RepoFileNameIndex(seasearch_api, repo_data, shard_num=1)
 
+    virtual_repos = repo_data.get_all_virtual_repos()
+    virtual_repo_set = {repo[0] for repo in virtual_repos}
+
     start, count = 0, 1000
     while True:
         try:
@@ -197,6 +204,8 @@ def delete_indices():
             break
 
         for repo_id, commit_id in repo_commits:
+            if repo_id in virtual_repo_set:
+                continue
             repo_filename_index_name = REPO_FILENAME_INDEX_PREFIX + repo_id
             repo_filename_index.delete_index_by_index_name(repo_filename_index_name)
 

@@ -28,7 +28,7 @@ class RepoData(object):
             cmd = """SELECT RepoInfo.repo_id, Branch.commit_id
                      FROM RepoInfo
                      INNER JOIN Branch ON RepoInfo.repo_id = Branch.repo_id
-                     WHERE RepoInfo.type is NULL AND Branch.name = :name AND RepoInfo.repo_id NOT IN (SELECT repo_id from VirtualRepo)
+                     WHERE RepoInfo.type is NULL AND Branch.name = :name
                      limit :start, :count;"""
             res = [(r[0], r[1]) for r in session.execute(text(cmd),
                                                          {'name': 'master',
@@ -91,6 +91,17 @@ class RepoData(object):
         finally:
             session.close()
 
+    def _get_all_virtual_repos(self):
+        session = self.db_session()
+        try:
+            cmd = """SELECT repo_id from VirtualRepo"""
+            res = session.execute(text(cmd)).fetchall()
+            return res
+        except Exception as e:
+            raise e
+        finally:
+            session.close()
+
     def get_repo_name_mtime_size(self, repo_id):
         try:
             return self._get_repo_name_mtime_size(repo_id)
@@ -125,6 +136,13 @@ class RepoData(object):
         except Exception as e:
             logger.error(e)
             return self._get_repo_head_commit(repo_id)
+
+    def get_all_virtual_repos(self):
+        try:
+            return self._get_all_virtual_repos()
+        except Exception as e:
+            logger.error(e)
+            return self._get_all_virtual_repos()
 
 
 repo_data = RepoData()
