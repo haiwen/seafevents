@@ -327,6 +327,7 @@ def get_event_org_log_by_time_to_excel(session, start_time, end_time, log_type, 
             excel_name = 'perm-audit-logs.xlsx'
             target_path = os.path.join(target_dir, excel_name)
             wb.save(target_path)
+
         elif log_type == 'fileaudit':
             stmt = select(FileAudit).where(
                 FileAudit.timestamp.between(datetime.datetime.utcfromtimestamp(start_time),

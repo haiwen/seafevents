@@ -54,7 +54,7 @@ def add_init_metadata_task():
     return make_response(({'task_id': task_id}, 200))
 
 
-@app.route('/add-init-export-log-task', methods=['GET'])
+@app.route('/add-export-log-task', methods=['GET'])
 def get_sys_logs_task():
     is_valid, error = check_auth_token(request)
     if not is_valid:
@@ -77,7 +77,7 @@ def get_sys_logs_task():
 
     return make_response(({'task_id': task_id}, 200))
 
-@app.route('/add-init-org-export-log-task', methods=['GET'])
+@app.route('/add-org-export-log-task', methods=['GET'])
 def get_org_logs_task():
     is_valid, error = check_auth_token(request)
     if not is_valid:
