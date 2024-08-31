@@ -10,6 +10,8 @@ from sqlalchemy import desc, select
 from seaserv import seafile_api, ccnet_api
 from seafevents.events.models import FileAudit, FileUpdate, PermAudit, UserLogin
 from seafevents.app.config import TIME_ZONE
+from seafevents.utils.ccnet_db import CcnetDB
+from seafevents.utils.seafile_db import SeafileDB
 
 logger = logging.getLogger('seafevents')
 
@@ -79,6 +81,13 @@ def get_event_log_by_time_to_excel(session, start_time, end_time, log_type, task
     if log_type not in ['fileaudit', 'fileupdate', 'permaudit', 'loginadmin']:
         raise RuntimeError('Invalid log_type parameter')
 
+    try:
+        ccnet_db = CcnetDB()
+        seafile_db = SeafileDB()
+    except Exception as e:
+        logger.error(e)
+        raise RuntimeError("init db engine error: %s" % e)
+
     with session() as session:
         if log_type == 'fileaudit':
             stmt = select(FileAudit).where(FileAudit.timestamp.between(datetime.datetime.utcfromtimestamp(start_time),
@@ -88,15 +97,18 @@ def get_event_log_by_time_to_excel(session, start_time, end_time, log_type, task
 
             head = ["User", "Type", "IP", "Device", "Date", "Library Name", "Library ID", "Library Owner", "File Path"]
             data_list = []
-
+            repo_ids = []
+            for i in res:
+                if i.repo_id not in repo_ids:
+                    repo_ids.append(i.repo_id)
+            repos = seafile_db.get_repo_info(repo_ids)
             for ev in res:
                 event_type, ev.show_device = generate_file_audit_event_type(ev)
 
                 repo_id = ev.repo_id
-                repo = seafile_api.get_repo(repo_id)
-                if repo:
-                    repo_name = repo.name
-                    repo_owner = seafile_api.get_repo_owner(repo_id) or seafile_api.get_org_repo_owner(repo_id)
+                if repo_id in repos:
+                    repo_name = repos[repo_id]['repo_name']
+                    repo_owner = repos[repo_id]['owner']
                 else:
                     repo_name = 'Deleted'
                     repo_owner = '--'
@@ -125,13 +137,17 @@ def get_event_log_by_time_to_excel(session, start_time, end_time, log_type, task
 
             head = ["User", "Date", "Library Name", "Library ID", "Library Owner", "Action"]
             data_list = []
+            repo_ids = []
+            for i in res:
+                if i.repo_id not in repo_ids:
+                    repo_ids.append(i.repo_id)
+            repos = seafile_db.get_repo_info(repo_ids)
 
             for ev in res:
                 repo_id = ev.repo_id
-                repo = seafile_api.get_repo(repo_id)
-                if repo:
-                    repo_name = repo.name
-                    repo_owner = seafile_api.get_repo_owner(repo_id) or seafile_api.get_org_repo_owner(repo_id)
+                if repo_id in repos:
+                    repo_name = repos[repo_id]['repo_name']
+                    repo_owner = repos[repo_id]['owner']
                 else:
                     repo_name = 'Deleted'
                     repo_owner = '--'
@@ -159,16 +175,27 @@ def get_event_log_by_time_to_excel(session, start_time, end_time, log_type, task
 
             head = ["From", "To", "Action", "Permission", "Library", "Folder Path", "Date"]
             data_list = []
-
+            group_ids = []
+            repo_ids = []
+            for i in res:
+                if i.repo_id not in repo_ids:
+                    repo_ids.append(i.repo_id)
+                if i.to.isdigit():
+                    group_id = int(i.to)
+                    if group_id not in group_ids:
+                        group_ids.append(group_id)
+            groups = ccnet_db.get_groups_by_ids(group_ids)
+            repos = seafile_db.get_repo_info(repo_ids)
             for ev in res:
-                repo = seafile_api.get_repo(ev.repo_id)
-                repo_name = repo.repo_name if repo else 'Deleted'
+                repo_id = ev.repo_id
+                repo_name = repos[repo_id]['repo_name'] if repo_id in repos else 'Deleted'
 
                 if '@' in ev.to:
                     to = ev.to
                 elif ev.to.isdigit():
-                    group = ccnet_api.get_group(int(ev.to))
-                    to = group.group_name if group else 'Deleted'
+                    group_id = int(ev.to)
+                    group = groups[group_id] if group_id in groups else None
+                    to = group['group_name'] if group else 'Deleted'
                 elif 'all' in ev.to:
                     to = 'Organization'
                 else:
@@ -238,6 +265,13 @@ def get_event_org_log_by_time_to_excel(session, start_time, end_time, log_type, 
     if log_type not in ['fileupdate', 'permaudit', 'fileaudit']:
         raise RuntimeError('Invalid log_type parameter')
 
+    try:
+        ccnet_db = CcnetDB()
+        seafile_db = SeafileDB()
+    except Exception as e:
+        logger.error(e)
+        raise RuntimeError("init db engine error: %s" % e)
+
     with session() as session:
         if log_type == 'fileupdate':
             stmt = select(FileUpdate).where(FileUpdate.timestamp.between(datetime.datetime.utcfromtimestamp(start_time),
@@ -248,13 +282,17 @@ def get_event_org_log_by_time_to_excel(session, start_time, end_time, log_type, 
 
             head = ["User", "Date", "Library Name", "Library ID", "Library Owner", "Action"]
             data_list = []
+            repo_ids = []
+            for i in res:
+                if i.repo_id not in repo_ids:
+                    repo_ids.append(i.repo_id)
+            repos = seafile_db.get_repo_info(repo_ids)
 
             for ev in res:
                 repo_id = ev.repo_id
-                repo = seafile_api.get_repo(repo_id)
-                if repo:
-                    repo_name = repo.name
-                    repo_owner = seafile_api.get_repo_owner(repo_id) or seafile_api.get_org_repo_owner(repo_id)
+                if repo_id in repos:
+                    repo_name = repos[repo_id]['repo_name']
+                    repo_owner = repos[repo_id]['owner']
                 else:
                     repo_name = 'Deleted'
                     repo_owner = '--'
@@ -283,16 +321,26 @@ def get_event_org_log_by_time_to_excel(session, start_time, end_time, log_type, 
 
             head = ["From", "To", "Action", "Permission", "Library", "Folder Path", "Date"]
             data_list = []
-
+            group_ids = []
+            repo_ids = []
+            for i in res:
+                if i.repo_id not in repo_ids:
+                    repo_ids.append(i.repo_id)
+                if i.to.isdigit():
+                    group_id = int(i.to)
+                    if group_id not in group_ids:
+                        group_ids.append(group_id)
+            groups = ccnet_db.get_groups_by_ids(group_ids)
+            repos = seafile_db.get_repo_info(repo_ids)
             for ev in res:
-                repo = seafile_api.get_repo(ev.repo_id)
-                repo_name = repo.repo_name if repo else 'Deleted'
-
+                repo_id = ev.repo_id
+                repo_name = repos[repo_id]['repo_name'] if repo_id in repos else 'Deleted'
                 if '@' in ev.to:
                     to = ev.to
                 elif ev.to.isdigit():
-                    group = ccnet_api.get_group(int(ev.to))
-                    to = group.group_name if group else 'Deleted'
+                    group_id = int(ev.to)
+                    group = groups[group_id] if group_id in groups else None
+                    to = group['group_name'] if group else 'Deleted'
                 elif 'all' in ev.to:
                     to = 'Organization'
                 else:
@@ -339,15 +387,18 @@ def get_event_org_log_by_time_to_excel(session, start_time, end_time, log_type, 
             head = ["User", "Type", "IP", "Device", "Date", "Library Name", "Library ID", "Library Owner",
                     "File Path"]
             data_list = []
-
+            repo_ids = []
+            for i in res:
+                if i.repo_id not in repo_ids:
+                    repo_ids.append(i.repo_id)
+            repos = seafile_db.get_repo_info(repo_ids)
             for ev in res:
                 event_type, ev.show_device = generate_file_audit_event_type(ev)
 
                 repo_id = ev.repo_id
-                repo = seafile_api.get_repo(repo_id)
-                if repo:
-                    repo_name = repo.name
-                    repo_owner = seafile_api.get_repo_owner(repo_id) or seafile_api.get_org_repo_owner(repo_id)
+                if repo_id in repos:
+                    repo_name = repos[repo_id]['repo_name']
+                    repo_owner = repos[repo_id]['owner']
                 else:
                     repo_name = 'Deleted'
                     repo_owner = '--'
