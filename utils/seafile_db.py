@@ -126,5 +126,3 @@ class SeafileDB(object):
                     repos_map[row[0]] = self.repo_info(row)
 
             return repos_map
-
-

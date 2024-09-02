@@ -119,6 +119,3 @@ class CcnetDB(object):
                 groups_map[item[0]] = self.get_group_info(item)
 
             return groups_map
-
-
-
