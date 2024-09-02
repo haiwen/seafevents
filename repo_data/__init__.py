@@ -91,10 +91,12 @@ class RepoData(object):
         finally:
             session.close()
 
-    def _get_all_virtual_repos(self):
+    def _get_virtual_repo_in_repos(self, repo_ids):
         session = self.db_session()
+        if not repo_ids:
+            return []
         try:
-            cmd = """SELECT repo_id from VirtualRepo"""
+            cmd = """SELECT repo_id from VirtualRepo WHERE repo_id IN {}""".format(tuple(repo_ids))
             res = session.execute(text(cmd)).fetchall()
             return res
         except Exception as e:
@@ -137,12 +139,12 @@ class RepoData(object):
             logger.error(e)
             return self._get_repo_head_commit(repo_id)
 
-    def get_all_virtual_repos(self):
+    def get_virtual_repo_in_repos(self, repo_ids):
         try:
-            return self._get_all_virtual_repos()
+            return self._get_virtual_repo_in_repos(repo_ids)
         except Exception as e:
             logger.error(e)
-            return self._get_all_virtual_repos()
+            return self._get_virtual_repo_in_repos(repo_ids)
 
 
 repo_data = RepoData()

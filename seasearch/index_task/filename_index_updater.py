@@ -96,8 +96,6 @@ def clear_deleted_repo(repo_status_filename_index, repo_filename_index, index_ma
 def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_index, index_manager, repo_data):
     start, count = 0, 1000
     all_repos = []
-    virtual_repos = repo_data.get_all_virtual_repos()
-    virtual_repo_set = {repo[0] for repo in virtual_repos}
 
     while True:
         try:
@@ -109,6 +107,10 @@ def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_inde
 
         if len(repo_commits) == 0:
             break
+
+        repo_ids = [repo[0] for repo in repo_commits]
+        virtual_repos = repo_data.get_virtual_repo_in_repos(repo_ids)
+        virtual_repo_set = {repo[0] for repo in virtual_repos}
 
         for repo_id, commit_id in repo_commits:
             if repo_id in virtual_repo_set:

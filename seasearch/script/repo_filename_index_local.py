@@ -54,8 +54,6 @@ class RepoFileNameIndexLocal(object):
 
         start, per_size = 0, 1000
         repos = {}
-        virtual_repos = repo_data.get_all_virtual_repos()
-        virtual_repo_set = {repo[0] for repo in virtual_repos}
         while True:
             global NO_TASKS
             try:
@@ -69,6 +67,11 @@ class RepoFileNameIndexLocal(object):
                 if len(repo_commits) == 0:
                     NO_TASKS = True
                     break
+
+                repo_ids = [repo[0] for repo in repo_commits]
+                virtual_repos = repo_data.get_virtual_repo_in_repos(repo_ids)
+                virtual_repo_set = {repo[0] for repo in virtual_repos}
+
                 for repo_id, commit_id in repo_commits:
                     if repo_id in virtual_repo_set:
                         continue
@@ -188,9 +191,6 @@ def delete_indices():
     repo_status_filename_index = RepoStatusIndex(seasearch_api, REPO_STATUS_FILENAME_INDEX_NAME)
     repo_filename_index = RepoFileNameIndex(seasearch_api, repo_data, shard_num=1)
 
-    virtual_repos = repo_data.get_all_virtual_repos()
-    virtual_repo_set = {repo[0] for repo in virtual_repos}
-
     start, count = 0, 1000
     while True:
         try:
@@ -202,6 +202,10 @@ def delete_indices():
 
         if len(repo_commits) == 0:
             break
+
+        repo_ids = [repo[0] for repo in repo_commits]
+        virtual_repos = repo_data.get_virtual_repo_in_repos(repo_ids)
+        virtual_repo_set = {repo[0] for repo in virtual_repos}
 
         for repo_id, commit_id in repo_commits:
             if repo_id in virtual_repo_set:
