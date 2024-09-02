@@ -71,7 +71,7 @@ def generate_file_audit_event_type(e):
     return event_type_dict[e.etype]
 
 
-def get_event_log_by_time_to_excel(session, start_time, end_time, log_type, task_id):
+def export_event_log_to_excel(session, start_time, end_time, log_type, task_id):
     start_time = ast.literal_eval(start_time)
     end_time = ast.literal_eval(end_time)
 
@@ -244,7 +244,7 @@ def get_event_log_by_time_to_excel(session, start_time, end_time, log_type, task
             wb.save(target_path)
 
 
-def get_event_org_log_by_time_to_excel(session, start_time, end_time, log_type, task_id, org_id):
+def export_org_event_log_to_excel(session, start_time, end_time, log_type, task_id, org_id):
     start_time = ast.literal_eval(start_time)
     end_time = ast.literal_eval(end_time)
 
