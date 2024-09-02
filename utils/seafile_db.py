@@ -90,7 +90,7 @@ class SeafileDB(object):
         }
         return info
 
-    def get_repo_info(self, repo_ids):
+    def get_repo_info_by_ids(self, repo_ids):
         repo_ids_str = ','.join(["'%s'" % str(repo_id) for repo_id in repo_ids])
         sql1 = f"""
         SELECT r.repo_id, name, owner_id
@@ -107,15 +107,17 @@ class SeafileDB(object):
         WHERE r.repo_id IN ({repo_ids_str})
         """
         with self.seafile_db_cursor as cursor:
+            if not repo_ids:
+                return {}
             cursor.execute(sql1)
-            repos_map = {}
-            for item in cursor.fetchall():
-                if item[0] not in repos_map or repos_map[item[0]]['owner'] is None:
-                    repos_map[item[0]] = self.repo_info(item)
+            rows1 = cursor.fetchall()
             cursor.execute(sql2)
-            for item in cursor.fetchall():
-                if item[0] not in repos_map or repos_map[item[0]]['owner'] is None:
-                    repos_map[item[0]] = self.repo_info(item)
+            rows2 = cursor.fetchall()
+            rows = rows1 + rows2
+            repos_map = {}
+            for row in rows:
+                if row[0] not in repos_map or repos_map[row[0]]['owner'] is None:
+                    repos_map[row[0]] = self.repo_info(row)
 
             return repos_map
 

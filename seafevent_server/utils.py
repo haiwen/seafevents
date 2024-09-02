@@ -97,11 +97,10 @@ def get_event_log_by_time_to_excel(session, start_time, end_time, log_type, task
 
             head = ["User", "Type", "IP", "Device", "Date", "Library Name", "Library ID", "Library Owner", "File Path"]
             data_list = []
-            repo_ids = []
-            for i in res:
-                if i.repo_id not in repo_ids:
-                    repo_ids.append(i.repo_id)
-            repos = seafile_db.get_repo_info(repo_ids)
+            repo_ids = set()
+            for row in res:
+                repo_ids.add(row.repo_id)
+            repos = seafile_db.get_repo_info_by_ids(repo_ids)
             for ev in res:
                 event_type, ev.show_device = generate_file_audit_event_type(ev)
 
@@ -137,11 +136,10 @@ def get_event_log_by_time_to_excel(session, start_time, end_time, log_type, task
 
             head = ["User", "Date", "Library Name", "Library ID", "Library Owner", "Action"]
             data_list = []
-            repo_ids = []
-            for i in res:
-                if i.repo_id not in repo_ids:
-                    repo_ids.append(i.repo_id)
-            repos = seafile_db.get_repo_info(repo_ids)
+            repo_ids = set()
+            for row in res:
+                repo_ids.add(row.repo_id)
+            repos = seafile_db.get_repo_info_by_ids(repo_ids)
 
             for ev in res:
                 repo_id = ev.repo_id
@@ -175,17 +173,15 @@ def get_event_log_by_time_to_excel(session, start_time, end_time, log_type, task
 
             head = ["From", "To", "Action", "Permission", "Library", "Folder Path", "Date"]
             data_list = []
-            group_ids = []
-            repo_ids = []
-            for i in res:
-                if i.repo_id not in repo_ids:
-                    repo_ids.append(i.repo_id)
-                if i.to.isdigit():
-                    group_id = int(i.to)
-                    if group_id not in group_ids:
-                        group_ids.append(group_id)
+            group_ids = set()
+            repo_ids = set()
+            for row in res:
+                repo_ids.add(row.repo_id)
+                if row.to.isdigit():
+                    group_id = int(row.to)
+                    group_ids.add(group_id)
             groups = ccnet_db.get_groups_by_ids(group_ids)
-            repos = seafile_db.get_repo_info(repo_ids)
+            repos = seafile_db.get_repo_info_by_ids(repo_ids)
             for ev in res:
                 repo_id = ev.repo_id
                 repo_name = repos[repo_id]['repo_name'] if repo_id in repos else 'Deleted'
@@ -282,11 +278,10 @@ def get_event_org_log_by_time_to_excel(session, start_time, end_time, log_type, 
 
             head = ["User", "Date", "Library Name", "Library ID", "Library Owner", "Action"]
             data_list = []
-            repo_ids = []
-            for i in res:
-                if i.repo_id not in repo_ids:
-                    repo_ids.append(i.repo_id)
-            repos = seafile_db.get_repo_info(repo_ids)
+            repo_ids = set()
+            for row in res:
+                repo_ids.add(row.repo_id)
+            repos = seafile_db.get_repo_info_by_ids(repo_ids)
 
             for ev in res:
                 repo_id = ev.repo_id
@@ -318,20 +313,17 @@ def get_event_org_log_by_time_to_excel(session, start_time, end_time, log_type, 
                                            PermAudit.org_id == org_id)
             stmt = stmt.order_by(desc(PermAudit.timestamp))
             res = session.scalars(stmt).all()
-
             head = ["From", "To", "Action", "Permission", "Library", "Folder Path", "Date"]
             data_list = []
-            group_ids = []
-            repo_ids = []
-            for i in res:
-                if i.repo_id not in repo_ids:
-                    repo_ids.append(i.repo_id)
-                if i.to.isdigit():
-                    group_id = int(i.to)
-                    if group_id not in group_ids:
-                        group_ids.append(group_id)
+            group_ids = set()
+            repo_ids = set()
+            for row in res:
+                repo_ids.add(row.repo_id)
+                if row.to.isdigit():
+                    group_id = int(row.to)
+                    group_ids.add(group_id)
             groups = ccnet_db.get_groups_by_ids(group_ids)
-            repos = seafile_db.get_repo_info(repo_ids)
+            repos = seafile_db.get_repo_info_by_ids(repo_ids)
             for ev in res:
                 repo_id = ev.repo_id
                 repo_name = repos[repo_id]['repo_name'] if repo_id in repos else 'Deleted'
@@ -387,11 +379,10 @@ def get_event_org_log_by_time_to_excel(session, start_time, end_time, log_type, 
             head = ["User", "Type", "IP", "Device", "Date", "Library Name", "Library ID", "Library Owner",
                     "File Path"]
             data_list = []
-            repo_ids = []
-            for i in res:
-                if i.repo_id not in repo_ids:
-                    repo_ids.append(i.repo_id)
-            repos = seafile_db.get_repo_info(repo_ids)
+            repo_ids = set()
+            for row in res:
+                repo_ids.add(row.repo_id)
+            repos = seafile_db.get_repo_info_by_ids(repo_ids)
             for ev in res:
                 event_type, ev.show_device = generate_file_audit_event_type(ev)
 

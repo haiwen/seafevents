@@ -96,15 +96,17 @@ class CcnetDB(object):
 
     def get_groups_by_ids(self, group_ids):
         group_ids_str = ','.join(["'%s'" % str(id) for id in group_ids])
-        sql = """
+        sql = f"""
             SELECT * 
             FROM
-                `{db_name}`.`Group`
+                `{self.db_name}`.`Group`
             WHERE
-                group_id IN ({group_ids})
-        """.format(db_name=self.db_name, group_ids=group_ids_str)
+                group_id IN ({group_ids_str})
+        """
 
         with self.ccnet_db_cursor as cursor:
+            if not group_ids:
+                return {}
             cursor.execute(sql)
             groups_map = {}
             for item in cursor.fetchall():
