@@ -81,14 +81,7 @@ def get_event_log_by_time_to_excel(session, start_time, end_time, log_type, task
     if log_type not in ['fileaudit', 'fileupdate', 'permaudit', 'loginadmin']:
         raise RuntimeError('Invalid log_type parameter')
 
-    try:
-        ccnet_db = CcnetDB()
-        seafile_db = SeafileDB()
-    except Exception as e:
-        logger.error(e)
-        raise RuntimeError("init db engine error: %s" % e)
-
-    with session() as session:
+    with session() as session, CcnetDB() as ccnet_db, SeafileDB() as seafile_db:
         if log_type == 'fileaudit':
             stmt = select(FileAudit).where(FileAudit.timestamp.between(datetime.datetime.utcfromtimestamp(start_time),
                                                                        datetime.datetime.utcfromtimestamp(end_time)))
@@ -261,14 +254,7 @@ def get_event_org_log_by_time_to_excel(session, start_time, end_time, log_type, 
     if log_type not in ['fileupdate', 'permaudit', 'fileaudit']:
         raise RuntimeError('Invalid log_type parameter')
 
-    try:
-        ccnet_db = CcnetDB()
-        seafile_db = SeafileDB()
-    except Exception as e:
-        logger.error(e)
-        raise RuntimeError("init db engine error: %s" % e)
-
-    with session() as session:
+    with session() as session, CcnetDB() as ccnet_db, SeafileDB() as seafile_db:
         if log_type == 'fileupdate':
             stmt = select(FileUpdate).where(FileUpdate.timestamp.between(datetime.datetime.utcfromtimestamp(start_time),
                                                                          datetime.datetime.utcfromtimestamp(end_time)),

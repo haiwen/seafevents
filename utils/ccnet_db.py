@@ -37,6 +37,12 @@ class CcnetDB(object):
         if self.ccnet_db_cursor is None:
             raise RuntimeError('Failed to init ccnet db.')
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_ccnet_db()
+
     def init_ccnet_db(self):
         try:
             import pymysql

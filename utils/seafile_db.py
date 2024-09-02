@@ -37,6 +37,12 @@ class SeafileDB(object):
         if self.seafile_db_cursor is None:
             raise RuntimeError('Failed to init seafile db.')
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_seafile_db()
+
     def init_seafile_db(self):
         try:
             import pymysql
