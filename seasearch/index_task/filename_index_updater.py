@@ -70,7 +70,7 @@ class RepoFilenameIndexUpdater(object):
             self._repo_data,
             int(SHARD_NUM),
         )
-        self._index_manager = IndexManager()
+        self._index_manager = IndexManager(config)
 
     def is_enabled(self):
         return self._enabled

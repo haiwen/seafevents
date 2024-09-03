@@ -1,11 +1,14 @@
 import logging
 import hashlib
 
+from sqlalchemy import text
+
 from seafevents.seasearch.utils.commit_differ import CommitDiffer
 
 from seafobj import fs_mgr, commit_mgr
 from seafobj.exceptions import GetObjectError
 
+from seafevents.repo_metadata.utils import METADATA_TABLE
 
 logger = logging.getLogger(__name__)
 
@@ -85,3 +88,19 @@ def is_sys_dir_or_file(path):
     if path.split('/')[1] in SYS_DIRS:
         return True
     return False
+
+
+def need_index_summary(repo_id, session, metadata_server_api):
+    with session() as session:
+        sql = "SELECT enabled FROM repo_metadata WHERE repo_id='%s'" % repo_id
+        record = session.execute(text(sql)).fetchone()
+
+    if not record or not record[0]:
+        return False
+
+    columns = metadata_server_api.list_columns(repo_id, METADATA_TABLE.id).get('columns', [])
+    summary_column = [column for column in columns if column.get('key') == '_summary']
+    if not summary_column:
+        return False
+
+    return True

@@ -1,12 +1,29 @@
+import json
 import logging
+import os
 import time
 
+from seafevents.seasearch.utils import need_index_summary
+from seafevents.db import init_db_session_class
 from seafevents.seasearch.utils.constants import ZERO_OBJ_ID, REPO_FILENAME_INDEX_PREFIX
+from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
+from seafevents.repo_metadata.utils import METADATA_TABLE
+from seafevents.utils import get_opt_from_conf_or_env
 
 logger = logging.getLogger(__name__)
 
 
 class IndexManager(object):
+
+    def __init__(self, config):
+        self.session = init_db_session_class(config)
+        self.metadata_server_api = MetadataServerAPI('seafevents')
+        summary_index_info_dir = get_opt_from_conf_or_env(
+            config, 'SEASEARCH', 'summary_index_info_dir'
+        )
+        self.summary_index_info_dir = summary_index_info_dir
+        if not os.path.exists(summary_index_info_dir):
+            os.makedirs(summary_index_info_dir)
 
     def update_library_filename_index(self, repo_id, commit_id, repo_filename_index, repo_status_filename_index):
         try:
@@ -19,22 +36,30 @@ class IndexManager(object):
             from_commit = repo_status.from_commit
             to_commit = repo_status.to_commit
 
-            if new_commit_id == from_commit:
-                return
-
             if not from_commit:
                 commit_id = ZERO_OBJ_ID
             else:
                 commit_id = from_commit
 
+            rows = []
+            summary_index_info = []
+            summary_index_info_path = os.path.join(self.summary_index_info_dir, repo_id + '.json')
+            if need_index_summary(repo_id, self.session, self.metadata_server_api):
+                sql = f'SELECT `_id`, `_mtime`, `_summary`, `_parent_dir`, `_name` FROM `{METADATA_TABLE.name}`'
+                rows = self.metadata_server_api.query_rows(repo_id, sql, []).get('results', [])
+                if os.path.exists(summary_index_info_path):
+                    with open(summary_index_info_path, 'r') as fp:
+                        summary_index_info = json.load(fp)
             if repo_status.need_recovery():
                 logger.warning('%s: repo filename index inrecovery', repo_id)
-                repo_filename_index.update(index_name, repo_id, commit_id, to_commit)
+                summary_index_info = repo_filename_index.update(index_name, repo_id, commit_id, to_commit, rows, summary_index_info)
                 commit_id = to_commit
                 time.sleep(1)
 
             repo_status_filename_index.begin_update_repo(repo_id, commit_id, new_commit_id)
-            repo_filename_index.update(index_name, repo_id, commit_id, new_commit_id)
+            summary_index_info = repo_filename_index.update(index_name, repo_id, commit_id, new_commit_id, rows, summary_index_info)
+            with open(summary_index_info_path, 'w') as f:
+                f.write(json.dumps(summary_index_info))
             repo_status_filename_index.finish_update_repo(repo_id, new_commit_id)
 
             logger.info('repo: %s, update repo filename index success', repo_id)
