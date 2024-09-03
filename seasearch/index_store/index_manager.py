@@ -18,12 +18,11 @@ class IndexManager(object):
     def __init__(self, config):
         self.session = init_db_session_class(config)
         self.metadata_server_api = MetadataServerAPI('seafevents')
-        summary_index_info_dir = get_opt_from_conf_or_env(
+        self.summary_index_info_dir = get_opt_from_conf_or_env(
             config, 'SEASEARCH', 'summary_index_info_dir'
         )
-        self.summary_index_info_dir = summary_index_info_dir
-        if not os.path.exists(summary_index_info_dir):
-            os.makedirs(summary_index_info_dir)
+        if not os.path.exists(self.summary_index_info_dir):
+            os.makedirs(self.summary_index_info_dir)
 
     def update_library_filename_index(self, repo_id, commit_id, repo_filename_index, repo_status_filename_index):
         try:
