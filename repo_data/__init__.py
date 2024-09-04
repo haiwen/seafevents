@@ -25,28 +25,26 @@ class RepoData(object):
     def _get_repo_id_commit_id(self, start, count):
         session = self.db_session()
         try:
-            cmd = """SELECT repo_id, commit_id
-                     FROM Branch WHERE name = :name
-                     AND repo_id NOT IN (SELECT repo_id from VirtualRepo)
-                     limit :start, :count"""
-            res = [(r[0], r[1]) for r in session.execute(text(cmd),
-                                                         {'name': 'master',
-                                                          'start': start,
-                                                          'count': count})]
+            cmd = """SELECT RepoInfo.repo_id, Branch.commit_id, RepoInfo.type
+                     FROM RepoInfo
+                     INNER JOIN Branch ON RepoInfo.repo_id = Branch.repo_id
+                     WHERE Branch.name = :name
+                     limit :start, :count;"""
+            res = session.execute(text(cmd), {'name': 'master',
+                                              'start': start,
+                                              'count': count}).fetchall()
             return res
         except Exception as e:
             raise e
         finally:
             session.close()
 
-
     def _get_all_trash_repo_list(self):
         session = self.db_session()
         try:
-            cmd = """SELECT repo_id, repo_name, head_id, owner_id, 
-            size, org_id, del_time FROM RepoTrash ORDER BY del_time DESC"""
-            res = session.execute(text(cmd))
-            return self.to_dict(res)
+            cmd = """SELECT repo_id FROM RepoTrash"""
+            res = session.execute(text(cmd)).fetchall()
+            return res
         except Exception as e:
             raise e
         finally:
@@ -55,10 +53,9 @@ class RepoData(object):
     def _get_all_repo_list(self):
         session = self.db_session()
         try:
-            cmd = """SELECT r.repo_id, c.file_count FROM Repo r LEFT JOIN RepoFileCount c
-            ON r.repo_id = c.repo_id"""
-            res = session.execute(text(cmd))
-            return self.to_dict(res)
+            cmd = """SELECT repo_id FROM Repo"""
+            res = session.execute(text(cmd)).fetchall()
+            return res
         except Exception as e:
             raise e
         finally:
@@ -85,6 +82,19 @@ class RepoData(object):
                      AND RepoInfo.repo_id = :repo_id"""
             res = session.execute(text(cmd), {'repo_id': repo_id})
             return self.to_dict(res)
+        except Exception as e:
+            raise e
+        finally:
+            session.close()
+
+    def _get_virtual_repo_in_repos(self, repo_ids):
+        session = self.db_session()
+        if not repo_ids:
+            return []
+        try:
+            cmd = """SELECT repo_id from VirtualRepo WHERE repo_id IN {}""".format(tuple(repo_ids))
+            res = session.execute(text(cmd)).fetchall()
+            return res
         except Exception as e:
             raise e
         finally:
@@ -124,6 +134,13 @@ class RepoData(object):
         except Exception as e:
             logger.error(e)
             return self._get_repo_head_commit(repo_id)
+
+    def get_virtual_repo_in_repos(self, repo_ids):
+        try:
+            return self._get_virtual_repo_in_repos(repo_ids)
+        except Exception as e:
+            logger.error(e)
+            return self._get_virtual_repo_in_repos(repo_ids)
 
 
 repo_data = RepoData()

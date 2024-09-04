@@ -14,7 +14,7 @@ from seafevents.repo_data import repo_data
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.seasearch.index_store.repo_status_index import RepoStatusIndex
-from seafevents.seasearch.utils.constants import REPO_STATUS_FILENAME_INDEX_NAME, REPO_FILENAME_INDEX_PREFIX
+from seafevents.seasearch.utils.constants import REPO_STATUS_FILENAME_INDEX_NAME, REPO_FILENAME_INDEX_PREFIX, REPO_TYPE_WIKI
 from seafevents.seasearch.index_store.repo_file_name_index import RepoFileNameIndex
 
 logger = logging.getLogger('seasearch')
@@ -67,7 +67,14 @@ class RepoFileNameIndexLocal(object):
                 if len(repo_commits) == 0:
                     NO_TASKS = True
                     break
-                for repo_id, commit_id in repo_commits:
+
+                repo_ids = [repo[0] for repo in repo_commits if repo[2] != REPO_TYPE_WIKI]
+                virtual_repos = repo_data.get_virtual_repo_in_repos(repo_ids)
+                virtual_repo_set = {repo[0] for repo in virtual_repos}
+
+                for repo_id, commit_id, repo_type in repo_commits:
+                    if repo_id in virtual_repo_set or repo_type == REPO_TYPE_WIKI:
+                        continue
                     repos_queue.put((repo_id, commit_id))
                     repos[repo_id] = commit_id
                 start += per_size
@@ -103,7 +110,7 @@ class RepoFileNameIndexLocal(object):
                     self.incr_error()
 
         logger.info(
-            "%s worker updated at %s time" 
+            "%s worker updated at %s time"
             % (threading.currentThread().getName(),
                time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time())))
         )
@@ -196,7 +203,13 @@ def delete_indices():
         if len(repo_commits) == 0:
             break
 
-        for repo_id, commit_id in repo_commits:
+        repo_ids = [repo[0] for repo in repo_commits if repo[2] != REPO_TYPE_WIKI]
+        virtual_repos = repo_data.get_virtual_repo_in_repos(repo_ids)
+        virtual_repo_set = {repo[0] for repo in virtual_repos}
+
+        for repo_id, commit_id, repo_type in repo_commits:
+            if repo_id in virtual_repo_set or repo_type == REPO_TYPE_WIKI:
+                continue
             repo_filename_index_name = REPO_FILENAME_INDEX_PREFIX + repo_id
             repo_filename_index.delete_index_by_index_name(repo_filename_index_name)
 
