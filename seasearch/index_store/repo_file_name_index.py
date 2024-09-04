@@ -6,6 +6,7 @@ import pandas as pd
 
 from seafevents.seasearch.utils import get_library_diff_files, md5, is_sys_dir_or_file
 from seafevents.seasearch.utils.constants import REPO_FILENAME_INDEX_PREFIX
+from seafevents.seasearch.utils import need_index_summary
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ class RepoFileNameIndex(object):
     def check_index(self, index_name):
         return self.seasearch_api.check_index_mapping(index_name).get('is_exist')
 
-    def _make_query_searches(self, keyword):
+    def _make_query_searches(self, keyword, repo_id, session, metadata_server_api):
         match_query_kwargs = {'minimum_should_match': '-25%'}
 
         def _make_match_query(field, key_word, **kw):
@@ -110,15 +111,16 @@ class RepoFileNameIndex(object):
                 }
             }
         })
-        searches.append(_make_match_query('summary', keyword, **match_query_kwargs))
-        searches.append({
-            'match': {
-                'summary.ngram': {
-                    'query': keyword,
-                    'minimum_should_match': '80%',
+        if need_index_summary(repo_id, session, metadata_server_api):
+            searches.append(_make_match_query('summary', keyword, **match_query_kwargs))
+            searches.append({
+                'match': {
+                    'summary.ngram': {
+                        'query': keyword,
+                        'minimum_should_match': '80%',
+                    }
                 }
-            }
-        })
+            })
         return searches
 
     def _add_path_filter(self, query_map, search_path):
@@ -142,14 +144,14 @@ class RepoFileNameIndex(object):
                 query_map['bool']['filter'].append({'term': {'suffix': suffixes.lower()}})
         return query_map
 
-    def search_files(self, repos, keyword, start=0, size=10, suffixes=None, search_path=None):
+    def search_files(self, repos, keyword, session, metadata_server_api, start=0, size=10, suffixes=None, search_path=None):
         bulk_search_params = []
         for repo in repos:
             repo_id = repo[0]
             origin_repo_id = repo[1]
             origin_path = repo[2]
             query_map = {'bool': {'should': [], 'minimum_should_match': 1}}
-            searches = self._make_query_searches(keyword)
+            searches = self._make_query_searches(keyword, repo_id, session, metadata_server_api)
             query_map['bool']['should'] = searches
 
             if origin_repo_id:
@@ -406,7 +408,7 @@ class RepoFileNameIndex(object):
             path = os.path.join(row['_parent_dir'], row['_name'])
             if path in need_deleted_paths:
                 continue
-            add_rows[path] = row.get('_summary', '')
+            add_rows[path] = row.get('_description', '')
             if path in need_added_paths:
                 add_index_info.append({'_id': row['_id'], '_mtime': row['_mtime']})
             else:
