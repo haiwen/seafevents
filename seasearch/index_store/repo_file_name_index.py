@@ -63,7 +63,6 @@ class RepoFileNameIndex(object):
         }
     }
 
-
     def __init__(self, seasearch_api, repo_data, shard_num):
         self.seasearch_api = seasearch_api
         self.repo_data = repo_data
@@ -122,7 +121,7 @@ class RepoFileNameIndex(object):
                 query_map['bool']['filter'].append({'term': {'suffix': suffixes.lower()}})
         return query_map
 
-    def search_files(self, repos, keyword, start=0, size=10, suffixes=None):
+    def search_files(self, repos, keyword, start=0, size=10, suffixes=None, search_path=None):
         bulk_search_params = []
         for repo in repos:
             repo_id = repo[0]
@@ -134,9 +133,13 @@ class RepoFileNameIndex(object):
 
             if origin_repo_id:
                 repo_id = origin_repo_id
-                query_map = self._add_path_filter(query_map, origin_path)
-            query_map = self._add_suffix_filter(query_map, suffixes)
+                if search_path:
+                    search_path = os.path.join(origin_path, search_path.strip('/'))
+                else:
+                    search_path = origin_path
 
+            query_map = self._add_suffix_filter(query_map, suffixes)
+            query_map = self._add_path_filter(query_map, search_path)
             data = {
                 'query': query_map,
                 'from': start,
