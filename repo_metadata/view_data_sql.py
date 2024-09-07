@@ -996,31 +996,26 @@ class SQLGenerator(object):
 
     def _sort_2_sql(self):
         condition_sorts = self.view.get('sorts', [])
-        if not condition_sorts:
-            return f' ORDER BY \
-            `{self.table.columns.parent_dir.name}` ASC, \
-            `{self.table.columns.is_dir.name}` DESC, \
-            `{self.table.columns.file_name.name}` ASC'
-
         order_header = 'ORDER BY '
         clauses = []
-        for sort in condition_sorts:
-            column_key = sort.get('column_key', '')
-            column_name = sort.get('column_name', '')
-            sort_type = sort.get('sort_type', 'DESC') == 'up' and 'ASC' or 'DESC'
-            column = self._get_column_by_key(column_key)
-            if not column:
-                column = self._get_column_by_name(column_name)
+        if condition_sorts:
+            for sort in condition_sorts:
+                column_key = sort.get('column_key', '')
+                column_name = sort.get('column_name', '')
+                sort_type = sort.get('sort_type', 'DESC') == 'up' and 'ASC' or 'DESC'
+                column = self._get_column_by_key(column_key)
                 if not column:
-                    if column_key in ['_ctime', '_mtime']:
-                        order_condition = '%s %s' % (column_key, sort_type)
-                        clauses.append(order_condition)
-                        continue
-                    else:
-                        continue
+                    column = self._get_column_by_name(column_name)
+                    if not column:
+                        if column_key in ['_ctime', '_mtime']:
+                            order_condition = '%s %s' % (column_key, sort_type)
+                            clauses.append(order_condition)
+                            continue
+                        else:
+                            continue
 
-            order_condition = '`%s` %s' % (column.get('name'), sort_type)
-            clauses.append(order_condition)
+                order_condition = '`%s` %s' % (column.get('name'), sort_type)
+                clauses.append(order_condition)
         if not clauses:
             return f' ORDER BY \
             `{self.table.columns.parent_dir.name}` ASC, \
@@ -1080,7 +1075,8 @@ class SQLGenerator(object):
         
         filters = []
         for filter_item in basic_filters:
-            if filter_item.get('column_key') == '_is_dir':
+            column_key = filter_item.get('column_key')
+            if column_key == '_is_dir':
                 filter_term = filter_item.get('filter_term', 'all')
                 if filter_term == 'file':
                     filter_item['filter_term'] = False
@@ -1090,6 +1086,16 @@ class SQLGenerator(object):
                     filters.append(filter_item)
                 else:
                     continue
+            if column_key == '_file_type':
+                filter_term = filter_item.get('filter_term', 'picture')
+                if filter_term == 'picture':
+                    filter_item['filter_term'] = '_picture'
+                elif filter_term == 'video':
+                    filter_item['filter_term'] = '_video'
+                else:
+                    filter_item['filter_predicate'] = 'is_any_of'
+                    filter_item['filter_term'] = ['_picture', '_video']
+                filters.append(filter_item)
             else:
                 filters.append(filter_item)
 
