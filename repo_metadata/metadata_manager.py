@@ -60,7 +60,7 @@ class MetadataManager(object):
         renamed_dirs, moved_dirs = files
 
         self.repo_metadata.update(repo_id, added_files, deleted_files, added_dirs, deleted_dirs, modified_files,
-                                  renamed_files, moved_files, renamed_dirs, moved_dirs, new_commit_id)
+                                  renamed_files, moved_files, renamed_dirs, moved_dirs)
 
     def recovery(self, repo_id, from_commit, to_commit):
         logger.warning('%s: metadata in recovery', repo_id)

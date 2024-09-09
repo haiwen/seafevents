@@ -157,3 +157,39 @@ def search():
     results = index_task_manager.keyword_search(query, repos, count, suffixes, search_path)
 
     return {'results': results}, 200
+
+
+@app.route('/image-search', methods=['POST'])
+def image_search():
+    is_valid = check_auth_token(request)
+    if not is_valid:
+        return {'error_msg': 'Permission denied'}, 403
+
+    # Check seasearch is enable
+    if not index_task_manager.enabled:
+        return {'error_msg': 'Seasearch is not enabled by seafevents.conf'}
+    try:
+        data = json.loads(request.data)
+    except Exception as e:
+        logger.exception(e)
+        return {'error_msg': 'Bad request.'}, 400
+
+    obj_id = data.get('obj_id')
+    path = data.get('path')
+    repo_id = data.get('repo_id')
+
+    if not obj_id:
+        return {'error_msg': 'obj_id invalid.'}, 400
+    if not path:
+        return {'error_msg': 'path invalid.'}, 400
+    if not repo_id:
+        return {'error_msg': 'repo_id invalid.'}, 400
+
+    try:
+        count = int(data.get('count'))
+    except:
+        count = 20
+
+    results = index_task_manager.image_search(repo_id, obj_id, path, count)
+
+    return {'results': results}, 200

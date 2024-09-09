@@ -6,7 +6,8 @@ from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.seasearch.utils.constants import SHARD_NUM
 from seafevents.repo_data import repo_data
 from seafevents.utils import parse_bool, get_opt_from_conf_or_env
-
+from seafevents.seasearch.utils.constants import REPO_IMAGE_INDEX_PREFIX
+from seafevents.seasearch.index_store.repo_image_index import RepoImageIndex
 
 logger = logging.getLogger(__name__)
 
@@ -56,11 +57,16 @@ class IndexTaskManager:
             self._repo_data,
             int(SHARD_NUM),
         )
+        self._repo_image_index = RepoImageIndex(self.seasearch_api)
 
     def keyword_search(self, query, repos, count, suffixes, search_path):
         return self.index_manager.keyword_search(
             query, repos, self._repo_filename_index, count, suffixes, search_path
         )
+
+    def image_search(self, repo_id, obj_id, path, count):
+        repo_image_index_name = REPO_IMAGE_INDEX_PREFIX + repo_id
+        return self.index_manager.image_search(repo_image_index_name, repo_id, obj_id, path, self._repo_image_index, count)
 
 
 index_task_manager = IndexTaskManager()

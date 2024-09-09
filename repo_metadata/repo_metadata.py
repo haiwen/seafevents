@@ -52,6 +52,7 @@ class RepoMetadata:
         if not renamed_or_moved_files:
             return
 
+        obj_ids = []
         base_sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `_obj_id` IN ('
         sql = base_sql
         obj_id_to_file_dict = {}
@@ -66,18 +67,39 @@ class RepoMetadata:
             sql += f'?, '
             parameters.append(obj_id)
 
+            file_type, file_ext = get_file_type_ext_by_name(os.path.basename(path))
+            if file_type == '_picture' and file_ext != 'gif':
+                obj_ids.append(file.obj_id)
+
             if len(parameters) >= METADATA_OP_LIMIT:
                 sql = sql.rstrip(', ') + ')'
                 self.update_rows_by_obj_ids(repo_id, sql, parameters, obj_id_to_file_dict)
                 sql = base_sql
                 parameters = []
                 obj_id_to_file_dict = {}
+
+                if obj_ids:
+                    data = {
+                        'task_type': 'modify_image_index',
+                        'repo_id': repo_id,
+                        'obj_ids': obj_ids
+                    }
+                    self.add_slow_task_to_queue(json.dumps(data))
+                    obj_ids = []
         if parameters:
             sql = sql.rstrip(', ') + ')'
             self.update_rows_by_obj_ids(repo_id, sql, parameters, obj_id_to_file_dict)
 
+        if obj_ids:
+            data = {
+                'task_type': 'modify_image_index',
+                'repo_id': repo_id,
+                'obj_ids': obj_ids
+            }
+            self.add_slow_task_to_queue(json.dumps(data))
+
     def update(self, repo_id, added_files, deleted_files, added_dirs, deleted_dirs, modified_files,
-                        renamed_files, moved_files, renamed_dirs, moved_dirs, commit_id):
+                        renamed_files, moved_files, renamed_dirs, moved_dirs):
 
         new_added_files, new_deleted_files, renamed_or_moved_files = self.cal_renamed_and_moved_files(added_files, deleted_files)
 
@@ -85,7 +107,7 @@ class RepoMetadata:
         self.delete_files(repo_id, new_added_files)
         self.delete_dirs(repo_id, added_dirs)
 
-        self.add_files(repo_id, new_added_files, commit_id)
+        self.add_files(repo_id, new_added_files)
         self.delete_files(repo_id, new_deleted_files)
         # update renamed or moved files
         self.update_renamed_or_moved_files(repo_id, renamed_or_moved_files)
@@ -187,7 +209,7 @@ class RepoMetadata:
             return
         self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
 
-    def add_files(self, repo_id, added_files, commit_id):
+    def add_files(self, repo_id, added_files):
         if not added_files:
             return
 
@@ -221,7 +243,7 @@ class RepoMetadata:
 
             if file_type:
                 row[METADATA_TABLE.columns.file_type.name] = file_type
-            if file_type == '_picture' and file_ext not in ('png', 'gif'):
+            if file_type == '_picture' and file_ext != 'gif':
                 obj_ids.append(de.obj_id)
             rows.append(row)
 
@@ -230,9 +252,8 @@ class RepoMetadata:
 
                 if obj_ids:
                     data = {
-                        'task_type': 'location_extract',
+                        'task_type': 'image_info_extract',
                         'repo_id': repo_id,
-                        'commit_id': commit_id,
                         'obj_ids': obj_ids
                     }
                     self.add_slow_task_to_queue(json.dumps(data))
@@ -243,9 +264,8 @@ class RepoMetadata:
         self.metadata_server_api.insert_rows(repo_id, METADATA_TABLE.id, rows)
         if obj_ids:
             data = {
-                'task_type': 'location_extract',
+                'task_type': 'image_info_extract',
                 'repo_id': repo_id,
-                'commit_id': commit_id,
                 'obj_ids': obj_ids
             }
             self.add_slow_task_to_queue(json.dumps(data))
@@ -257,6 +277,7 @@ class RepoMetadata:
         if not deleted_files:
             return
 
+        paths = []
         base_sql = f'SELECT `{METADATA_TABLE.columns.id.name}` FROM `{METADATA_TABLE.name}` WHERE'
         sql = base_sql
         parameters = []
@@ -269,6 +290,9 @@ class RepoMetadata:
             sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR'
             parameters.append(parent_dir)
             parameters.append(file_name)
+            file_type, file_ext = get_file_type_ext_by_name(file_name)
+            if file_type == '_picture' and file_ext != 'gif':
+                paths.append(path)
 
             if len(parameters) >= METADATA_OP_LIMIT:
                 sql = sql.rstrip(' OR')
@@ -276,10 +300,27 @@ class RepoMetadata:
                 sql = base_sql
                 parameters = []
 
+                if paths:
+                    data = {
+                        'task_type': 'delete_image_index',
+                        'repo_id': repo_id,
+                        'paths': paths
+                    }
+                    self.add_slow_task_to_queue(json.dumps(data))
+                    paths = []
+
         if not parameters:
             return
         sql = sql.rstrip(' OR')
         self.delete_rows_by_query(repo_id, sql, parameters)
+
+        if paths:
+            data = {
+                'task_type': 'delete_image_index',
+                'repo_id': repo_id,
+                'paths': paths
+            }
+            self.add_slow_task_to_queue(json.dumps(data))
 
     def update_modified_files(self, repo_id, modified_files):
         if not modified_files:

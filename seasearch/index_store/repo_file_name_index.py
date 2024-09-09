@@ -3,11 +3,9 @@ import os
 import logging
 
 from seafevents.seasearch.utils import get_library_diff_files, md5, is_sys_dir_or_file
-from seafevents.seasearch.utils.constants import REPO_FILENAME_INDEX_PREFIX
+from seafevents.seasearch.utils.constants import REPO_FILENAME_INDEX_PREFIX, SEASEARCH_BULK_OPETATE_LIMIT
 
 logger = logging.getLogger(__name__)
-
-SEASEARCH_BULK_OPETATE_LIMIT = 2000
 
 
 class RepoFileNameIndex(object):
