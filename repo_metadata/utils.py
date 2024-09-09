@@ -5,7 +5,7 @@ import exifread
 
 from io import BytesIO
 
-from seafobj import commit_mgr, fs_mgr
+from seafobj import fs_mgr
 
 from seafevents.app.config import METADATA_FILE_TYPES
 from seafevents.repo_metadata.view_data_sql import view_data_2_sql
@@ -32,7 +32,7 @@ def get_file_type_ext_by_name(filename):
     return file_type, file_ext
 
 
-def get_latlng(repo_id, commit_id, obj_id):
+def get_latlng(repo_id, obj_id):
     lat_lng_info = {
         "lat_key": "GPS GPSLatitudeRef",
         "lat_value": "GPS GPSLatitude",
@@ -40,9 +40,7 @@ def get_latlng(repo_id, commit_id, obj_id):
         "lng_value": "GPS GPSLongitude"
     }
 
-    new_commit = commit_mgr.load_commit(repo_id, 0, commit_id)
-    version = new_commit.get_version()
-    f = fs_mgr.load_seafile(repo_id, version, obj_id)
+    f = fs_mgr.load_seafile(repo_id, 1, obj_id)
     content = f.get_content()
     exif_content = exifread.process_file(BytesIO(content))
 
@@ -111,6 +109,7 @@ class MetadataColumns(object):
         self.size = MetadataColumn('_size', '_size', 'number')
         self.suffix = MetadataColumn('_suffix', '_suffix', 'text')
         self.file_details = MetadataColumn('_file_details', '_file_details', 'long-text')
+        self.image_feature = MetadataColumn('_image_feature', '_image_feature', 'long-text')
 
 
 class MetadataColumn(object):

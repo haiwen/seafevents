@@ -1,7 +1,7 @@
 import logging
 import time
 
-from seafevents.seasearch.utils.constants import ZERO_OBJ_ID, REPO_FILENAME_INDEX_PREFIX
+from seafevents.seasearch.utils.constants import ZERO_OBJ_ID, REPO_FILENAME_INDEX_PREFIX, REPO_IMAGE_INDEX_PREFIX
 
 logger = logging.getLogger(__name__)
 
@@ -48,5 +48,12 @@ class IndexManager(object):
         repo_filename_index.delete_index_by_index_name(repo_filename_index_name)
         repo_status_filename_index.delete_documents_by_repo(repo_id)
 
+    def delete_repo_image_index(self, repo_id, repo_image_index):
+        repo_image_index_name = REPO_IMAGE_INDEX_PREFIX + repo_id
+        repo_image_index.delete_index_by_index_name(repo_image_index_name)
+
     def keyword_search(self, query, repos, repo_filename_index, count, suffixes=None, search_path=None):
         return repo_filename_index.search_files(repos, query, 0, count, suffixes, search_path)
+
+    def image_search(self, index_name, repo_id, obj_id, path, repo_image_index, count):
+        return repo_image_index.image_search(index_name, repo_id, obj_id, path, count)
