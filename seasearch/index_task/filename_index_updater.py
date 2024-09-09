@@ -1,7 +1,7 @@
 import logging
 from threading import Thread
 
-from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.schedulers.gevent import GeventScheduler
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.index_store.repo_file_name_index import RepoFileNameIndex
@@ -9,7 +9,7 @@ from seafevents.seasearch.index_store.repo_status_index import RepoStatusIndex
 from seafevents.seasearch.utils.constants import REPO_STATUS_FILENAME_INDEX_NAME, SHARD_NUM, REPO_TYPE_WIKI
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.repo_data import repo_data
-from seafevents.utils import parse_bool, get_opt_from_conf_or_env
+from seafevents.utils import parse_bool, get_opt_from_conf_or_env, parse_interval
 
 
 logger = logging.getLogger(__name__)
@@ -27,9 +27,14 @@ class RepoFilenameIndexUpdater(object):
         self._parse_config(config)
 
     def _parse_config(self, config):
-        """Parse fimename index update related parts of events.conf"""
+        """Parse filename index update related parts of events.conf"""
         section_name = 'SEASEARCH'
         key_enabled = 'enabled'
+        key_seasearch_url = 'seasearch_url'
+        key_seasearch_token = 'seasearch_token'
+        key_index_interval = 'interval'
+
+        default_index_interval = 30 * 60 # 30 min
 
         if not config.has_section(section_name):
             return
@@ -42,17 +47,21 @@ class RepoFilenameIndexUpdater(object):
         self._enabled = True
 
         seasearch_url = get_opt_from_conf_or_env(
-            config, section_name, 'seasearch_url'
+            config, section_name, key_seasearch_url
         )
         seasearch_token = get_opt_from_conf_or_env(
-            config, section_name, 'seasearch_token'
+            config, section_name, key_seasearch_token
         )
+        interval = get_opt_from_conf_or_env(config, section_name, key_index_interval,
+                                            default=default_index_interval)
+        interval = parse_interval(interval, default_index_interval)
 
         self.seasearch_api = SeaSearchAPI(
             seasearch_url,
             seasearch_token,
         )
         self._repo_data = repo_data
+        self._interval = interval
         self._repo_status_filename_index = RepoStatusIndex(
             self.seasearch_api, REPO_STATUS_FILENAME_INDEX_NAME
         )
@@ -68,13 +77,16 @@ class RepoFilenameIndexUpdater(object):
 
     def start(self):
         if not self.is_enabled():
+            logging.warning('Can not start filename index updater: it is not enabled!')
             return
 
+        logging.info('Start to update filename index, interval = %s sec', self._interval)
         RepoFilenameIndexUpdaterTimer(
             self._repo_status_filename_index,
             self._repo_filename_index,
             self._index_manager,
             self._repo_data,
+            self._interval
         ).start()
 
 
@@ -125,18 +137,19 @@ def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_inde
 
 
 class RepoFilenameIndexUpdaterTimer(Thread):
-    def __init__(self, repo_status_filename_index, repo_filename_index, index_manager, repo_data):
+    def __init__(self, repo_status_filename_index, repo_filename_index, index_manager, repo_data, interval):
         super(RepoFilenameIndexUpdaterTimer, self).__init__()
         self.repo_status_filename_index = repo_status_filename_index
         self.repo_filename_index = repo_filename_index
         self.index_manager = index_manager
         self.repo_data = repo_data
+        self.interval = interval
 
     def run(self):
         sched = GeventScheduler()
         logging.info('Start to update filename index...')
         try:
-            sched.add_job(update_repo_file_name_indexes, CronTrigger(minute='*/5'),
+            sched.add_job(update_repo_file_name_indexes, IntervalTrigger(seconds=self.interval),
                           args=(self.repo_status_filename_index, self.repo_filename_index, self.index_manager, self.repo_data))
         except Exception as e:
             logging.exception('periodical update filename index error: %s', e)
