@@ -27,7 +27,7 @@ class RepoFilenameIndexUpdater(object):
         self._parse_config(config)
 
     def _parse_config(self, config):
-        """Parse fimename index update related parts of events.conf"""
+        """Parse filename index update related parts of events.conf"""
         section_name = 'SEASEARCH'
         key_enabled = 'enabled'
         key_seasearch_url = 'seasearch_url'
@@ -77,8 +77,10 @@ class RepoFilenameIndexUpdater(object):
 
     def start(self):
         if not self.is_enabled():
+            logging.warning('Can not start filename index updater: it is not enabled!')
             return
 
+        logging.info('Start to update filename index, interval = %s sec', self._interval)
         RepoFilenameIndexUpdaterTimer(
             self._repo_status_filename_index,
             self._repo_filename_index,
