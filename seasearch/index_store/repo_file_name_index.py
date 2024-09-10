@@ -6,7 +6,7 @@ import pandas as pd
 
 from seafevents.seasearch.utils import get_library_diff_files, md5, is_sys_dir_or_file
 from seafevents.seasearch.utils.constants import REPO_FILENAME_INDEX_PREFIX
-from seafevents.seasearch.utils import need_index_summary
+from seafevents.seasearch.utils import need_index_description
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class RepoFileNameIndex(object):
                     },
                 },
             },
-            'summary': {
+            'description': {
                 'type': 'text',
                 'fields': {
                     'ngram': {
@@ -111,11 +111,11 @@ class RepoFileNameIndex(object):
                 }
             }
         })
-        if need_index_summary(repo_id, session, metadata_server_api):
-            searches.append(_make_match_query('summary', keyword, **match_query_kwargs))
+        if need_index_description(repo_id, session, metadata_server_api):
+            searches.append(_make_match_query('description', keyword, **match_query_kwargs))
             searches.append({
                 'match': {
-                    'summary.ngram': {
+                    'description.ngram': {
                         'query': keyword,
                         'minimum_should_match': '80%',
                     }
@@ -233,7 +233,7 @@ class RepoFileNameIndex(object):
                 'path': path,
                 'suffix': suffix,
                 'filename': filename,
-                'summary': add_rows.get(path, ''),
+                'description': add_rows.get(path, ''),
                 'is_dir': False,
             }
 
@@ -247,7 +247,7 @@ class RepoFileNameIndex(object):
         if bulk_add_params:
             self.seasearch_api.bulk(index_name, bulk_add_params)
 
-    def need_update_summary_files(self, index_info, rows):
+    def need_update_description_files(self, index_info, rows):
         old_table_df = pd.DataFrame(index_info)
         new_table_df = pd.DataFrame(columns=['_id', '_mtime', 'path'])
         for row in rows:
@@ -385,7 +385,7 @@ class RepoFileNameIndex(object):
 
         return delete_paths
 
-    def update(self, index_name, repo_id, old_commit_id, new_commit_id, rows, summary_index_info):
+    def update(self, index_name, repo_id, old_commit_id, new_commit_id, rows, description_index_info):
         need_deleted_paths = []
         added_files, deleted_files, modified_files, added_dirs, deleted_dirs = \
             get_library_diff_files(repo_id, old_commit_id, new_commit_id)
@@ -413,7 +413,7 @@ class RepoFileNameIndex(object):
                 add_index_info.append({'_id': row['_id'], '_mtime': row['_mtime']})
             else:
                 update_rows.append({'_id': row['_id'], '_mtime': row['_mtime'], 'path': path})
-        update_paths, update_index_info = self.need_update_summary_files(summary_index_info, update_rows)
+        update_paths, update_index_info = self.need_update_description_files(description_index_info, update_rows)
 
         self.add_files(index_name, repo_id, need_added_files + update_paths, add_rows)
 
