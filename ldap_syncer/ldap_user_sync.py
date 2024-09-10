@@ -10,12 +10,12 @@ from ldap import SCOPE_SUBTREE
 
 USE_LDAP_ROLE_LIST_MAPPING = False
 try:
-    from custom_functions import ldap_role_mapping
+    from seahub_custom_functions import ldap_role_mapping
 except ImportError:
     def ldap_role_mapping(role):
         return role
 try:
-    from custom_functions import ldap_role_list_mapping
+    from seahub_custom_functions import ldap_role_list_mapping
     USE_LDAP_ROLE_LIST_MAPPING = True
 except ImportError:
     def ldap_role_list_mapping(role_list):
