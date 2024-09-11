@@ -231,8 +231,6 @@ class RepoFileNameIndex(object):
         if bulk_add_params:
             self.seasearch_api.bulk(index_name, bulk_add_params)
 
-        print(bulk_add_params)
-
     def add_dirs(self, index_name, repo_id, dirs):
         bulk_add_params = []
         for dir in dirs:
