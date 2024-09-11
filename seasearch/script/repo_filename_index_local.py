@@ -104,7 +104,7 @@ class RepoFileNameIndexLocal(object):
                 repo_id = queue_data[0]
                 commit_id = queue_data[1]
                 try:
-                    self.index_manager.update_library_filename_index(repo_id, commit_id, self.repo_filename_index, self.repo_status_filename_index)
+                    self.index_manager.update_library_filename_index(repo_id, commit_id, self.repo_filename_index, self.repo_status_filename_index, 3600 * 24 * 365)
                 except Exception as e:
                     logger.exception('Repo filename index error: %s, repo_id: %s' % (e, repo_id), exc_info=True)
                     self.incr_error()
@@ -154,7 +154,7 @@ def start_index_local():
         config, section_name, 'seasearch_token'
     )
 
-    index_manager = IndexManager()
+    index_manager = IndexManager(config)
     seasearch_api = SeaSearchAPI(seasearch_url, seasearch_token)
     repo_status_filename_index = RepoStatusIndex(seasearch_api, REPO_STATUS_FILENAME_INDEX_NAME)
     repo_filename_index = RepoFileNameIndex(seasearch_api, repo_data, shard_num=1)
