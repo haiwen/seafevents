@@ -2,8 +2,6 @@ import json
 import os
 import logging
 
-import pandas as pd
-
 from seafevents.seasearch.utils import get_library_diff_files, md5, is_sys_dir_or_file
 from seafevents.seasearch.utils.constants import REPO_FILENAME_INDEX_PREFIX
 from seafevents.seasearch.utils import need_index_description
@@ -34,13 +32,7 @@ class RepoFileNameIndex(object):
             },
             'description': {
                 'type': 'text',
-                'fields': {
-                    'ngram': {
-                        'type': 'text',
-                        'index': True,
-                        'analyzer': 'seafile_file_name_ngram_analyzer',
-                    },
-                },
+                'analyzer': 'standard'
             },
             'suffix': {
                 'type': 'keyword'
@@ -113,14 +105,6 @@ class RepoFileNameIndex(object):
         })
         if need_index_description(repo_id, session, metadata_server_api):
             searches.append(_make_match_query('description', keyword, **match_query_kwargs))
-            searches.append({
-                'match': {
-                    'description.ngram': {
-                        'query': keyword,
-                        'minimum_should_match': '80%',
-                    }
-                }
-            })
         return searches
 
     def _add_path_filter(self, query_map, search_path):
@@ -247,23 +231,7 @@ class RepoFileNameIndex(object):
         if bulk_add_params:
             self.seasearch_api.bulk(index_name, bulk_add_params)
 
-    def need_update_description_files(self, index_info, rows):
-        old_table_df = pd.DataFrame(index_info)
-        new_table_df = pd.DataFrame(columns=['_id', '_mtime', 'path'])
-        for row in rows:
-            new_table_df.loc[len(new_table_df)] = [row['_id'], row["_mtime"], row["path"]]
-
-        if not index_info:
-            return [[item] for item in new_table_df['path'].tolist()], new_table_df[['_id', '_mtime']].to_dict(orient='records')
-
-        all_table_data_df = new_table_df.merge(old_table_df, on=['_id'], how='left')
-        modified_df = all_table_data_df.query("_mtime_x!=_mtime_y and (_mtime_y.notna() and _mtime_x.notna())").loc[:]
-        modified_df = modified_df.rename(columns={'_mtime_x': '_mtime'})
-
-        result_df = all_table_data_df.query("_mtime_x.notna()")
-        end_df = result_df.rename(columns={'_mtime_x': '_mtime'})
-        end_df = end_df[['_id', '_mtime']].to_dict(orient='records')
-        return [[item] for item in modified_df['path'].tolist()], end_df
+        print(bulk_add_params)
 
     def add_dirs(self, index_name, repo_id, dirs):
         bulk_add_params = []
@@ -385,7 +353,7 @@ class RepoFileNameIndex(object):
 
         return delete_paths
 
-    def update(self, index_name, repo_id, old_commit_id, new_commit_id, rows, description_index_info):
+    def update(self, index_name, repo_id, old_commit_id, new_commit_id, rows):
         need_deleted_paths = []
         added_files, deleted_files, modified_files, added_dirs, deleted_dirs = \
             get_library_diff_files(repo_id, old_commit_id, new_commit_id)
@@ -400,26 +368,19 @@ class RepoFileNameIndex(object):
         need_deleted_paths += delete_paths
 
         need_added_files = added_files + modified_files
-        update_rows = []
+        update_paths = []
         add_rows = {}
-        add_index_info = []
         need_added_paths = [item[0] for item in need_added_files]
         for row in rows:
             path = os.path.join(row['_parent_dir'], row['_name'])
             if path in need_deleted_paths:
                 continue
             add_rows[path] = row.get('_description', '')
-            if path in need_added_paths:
-                add_index_info.append({'_id': row['_id'], '_mtime': row['_mtime']})
-            else:
-                update_rows.append({'_id': row['_id'], '_mtime': row['_mtime'], 'path': path})
-        update_paths, update_index_info = self.need_update_description_files(description_index_info, update_rows)
+            if path not in need_added_paths:
+                update_paths.append([path])
 
         self.add_files(index_name, repo_id, need_added_files + update_paths, add_rows)
-
         self.add_dirs(index_name, repo_id, added_dirs)
-
-        return add_index_info + update_index_info
 
     def delete_index_by_index_name(self, index_name):
         self.seasearch_api.delete_index_by_name(index_name)

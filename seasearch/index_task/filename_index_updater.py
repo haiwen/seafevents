@@ -34,7 +34,7 @@ class RepoFilenameIndexUpdater(object):
         key_seasearch_token = 'seasearch_token'
         key_index_interval = 'interval'
 
-        default_index_interval = 30 * 60 # 30 min
+        default_index_interval = 10 # 30 min
 
         if not config.has_section(section_name):
             return
@@ -105,7 +105,7 @@ def clear_deleted_repo(repo_status_filename_index, repo_filename_index, index_ma
     logger.info("filename index deleted repo has been cleared")
 
 
-def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_index, index_manager, repo_data):
+def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_index, index_manager, repo_data, interval):
     start, count = 0, 1000
     all_repos = []
 
@@ -129,7 +129,7 @@ def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_inde
                 continue
             all_repos.append(repo_id)
 
-            index_manager.update_library_filename_index(repo_id, commit_id, repo_filename_index, repo_status_filename_index)
+            index_manager.update_library_filename_index(repo_id, commit_id, repo_filename_index, repo_status_filename_index, interval)
 
     logger.info("Finish update filename index")
 
@@ -150,7 +150,7 @@ class RepoFilenameIndexUpdaterTimer(Thread):
         logging.info('Start to update filename index...')
         try:
             sched.add_job(update_repo_file_name_indexes, IntervalTrigger(seconds=self.interval),
-                          args=(self.repo_status_filename_index, self.repo_filename_index, self.index_manager, self.repo_data))
+                          args=(self.repo_status_filename_index, self.repo_filename_index, self.index_manager, self.repo_data, self.interval))
         except Exception as e:
             logging.exception('periodical update filename index error: %s', e)
 
