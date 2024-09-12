@@ -375,14 +375,11 @@ class RepoFileNameIndex(object):
         exist_paths = []
         per_size = SEASEARCH_BULK_OPETATE_LIMIT
         start = 0
-        while True:
-            hits, total = self.query_data_by_paths(index_name, paths, start, per_size)
+        for i in range(0, len(paths), per_size):
+            hits, total = self.query_data_by_paths(index_name, paths[i: i + per_size], start, per_size)
             for hit in hits:
                 source = hit.get('_source')
                 exist_paths.append(source['path'])
-            if len(hits) < per_size:
-                break
-            start += per_size
 
         return exist_paths
 

@@ -34,7 +34,7 @@ class RepoFilenameIndexUpdater(object):
         key_seasearch_token = 'seasearch_token'
         key_index_interval = 'interval'
 
-        default_index_interval = 30 * 60 # 30 min
+        default_index_interval = 10 # 30 min
 
         if not config.has_section(section_name):
             return
