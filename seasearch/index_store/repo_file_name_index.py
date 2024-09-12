@@ -373,7 +373,8 @@ class RepoFileNameIndex(object):
                 continue
             add_rows[path] = row.get('_description', '')
             if path not in need_added_paths:
-                update_paths.append([path])
+                if self.seasearch_api.check_document_by_id(index_name, md5(path)).get('is_exist'):
+                    update_paths.append([path])
 
         self.add_files(index_name, repo_id, need_added_files + update_paths, add_rows)
         self.add_dirs(index_name, repo_id, added_dirs)
