@@ -103,8 +103,7 @@ class RepoFileNameIndex(object):
                 }
             }
         })
-        if need_index_description(repo_id, session, metadata_server_api):
-            searches.append(_make_match_query('description', keyword, **match_query_kwargs))
+        searches.append(_make_match_query('description', keyword, **match_query_kwargs))
         return searches
 
     def _add_path_filter(self, query_map, search_path):

@@ -20,7 +20,7 @@ class IndexManager(object):
         self.session = init_db_session_class(config)
         self.metadata_server_api = MetadataServerAPI('seafevents')
 
-    def update_library_filename_index(self, repo_id, commit_id, repo_filename_index, repo_status_filename_index, interval):
+    def update_library_filename_index(self, repo_id, commit_id, repo_filename_index, repo_status_filename_index, interval=None):
         try:
             new_commit_id = commit_id
             index_name = REPO_FILENAME_INDEX_PREFIX + repo_id
@@ -38,9 +38,12 @@ class IndexManager(object):
 
             rows = []
             if need_index_description(repo_id, self.session, self.metadata_server_api):
-                last_update_time = datetime.now() - timedelta(seconds=interval)
-                last_update_time = timestamp_to_isoformat_timestr(last_update_time.timestamp())
-                sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name` FROM `{METADATA_TABLE.name}` WHERE `_mtime` >= '{last_update_time}'"
+                if interval:
+                    last_update_time = datetime.now() - timedelta(seconds=interval)
+                    last_update_time = timestamp_to_isoformat_timestr(last_update_time.timestamp())
+                    sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name` FROM `{METADATA_TABLE.name}` WHERE `_mtime` >= '{last_update_time}'"
+                else:
+                    sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name` FROM `{METADATA_TABLE.name}`"
                 rows = self.metadata_server_api.query_rows(repo_id, sql, []).get('results', [])
             if repo_status.need_recovery():
                 logger.warning('%s: repo filename index inrecovery', repo_id)
