@@ -320,6 +320,28 @@ class RepoFileNameIndex(object):
         hits, total = self.normal_search(index_name, dsl)
         return hits, total
 
+    def query_data_by_paths(self, index_name, paths, start, size):
+        dsl = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {
+                            "terms": {
+                                "path": paths
+                            }
+                        }
+                    ]
+                }
+            },
+            "from": start,
+            "size": size,
+            "_source": ["path"],
+            "sort": ["-@timestamp"],  # sort is for getting data ordered
+        }
+
+        hits, total = self.normal_search(index_name, dsl)
+        return hits, total
+
     def normal_search(self, index_name, dsl):
         doc_item = self.seasearch_api.normal_search(index_name, dsl)
         total = doc_item['hits']['total']['value']
@@ -349,6 +371,21 @@ class RepoFileNameIndex(object):
 
         return delete_paths
 
+    def filter_exist_paths(self, index_name, paths):
+        exist_paths = []
+        per_size = SEASEARCH_BULK_OPETATE_LIMIT
+        start = 0
+        while True:
+            hits, total = self.query_data_by_paths(index_name, paths, start, per_size)
+            for hit in hits:
+                source = hit.get('_source')
+                exist_paths.append(source['path'])
+            if len(hits) < per_size:
+                break
+            start += per_size
+
+        return exist_paths
+
     def update(self, index_name, repo_id, old_commit_id, new_commit_id, rows):
         need_deleted_paths = []
         added_files, deleted_files, modified_files, added_dirs, deleted_dirs = \
@@ -373,8 +410,10 @@ class RepoFileNameIndex(object):
                 continue
             add_rows[path] = row.get('_description', '')
             if path not in need_added_paths:
-                if self.seasearch_api.check_document_by_id(index_name, md5(path)).get('is_exist'):
-                    update_paths.append([path])
+                update_paths.append(path)
+
+        update_paths = self.filter_exist_paths(index_name, update_paths)
+        update_paths = [[path] for path in update_paths]
 
         self.add_files(index_name, repo_id, need_added_files + update_paths, add_rows)
         self.add_dirs(index_name, repo_id, added_dirs)
