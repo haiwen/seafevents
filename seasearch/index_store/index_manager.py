@@ -41,9 +41,9 @@ class IndexManager(object):
                 if interval:
                     last_update_time = datetime.now() - timedelta(seconds=interval)
                     last_update_time = timestamp_to_isoformat_timestr(last_update_time.timestamp())
-                    sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = FALSE AND `_mtime` >= '{last_update_time}'"
+                    sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False AND `_mtime` >= '{last_update_time}'"
                 else:
-                    sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = FALSE"
+                    sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False"
                 rows = self.metadata_server_api.query_rows(repo_id, sql, []).get('results', [])
             if repo_status.need_recovery():
                 logger.warning('%s: repo filename index inrecovery', repo_id)
