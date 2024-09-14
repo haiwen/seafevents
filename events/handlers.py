@@ -611,7 +611,7 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
 
     repo = seafile_api.get_repo(repo_id)
     if repo.repo_type == 'wiki':
-        return []
+        return [], []
 
     base_record = {
         'commit_id': commit.commit_id,

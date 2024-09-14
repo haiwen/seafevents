@@ -76,6 +76,15 @@ class RepoMetadata:
             sql = sql.rstrip(', ') + ')'
             self.update_rows_by_obj_ids(repo_id, sql, parameters, obj_id_to_file_dict)
 
+    def check_collaborator_column(self, repo_id):
+        result = self.metadata_server_api.list_columns(repo_id, METADATA_TABLE.id)
+        columns = result.get('columns')
+        try:
+            next(column for column in columns if column['key'] == METADATA_TABLE.columns.collaborator.key)
+        except StopIteration:
+            return False
+        return True
+
     def update(self, repo_id, added_files, deleted_files, added_dirs, deleted_dirs, modified_files,
                         renamed_files, moved_files, renamed_dirs, moved_dirs, commit_id):
 
@@ -85,14 +94,16 @@ class RepoMetadata:
         self.delete_files(repo_id, new_added_files)
         self.delete_dirs(repo_id, added_dirs)
 
-        self.add_files(repo_id, new_added_files, commit_id)
+        has_collaborator_column = self.check_collaborator_column(repo_id)
+
+        self.add_files(repo_id, new_added_files, commit_id, has_collaborator_column)
         self.delete_files(repo_id, new_deleted_files)
         # update renamed or moved files
         self.update_renamed_or_moved_files(repo_id, renamed_or_moved_files)
         self.add_dirs(repo_id, added_dirs)
         self.delete_dirs(repo_id, deleted_dirs)
         # update normal updated files
-        self.update_modified_files(repo_id, modified_files)
+        self.update_modified_files(repo_id, modified_files, has_collaborator_column)
 
         # self.rename_files(repo_id, renamed_files)
         # self.move_files(repo_id, moved_files)
@@ -123,7 +134,7 @@ class RepoMetadata:
             return
         self.metadata_server_api.delete_rows(repo_id, METADATA_TABLE.id, row_ids)
 
-    def update_rows_by_query(self, repo_id, sql, parameters, path_to_file_dict):
+    def update_rows_by_query(self, repo_id, sql, parameters, path_to_file_dict, has_collaborator_column):
         query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
 
         if not query_result:
@@ -134,8 +145,10 @@ class RepoMetadata:
             row_id = row[METADATA_TABLE.columns.id.name]
             parent_dir = row[METADATA_TABLE.columns.parent_dir.name]
             file_name = row[METADATA_TABLE.columns.file_name.name]
+            collaborators = row.get(METADATA_TABLE.columns.collaborator.name, [])
             key = parent_dir + file_name
             new_row = path_to_file_dict.get(key)
+            file_type, file_ext = get_file_type_ext_by_name(file_name)
 
             update_row = {
                 METADATA_TABLE.columns.id.name: row_id,
@@ -144,6 +157,9 @@ class RepoMetadata:
                 METADATA_TABLE.columns.obj_id.name: new_row.obj_id,
                 METADATA_TABLE.columns.size.name: new_row.size,
             }
+            if file_type == '_document' and has_collaborator_column and new_row.modifier not in collaborators:
+                collaborators.append(new_row.modifier)
+                update_row[METADATA_TABLE.columns.collaborator.name] = collaborators
             updated_rows.append(update_row)
 
             if len(updated_rows) >= METADATA_OP_LIMIT:
@@ -187,7 +203,7 @@ class RepoMetadata:
             return
         self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
 
-    def add_files(self, repo_id, added_files, commit_id):
+    def add_files(self, repo_id, added_files, commit_id, has_collaborator_column):
         if not added_files:
             return
 
@@ -218,6 +234,9 @@ class RepoMetadata:
                 METADATA_TABLE.columns.size.name: size,
                 METADATA_TABLE.columns.suffix.name: file_ext,
             }
+
+            if file_type == '_document' and has_collaborator_column:
+                row[METADATA_TABLE.columns.collaborator.name] = [modifier]
 
             if file_type:
                 row[METADATA_TABLE.columns.file_type.name] = file_type
@@ -281,11 +300,17 @@ class RepoMetadata:
         sql = sql.rstrip(' OR')
         self.delete_rows_by_query(repo_id, sql, parameters)
 
-    def update_modified_files(self, repo_id, modified_files):
+    def update_modified_files(self, repo_id, modified_files, has_collaborator_column):
         if not modified_files:
             return
 
-        base_sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}` FROM `{METADATA_TABLE.name}` WHERE'
+        collaborator_column_str = ''
+        if has_collaborator_column:
+            collaborator_column_str = ', ' + METADATA_TABLE.columns.collaborator.name
+
+        base_sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, ' \
+                   f'`{METADATA_TABLE.columns.file_name.name}` {collaborator_column_str} FROM `{METADATA_TABLE.name}` WHERE'
+
         sql = base_sql
         path_to_file_dict = {}
         parameters = []
@@ -304,14 +329,14 @@ class RepoMetadata:
 
             if len(parameters) >= METADATA_OP_LIMIT:
                 sql = sql.rstrip(' OR')
-                self.update_rows_by_query(repo_id, sql, parameters, path_to_file_dict)
+                self.update_rows_by_query(repo_id, sql, parameters, path_to_file_dict, has_collaborator_column)
                 sql = base_sql
                 parameters = []
                 path_to_file_dict = {}
 
         if parameters:
             sql = sql.rstrip(' OR')
-            self.update_rows_by_query(repo_id, sql, parameters, path_to_file_dict)
+            self.update_rows_by_query(repo_id, sql, parameters, path_to_file_dict, has_collaborator_column)
 
     def add_dirs(self, repo_id, added_dirs):
         if not added_dirs:

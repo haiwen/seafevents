@@ -112,6 +112,8 @@ class MetadataColumns(object):
         self.suffix = MetadataColumn('_suffix', '_suffix', 'text')
         self.file_details = MetadataColumn('_file_details', '_file_details', 'long-text')
 
+        self.collaborator = MetadataColumn('_collaborators', '_collaborators', 'collaborator')
+
 
 class MetadataColumn(object):
     def __init__(self, key, name, type, data=None):
