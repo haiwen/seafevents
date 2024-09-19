@@ -20,7 +20,7 @@ class IndexManager(object):
         self.session = init_db_session_class(config)
         self.metadata_server_api = MetadataServerAPI('seafevents')
 
-    def update_library_filename_index(self, repo_id, commit_id, repo_filename_index, repo_status_filename_index, interval=None):
+    def update_library_filename_index(self, repo_id, commit_id, repo_filename_index, repo_status_filename_index):
         try:
             new_commit_id = commit_id
             index_name = REPO_FILENAME_INDEX_PREFIX + repo_id
@@ -30,6 +30,7 @@ class IndexManager(object):
             repo_status = repo_status_filename_index.get_repo_status_by_id(repo_id)
             from_commit = repo_status.from_commit
             to_commit = repo_status.to_commit
+            description_updated_time = repo_status.description_updated_time
 
             if not from_commit:
                 commit_id = ZERO_OBJ_ID
@@ -37,13 +38,14 @@ class IndexManager(object):
                 commit_id = from_commit
 
             rows = []
+            query_timestamp = description_updated_time
             if need_index_description(repo_id, self.session, self.metadata_server_api):
-                if interval:
-                    last_update_time = datetime.now() - timedelta(seconds=interval)
-                    last_update_time = timestamp_to_isoformat_timestr(last_update_time.timestamp())
+                if description_updated_time:
+                    last_update_time = timestamp_to_isoformat_timestr(float(description_updated_time))
                     sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False AND `_mtime` >= '{last_update_time}'"
                 else:
                     sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False"
+                query_timestamp = time.time()
                 rows = self.metadata_server_api.query_rows(repo_id, sql, []).get('results', [])
             if repo_status.need_recovery():
                 logger.warning('%s: repo filename index inrecovery', repo_id)
@@ -51,9 +53,9 @@ class IndexManager(object):
                 commit_id = to_commit
                 time.sleep(1)
 
-            repo_status_filename_index.begin_update_repo(repo_id, commit_id, new_commit_id)
+            repo_status_filename_index.begin_update_repo(repo_id, commit_id, new_commit_id, description_updated_time)
             repo_filename_index.update(index_name, repo_id, commit_id, new_commit_id, rows)
-            repo_status_filename_index.finish_update_repo(repo_id, new_commit_id)
+            repo_status_filename_index.finish_update_repo(repo_id, new_commit_id, query_timestamp)
 
             logger.info('repo: %s, update repo filename index success', repo_id)
 

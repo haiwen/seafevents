@@ -270,13 +270,13 @@ class RepoFileNameIndex(object):
 
     def delete_files(self, index_name, files):
         delete_params = []
-        delete_paths = []
+        deleted_paths = []
         for file in files:
             path = file[0]
             if is_sys_dir_or_file(path):
                 continue
             delete_params.append({'delete': {'_id': md5(path), '_index': index_name}})
-            delete_paths.append(path)
+            deleted_paths.append(path)
             # bulk add every 2000 params
             if len(delete_params) >= SEASEARCH_BULK_OPETATE_LIMIT:
                 self.seasearch_api.bulk(index_name, delete_params)
@@ -284,7 +284,7 @@ class RepoFileNameIndex(object):
         if delete_params:
             self.seasearch_api.bulk(index_name, delete_params)
 
-        return delete_paths
+        return deleted_paths
 
     def delete_dirs(self, index_name, dirs):
         delete_params = []
@@ -349,7 +349,7 @@ class RepoFileNameIndex(object):
         return doc_item['hits']['hits'], total
 
     def delete_files_by_deleted_dirs(self, index_name, dirs):
-        delete_paths = []
+        deleted_paths = []
         for directory in dirs:
             if is_sys_dir_or_file(directory):
                 continue
@@ -361,7 +361,7 @@ class RepoFileNameIndex(object):
                 for hit in hits:
                     _id = hit['_id']
                     source = hit.get('_source')
-                    delete_paths.append(source['path'])
+                    deleted_paths.append(source['path'])
                     delete_params.append({'delete': {'_id': _id, '_index': index_name}})
 
                 if delete_params:
@@ -369,7 +369,7 @@ class RepoFileNameIndex(object):
                 if len(hits) < per_size:
                     break
 
-        return delete_paths
+        return deleted_paths
 
     def filter_exist_paths(self, index_name, paths):
         exist_paths = []
@@ -389,13 +389,13 @@ class RepoFileNameIndex(object):
             get_library_diff_files(repo_id, old_commit_id, new_commit_id)
 
         need_deleted_files = deleted_files
-        delete_paths = self.delete_files(index_name, need_deleted_files)
-        need_deleted_paths += delete_paths
+        deleted_paths = self.delete_files(index_name, need_deleted_files)
+        need_deleted_paths += deleted_paths
 
         self.delete_dirs(index_name, deleted_dirs)
 
-        delete_paths = self.delete_files_by_deleted_dirs(index_name, deleted_dirs)
-        need_deleted_paths += delete_paths
+        deleted_paths = self.delete_files_by_deleted_dirs(index_name, deleted_dirs)
+        need_deleted_paths += deleted_paths
 
         need_added_files = added_files + modified_files
         update_paths = []

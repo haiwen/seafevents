@@ -1,8 +1,9 @@
 class RepoStatus(object):
-    def __init__(self, repo_id, from_commit, to_commit):
+    def __init__(self, repo_id, from_commit, to_commit, description_updated_time):
         self.repo_id = repo_id
         self.from_commit = from_commit
         self.to_commit = to_commit
+        self.description_updated_time = description_updated_time
 
     def need_recovery(self):
         return self.to_commit is not None
@@ -30,18 +31,20 @@ class RepoStatusIndex(object):
             },
             'commit_id': {
                 'type': 'keyword'
-            }
-            ,
+            },
             'updatingto': {
                 'type': 'keyword'
-            }
+            },
+            'description_updated_time': {
+                'type': 'keyword'
+            },
         },
     }
-
 
     def __init__(self, seasearch_api, index_name):
         self.index_name = index_name
         self.seasearch_api = seasearch_api
+        self.delete_index_by_index_name()
         self.create_index_if_missing()
 
     def create_index_if_missing(self):
@@ -54,20 +57,21 @@ class RepoStatusIndex(object):
     def check_repo_status(self, repo_id):
         return self.seasearch_api.check_document_by_id(self.index_name, repo_id).get('is_exist')
 
-    def add_repo_status(self, repo_id, commit_id, updatingto):
+    def add_repo_status(self, repo_id, commit_id, updatingto, description_updated_time):
         date = {
             'repo_id': repo_id,
             'commit_id': commit_id,
             'updatingto': updatingto,
+            'description_updated_time': description_updated_time,
         }
         doc_id = repo_id
         self.seasearch_api.create_document_by_id(self.index_name, doc_id, date)
 
-    def begin_update_repo(self, repo_id, old_commit_id, new_commit_id):
-        self.add_repo_status(repo_id, old_commit_id, new_commit_id)
+    def begin_update_repo(self, repo_id, old_commit_id, new_commit_id, description_updated_time):
+        self.add_repo_status(repo_id, old_commit_id, new_commit_id, description_updated_time)
 
-    def finish_update_repo(self, repo_id, commit_id):
-        self.add_repo_status(repo_id, commit_id, None)
+    def finish_update_repo(self, repo_id, commit_id, description_updated_time):
+        self.add_repo_status(repo_id, commit_id, None, description_updated_time)
 
     def delete_documents_by_repo(self, repo_id):
         return self.seasearch_api.delete_document_by_id(self.index_name, repo_id)
@@ -75,12 +79,13 @@ class RepoStatusIndex(object):
     def get_repo_status_by_id(self, repo_id):
         doc = self.seasearch_api.get_document_by_id(self.index_name, repo_id)
         if doc.get('error'):
-            return RepoStatus(repo_id, None, None)
+            return RepoStatus(repo_id, None, None, None)
         commit_id = doc['_source']['commit_id']
         updatingto = doc['_source']['updatingto']
+        description_updated_time = doc['_source']['description_updated_time']
         repo_id = doc['_source']['repo_id']
 
-        return RepoStatus(repo_id, commit_id, updatingto)
+        return RepoStatus(repo_id, commit_id, updatingto, description_updated_time)
 
     def update_repo_status_by_id(self, doc_id, data):
         self.seasearch_api.update_document_by_id(self.index_name, doc_id, data)
@@ -104,7 +109,7 @@ class RepoStatusIndex(object):
                         ]
                     }
                 },
-                "_source": ["commit_id", "updatingto"],
+                "_source": ["commit_id", "updatingto", "description_updated_time"],
                 "from": start,
                 "size": per_size,
                 "sort": ["-@timestamp"],
@@ -147,7 +152,13 @@ class RepoStatusIndex(object):
             repo_id = hit['_id']
             commit_id = hit.get('_source').get('commit_id')
             updatingto = hit.get('_source').get('updatingto')
-            repo_heads.append({'repo_id': repo_id, 'commit_id': commit_id, 'updatingto': updatingto})
+            description_updated_time = hit.get('_source').get('description_updated_time')
+            repo_heads.append({
+                'repo_id': repo_id,
+                'commit_id': commit_id,
+                'updatingto': updatingto,
+                'description_updated_time': description_updated_time,
+            })
         return repo_heads, total
 
     def delete_index_by_index_name(self):
