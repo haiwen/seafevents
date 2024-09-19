@@ -151,8 +151,7 @@ class RepoFileNameIndex(object):
             index_info = {"index": index_name}
             bulk_search_params.append(index_info)
             bulk_search_params.append(data)
-
-        logger.debug('search in repo_filename_index params: %s', json.dumps(bulk_search_params))
+            search_path = None
 
         results = self.seasearch_api.m_search(bulk_search_params)
         files = []
@@ -177,6 +176,9 @@ class RepoFileNameIndex(object):
                 }
                 files.append(r)
         files = sorted(files, key=lambda row: row['score'], reverse=True)[:size]
+
+        logger.debug('search keyword: %s, search path: %s, in repos: %s , \nsearch result: %s', keyword, search_path,
+                    repos, files)
 
         return files
 
