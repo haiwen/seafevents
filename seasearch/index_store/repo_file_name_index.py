@@ -409,7 +409,7 @@ class RepoFileNameIndex(object):
                 continue
             add_rows[row['_obj_id']] = row.get('_description', '')
             if path not in need_added_paths:
-                update_paths.append(path)
+                update_paths.append([path, row['_obj_id']])
 
         row_obj_ids = list(add_rows.keys())
         lack_obj_ids = [file_info[1] for file_info in need_added_files if file_info[1] not in row_obj_ids]
@@ -417,8 +417,8 @@ class RepoFileNameIndex(object):
         for lack_rows in lack_rows:
             add_rows[lack_rows['_obj_id']] = lack_rows.get('_description', '')
 
-        update_paths = self.filter_exist_paths(index_name, update_paths)
-        update_paths = [[path] for path in update_paths]
+        paths = self.filter_exist_paths(index_name, [item[0] for item in update_paths])
+        update_paths = [item for item in update_paths if item[0] in paths]
 
         self.add_files(index_name, repo_id, need_added_files + update_paths, add_rows)
         self.add_dirs(index_name, repo_id, added_dirs)
