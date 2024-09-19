@@ -11,6 +11,8 @@ from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import METADATA_TABLE
 from seafevents.utils import timestamp_to_isoformat_timestr
 
+from seafevents.repo_metadata.utils import query_metadata_rows
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,13 +42,16 @@ class IndexManager(object):
             rows = []
             query_timestamp = description_updated_time
             if need_index_description(repo_id, self.session, self.metadata_server_api):
-                if description_updated_time:
-                    last_update_time = timestamp_to_isoformat_timestr(float(description_updated_time))
-                    sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name`, `_obj_id` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False AND `_mtime` >= '{last_update_time}'"
-                else:
-                    sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name`, `_obj_id` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False"
+                if not description_updated_time:
+                    description_updated_time = datetime(1970, 1, 1).timestamp()
+                last_update_time = timestamp_to_isoformat_timestr(float(description_updated_time))
+                sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name`, `_obj_id` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False AND `_mtime` >= '{last_update_time}'"
                 query_timestamp = time.time()
-                rows = self.metadata_server_api.query_rows(repo_id, sql, []).get('results', [])
+                rows = query_metadata_rows(repo_id, self.metadata_server_api, sql)
+
+            if not rows and new_commit_id == from_commit:
+                return
+
             if repo_status.need_recovery():
                 logger.warning('%s: repo filename index inrecovery', repo_id)
                 repo_filename_index.update(index_name, repo_id, commit_id, to_commit, rows, self.metadata_server_api)

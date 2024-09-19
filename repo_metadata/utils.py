@@ -100,6 +100,21 @@ def get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api):
     return query_result
 
 
+def query_metadata_rows(repo_id, metadata_server_api, sql):
+    rows = []
+    offset = 10000
+    start = 0
+
+    while True:
+        query_sql = f"{sql} LIMIT {start}, {offset}"
+        response_rows = metadata_server_api.query_rows(repo_id, query_sql, []).get('results', [])
+        rows.extend(response_rows)
+        if len(response_rows) < offset:
+            break
+        start += offset
+    return rows
+
+
 class MetadataTable(object):
     def __init__(self, table_id, name):
         self.id = table_id
