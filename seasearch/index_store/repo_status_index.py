@@ -44,7 +44,6 @@ class RepoStatusIndex(object):
     def __init__(self, seasearch_api, index_name):
         self.index_name = index_name
         self.seasearch_api = seasearch_api
-        self.delete_index_by_index_name()
         self.create_index_if_missing()
 
     def create_index_if_missing(self):
