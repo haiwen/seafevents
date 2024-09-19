@@ -42,19 +42,19 @@ class IndexManager(object):
             if need_index_description(repo_id, self.session, self.metadata_server_api):
                 if description_updated_time:
                     last_update_time = timestamp_to_isoformat_timestr(float(description_updated_time))
-                    sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False AND `_mtime` >= '{last_update_time}'"
+                    sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name`, `_obj_id` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False AND `_mtime` >= '{last_update_time}'"
                 else:
-                    sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False"
+                    sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name`, `_obj_id` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False"
                 query_timestamp = time.time()
                 rows = self.metadata_server_api.query_rows(repo_id, sql, []).get('results', [])
             if repo_status.need_recovery():
                 logger.warning('%s: repo filename index inrecovery', repo_id)
-                repo_filename_index.update(index_name, repo_id, commit_id, to_commit, rows)
+                repo_filename_index.update(index_name, repo_id, commit_id, to_commit, rows, self.metadata_server_api)
                 commit_id = to_commit
                 time.sleep(1)
 
             repo_status_filename_index.begin_update_repo(repo_id, commit_id, new_commit_id, description_updated_time)
-            repo_filename_index.update(index_name, repo_id, commit_id, new_commit_id, rows)
+            repo_filename_index.update(index_name, repo_id, commit_id, new_commit_id, rows, self.metadata_server_api)
             repo_status_filename_index.finish_update_repo(repo_id, new_commit_id, query_timestamp)
 
             logger.info('repo: %s, update repo filename index success', repo_id)

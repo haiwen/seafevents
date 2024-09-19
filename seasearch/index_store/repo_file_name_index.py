@@ -4,6 +4,7 @@ import logging
 
 from seafevents.seasearch.utils import get_library_diff_files, md5, is_sys_dir_or_file
 from seafevents.seasearch.utils.constants import REPO_FILENAME_INDEX_PREFIX
+from seafevents.repo_metadata.utils import get_metadata_by_obj_ids
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +201,7 @@ class RepoFileNameIndex(object):
         bulk_add_params = []
         for file_info in files:
             path = file_info[0]
+            obj_id = file_info[1]
 
             if is_sys_dir_or_file(path):
                 continue
@@ -215,7 +217,7 @@ class RepoFileNameIndex(object):
                 'path': path,
                 'suffix': suffix,
                 'filename': filename,
-                'description': add_rows.get(path, ''),
+                'description': add_rows.get(obj_id, ''),
                 'is_dir': False,
             }
 
@@ -383,7 +385,7 @@ class RepoFileNameIndex(object):
 
         return exist_paths
 
-    def update(self, index_name, repo_id, old_commit_id, new_commit_id, rows):
+    def update(self, index_name, repo_id, old_commit_id, new_commit_id, rows, metadata_server_api):
         need_deleted_paths = []
         added_files, deleted_files, modified_files, added_dirs, deleted_dirs = \
             get_library_diff_files(repo_id, old_commit_id, new_commit_id)
@@ -405,9 +407,15 @@ class RepoFileNameIndex(object):
             path = os.path.join(row['_parent_dir'], row['_name'])
             if path in need_deleted_paths:
                 continue
-            add_rows[path] = row.get('_description', '')
+            add_rows[row['_obj_id']] = row.get('_description', '')
             if path not in need_added_paths:
                 update_paths.append(path)
+
+        row_obj_ids = list(add_rows.keys())
+        lack_obj_ids = [file_info[1] for file_info in need_added_files if file_info[1] not in row_obj_ids]
+        lack_rows = get_metadata_by_obj_ids(repo_id, lack_obj_ids, metadata_server_api)
+        for lack_rows in lack_rows:
+            add_rows[lack_rows['_obj_id']] = lack_rows.get('_description', '')
 
         update_paths = self.filter_exist_paths(index_name, update_paths)
         update_paths = [[path] for path in update_paths]
