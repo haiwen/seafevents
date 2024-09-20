@@ -197,7 +197,7 @@ class RepoFileNameIndex(object):
         except:
             return None
 
-    def add_files(self, index_name, repo_id, files, add_rows):
+    def add_files(self, index_name, repo_id, files, rows):
         bulk_add_params = []
         for file_info in files:
             path = file_info[0]
@@ -217,7 +217,7 @@ class RepoFileNameIndex(object):
                 'path': path,
                 'suffix': suffix,
                 'filename': filename,
-                'description': add_rows.get(obj_id, ''),
+                'description': rows.get(obj_id, ''),
                 'is_dir': False,
             }
 
@@ -400,27 +400,27 @@ class RepoFileNameIndex(object):
         need_deleted_paths += deleted_paths
 
         need_added_files = added_files + modified_files
-        update_paths = []
-        add_rows = {}
+        need_update_paths = []
+        need_add_rows = {}
         need_added_paths = [item[0] for item in need_added_files]
         for row in rows:
             path = os.path.join(row['_parent_dir'], row['_name'])
             if path in need_deleted_paths:
                 continue
-            add_rows[row['_obj_id']] = row.get('_description', '')
+            need_add_rows[row['_obj_id']] = row.get('_description', '')
             if path not in need_added_paths:
-                update_paths.append([path, row['_obj_id']])
+                need_update_paths.append([path, row['_obj_id']])
 
-        row_obj_ids = list(add_rows.keys())
+        row_obj_ids = list(need_add_rows.keys())
         lack_obj_ids = [file_info[1] for file_info in need_added_files if file_info[1] not in row_obj_ids]
         lack_rows = get_metadata_by_obj_ids(repo_id, lack_obj_ids, metadata_server_api)
         for lack_rows in lack_rows:
-            add_rows[lack_rows['_obj_id']] = lack_rows.get('_description', '')
+            need_add_rows[lack_rows['_obj_id']] = lack_rows.get('_description', '')
 
-        paths = self.filter_exist_paths(index_name, [item[0] for item in update_paths])
-        update_paths = [item for item in update_paths if item[0] in paths]
+        paths = self.filter_exist_paths(index_name, [item[0] for item in need_update_paths])
+        need_update_paths = [item for item in need_update_paths if item[0] in paths]
 
-        self.add_files(index_name, repo_id, need_added_files + update_paths, add_rows)
+        self.add_files(index_name, repo_id, need_added_files + need_update_paths, need_add_rows)
         self.add_dirs(index_name, repo_id, added_dirs)
 
     def delete_index_by_index_name(self, index_name):
