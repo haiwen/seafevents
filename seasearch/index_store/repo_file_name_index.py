@@ -4,7 +4,7 @@ import logging
 
 from seafevents.seasearch.utils import get_library_diff_files, md5, is_sys_dir_or_file
 from seafevents.seasearch.utils.constants import REPO_FILENAME_INDEX_PREFIX
-from seafevents.repo_metadata.utils import get_metadata_by_obj_ids
+from seafevents.repo_metadata.utils import get_metadata_by_obj_ids, METADATA_TABLE
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +201,6 @@ class RepoFileNameIndex(object):
         bulk_add_params = []
         for file_info in files:
             path = file_info[0]
-            obj_id = file_info[1]
 
             if is_sys_dir_or_file(path):
                 continue
@@ -217,7 +216,7 @@ class RepoFileNameIndex(object):
                 'path': path,
                 'suffix': suffix,
                 'filename': filename,
-                'description': rows.get(obj_id, ''),
+                'description': rows.get(path, ''),
                 'is_dir': False,
             }
 
@@ -402,20 +401,22 @@ class RepoFileNameIndex(object):
         need_added_files = added_files + modified_files
         need_update_paths = []
         need_add_rows = {}
+        row_obj_ids = []
         need_added_paths = [item[0] for item in need_added_files]
         for row in rows:
-            path = os.path.join(row['_parent_dir'], row['_name'])
+            path = os.path.join(row[METADATA_TABLE.columns.parent_dir.name], row[METADATA_TABLE.columns.file_name.name])
             if path in need_deleted_paths:
                 continue
-            need_add_rows[row['_obj_id']] = row.get('_description', '')
+            need_add_rows[path] = row.get('_description', '')
+            row_obj_ids.append(row['_obj_id'])
             if path not in need_added_paths:
                 need_update_paths.append([path, row['_obj_id']])
 
-        row_obj_ids = list(need_add_rows.keys())
         lack_obj_ids = [file_info[1] for file_info in need_added_files if file_info[1] not in row_obj_ids]
-        lack_rows = get_metadata_by_obj_ids(repo_id, lack_obj_ids, metadata_server_api)
-        for lack_rows in lack_rows:
-            need_add_rows[lack_rows['_obj_id']] = lack_rows.get('_description', '')
+        lack_rows = get_metadata_by_obj_ids(repo_id, lack_obj_ids, metadata_server_api) if lack_obj_ids else []
+        for row in lack_rows:
+            path = os.path.join(row[METADATA_TABLE.columns.parent_dir.name], row[METADATA_TABLE.columns.file_name.name])
+            need_add_rows[path] = row.get('_description', '')
 
         paths = self.filter_exist_paths(index_name, [item[0] for item in need_update_paths])
         need_update_paths = [item for item in need_update_paths if item[0] in paths]

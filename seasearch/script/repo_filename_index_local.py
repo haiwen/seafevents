@@ -68,6 +68,7 @@ class RepoFileNameIndexLocal(object):
                     NO_TASKS = True
                     break
 
+                query_timestamp = time.time()
                 repo_ids = [repo[0] for repo in repo_commits if repo[2] != REPO_TYPE_WIKI]
                 virtual_repos = repo_data.get_virtual_repo_in_repos(repo_ids)
                 virtual_repo_set = {repo[0] for repo in virtual_repos}
@@ -75,7 +76,7 @@ class RepoFileNameIndexLocal(object):
                 for repo_id, commit_id, repo_type in repo_commits:
                     if repo_id in virtual_repo_set or repo_type == REPO_TYPE_WIKI:
                         continue
-                    repos_queue.put((repo_id, commit_id))
+                    repos_queue.put((repo_id, commit_id, query_timestamp))
                     repos[repo_id] = commit_id
                 start += per_size
 
@@ -103,8 +104,9 @@ class RepoFileNameIndexLocal(object):
             else:
                 repo_id = queue_data[0]
                 commit_id = queue_data[1]
+                query_timestamp = queue_data[2]
                 try:
-                    self.index_manager.update_library_filename_index(repo_id, commit_id, self.repo_filename_index, self.repo_status_filename_index)
+                    self.index_manager.update_library_filename_index(repo_id, commit_id, self.repo_filename_index, self.repo_status_filename_index, query_timestamp)
                 except Exception as e:
                     logger.exception('Repo filename index error: %s, repo_id: %s' % (e, repo_id), exc_info=True)
                     self.incr_error()

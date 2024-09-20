@@ -22,7 +22,7 @@ class IndexManager(object):
         self.session = init_db_session_class(config)
         self.metadata_server_api = MetadataServerAPI('seafevents')
 
-    def update_library_filename_index(self, repo_id, commit_id, repo_filename_index, repo_status_filename_index):
+    def update_library_filename_index(self, repo_id, commit_id, repo_filename_index, repo_status_filename_index, query_timestamp):
         try:
             new_commit_id = commit_id
             index_name = REPO_FILENAME_INDEX_PREFIX + repo_id
@@ -40,14 +40,14 @@ class IndexManager(object):
                 commit_id = from_commit
 
             rows = []
-            query_timestamp = description_updated_time
             if need_index_description(repo_id, self.session, self.metadata_server_api):
                 if not description_updated_time:
                     description_updated_time = datetime(1970, 1, 1).timestamp()
                 last_update_time = timestamp_to_isoformat_timestr(float(description_updated_time))
-                sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name`, `_obj_id` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False AND `_mtime` >= '{last_update_time}'"
-                query_timestamp = time.time()
+                sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name`, `_obj_id` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False AND `_mtime` >= '{last_update_time}' AND `_mtime` <= '{timestamp_to_isoformat_timestr(query_timestamp)}'"
                 rows = query_metadata_rows(repo_id, self.metadata_server_api, sql)
+            else:
+                query_timestamp = description_updated_time
 
             if not rows and new_commit_id == from_commit:
                 return
