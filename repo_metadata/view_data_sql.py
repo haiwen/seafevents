@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 from seafevents.repo_metadata.constants import FilterPredicateTypes, FilterTermModifier, PropertyTypes, \
-    DurationFormatsType
+    DurationFormatsType, PrivatePropertyKeys
 
 logger = logging.getLogger(__name__)
 
@@ -1027,6 +1027,40 @@ class SQLGenerator(object):
             ', '.join(clauses)
         )
 
+    def _get_column_type(self, column):
+        key = column.get('key', '')
+        type = column.get('type', '')
+
+        if key == PrivatePropertyKeys.FILE_CTIME:
+            return PropertyTypes.CTIME
+        if key == PrivatePropertyKeys.MTIME or key == PrivatePropertyKeys.FILE_MTIME:
+            return PropertyTypes.MTIME
+        if key == PrivatePropertyKeys.CREATOR or key == PrivatePropertyKeys.FILE_CREATOR:
+            return PropertyTypes.CREATOR
+        if key == PrivatePropertyKeys.LAST_MODIFIER or key == PrivatePropertyKeys.FILE_MODIFIER:
+            return PropertyTypes.LAST_MODIFIER
+        if key == PrivatePropertyKeys.FILE_NAME:
+            return PropertyTypes.FILE_NAME
+        if key == PrivatePropertyKeys.IS_DIR:
+            return PropertyTypes.CHECKBOX
+        if key == PrivatePropertyKeys.FILE_COLLABORATORS:
+            return PropertyTypes.COLLABORATOR
+        if key == PrivatePropertyKeys.FILE_EXPIRE_TIME:
+            return PropertyTypes.DATE
+        if key == PrivatePropertyKeys.FILE_KEYWORDS:
+            return PropertyTypes.TEXT
+        if key == PrivatePropertyKeys.FILE_DESCRIPTION:
+            return PropertyTypes.LONG_TEXT
+        if key == PrivatePropertyKeys.FILE_EXPIRED:
+            return PropertyTypes.CHECKBOX
+        if key == PrivatePropertyKeys.FILE_STATUS:
+            return PropertyTypes.SINGLE_SELECT
+        if key == PrivatePropertyKeys.LOCATION:
+            return PropertyTypes.GEOLOCATION
+        if key == PrivatePropertyKeys.OWNER:
+            return PropertyTypes.CREATOR
+        return type
+
     def _generator_filters_sql(self, filters, filter_conjunction = 'And'):
         if not filters:
             return ''
@@ -1050,7 +1084,8 @@ class SQLGenerator(object):
             if filter_item.get('filter_predicate') == 'is_current_user_ID':
                 filter_item['filter_term'] = self.id_in_org
             
-            column_type = column.get('type')
+            column_type = self._get_column_type(column)
+            column['type'] = column_type
             operator_cls = _get_operator_by_type(column_type)
             if not operator_cls:
                 raise ValueError('filter: %s not support to sql' % filter_item)
