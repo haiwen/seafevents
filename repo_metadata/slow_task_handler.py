@@ -141,18 +141,28 @@ class SlowTaskHandler(object):
             sql = f'SELECT * FROM `{FACE_TABLE.name}`'
             known_faces = query_metadata_rows(repo_id, self.metadata_server_api, sql)
 
+            used_faces = []
+            no_used_face_row_ids = []
+            for item in known_faces:
+                if item.get(FACE_TABLE.columns.image_links.name):
+                    used_faces.append(item)
+                else:
+                    no_used_face_row_ids.append(item[FACE_TABLE.columns.id.name])
+            if no_used_face_row_ids:
+                self.metadata_server_api.delete_rows(repo_id, faces_table_id, no_used_face_row_ids)
+
             for item in embeddings:
                 obj_id = item['obj_id']
                 face_embeddings = item['embeddings']
                 for face_embedding in face_embeddings:
-                    face = face_recognition(face_embedding, known_faces, 1.24)
+                    face = face_recognition(face_embedding, used_faces, 1.24)
                     if not face:
                         row = {
                             FACE_TABLE.columns.face_feature.name: json.dumps(face_embedding),
                         }
                         result = self.metadata_server_api.insert_rows(repo_id, faces_table_id, [row])
                         row_id = result.get('row_ids')[0]
-                        known_faces.append({
+                        used_faces.append({
                             FACE_TABLE.columns.id.name: row_id,
                             FACE_TABLE.columns.face_feature.name: json.dumps(face_embedding),
                         })
