@@ -233,6 +233,7 @@ class RepoMetadata:
                 METADATA_TABLE.columns.obj_id.name: obj_id,
                 METADATA_TABLE.columns.size.name: size,
                 METADATA_TABLE.columns.suffix.name: file_ext,
+                METADATA_TABLE.columns.owner.name: modifier,
             }
 
             if file_type == '_document' and has_collaborator_column:
