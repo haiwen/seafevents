@@ -90,7 +90,7 @@ def is_sys_dir_or_file(path):
     return False
 
 
-def need_index_description(repo_id, session, metadata_server_api):
+def need_index_metadata_info(repo_id, session, metadata_server_api):
     with session() as session:
         sql = "SELECT enabled FROM repo_metadata WHERE repo_id='%s'" % repo_id
         record = session.execute(text(sql)).fetchone()

@@ -197,7 +197,7 @@ class RepoFileNameIndex(object):
         except:
             return None
 
-    def add_files(self, index_name, repo_id, files, rows):
+    def add_files(self, index_name, repo_id, files, path_to_metadata_row):
         bulk_add_params = []
         for file_info in files:
             path = file_info[0]
@@ -211,12 +211,13 @@ class RepoFileNameIndex(object):
                 filename = filename[:-len(suffix)-1]
 
             index_info = {'index': {'_index': index_name, '_id': md5(path)}}
+            metadata_row = path_to_metadata_row.get(path, {})
             doc_info = {
                 'repo_id': repo_id,
                 'path': path,
                 'suffix': suffix,
                 'filename': filename,
-                'description': rows.get(path, ''),
+                'description': metadata_row.get('_description', ''),
                 'is_dir': False,
             }
 
@@ -271,21 +272,17 @@ class RepoFileNameIndex(object):
 
     def delete_files(self, index_name, files):
         delete_params = []
-        deleted_paths = []
         for file in files:
             path = file[0]
             if is_sys_dir_or_file(path):
                 continue
             delete_params.append({'delete': {'_id': md5(path), '_index': index_name}})
-            deleted_paths.append(path)
             # bulk add every 2000 params
             if len(delete_params) >= SEASEARCH_BULK_OPETATE_LIMIT:
                 self.seasearch_api.bulk(index_name, delete_params)
                 delete_params = []
         if delete_params:
             self.seasearch_api.bulk(index_name, delete_params)
-
-        return deleted_paths
 
     def delete_dirs(self, index_name, dirs):
         delete_params = []
@@ -350,7 +347,6 @@ class RepoFileNameIndex(object):
         return doc_item['hits']['hits'], total
 
     def delete_files_by_deleted_dirs(self, index_name, dirs):
-        deleted_paths = []
         for directory in dirs:
             if is_sys_dir_or_file(directory):
                 continue
@@ -361,16 +357,12 @@ class RepoFileNameIndex(object):
                 hits, total = self.query_data_by_dir(index_name, directory, start, per_size)
                 for hit in hits:
                     _id = hit['_id']
-                    source = hit.get('_source')
-                    deleted_paths.append(source['path'])
                     delete_params.append({'delete': {'_id': _id, '_index': index_name}})
 
                 if delete_params:
                     self.seasearch_api.bulk(index_name, delete_params)
                 if len(hits) < per_size:
                     break
-
-        return deleted_paths
 
     def filter_exist_paths(self, index_name, paths):
         exist_paths = []
@@ -384,45 +376,53 @@ class RepoFileNameIndex(object):
 
         return exist_paths
 
-    def update(self, index_name, repo_id, old_commit_id, new_commit_id, rows, metadata_server_api):
-        need_deleted_paths = []
+    def update(self, index_name, repo_id, old_commit_id, new_commit_id, metadata_rows, metadata_server_api, need_index_metadata):
         added_files, deleted_files, modified_files, added_dirs, deleted_dirs = \
             get_library_diff_files(repo_id, old_commit_id, new_commit_id)
 
         need_deleted_files = deleted_files
-        deleted_paths = self.delete_files(index_name, need_deleted_files)
-        need_deleted_paths += deleted_paths
+        self.delete_files(index_name, need_deleted_files)
 
         self.delete_dirs(index_name, deleted_dirs)
 
-        deleted_paths = self.delete_files_by_deleted_dirs(index_name, deleted_dirs)
-        need_deleted_paths += deleted_paths
+        self.delete_files_by_deleted_dirs(index_name, deleted_dirs)
 
         need_added_files = added_files + modified_files
-        need_update_paths = []
-        need_add_rows = {}
-        row_obj_ids = []
-        need_added_paths = [item[0] for item in need_added_files]
-        for row in rows:
-            path = os.path.join(row[METADATA_TABLE.columns.parent_dir.name], row[METADATA_TABLE.columns.file_name.name])
-            if path in need_deleted_paths:
-                continue
-            need_add_rows[path] = row.get('_description', '')
-            row_obj_ids.append(row['_obj_id'])
-            if path not in need_added_paths:
-                need_update_paths.append([path, row['_obj_id']])
 
-        lack_obj_ids = [file_info[1] for file_info in need_added_files if file_info[1] not in row_obj_ids]
-        lack_rows = get_metadata_by_obj_ids(repo_id, lack_obj_ids, metadata_server_api) if lack_obj_ids else []
-        for row in lack_rows:
-            path = os.path.join(row[METADATA_TABLE.columns.parent_dir.name], row[METADATA_TABLE.columns.file_name.name])
-            need_add_rows[path] = row.get('_description', '')
+        need_update_metadata_files, path_to_metadata_row = [], {}
+        if need_index_metadata:
+            need_update_metadata_files, path_to_metadata_row = self.cal_metadata_files(index_name, repo_id, metadata_rows, need_added_files, metadata_server_api)
 
-        paths = self.filter_exist_paths(index_name, [item[0] for item in need_update_paths])
-        need_update_paths = [item for item in need_update_paths if item[0] in paths]
-
-        self.add_files(index_name, repo_id, need_added_files + need_update_paths, need_add_rows)
+        self.add_files(index_name, repo_id, need_added_files + need_update_metadata_files, path_to_metadata_row)
         self.add_dirs(index_name, repo_id, added_dirs)
 
     def delete_index_by_index_name(self, index_name):
         self.seasearch_api.delete_index_by_name(index_name)
+
+    def cal_metadata_files(self, index_name, repo_id, metadata_rows, need_added_files, metadata_server_api):
+        metadata_files = []
+        path_to_metadata_row = {}
+        metadate_file_obj_ids = []
+        need_added_paths = {item[0] for item in need_added_files}
+        for row in metadata_rows:
+            path = os.path.join(row[METADATA_TABLE.columns.parent_dir.name], row[METADATA_TABLE.columns.file_name.name])
+            path_to_metadata_row[path] = row
+            metadate_file_obj_ids.append(row['_obj_id'])
+            if path not in need_added_paths:
+                metadata_files.append([path, row['_obj_id']])
+
+        added_files_lacked_obj_ids = [file_info[1] for file_info in need_added_files if file_info[1] not in metadate_file_obj_ids]
+        added_files_lacked_rows = get_metadata_by_obj_ids(repo_id, added_files_lacked_obj_ids,
+                                                          metadata_server_api) if added_files_lacked_obj_ids else []
+        if not added_files_lacked_rows:
+            added_files_lacked_rows = []
+
+        for row in added_files_lacked_rows:
+            path = os.path.join(row[METADATA_TABLE.columns.parent_dir.name], row[METADATA_TABLE.columns.file_name.name])
+            if path not in need_added_paths:
+                continue
+            path_to_metadata_row[path] = row
+
+        paths = self.filter_exist_paths(index_name, [item[0] for item in metadata_files])
+        need_update_metadata_files = [item for item in metadata_files if item[0] in paths]
+        return need_update_metadata_files, path_to_metadata_row

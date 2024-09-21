@@ -121,7 +121,7 @@ def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_inde
         if len(repo_commits) == 0:
             break
 
-        query_timestamp = time.time()
+        metadata_query_time = time.time()
         repo_ids = [repo[0] for repo in repo_commits if repo[2] != REPO_TYPE_WIKI]
         virtual_repos = repo_data.get_virtual_repo_in_repos(repo_ids)
         virtual_repo_set = {repo[0] for repo in virtual_repos}
@@ -131,7 +131,7 @@ def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_inde
                 continue
             all_repos.append(repo_id)
 
-            index_manager.update_library_filename_index(repo_id, commit_id, repo_filename_index, repo_status_filename_index, query_timestamp)
+            index_manager.update_library_filename_index(repo_id, commit_id, repo_filename_index, repo_status_filename_index, metadata_query_time)
 
     logger.info("Finish update filename index")
 
