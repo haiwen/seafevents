@@ -84,6 +84,43 @@ def gen_option_id(id_set):
         _id = str(math.floor(random.uniform(0.1, 1) * (10 ** 6)))
 
 
+def get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api):
+    sql = f'SELECT * FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.obj_id.name}` IN ('
+    parameters = []
+
+    for obj_id in obj_ids:
+        sql += '?, '
+        parameters.append(obj_id)
+
+    if not parameters:
+        return []
+    sql = sql.rstrip(', ') + ');'
+    query_result = metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
+
+    if not query_result:
+        return []
+
+    return query_result
+
+
+def query_metadata_rows(repo_id, metadata_server_api, sql):
+    rows = []
+    offset = 10000
+    start = 0
+
+    while True:
+        query_sql = f"{sql} LIMIT {start}, {offset}"
+        response_rows = metadata_server_api.query_rows(repo_id, query_sql, []).get('results', [])
+        if not response_rows:
+            response_rows = []
+        rows.extend(response_rows)
+        if len(response_rows) < offset:
+            break
+        start += offset
+
+    return rows
+
+
 class MetadataTable(object):
     def __init__(self, table_id, name):
         self.id = table_id

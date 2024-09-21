@@ -4,6 +4,7 @@ import logging
 
 from seafevents.seasearch.utils import get_library_diff_files, md5, is_sys_dir_or_file
 from seafevents.seasearch.utils.constants import REPO_FILENAME_INDEX_PREFIX
+from seafevents.repo_metadata.utils import get_metadata_by_obj_ids, METADATA_TABLE
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,10 @@ class RepoFileNameIndex(object):
                         'analyzer': 'seafile_file_name_ngram_analyzer',
                     },
                 },
+            },
+            'description': {
+                'type': 'text',
+                'analyzer': 'standard'
             },
             'suffix': {
                 'type': 'keyword'
@@ -98,6 +103,7 @@ class RepoFileNameIndex(object):
                 }
             }
         })
+        searches.append(_make_match_query('description', keyword, **match_query_kwargs))
         return searches
 
     def _add_path_filter(self, query_map, search_path):
@@ -193,13 +199,10 @@ class RepoFileNameIndex(object):
         except:
             return None
 
-    def add_files(self, index_name, repo_id, files):
+    def add_files(self, index_name, repo_id, files, path_to_metadata_row):
         bulk_add_params = []
         for file_info in files:
             path = file_info[0]
-            obj_id = file_info[1]
-            mtime = file_info[2]
-            size = file_info[3]
 
             if is_sys_dir_or_file(path):
                 continue
@@ -210,11 +213,13 @@ class RepoFileNameIndex(object):
                 filename = filename[:-len(suffix)-1]
 
             index_info = {'index': {'_index': index_name, '_id': md5(path)}}
+            metadata_row = path_to_metadata_row.get(path, {})
             doc_info = {
                 'repo_id': repo_id,
                 'path': path,
                 'suffix': suffix,
                 'filename': filename,
+                'description': metadata_row.get('_description', ''),
                 'is_dir': False,
             }
 
@@ -308,7 +313,29 @@ class RepoFileNameIndex(object):
             },
             "from": start,
             "size": size,
-            "_source": False,
+            "_source": ["path"],
+            "sort": ["-@timestamp"],  # sort is for getting data ordered
+        }
+
+        hits, total = self.normal_search(index_name, dsl)
+        return hits, total
+
+    def query_data_by_paths(self, index_name, paths, start, size):
+        dsl = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {
+                            "terms": {
+                                "path": paths
+                            }
+                        }
+                    ]
+                }
+            },
+            "from": start,
+            "size": size,
+            "_source": ["path"],
             "sort": ["-@timestamp"],  # sort is for getting data ordered
         }
 
@@ -339,7 +366,19 @@ class RepoFileNameIndex(object):
                 if len(hits) < per_size:
                     break
 
-    def update(self, index_name, repo_id, old_commit_id, new_commit_id):
+    def filter_exist_paths(self, index_name, paths):
+        exist_paths = []
+        per_size = SEASEARCH_BULK_OPETATE_LIMIT
+        start = 0
+        for i in range(0, len(paths), per_size):
+            hits, total = self.query_data_by_paths(index_name, paths[i: i + per_size], start, per_size)
+            for hit in hits:
+                source = hit.get('_source')
+                exist_paths.append(source['path'])
+
+        return exist_paths
+
+    def update(self, index_name, repo_id, old_commit_id, new_commit_id, metadata_rows, metadata_server_api, need_index_metadata):
         added_files, deleted_files, modified_files, added_dirs, deleted_dirs = \
             get_library_diff_files(repo_id, old_commit_id, new_commit_id)
 
@@ -351,9 +390,41 @@ class RepoFileNameIndex(object):
         self.delete_files_by_deleted_dirs(index_name, deleted_dirs)
 
         need_added_files = added_files + modified_files
-        self.add_files(index_name, repo_id, need_added_files)
 
+        need_update_metadata_files, path_to_metadata_row = [], {}
+        if need_index_metadata:
+            need_update_metadata_files, path_to_metadata_row = self.cal_metadata_files(index_name, repo_id, metadata_rows, need_added_files, metadata_server_api)
+
+        self.add_files(index_name, repo_id, need_added_files + need_update_metadata_files, path_to_metadata_row)
         self.add_dirs(index_name, repo_id, added_dirs)
 
     def delete_index_by_index_name(self, index_name):
         self.seasearch_api.delete_index_by_name(index_name)
+
+    def cal_metadata_files(self, index_name, repo_id, metadata_rows, need_added_files, metadata_server_api):
+        metadata_files = []
+        path_to_metadata_row = {}
+        metadate_file_obj_ids = []
+        need_added_paths = {item[0] for item in need_added_files}
+        for row in metadata_rows:
+            path = os.path.join(row[METADATA_TABLE.columns.parent_dir.name], row[METADATA_TABLE.columns.file_name.name])
+            path_to_metadata_row[path] = row
+            metadate_file_obj_ids.append(row['_obj_id'])
+            if path not in need_added_paths:
+                metadata_files.append([path, row['_obj_id']])
+
+        added_files_lacked_obj_ids = [file_info[1] for file_info in need_added_files if file_info[1] not in metadate_file_obj_ids]
+        added_files_lacked_rows = get_metadata_by_obj_ids(repo_id, added_files_lacked_obj_ids,
+                                                          metadata_server_api) if added_files_lacked_obj_ids else []
+        if not added_files_lacked_rows:
+            added_files_lacked_rows = []
+
+        for row in added_files_lacked_rows:
+            path = os.path.join(row[METADATA_TABLE.columns.parent_dir.name], row[METADATA_TABLE.columns.file_name.name])
+            if path not in need_added_paths:
+                continue
+            path_to_metadata_row[path] = row
+
+        paths = self.filter_exist_paths(index_name, [item[0] for item in metadata_files])
+        need_update_metadata_files = [item for item in metadata_files if item[0] in paths]
+        return need_update_metadata_files, path_to_metadata_row
