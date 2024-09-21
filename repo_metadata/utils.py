@@ -1,8 +1,10 @@
+import json
 import os
 import random
 import math
 import exiftool
 import tempfile
+import numpy as np
 
 from datetime import timedelta, timezone, datetime
 
@@ -32,6 +34,22 @@ def get_file_type_ext_by_name(filename):
     file_ext = os.path.splitext(filename)[1][1:].lower()
     file_type = FILEEXT_TYPE_MAP.get(file_ext)
     return file_type, file_ext
+
+
+def face_recognition(face, known_faces, threshold):
+    for known_face in known_faces:
+        if feature_compare(face, json.loads(known_face[FACE_TABLE.columns.face_feature.name]), threshold):
+            return known_face
+    return None
+
+
+def feature_compare(feature1, feature2, threshold):
+    diff = np.subtract(feature1, feature2)
+    dist = np.sum(np.square(diff), 0)
+    if dist < threshold:
+        return True
+    else:
+        return False
 
 
 def get_file_content(repo_id, commit_id, obj_id):
@@ -95,6 +113,7 @@ def gen_select_options(option_names):
         options.append({'id': option_id, 'name': option_name})
         id_set.add(option_id)
     return options
+
 
 def gen_file_type_options(option_ids):
     options = []
@@ -181,6 +200,25 @@ class MetadataColumns(object):
 
         self.collaborator = MetadataColumn('_collaborators', '_collaborators', 'collaborator')
         self.owner = MetadataColumn('_owner', '_owner', 'collaborator')
+        self.face_features = MetadataColumn('_face_features', '_face_features', 'long-text')
+        self.face_links = MetadataColumn('_face_links', '_face_links', 'link')
+
+
+class FaceTable(object):
+    def __init__(self, name, link_id):
+        self.link_id = link_id
+        self.name = name
+
+    @property
+    def columns(self):
+        return FaceColumns()
+
+
+class FaceColumns(object):
+    def __init__(self):
+        self.id = MetadataColumn('_id', '_id', 'text')
+        self.image_links = MetadataColumn('_image_links', '_image_links', 'link')
+        self.face_feature = MetadataColumn('_face_feature', '_face_feature', 'long-text')
 
 
 class MetadataColumn(object):
@@ -190,7 +228,7 @@ class MetadataColumn(object):
         self.type = type
         self.data = data
 
-    def to_dict(self):
+    def to_dict(self, data=None):
         column_data = {
             'key': self.key,
             'name': self.name,
@@ -199,10 +237,14 @@ class MetadataColumn(object):
         if self.data:
             column_data['data'] = self.data
 
+        if data:
+            column_data['data'] = data
+
         return column_data
 
 
 METADATA_TABLE = MetadataTable('0001', 'Table1')
+FACE_TABLE = FaceTable('repo_faces', '0001')
 
 
 def gen_view_data_sql(table, columns, view, start, limit, username = '', id_in_org = ''):
