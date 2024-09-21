@@ -148,6 +148,7 @@ class MetadataColumns(object):
         self.size = MetadataColumn('_size', '_size', 'number')
         self.suffix = MetadataColumn('_suffix', '_suffix', 'text')
         self.file_details = MetadataColumn('_file_details', '_file_details', 'long-text')
+        self.description = MetadataColumn('_description', '_description', 'long-text')
 
         self.collaborator = MetadataColumn('_collaborators', '_collaborators', 'collaborator')
 
