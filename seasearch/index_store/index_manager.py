@@ -38,7 +38,7 @@ class IndexManager(object):
                 commit_id = from_commit
 
             rows = []
-            need_index_metadata = need_index_metadata_info(repo_id, self.session, self.metadata_server_api)
+            need_index_metadata = need_index_metadata_info(repo_id, self.session)
             if need_index_metadata:
                 if not metadata_last_updated_time:
                     metadata_last_updated_time = datetime(1970, 1, 1).timestamp()
