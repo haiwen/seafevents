@@ -3,7 +3,7 @@ import logging.handlers
 import sys
 
 class LogConfigurator(object):
-    def __init__(self, level, logfile='/data/logs/seafevents.log'):
+    def __init__(self, level, logfile=None):
         
         self._level = self._get_log_level(level)
         self._logfile = logfile
@@ -42,12 +42,6 @@ class LogConfigurator(object):
         handler.setFormatter(formatter)
         logging.root.addHandler(handler)
         
-    def add_stdout_log_handler(self):
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(self._level)
-        formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s')
-        handler.setFormatter(formatter)
-        logging.root.addHandler(handler)
 
     def _get_log_level(self, level):
         if level == 'debug':
