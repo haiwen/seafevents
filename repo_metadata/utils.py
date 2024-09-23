@@ -1,9 +1,8 @@
 import os
 import random
 import math
-import exifread
-
-from io import BytesIO
+import exiftool
+import tempfile
 
 from seafobj import commit_mgr, fs_mgr
 
@@ -32,29 +31,45 @@ def get_file_type_ext_by_name(filename):
     return file_type, file_ext
 
 
-def get_latlng(repo_id, commit_id, obj_id):
-    lat_lng_info = {
-        "lat_key": "GPS GPSLatitudeRef",
-        "lat_value": "GPS GPSLatitude",
-        "lng_key": "GPS GPSLongitudeRef",
-        "lng_value": "GPS GPSLongitude"
-    }
-
+def get_file_content(repo_id, commit_id, obj_id):
     new_commit = commit_mgr.load_commit(repo_id, 0, commit_id)
     version = new_commit.get_version()
     f = fs_mgr.load_seafile(repo_id, version, obj_id)
     content = f.get_content()
-    exif_content = exifread.process_file(BytesIO(content))
+    return content
 
-    for key in lat_lng_info.values():
-        if key not in exif_content:
-            return "", ""
 
-    lat_list = exif_content[lat_lng_info["lat_value"]].values
-    lat = int(lat_list[0]) + int(lat_list[1]) / 60 + float(lat_list[2]) / 3600
-    lng_list = exif_content[lat_lng_info["lng_value"]].values
-    lng = int(lng_list[0]) + int(lng_list[1]) / 60 + float(lng_list[2]) / 3600
-    return lat, lng
+def get_image_details(content):
+    with tempfile.NamedTemporaryFile() as temp_file:
+        temp_file.write(content)
+        temp_file.flush()
+        temp_file_path = temp_file.name
+        with exiftool.ExifTool() as et:
+            metadata = et.get_metadata(temp_file_path)
+            capture_time = metadata['EXIF:DateTimeOriginal'].replace(':', '-', 2) if metadata.get('EXIF:DateTimeOriginal') else ''
+            focal_length = str(metadata['EXIF:FocalLength']) + 'mm' if metadata.get('EXIF:FocalLength') else ''
+            f_number = 'f/' + str(metadata['EXIF:FNumber']) if metadata.get('EXIF:FNumber') else ''
+            details = {
+                'Dimensions': str(metadata.get('File:ImageWidth')) + 'x' + str(metadata.get('File:ImageHeight')),
+                'Device make': metadata.get('EXIF:Make', ''),
+                'Device model': metadata.get('EXIF:Model', ''),
+                'Color space': metadata.get('ICC_Profile:ColorSpaceData', ''),
+                'Capture time': capture_time,
+                'Focal length': focal_length,
+                'F number': f_number,
+                'Exposure time': metadata.get('EXIF:ExposureTime', ''),
+            }
+            for k, v in metadata.items():
+                if k.startswith('XMP'):
+                    details[k[4:]] = v
+
+            lat = metadata.get('EXIF:GPSLatitude')
+            lng = metadata.get('EXIF:GPSLongitude')
+            location = {
+                'lat': lat,
+                'lng': lng,
+            } if lat is not None and lng is not None else {}
+            return details, location
 
 
 def gen_select_options(option_names):
