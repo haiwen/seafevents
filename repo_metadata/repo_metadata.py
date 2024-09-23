@@ -76,14 +76,18 @@ class RepoMetadata:
             sql = sql.rstrip(', ') + ')'
             self.update_rows_by_obj_ids(repo_id, sql, parameters, obj_id_to_file_dict)
 
-    def check_collaborator_column(self, repo_id):
+    def check_can_added_predefined_columns(self, repo_id):
         result = self.metadata_server_api.list_columns(repo_id, METADATA_TABLE.id)
         columns = result.get('columns')
-        try:
-            next(column for column in columns if column['key'] == METADATA_TABLE.columns.collaborator.key)
-        except StopIteration:
-            return False
-        return True
+        has_collaborator_column = False
+        has_owner_column = False
+
+        for column in columns:
+            if column['key'] == METADATA_TABLE.columns.collaborator.key:
+                has_collaborator_column = True
+            elif column['key'] == METADATA_TABLE.columns.owner.key:
+                has_owner_column = True
+        return has_collaborator_column, has_owner_column
 
     def update(self, repo_id, added_files, deleted_files, added_dirs, deleted_dirs, modified_files,
                         renamed_files, moved_files, renamed_dirs, moved_dirs, commit_id):
@@ -94,9 +98,9 @@ class RepoMetadata:
         self.delete_files(repo_id, new_added_files)
         self.delete_dirs(repo_id, added_dirs)
 
-        has_collaborator_column = self.check_collaborator_column(repo_id)
+        has_collaborator_column, has_owner_column = self.check_can_added_predefined_columns(repo_id)
 
-        self.add_files(repo_id, new_added_files, commit_id, has_collaborator_column)
+        self.add_files(repo_id, new_added_files, commit_id, has_collaborator_column, has_owner_column)
         self.delete_files(repo_id, new_deleted_files)
         # update renamed or moved files
         self.update_renamed_or_moved_files(repo_id, renamed_or_moved_files)
@@ -203,7 +207,7 @@ class RepoMetadata:
             return
         self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
 
-    def add_files(self, repo_id, added_files, commit_id, has_collaborator_column):
+    def add_files(self, repo_id, added_files, commit_id, has_collaborator_column, has_owner_column):
         if not added_files:
             return
 
@@ -232,12 +236,14 @@ class RepoMetadata:
                 METADATA_TABLE.columns.is_dir.name: False,
                 METADATA_TABLE.columns.obj_id.name: obj_id,
                 METADATA_TABLE.columns.size.name: size,
-                METADATA_TABLE.columns.suffix.name: file_ext,
-                METADATA_TABLE.columns.owner.name: modifier,
+                METADATA_TABLE.columns.suffix.name: file_ext
             }
 
             if file_type == '_document' and has_collaborator_column:
                 row[METADATA_TABLE.columns.collaborator.name] = [modifier]
+
+            if file_type == '_document' and has_owner_column:
+                row[METADATA_TABLE.columns.owner.name] = [modifier]
 
             if file_type:
                 row[METADATA_TABLE.columns.file_type.name] = file_type
