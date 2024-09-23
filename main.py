@@ -17,7 +17,8 @@ def main(background_tasks_only=False):
     parser.add_argument('--loglevel', default='info', help='log level')
     parser.add_argument('-P', '--pidfile', help='the location of the pidfile')
     args = parser.parse_args()
-
+    
+    
     if args.logfile:
         logdir = os.path.dirname(os.path.realpath(args.logfile))
         os.environ['SEAFEVENTS_LOG_DIR'] = logdir
@@ -42,8 +43,11 @@ def main(background_tasks_only=False):
     except Exception as e:
         logging.error('Failed create tables, error: %s' % e)
         raise RuntimeError('Failed create tables, error: %s' % e)
-
-    app_logger = LogConfigurator(args.loglevel, args.logfile)
+    
+    print(args.logfile, '12121212121212121212')
+    app_logger = LogConfigurator(args.loglevel, '/data/logs/seafevents.log')
+    app_logger.add_stdout_log_handler()
+    
     if is_syslog_enabled(config):
         app_logger.add_syslog_handler()
 
