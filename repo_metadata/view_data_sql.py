@@ -1058,7 +1058,7 @@ class SQLGenerator(object):
         if key == PrivatePropertyKeys.LOCATION:
             return PropertyTypes.GEOLOCATION
         if key == PrivatePropertyKeys.OWNER:
-            return PropertyTypes.CREATOR
+            return PropertyTypes.COLLABORATOR
         return type
 
     def _generator_filters_sql(self, filters, filter_conjunction = 'And'):
