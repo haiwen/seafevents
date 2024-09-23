@@ -4,10 +4,8 @@ import sys
 
 class LogConfigurator(object):
     def __init__(self, level, logfile=None):
-        
         self._level = self._get_log_level(level)
         self._logfile = logfile
-        
 
         if logfile is None:
             self._basic_config()
@@ -18,7 +16,7 @@ class LogConfigurator(object):
         '''Rotating log'''
         handler = logging.handlers.TimedRotatingFileHandler(self._logfile, when='W0', interval=1)
         handler.setLevel(self._level)
-        formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s')
+        formatter = logging.Formatter('[seafevents] [%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(funcName)s %(message)s')
         handler.setFormatter(formatter)
 
         logging.root.setLevel(self._level)
@@ -27,8 +25,8 @@ class LogConfigurator(object):
     def _basic_config(self):
         '''Log to stdout. Mainly for development.'''
         kw = {
-            'format': '[%(asctime)s] [%(levelname)s] %(message)s',
-            'datefmt': '%m/%d/%Y %H:%M:%S',
+            'format': '[seafevents] [%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(funcName)s %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
             'level': self._level,
             'stream': sys.stdout
         }
@@ -41,7 +39,6 @@ class LogConfigurator(object):
         formatter = logging.Formatter('seafevents[%(process)d]: %(message)s')
         handler.setFormatter(formatter)
         logging.root.addHandler(handler)
-        
 
     def _get_log_level(self, level):
         if level == 'debug':
