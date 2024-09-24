@@ -2,11 +2,12 @@ import time
 import logging
 import threading
 import json
+from datetime import datetime
 
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 
 from seafevents.mq import get_mq
-from seafevents.utils import get_opt_from_conf_or_env
+from seafevents.utils import get_opt_from_conf_or_env, timestamp_to_isoformat_timestr
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.repo_metadata import METADATA_OP_LIMIT
 from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_content, get_image_details
@@ -121,6 +122,13 @@ class SlowTaskHandler(object):
                     METADATA_TABLE.columns.location.name: {'lng': location.get('lng', ''), 'lat': location.get('lat', '')},
                     METADATA_TABLE.columns.file_details.name: f'\n\n```json\n{json.dumps(image_details)}\n```\n\n\n',
                 }
+
+                columns = self.metadata_server_api.list_columns(repo_id, METADATA_TABLE.id).get('columns', [])
+                if [column for column in columns if column.get('key') == '_shooting_time']:
+                    shooting_time = image_details.get('Capture time')
+                    if shooting_time:
+                        datetime_obj = datetime.strptime(shooting_time, '%Y-%m-%d %H:%M:%S')
+                        update_row['_shooting_time'] = timestamp_to_isoformat_timestr(datetime_obj.timestamp())
                 updated_rows.append(update_row)
 
                 if len(updated_rows) >= METADATA_OP_LIMIT:
