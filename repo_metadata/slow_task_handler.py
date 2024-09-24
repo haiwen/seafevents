@@ -9,7 +9,7 @@ from seafevents.mq import get_mq
 from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.repo_metadata import METADATA_OP_LIMIT
-from seafevents.repo_metadata.utils import METADATA_TABLE, get_latlng
+from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_content, get_image_details
 
 logger = logging.getLogger(__name__)
 
@@ -94,10 +94,8 @@ class SlowTaskHandler(object):
             sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.obj_id.name}` IN ('
             parameters = []
 
-            obj_id_to_extract_info = {}
             updated_rows = []
             for obj_id in obj_ids:
-                obj_id_to_extract_info[obj_id] = get_latlng(repo_id, commit_id, obj_id)
                 sql += '?, '
                 parameters.append(obj_id)
 
@@ -111,10 +109,17 @@ class SlowTaskHandler(object):
             for row in query_result:
                 row_id = row[METADATA_TABLE.columns.id.name]
                 obj_id = row[METADATA_TABLE.columns.obj_id.name]
-                lat, lng = obj_id_to_extract_info.get(obj_id)
+
+                content = get_file_content(repo_id, commit_id, obj_id)
+                image_details, location = get_image_details(content)
+                row[METADATA_TABLE.columns.location.name] = {'lng': location.get('lng', ''),
+                                                             'lat': location.get('lat', '')}
+                row[METADATA_TABLE.columns.file_details.name] = f'\n\n```json\n{json.dumps(image_details)}\n```\n\n\n'
+
                 update_row = {
                     METADATA_TABLE.columns.id.name: row_id,
-                    METADATA_TABLE.columns.location.name: {'lng': lng, 'lat': lat},
+                    METADATA_TABLE.columns.location.name: {'lng': location.get('lng', ''), 'lat': location.get('lat', '')},
+                    METADATA_TABLE.columns.file_details.name: f'\n\n```json\n{json.dumps(image_details)}\n```\n\n\n',
                 }
                 updated_rows.append(update_row)
 
