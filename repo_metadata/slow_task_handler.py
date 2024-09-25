@@ -92,14 +92,16 @@ class SlowTaskHandler(object):
     def slow_task_handler(self, repo_id, data):
         task_type = data.get('task_type')
         if task_type == 'image_info_extract':
-            self.extract_image_info(repo_id, data)
+            obj_ids = data.get('obj_ids')
+            commit_id = data.get('commit_id')
+            per_size = 50
+            for i in range(0, len(obj_ids), per_size):
+                self.extract_image_info(repo_id, commit_id, obj_ids[i: i + per_size])
 
-    def extract_image_info(self, repo_id, data):
+    def extract_image_info(self, repo_id, commit_id, obj_ids):
         logger.info('%s start extract image info repo %s' % (threading.currentThread().getName(), repo_id))
 
         try:
-            obj_ids = data.get('obj_ids')
-            commit_id = data.get('commit_id')
             sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}`, `{METADATA_TABLE.columns.face_links.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.obj_id.name}` IN ('
             parameters = []
 
