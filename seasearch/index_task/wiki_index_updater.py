@@ -6,7 +6,7 @@ from apscheduler.schedulers.gevent import GeventScheduler
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.index_store.wiki_index import WikiIndex
 from seafevents.seasearch.index_store.repo_status_index import RepoStatusIndex
-from seafevents.seasearch.utils.constants import WIKI_STATUS_INDEX_NAME, WIKI_INDEX_PREFIX, SHARD_NUM
+from seafevents.seasearch.utils.constants import WIKI_STATUS_INDEX_NAME, REPO_TYPE_WIKI, SHARD_NUM
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.repo_data import repo_data
 from seafevents.utils import parse_bool, get_opt_from_conf_or_env
@@ -94,22 +94,26 @@ def clear_deleted_wiki(wiki_status_index, wiki_index, index_manager, wikis):
 
 
 def update_wiki_indexes(wiki_status_index, wiki_index, index_manager, repo_data):
-    start, count = 0, 50
+    start, count = 0, 1000
     all_wikis = []
     while True:
         try:
-            wiki_commits = repo_data.get_wiki_id_commit_id(start, count)
+            repo_commits = repo_data.get_repo_id_commit_id(start, count)
         except Exception as e:
             logger.error("Error: %s" % e)
             return
         start += 1000
-        if len(wiki_commits) == 0:
+        if len(repo_commits) == 0:
             break
+        repo_ids = [repo[0] for repo in repo_commits if repo[2] == REPO_TYPE_WIKI]
+        virtual_repos = repo_data.get_virtual_repo_in_repos(repo_ids)
+        virtual_repo_set = {repo[0] for repo in virtual_repos}
+        for repo_id, commit_id, repo_type in repo_commits:
+            if repo_id in virtual_repo_set or repo_type != REPO_TYPE_WIKI:
+                continue
+            all_wikis.append(repo_id)
 
-        for wiki_id, commit_id in wiki_commits:
-            all_wikis.append(wiki_id)
-
-            index_manager.update_wiki_index(wiki_id, commit_id, wiki_index, wiki_status_index)
+            index_manager.update_wiki_index(repo_id, commit_id, wiki_index, wiki_status_index)
 
     logger.info("Finish update wiki index")
 

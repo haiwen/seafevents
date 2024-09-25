@@ -14,7 +14,7 @@ from seafevents.repo_data import repo_data
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.seasearch.index_store.repo_status_index import RepoStatusIndex
-from seafevents.seasearch.utils.constants import WIKI_INDEX_PREFIX, WIKI_STATUS_INDEX_NAME
+from seafevents.seasearch.utils.constants import WIKI_INDEX_PREFIX, WIKI_STATUS_INDEX_NAME, REPO_TYPE_WIKI
 from seafevents.seasearch.index_store.wiki_index import WikiIndex
 
 logger = logging.getLogger('seasearch')
@@ -57,19 +57,25 @@ class WikiIndexLocal(object):
         while True:
             global NO_TASKS
             try:
-                wiki_commits = self.repo_data.get_wiki_id_commit_id(start, per_size)
+                repo_commits = self.repo_data.get_repo_id_commit_id(start, per_size)
             except Exception as e:
                 logger.error("Error: %s" % e)
                 NO_TASKS = True
                 self.clear_worker()
                 return
             else:
-                if len(wiki_commits) == 0:
+                if len(repo_commits) == 0:
                     NO_TASKS = True
                     break
-                for wiki_id, commit_id in wiki_commits:
-                    wikis_queue.put((wiki_id, commit_id))
-                    wikis[wiki_id] = commit_id
+                repo_ids = [repo[0] for repo in repo_commits if repo[2] == REPO_TYPE_WIKI]
+                virtual_repos = repo_data.get_virtual_repo_in_repos(repo_ids)
+                virtual_repo_set = {repo[0] for repo in virtual_repos}
+
+                for repo_id, commit_id, repo_type in repo_commits:
+                    if repo_id in virtual_repo_set or repo_type != REPO_TYPE_WIKI:
+                        continue
+                    wikis_queue.put((repo_id, commit_id))
+                    wikis[repo_id] = commit_id
                 start += per_size
 
         self.clear_worker()
@@ -184,17 +190,23 @@ def delete_indices():
     start, count = 0, 1000
     while True:
         try:
-            wiki_commits = repo_data.get_wiki_id_commit_id(start, count)
+            repo_commits = repo_data.get_repo_id_commit_id(start, count)
         except Exception as e:
             logger.error("Error: %s" % e)
             return
         start += 1000
 
-        if len(wiki_commits) == 0:
+        if len(repo_commits) == 0:
             break
 
-        for wiki_id, commit_id, in wiki_commits:
-            wiki_index_name = WIKI_INDEX_PREFIX + wiki_id
+        repo_ids = [repo[0] for repo in repo_commits if repo[2] == REPO_TYPE_WIKI]
+        virtual_repos = repo_data.get_virtual_repo_in_repos(repo_ids)
+        virtual_repo_set = {repo[0] for repo in virtual_repos}
+
+        for repo_id, commit_id, repo_type in repo_commits:
+            if repo_id in virtual_repo_set or repo_type != REPO_TYPE_WIKI:
+                continue
+            wiki_index_name = WIKI_INDEX_PREFIX + repo_id
             wiki_index.delete_index_by_index_name(wiki_index_name)
 
     wiki_status_index.delete_index_by_index_name()

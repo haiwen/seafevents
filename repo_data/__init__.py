@@ -25,15 +25,14 @@ class RepoData(object):
     def _get_repo_id_commit_id(self, start, count):
         session = self.db_session()
         try:
-            cmd = """SELECT RepoInfo.repo_id, Branch.commit_id
+            cmd = """SELECT RepoInfo.repo_id, Branch.commit_id, RepoInfo.type
                      FROM RepoInfo
                      INNER JOIN Branch ON RepoInfo.repo_id = Branch.repo_id
-                     WHERE RepoInfo.type is NULL AND Branch.name = :name AND RepoInfo.repo_id NOT IN (SELECT repo_id from VirtualRepo)
+                     WHERE Branch.name = :name
                      limit :start, :count;"""
-            res = [(r[0], r[1]) for r in session.execute(text(cmd),
-                                                         {'name': 'master',
-                                                          'start': start,
-                                                          'count': count})]
+            res = session.execute(text(cmd), {'name': 'master',
+                                              'start': start,
+                                              'count': count}).fetchall()
             return res
         except Exception as e:
             raise e
@@ -101,26 +100,6 @@ class RepoData(object):
         finally:
             session.close()
 
-    def _get_wiki_id_commit_id(self, start, count):
-        session = self.db_session()
-        try:
-            cmd = """SELECT RepoInfo.repo_id, Branch.commit_id
-                     FROM RepoInfo
-                     INNER JOIN Branch ON RepoInfo.repo_id = Branch.repo_id
-                     WHERE RepoInfo.type = 'wiki'
-                     limit :start, :count"""
-
-            res = [
-                (r[0], r[1])
-                for r in session.execute(text(cmd), {'start': start, 'count': count})
-            ]
-
-            return res
-        except Exception as e:
-            raise e
-        finally:
-            session.close()
-
     def get_repo_name_mtime_size(self, repo_id):
         try:
             return self._get_repo_name_mtime_size(repo_id)
@@ -162,12 +141,5 @@ class RepoData(object):
         except Exception as e:
             logger.error(e)
             return self._get_virtual_repo_in_repos(repo_ids)
-
-    def get_wiki_id_commit_id(self, start, count):
-        try:
-            return self._get_wiki_id_commit_id(start, count)
-        except Exception as e:
-            logger.error(e)
-            return self._get_wiki_id_commit_id(start, count)
 
 repo_data = RepoData()
