@@ -123,8 +123,8 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--test', action='store_true')
     arg = parser.parse_args()
     kw = {
-        'format': '[%(asctime)s] [%(levelname)s] %(message)s',
-        'datefmt': '%m/%d/%Y %H:%M:%S',
+        'format': '[seafevents] [%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(funcName)s %(message)s',
+        'datefmt': '%Y-%m-%d %H:%M:%S',
         'level': logging.DEBUG,
         'stream': sys.stdout
     }
