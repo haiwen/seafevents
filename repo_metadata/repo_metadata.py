@@ -12,6 +12,15 @@ EXCLUDED_PATHS = ['/_Internal', '/images']
 METADATA_OP_LIMIT = 1000
 
 
+class DiffEntry(object):
+    def __init__(self, path, obj_id, size=-1, new_path=None, modifier=None, mtime=None):
+        self.path = path
+        self.new_path = new_path
+        self.obj_id = obj_id
+        self.size = size
+        self.modifier = modifier
+        self.mtime = mtime
+
 class RepoMetadata:
 
     def __init__(self, metadata_server_api, redis_mq):
@@ -19,6 +28,8 @@ class RepoMetadata:
         self.redis_mq = redis_mq
 
     def cal_renamed_and_moved_files(self, added_files, deleted_files):
+        if not added_files or not deleted_files:
+            return added_files, deleted_files, []
 
         need_added_files = []
         obj_id_to_file = {}
@@ -32,49 +43,57 @@ class RepoMetadata:
             else:
                 obj_id_to_file[obj_id] = file
 
-        need_updated_files = []
+        renamed_or_moved_files = []
         new_deleted_files = []
-        for file in deleted_files:
-            if self.is_excluded_path(file.path):
+        for del_file in deleted_files:
+            if self.is_excluded_path(del_file.path):
                 continue
-            obj_id = file.obj_id
-            add_file = obj_id_to_file.get(file.obj_id)
-            if add_file and obj_id != ZERO_OBJ_ID:
-                need_updated_files.append(add_file)
-                obj_id_to_file.pop(file.obj_id)
+            obj_id = del_file.obj_id
+            added_file = obj_id_to_file.get(del_file.obj_id)
+            if added_file and obj_id != ZERO_OBJ_ID:
+                renamed_or_moved_file = DiffEntry(del_file.path, obj_id, added_file.size, added_file.path,
+                                                  modifier=added_file.modifier, mtime=added_file.mtime)
+                renamed_or_moved_files.append(renamed_or_moved_file)
+                obj_id_to_file.pop(del_file.obj_id)
             else:
-                new_deleted_files.append(file)
+                new_deleted_files.append(del_file)
         new_added_files = list(obj_id_to_file.values()) + need_added_files
 
-        return new_added_files, new_deleted_files, need_updated_files
+        return new_added_files, new_deleted_files, renamed_or_moved_files
 
     def update_renamed_or_moved_files(self, repo_id, renamed_or_moved_files):
         if not renamed_or_moved_files:
             return
 
-        base_sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `_obj_id` IN ('
+        base_sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, ' \
+                   f'`{METADATA_TABLE.columns.file_name.name}` FROM `{METADATA_TABLE.name}` WHERE'
         sql = base_sql
-        obj_id_to_file_dict = {}
         parameters = []
+        old_path_to_file_dict = {}
         for file in renamed_or_moved_files:
             path = file.path.rstrip('/')
             if self.is_excluded_path(path):
                 continue
-            obj_id = file.obj_id
-            obj_id_to_file_dict[obj_id] = file
 
-            sql += f'?, '
-            parameters.append(obj_id)
+            parent_dir = os.path.dirname(path)
+            file_name = os.path.basename(path)
+            key = parent_dir + file_name
+            old_path_to_file_dict[key] = file
+
+            sql += f' (`{METADATA_TABLE.columns.parent_dir.name}` = ? AND `{METADATA_TABLE.columns.file_name.name}` = ?) OR'
+            parameters.append(parent_dir)
+            parameters.append(file_name)
 
             if len(parameters) >= METADATA_OP_LIMIT:
-                sql = sql.rstrip(', ') + ')'
-                self.update_rows_by_obj_ids(repo_id, sql, parameters, obj_id_to_file_dict)
+                sql = sql.rstrip(' OR')
+                self.update_renamed_or_moved_rows_by_query(repo_id, sql, parameters, old_path_to_file_dict)
                 sql = base_sql
                 parameters = []
-                obj_id_to_file_dict = {}
+                old_path_to_file_dict = {}
+
         if parameters:
-            sql = sql.rstrip(', ') + ')'
-            self.update_rows_by_obj_ids(repo_id, sql, parameters, obj_id_to_file_dict)
+            sql = sql.rstrip(' OR')
+            self.update_renamed_or_moved_rows_by_query(repo_id, sql, parameters, old_path_to_file_dict)
 
     def check_can_added_predefined_columns(self, repo_id):
         result = self.metadata_server_api.list_columns(repo_id, METADATA_TABLE.id)
@@ -174,7 +193,7 @@ class RepoMetadata:
             return
         self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
 
-    def update_rows_by_obj_ids(self, repo_id, sql, parameters, obj_id_to_file_dict):
+    def update_renamed_or_moved_rows_by_query(self, repo_id, sql, parameters, old_path_to_file_dict):
         query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
 
         if not query_result:
@@ -183,18 +202,21 @@ class RepoMetadata:
         updated_rows = []
         for row in query_result:
             row_id = row[METADATA_TABLE.columns.id.name]
-            obj_id = row[METADATA_TABLE.columns.obj_id.name]
-            new_row = obj_id_to_file_dict.get(obj_id)
+            parent_dir = row[METADATA_TABLE.columns.parent_dir.name]
+            file_name = row[METADATA_TABLE.columns.file_name.name]
+            key = parent_dir + file_name
+            new_row = old_path_to_file_dict.get(key)
 
-            path = new_row.path.rstrip('/')
-            parent_dir = os.path.dirname(path)
-            file_name = os.path.basename(path)
+            new_path = new_row.new_path
+            new_parent_dir = os.path.dirname(new_path)
+            new_file_name = os.path.basename(new_path)
+
             file_type, file_ext = get_file_type_ext_by_name(file_name)
 
             update_row = {
                 METADATA_TABLE.columns.id.name: row_id,
-                METADATA_TABLE.columns.parent_dir.name: parent_dir,
-                METADATA_TABLE.columns.file_name.name: file_name,
+                METADATA_TABLE.columns.parent_dir.name: new_parent_dir,
+                METADATA_TABLE.columns.file_name.name: new_file_name,
                 METADATA_TABLE.columns.suffix.name: file_ext
             }
             updated_rows.append(update_row)
