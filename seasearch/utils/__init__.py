@@ -8,8 +8,6 @@ from seafevents.seasearch.utils.commit_differ import CommitDiffer
 from seafobj import fs_mgr, commit_mgr
 from seafobj.exceptions import GetObjectError
 
-from seafevents.repo_metadata.utils import METADATA_TABLE
-
 logger = logging.getLogger(__name__)
 
 SYS_DIRS = ['images', '_Internal']
@@ -42,7 +40,8 @@ def get_library_diff_files(repo_id, old_commit_id, new_commit_id):
         differ = CommitDiffer(repo_id, version, old_root, new_root)
         added_files, deleted_files, added_dirs, deleted_dirs, modified_files = differ.diff(new_commit.ctime)
     except Exception as e:
-        logger.warning('differ error: %s' % e)
+        logger.warning('repo: %s, version: %s, old_commit_id:%s, nea_commit_id: %s, old_root:%s, new_root: %s, differ error: %s',
+                        repo_id, version, old_commit_id, new_commit_id, old_root, new_root, e)
         return [], [], [], [], []
 
     return added_files, deleted_files, modified_files, added_dirs, deleted_dirs
