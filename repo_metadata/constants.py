@@ -52,7 +52,7 @@ class PrivatePropertyKeys:
     SIZE = '_size'
     SUFFIX = '_suffix'
     FILE_DETAILS = '_file_details'
-    SHOOTING_TIME = '_shooting_time'
+    CAPTURE_TIME = '_capture_time'
     OWNER = '_owner'
 
 
