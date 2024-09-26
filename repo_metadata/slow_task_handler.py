@@ -126,10 +126,9 @@ class SlowTaskHandler(object):
 
                 columns = self.metadata_server_api.list_columns(repo_id, METADATA_TABLE.id).get('columns', [])
                 if [column for column in columns if column.get('key') == PrivatePropertyKeys.CAPTURE_TIME]:
-                    shooting_time = image_details.get('Capture time')
-                    if shooting_time:
-                        datetime_obj = datetime.strptime(shooting_time, '%Y-%m-%d %H:%M:%S')
-                        update_row[PrivatePropertyKeys.CAPTURE_TIME] = timestamp_to_isoformat_timestr(datetime_obj.timestamp())
+                    capture_time = image_details.get('Capture time')
+                    if capture_time:
+                        update_row[PrivatePropertyKeys.CAPTURE_TIME] = capture_time
                 updated_rows.append(update_row)
 
                 if len(updated_rows) >= METADATA_OP_LIMIT:
