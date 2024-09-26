@@ -2,12 +2,11 @@ import time
 import logging
 import threading
 import json
-from datetime import datetime
 
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 
 from seafevents.mq import get_mq
-from seafevents.utils import get_opt_from_conf_or_env, timestamp_to_isoformat_timestr
+from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.repo_metadata import METADATA_OP_LIMIT
 from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_content, get_image_details

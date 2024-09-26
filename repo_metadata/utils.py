@@ -10,6 +10,7 @@ from seafobj import commit_mgr, fs_mgr
 
 from seafevents.app.config import METADATA_FILE_TYPES
 from seafevents.repo_metadata.view_data_sql import view_data_2_sql
+from seafevents.utils import timestamp_to_isoformat_timestr
 
 
 def gen_fileext_type_map():
@@ -49,16 +50,17 @@ def get_image_details(content):
         with exiftool.ExifTool() as et:
             metadata = et.get_metadata(temp_file_path)
             time_zone_str = metadata.get('EXIF:OffsetTimeOriginal', '')
-            if metadata.get('EXIF:DateTimeOriginal'):
-                capture_time = metadata['EXIF:DateTimeOriginal'].replace(':', '-', 2)
-                capture_time = datetime.strptime(capture_time, '%Y-%m-%d %H:%M:%S')
-                hours, minutes = map(int, time_zone_str.split(':'))
-                tz_offset = timedelta(hours=hours, minutes=minutes)
-                tz = timezone(tz_offset)
-                capture_time = capture_time.replace(tzinfo=tz)
-                capture_time = capture_time.isoformat()
-            else:
-                capture_time = ''
+            capture_time = metadata.get('EXIF:DateTimeOriginal', '')
+            if capture_time:
+                capture_time = datetime.strptime(capture_time, '%Y:%m:%d %H:%M:%S')
+                if time_zone_str:
+                    hours, minutes = map(int, time_zone_str.split(':'))
+                    tz_offset = timedelta(hours=hours, minutes=minutes)
+                    tz = timezone(tz_offset)
+                    capture_time = capture_time.replace(tzinfo=tz)
+                    capture_time = capture_time.isoformat()
+                else:
+                    capture_time = timestamp_to_isoformat_timestr(capture_time.timestamp())
             focal_length = str(metadata['EXIF:FocalLength']) + 'mm' if metadata.get('EXIF:FocalLength') else ''
             f_number = 'f/' + str(metadata['EXIF:FNumber']) if metadata.get('EXIF:FNumber') else ''
             details = {
