@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 from seafevents.repo_metadata.constants import FilterPredicateTypes, FilterTermModifier, PropertyTypes, \
-    DurationFormatsType, PrivatePropertyKeys
+    DurationFormatsType, PrivatePropertyKeys, ViewType
 
 logger = logging.getLogger(__name__)
 
@@ -1112,7 +1112,7 @@ class SQLGenerator(object):
         filters = []
         for filter_item in basic_filters:
             column_key = filter_item.get('column_key')
-            if column_key == '_is_dir':
+            if column_key == PrivatePropertyKeys.IS_DIR:
                 filter_term = filter_item.get('filter_term', 'all')
                 if filter_term == 'file':
                     filter_item['filter_term'] = False
@@ -1121,8 +1121,8 @@ class SQLGenerator(object):
                 else:
                     continue
                 filters.append(filter_item)
-            elif column_key == '_file_type':
-                if view_type == 'gallery':
+            elif column_key == PrivatePropertyKeys.FILE_TYPE:
+                if view_type == ViewType.GALLERY:
                     filter_term = filter_item.get('filter_term', 'picture')
                     if filter_term == 'picture':
                         filter_item['filter_term'] = '_picture'
@@ -1131,13 +1131,6 @@ class SQLGenerator(object):
                     else:
                         filter_item['filter_predicate'] = 'is_any_of'
                         filter_item['filter_term'] = ['_picture', '_video']
-                elif view_type == 'table':
-                    valid_terms = {'picture', 'document', 'video', 'audio', 'code', 'compressed'}
-                    filter_terms = filter_item.get('filter_term', [])
-                    modified_terms = [f'_{term}' for term in filter_terms if term in valid_terms]
-                    filter_item['filter_term'] = modified_terms
-                else:
-                    continue
                 filters.append(filter_item)
             else:
                 filters.append(filter_item)
