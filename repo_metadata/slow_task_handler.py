@@ -107,6 +107,8 @@ class SlowTaskHandler(object):
             if not query_result:
                 return
 
+            columns = self.metadata_server_api.list_columns(repo_id, METADATA_TABLE.id).get('columns', [])
+            capture_time_column = [column for column in columns if column.get('key') == PrivatePropertyKeys.CAPTURE_TIME]
             for row in query_result:
                 row_id = row[METADATA_TABLE.columns.id.name]
                 obj_id = row[METADATA_TABLE.columns.obj_id.name]
@@ -123,8 +125,7 @@ class SlowTaskHandler(object):
                     METADATA_TABLE.columns.file_details.name: f'\n\n```json\n{json.dumps(image_details)}\n```\n\n\n',
                 }
 
-                columns = self.metadata_server_api.list_columns(repo_id, METADATA_TABLE.id).get('columns', [])
-                if [column for column in columns if column.get('key') == PrivatePropertyKeys.CAPTURE_TIME]:
+                if capture_time_column:
                     capture_time = image_details.get('Capture time')
                     if capture_time:
                         update_row[PrivatePropertyKeys.CAPTURE_TIME] = capture_time
