@@ -81,11 +81,3 @@ class FaceRecognitionManager(object):
                     for row in obj_id_to_rows.get(obj_id, []):
                         row_id_map[row[METADATA_TABLE.columns.id.name]] = row_ids
                     self.metadata_server_api.insert_link(repo_id, FACES_TABLE.link_id, METADATA_TABLE.id, row_id_map)
-
-        sql = f'SELECT `_name`, `_photo_links` FROM `{FACES_TABLE.name}`'
-        known_faces = query_metadata_rows(repo_id, self.metadata_server_api, sql)
-        print(known_faces)
-
-        sql = f'SELECT `_name`, `_face_links` FROM `{METADATA_TABLE.name}`'
-        known_faces = query_metadata_rows(repo_id, self.metadata_server_api, sql)
-        print(known_faces)
