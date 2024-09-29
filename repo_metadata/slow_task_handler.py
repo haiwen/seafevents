@@ -10,6 +10,7 @@ from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.repo_metadata import METADATA_OP_LIMIT
 from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_content, get_image_details
+from seafevents.repo_metadata.constants import PrivatePropertyKeys
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,8 @@ class SlowTaskHandler(object):
             if not query_result:
                 return
 
+            columns = self.metadata_server_api.list_columns(repo_id, METADATA_TABLE.id).get('columns', [])
+            capture_time_column = [column for column in columns if column.get('key') == PrivatePropertyKeys.CAPTURE_TIME]
             for row in query_result:
                 row_id = row[METADATA_TABLE.columns.id.name]
                 obj_id = row[METADATA_TABLE.columns.obj_id.name]
@@ -121,6 +124,11 @@ class SlowTaskHandler(object):
                     METADATA_TABLE.columns.location.name: {'lng': location.get('lng', ''), 'lat': location.get('lat', '')},
                     METADATA_TABLE.columns.file_details.name: f'\n\n```json\n{json.dumps(image_details)}\n```\n\n\n',
                 }
+
+                if capture_time_column:
+                    capture_time = image_details.get('Capture time')
+                    if capture_time:
+                        update_row[PrivatePropertyKeys.CAPTURE_TIME] = capture_time
                 updated_rows.append(update_row)
 
                 if len(updated_rows) >= METADATA_OP_LIMIT:
