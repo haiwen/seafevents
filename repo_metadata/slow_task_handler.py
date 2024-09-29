@@ -10,7 +10,7 @@ from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.image_embedding_api import ImageEmbeddingAPI
 from seafevents.repo_metadata.repo_metadata import METADATA_OP_LIMIT
-from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_content, get_image_details, FACE_TABLE, query_metadata_rows, face_recognition
+from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_content, get_image_details, FACES_TABLE, query_metadata_rows, face_recognition
 from seafevents.repo_metadata.constants import PrivatePropertyKeys
 
 logger = logging.getLogger(__name__)
@@ -102,7 +102,7 @@ class SlowTaskHandler(object):
         logger.info('%s start extract image info repo %s' % (threading.currentThread().getName(), repo_id))
 
         try:
-            sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}`, `{METADATA_TABLE.columns.face_links.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.obj_id.name}` IN ('
+            sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.obj_id.name}` IN ('
             parameters = []
 
             updated_rows = []
@@ -127,57 +127,57 @@ class SlowTaskHandler(object):
                     obj_id_to_rows[obj_id] = []
                 obj_id_to_rows[obj_id].append(item)
 
-            obj_id_to_face_embedding = {}
-            embeddings = self.image_embedding_api.face_embeddings(repo_id, obj_ids).get('data', [])
-            for item in embeddings:
-                obj_id = item['obj_id']
-                face_embedding = item['embeddings']
-                obj_id_to_face_embedding[obj_id] = face_embedding
-
             metadata = self.metadata_server_api.get_metadata(repo_id)
             tables = metadata.get('tables', [])
             if not tables:
                 return
-            faces_table_id = [table['id'] for table in tables if table['name'] == FACE_TABLE.name][0]
+            faces_table_id = [table['id'] for table in tables if table['name'] == FACES_TABLE.name]
+            faces_table_id = faces_table_id[0] if faces_table_id else None
 
-            sql = f'SELECT * FROM `{FACE_TABLE.name}`'
-            known_faces = query_metadata_rows(repo_id, self.metadata_server_api, sql)
+            if faces_table_id:
+                sql = f'SELECT * FROM `{FACES_TABLE.name}`'
+                known_faces = query_metadata_rows(repo_id, self.metadata_server_api, sql)
+                embeddings = self.image_embedding_api.face_embeddings(repo_id, obj_ids).get('data', [])
 
-            used_faces = []
-            no_used_face_row_ids = []
-            for item in known_faces:
-                if item.get(FACE_TABLE.columns.image_links.name):
-                    used_faces.append(item)
-                else:
-                    no_used_face_row_ids.append(item[FACE_TABLE.columns.id.name])
-            if no_used_face_row_ids:
-                self.metadata_server_api.delete_rows(repo_id, faces_table_id, no_used_face_row_ids)
-
-            for item in embeddings:
-                obj_id = item['obj_id']
-                face_embeddings = item['embeddings']
-                for face_embedding in face_embeddings:
-                    face = face_recognition(face_embedding, used_faces, 1.24)
-                    if not face:
-                        row = {
-                            FACE_TABLE.columns.face_feature.name: json.dumps(face_embedding),
-                        }
-                        result = self.metadata_server_api.insert_rows(repo_id, faces_table_id, [row])
-                        row_id = result.get('row_ids')[0]
-                        used_faces.append({
-                            FACE_TABLE.columns.id.name: row_id,
-                            FACE_TABLE.columns.face_feature.name: json.dumps(face_embedding),
-                        })
-                        row_id_map = {
-                            row_id: [item.get(METADATA_TABLE.columns.id.name) for item in obj_id_to_rows.get(obj_id, [])]
-                        }
-                        self.metadata_server_api.insert_link(repo_id, FACE_TABLE.link_id, faces_table_id, row_id_map)
+                used_faces = []
+                no_used_face_row_ids = []
+                for item in known_faces:
+                    if item.get(FACES_TABLE.columns.photo_links.name):
+                        used_faces.append(item)
                     else:
+                        no_used_face_row_ids.append(item[FACES_TABLE.columns.id.name])
+                if no_used_face_row_ids:
+                    self.metadata_server_api.delete_rows(repo_id, faces_table_id, no_used_face_row_ids)
+
+                for item in embeddings:
+                    obj_id = item['obj_id']
+                    face_embeddings = item['embeddings']
+                    recognized_faces = []
+                    for face_embedding in face_embeddings:
+                        face = face_recognition(face_embedding, used_faces, 1.24)
+                        if not face:
+                            row = {
+                                FACES_TABLE.columns.vector.name: json.dumps(face_embedding),
+                            }
+                            result = self.metadata_server_api.insert_rows(repo_id, faces_table_id, [row])
+                            row_id = result.get('row_ids')[0]
+                            used_faces.append({
+                                FACES_TABLE.columns.id.name: row_id,
+                                FACES_TABLE.columns.vector.name: json.dumps(face_embedding),
+                            })
+                            row_id_map = {
+                                row_id: [item.get(METADATA_TABLE.columns.id.name) for item in obj_id_to_rows.get(obj_id, [])]
+                            }
+                            self.metadata_server_api.insert_link(repo_id, FACES_TABLE.link_id, faces_table_id, row_id_map)
+                        else:
+                            recognized_faces.append(face)
+
+                    if recognized_faces:
+                        row_ids = [item[FACES_TABLE.columns.id.name] for item in recognized_faces]
                         row_id_map = dict()
                         for row in obj_id_to_rows.get(obj_id, []):
-                            row_ids = [item['row_id'] for item in row.get(METADATA_TABLE.columns.face_links.name, [])] + [face[FACE_TABLE.columns.id.name]]
                             row_id_map[row[METADATA_TABLE.columns.id.name]] = row_ids
-                        self.metadata_server_api.insert_link(repo_id, FACE_TABLE.link_id, METADATA_TABLE.id, row_id_map)
+                        self.metadata_server_api.insert_link(repo_id, FACES_TABLE.link_id, METADATA_TABLE.id, row_id_map)
 
             for row in query_result:
                 row_id = row[METADATA_TABLE.columns.id.name]
@@ -188,13 +188,11 @@ class SlowTaskHandler(object):
                 row[METADATA_TABLE.columns.location.name] = {'lng': location.get('lng', ''),
                                                              'lat': location.get('lat', '')}
                 row[METADATA_TABLE.columns.file_details.name] = f'\n\n```json\n{json.dumps(image_details)}\n```\n\n\n'
-                face_embedding = obj_id_to_face_embedding.get(obj_id)
 
                 update_row = {
                     METADATA_TABLE.columns.id.name: row_id,
                     METADATA_TABLE.columns.location.name: {'lng': location.get('lng', ''), 'lat': location.get('lat', '')},
                     METADATA_TABLE.columns.file_details.name: f'\n\n```json\n{json.dumps(image_details)}\n```\n\n\n',
-                    METADATA_TABLE.columns.face_features.name: json.dumps(face_embedding) if face_embedding else None,
                 }
 
                 if capture_time_column:

@@ -38,7 +38,7 @@ def get_file_type_ext_by_name(filename):
 
 def face_recognition(face, known_faces, threshold):
     for known_face in known_faces:
-        if feature_compare(face, json.loads(known_face[FACE_TABLE.columns.face_feature.name]), threshold):
+        if feature_compare(face, json.loads(known_face[FACES_TABLE.columns.vector.name]), threshold):
             return known_face
     return None
 
@@ -169,6 +169,17 @@ def query_metadata_rows(repo_id, metadata_server_api, sql):
     return rows
 
 
+def get_face_embeddings(repo_id, image_embedding_api, obj_ids):
+    embeddings = []
+
+    per_size = 50
+    for i in range(0, len(obj_ids), per_size):
+        query_results = image_embedding_api.face_embeddings(repo_id, obj_ids[i: i + per_size]).get('data', [])
+        embeddings.append(query_results)
+
+    return embeddings
+
+
 class MetadataTable(object):
     def __init__(self, table_id, name):
         self.id = table_id
@@ -200,25 +211,25 @@ class MetadataColumns(object):
 
         self.collaborator = MetadataColumn('_collaborators', '_collaborators', 'collaborator')
         self.owner = MetadataColumn('_owner', '_owner', 'collaborator')
-        self.face_features = MetadataColumn('_face_features', '_face_features', 'long-text')
         self.face_links = MetadataColumn('_face_links', '_face_links', 'link')
 
 
-class FaceTable(object):
+class FacesTable(object):
     def __init__(self, name, link_id):
         self.link_id = link_id
         self.name = name
 
     @property
     def columns(self):
-        return FaceColumns()
+        return FacesColumns()
 
 
-class FaceColumns(object):
+class FacesColumns(object):
     def __init__(self):
         self.id = MetadataColumn('_id', '_id', 'text')
-        self.image_links = MetadataColumn('_image_links', '_image_links', 'link')
-        self.face_feature = MetadataColumn('_face_feature', '_face_feature', 'long-text')
+        self.name = MetadataColumn('_name', '_name', 'text')
+        self.photo_links = MetadataColumn('_photo_links', '_photo_links', 'link')
+        self.vector = MetadataColumn('_vector', '_vector', 'long-text')
 
 
 class MetadataColumn(object):
@@ -244,7 +255,7 @@ class MetadataColumn(object):
 
 
 METADATA_TABLE = MetadataTable('0001', 'Table1')
-FACE_TABLE = FaceTable('repo_faces', '0001')
+FACES_TABLE = FacesTable('faces', '0001')
 
 
 def gen_view_data_sql(table, columns, view, start, limit, username = '', id_in_org = ''):
