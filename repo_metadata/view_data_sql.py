@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 from seafevents.repo_metadata.constants import FilterPredicateTypes, FilterTermModifier, PropertyTypes, \
-    DurationFormatsType, PrivatePropertyKeys
+    DurationFormatsType, PrivatePropertyKeys, ViewType
 
 logger = logging.getLogger(__name__)
 
@@ -1104,32 +1104,33 @@ class SQLGenerator(object):
 
     def _basic_filters_sql(self):
         basic_filters = self.view.get('basic_filters', [])
+        view_type = self.view.get('type', 'table')
         filter_conjunction = 'AND'
         if not basic_filters:
             return ''
-        
+
         filters = []
         for filter_item in basic_filters:
             column_key = filter_item.get('column_key')
-            if column_key == '_is_dir':
+            if column_key == PrivatePropertyKeys.IS_DIR:
                 filter_term = filter_item.get('filter_term', 'all')
                 if filter_term == 'file':
                     filter_item['filter_term'] = False
-                    filters.append(filter_item)
                 elif filter_term == 'folder':
                     filter_item['filter_term'] = True
-                    filters.append(filter_item)
                 else:
                     continue
-            if column_key == '_file_type':
-                filter_term = filter_item.get('filter_term', 'picture')
-                if filter_term == 'picture':
-                    filter_item['filter_term'] = '_picture'
-                elif filter_term == 'video':
-                    filter_item['filter_term'] = '_video'
-                else:
-                    filter_item['filter_predicate'] = 'is_any_of'
-                    filter_item['filter_term'] = ['_picture', '_video']
+                filters.append(filter_item)
+            elif column_key == PrivatePropertyKeys.FILE_TYPE:
+                if view_type == ViewType.GALLERY:
+                    filter_term = filter_item.get('filter_term', 'picture')
+                    if filter_term == 'picture':
+                        filter_item['filter_term'] = '_picture'
+                    elif filter_term == 'video':
+                        filter_item['filter_term'] = '_video'
+                    else:
+                        filter_item['filter_predicate'] = 'is_any_of'
+                        filter_item['filter_term'] = ['_picture', '_video']
                 filters.append(filter_item)
             else:
                 filters.append(filter_item)

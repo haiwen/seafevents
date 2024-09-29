@@ -114,3 +114,8 @@ class DurationFormatsType(object):
     H_MM_SS_S = 'h:mm:ss.s'
     H_MM_SS_SS = 'h:mm:ss.ss'
     H_MM_SS_SSS = 'h:mm:ss.sss'
+
+
+class ViewType(object):
+    TABLE = 'table'
+    GALLERY = 'gallery'
