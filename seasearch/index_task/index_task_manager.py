@@ -57,9 +57,9 @@ class IndexTaskManager:
             int(SHARD_NUM),
         )
 
-    def keyword_search(self, query, repos, count, suffixes, search_path):
+    def keyword_search(self, query, repos, count, suffixes, search_path, obj_type):
         return self.index_manager.keyword_search(
-            query, repos, self._repo_filename_index, count, suffixes, search_path
+            query, repos, self._repo_filename_index, count, suffixes, search_path, obj_type
         )
 
 
