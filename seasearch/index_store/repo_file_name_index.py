@@ -118,8 +118,6 @@ class RepoFileNameIndex(object):
 
     def _add_suffix_filter(self, query_map, suffixes):
         if suffixes:
-            if not query_map['bool'].get('filter'):
-                query_map['bool']['filter'] = []
             if isinstance(suffixes, list):
                 suffixes = [x.lower() for x in suffixes]
                 query_map['bool']['filter'].append({'terms': {'suffix': suffixes}})
@@ -127,13 +125,22 @@ class RepoFileNameIndex(object):
                 query_map['bool']['filter'].append({'term': {'suffix': suffixes.lower()}})
         return query_map
 
-    def search_files(self, repos, keyword, start=0, size=10, suffixes=None, search_path=None):
+    def _add_obj_type_filter(self, query_map, obj_type):
+        if obj_type is None:
+            return query_map
+        elif obj_type == 'dir':
+            query_map['bool']['filter'].append({'term': {'is_dir': True}})
+        else:
+            query_map['bool']['filter'].append({'term': {'is_dir': False}})
+        return query_map
+
+    def search_files(self, repos, keyword, start=0, size=10, suffixes=None, search_path=None, obj_type=None):
         bulk_search_params = []
         for repo in repos:
             repo_id = repo[0]
             origin_repo_id = repo[1]
             origin_path = repo[2]
-            query_map = {'bool': {'should': [], 'minimum_should_match': 1}}
+            query_map = {'bool': {'filter': [], 'should': [], 'minimum_should_match': 1}}
             searches = self._make_query_searches(keyword)
             query_map['bool']['should'] = searches
 
@@ -146,6 +153,7 @@ class RepoFileNameIndex(object):
 
             query_map = self._add_suffix_filter(query_map, suffixes)
             query_map = self._add_path_filter(query_map, search_path)
+            query_map = self._add_obj_type_filter(query_map, obj_type)
             data = {
                 'query': query_map,
                 'from': start,
