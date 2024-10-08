@@ -1,3 +1,5 @@
+import json
+
 import requests, jwt, time
 
 from seafevents.app.config import METADATA_SERVER_SECRET_KEY, METADATA_SERVER_URL
@@ -114,7 +116,35 @@ class MetadataServerAPI:
         }
         response = requests.get(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response)
-    
+
+    def get_metadata(self, base_id):
+        headers = self.gen_headers(base_id)
+        url = f'{METADATA_SERVER_URL}/api/v1/base/{base_id}/metadata'
+        response = requests.get(url, headers=headers, timeout=self.timeout)
+        return parse_response(response)
+
+    def insert_link(self, base_id, link_id, table_id, row_id_map):
+        headers = self.gen_headers(base_id)
+        url = f'{METADATA_SERVER_URL}/api/v1/base/{base_id}/links'
+        data = {
+            'link_id': link_id,
+            'table_id': table_id,
+            'row_id_map': row_id_map
+        }
+        response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
+        return parse_response(response)
+
+    def update_link(self, base_id, link_id, table_id, row_id_map):
+        headers = self.gen_headers(base_id)
+        url = f'{METADATA_SERVER_URL}/api/v1/base/{base_id}/links'
+        data = {
+            'link_id': link_id,
+            'table_id': table_id,
+            'row_id_map': row_id_map
+        }
+        response = requests.put(url, json=data, headers=headers, timeout=self.timeout)
+        return parse_response(response)
+
     def update_column(self, base_id, table_id, column):
         headers = self.gen_headers(base_id)
         url = f'{METADATA_SERVER_URL}/api/v1/base/{base_id}/columns'
