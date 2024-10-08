@@ -27,7 +27,7 @@ class FaceRecognitionManager(object):
             self.image_embedding_api = ImageEmbeddingAPI(image_embedding_server_url, image_embedding_secret_key)
 
     def init_face_recognition(self, repo_id):
-        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}`'
+        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.file_type.name}` = "_picture"'
 
         query_result = query_metadata_rows(repo_id, self.metadata_server_api, sql)
         if not query_result:
