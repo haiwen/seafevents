@@ -92,7 +92,8 @@ class RepoData(object):
         if not repo_ids:
             return []
         try:
-            cmd = """SELECT repo_id from VirtualRepo WHERE repo_id IN {}""".format(tuple(repo_ids))
+            formatted_ids = ", ".join("'{}'".format(id) for id in repo_ids)
+            cmd = """SELECT repo_id from VirtualRepo WHERE repo_id IN ({})""".format(formatted_ids)
             res = session.execute(text(cmd)).fetchall()
             return res
         except Exception as e:

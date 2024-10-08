@@ -153,7 +153,7 @@ def start_index_local():
         config, section_name, 'seasearch_token'
     )
 
-    index_manager = IndexManager()
+    index_manager = IndexManager(config)
     seasearch_api = SeaSearchAPI(seasearch_url, seasearch_token)
     wiki_status_index = RepoStatusIndex(seasearch_api, WIKI_STATUS_INDEX_NAME)
     wiki_index = WikiIndex(seasearch_api, repo_data, shard_num=1)
