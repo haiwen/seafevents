@@ -159,6 +159,8 @@ class RepoFileNameIndex(object):
             bulk_search_params.append(data)
             search_path = None
 
+
+        logger.debug('search in repo_filename_index params: %s', json.dumps(bulk_search_params))
         results = self.seasearch_api.m_search(bulk_search_params)
         files = []
 

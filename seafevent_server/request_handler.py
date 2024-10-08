@@ -157,3 +157,36 @@ def search():
     results = index_task_manager.keyword_search(query, repos, count, suffixes, search_path)
 
     return {'results': results}, 200
+
+
+@app.route('/wiki-search', methods=['POST'])
+def search_wikis():
+    is_valid = check_auth_token(request)
+    if not is_valid:
+        return {'error_msg': 'Permission denied'}, 403
+
+    # Check seasearch is enable
+    if not index_task_manager.enabled:
+        return {'error_msg': 'Seasearch is not enabled by seafevents.conf'}
+    try:
+        data = json.loads(request.data)
+    except Exception as e:
+        logger.exception(e)
+        return {'error_msg': 'Bad request.'}, 400
+
+    query = data.get('query').strip()
+    wikis = data.get('wikis')
+
+    if not query:
+        return {'error_msg': 'query invalid.'}, 400
+    if not wikis:
+        return {'error_msg': 'wikis invalid.'}, 400
+
+    try:
+        count = int(data.get('count'))
+    except:
+        count = 20
+
+    results = index_task_manager.wiki_search(query, wikis, count)
+
+    return {'results': results}, 200

@@ -57,14 +57,14 @@ class RepoStatusIndex(object):
         return self.seasearch_api.check_document_by_id(self.index_name, repo_id).get('is_exist')
 
     def add_repo_status(self, repo_id, commit_id, updatingto, metadata_updated_time):
-        date = {
+        data = {
             'repo_id': repo_id,
             'commit_id': commit_id,
             'updatingto': updatingto,
             'metadata_updated_time': metadata_updated_time,
         }
         doc_id = repo_id
-        self.seasearch_api.create_document_by_id(self.index_name, doc_id, date)
+        self.seasearch_api.create_document_by_id(self.index_name, doc_id, data)
 
     def begin_update_repo(self, repo_id, old_commit_id, new_commit_id, metadata_updated_time):
         self.add_repo_status(repo_id, old_commit_id, new_commit_id, metadata_updated_time)

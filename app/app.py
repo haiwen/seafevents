@@ -8,8 +8,9 @@ from seafevents.repo_metadata.index_master import RepoMetadataIndexMaster
 from seafevents.repo_metadata.index_worker import RepoMetadataIndexWorker
 from seafevents.repo_metadata.slow_task_handler import SlowTaskHandler
 from seafevents.seafevent_server.seafevent_server import SeafEventServer
-from seafevents.app.config import ENABLE_METADATA_MANAGEMENT
+from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_WIKI
 from seafevents.seasearch.index_task.filename_index_updater import RepoFilenameIndexUpdater
+from seafevents.seasearch.index_task.wiki_index_updater import WikiIndexUpdater
 
 
 class App(object):
@@ -42,6 +43,8 @@ class App(object):
                 self._index_worker = RepoMetadataIndexWorker(config)
                 self._slow_task_handler = SlowTaskHandler(config)
             self._repo_filename_index_updater = RepoFilenameIndexUpdater(config)
+            if ENABLE_WIKI:
+                self._wiki_index_updater = WikiIndexUpdater(config)
 
     def serve_forever(self):
         if self._fg_tasks_enabled:
@@ -66,3 +69,5 @@ class App(object):
                 self._index_worker.start()
                 self._slow_task_handler.start()
             self._repo_filename_index_updater.start()
+            if ENABLE_WIKI:
+                self._wiki_index_updater.start()
