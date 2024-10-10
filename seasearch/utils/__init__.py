@@ -102,7 +102,7 @@ def need_index_metadata_info(repo_id, session):
     return True
 
 
-def is_wiki(path):
+def is_in_wiki_dirs(path):
     if path.split('/')[1] in WIKI_DIRS:
         return True
     return False

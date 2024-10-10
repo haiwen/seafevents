@@ -82,9 +82,6 @@ class IndexManager(object):
         wiki_index.delete_index_by_index_name(wiki_index_name)
         wiki_status_index.delete_documents_by_repo(wiki_id)
 
-    def keyword_search(self, query, repos, repo_filename_index, count, suffixes=None):
-        return repo_filename_index.search_files(repos, query, 0, count, suffixes)
-
     def wiki_search(self, query, wikis, wiki_index, count):
         return wiki_index.search_wikis(wikis, query, 0, count)
 

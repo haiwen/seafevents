@@ -1,7 +1,7 @@
 import logging
 from threading import Thread
 
-from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.schedulers.gevent import GeventScheduler
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.index_store.wiki_index import WikiIndex
@@ -9,7 +9,7 @@ from seafevents.seasearch.index_store.repo_status_index import RepoStatusIndex
 from seafevents.seasearch.utils.constants import WIKI_STATUS_INDEX_NAME, REPO_TYPE_WIKI, SHARD_NUM
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.repo_data import repo_data
-from seafevents.utils import parse_bool, get_opt_from_conf_or_env
+from seafevents.utils import parse_bool, get_opt_from_conf_or_env, parse_interval
 
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,9 @@ class WikiIndexUpdater(object):
         """Parse wiki index update related parts of events.conf"""
         section_name = 'SEASEARCH'
         key_enabled = 'enabled'
+        key_index_interval = 'interval'
+
+        default_index_interval = 30 * 60 # 30 min
 
         if not config.has_section(section_name):
             return
@@ -48,11 +51,16 @@ class WikiIndexUpdater(object):
             config, section_name, 'seasearch_token'
         )
 
+        interval = get_opt_from_conf_or_env(config, section_name, key_index_interval,
+                                            default=default_index_interval)
+        interval = parse_interval(interval, default_index_interval)
+
         self.seasearch_api = SeaSearchAPI(
             seasearch_url,
             seasearch_token,
         )
         self._repo_data = repo_data
+        self._interval = interval
         self._wiki_status_index = RepoStatusIndex(
             self.seasearch_api, WIKI_STATUS_INDEX_NAME
         )
@@ -70,11 +78,13 @@ class WikiIndexUpdater(object):
         if not self.is_enabled():
             return
 
+        logging.info('Start to update wiki index, interval = %s sec', self._interval)
         WikiIndexUpdaterTimer(
             self._wiki_status_index,
             self._wiki_index,
             self._index_manager,
             self._repo_data,
+            self._interval,
         ).start()
 
 
@@ -121,18 +131,19 @@ def update_wiki_indexes(wiki_status_index, wiki_index, index_manager, repo_data)
 
 
 class WikiIndexUpdaterTimer(Thread):
-    def __init__(self, wiki_status_index, wiki_index, index_manager, repo_data):
+    def __init__(self, wiki_status_index, wiki_index, index_manager, repo_data, interval):
         super(WikiIndexUpdaterTimer, self).__init__()
         self.wiki_status_index = wiki_status_index
         self.wiki_index = wiki_index
         self.index_manager = index_manager
         self.repo_data = repo_data
+        self.interval = interval
 
     def run(self):
         sched = GeventScheduler()
         logging.info('Start to update wiki index...')
         try:
-            sched.add_job(update_wiki_indexes, CronTrigger(minute='*/15'),
+            sched.add_job(update_wiki_indexes, IntervalTrigger(seconds=self.interval),
                           args=(self.wiki_status_index, self.wiki_index, self.index_manager, self.repo_data))
         except Exception as e:
             logging.exception('periodical update wiki index error: %s', e)

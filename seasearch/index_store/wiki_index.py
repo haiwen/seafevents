@@ -2,7 +2,7 @@ import logging
 import posixpath
 import json
 
-from seafevents.seasearch.utils import get_library_diff_files, is_wiki, extract_sdoc_text
+from seafevents.seasearch.utils import get_library_diff_files, is_in_wiki_dirs, extract_sdoc_text
 from seafevents.seasearch.utils.constants import ZERO_OBJ_ID, WIKI_INDEX_PREFIX
 from seafobj import fs_mgr, commit_mgr
 from seaserv import seafile_api
@@ -106,7 +106,7 @@ class WikiIndex(object):
     def check_index(self, index_name):
         return self.seasearch_api.check_index_mapping(index_name).get('is_exist')
 
-    def query_data_by_doc_uuid(self, index_name, doc_uuids_list, start, size):
+    def query_data_by_doc_uuids(self, index_name, doc_uuids_list, start, size):
         dsl = {
             "query": {
                 "terms": {
@@ -135,13 +135,14 @@ class WikiIndex(object):
     def get_wiki_conf(self, wiki_id):
         # Get wiki config dict
         conf_path = posixpath.join(WIKI_CONFIG_PATH, WIKI_CONFIG_FILE_NAME)
-        conf_id = seafile_api.get_file_id_by_path(wiki_id, conf_path)
+        file_id = seafile_api.get_file_id_by_path(wiki_id, conf_path)
 
-        f = fs_mgr.load_seafile(wiki_id, 1, conf_id)
+        f = fs_mgr.load_seafile(wiki_id, 1, file_id)
         return json.loads(f.get_content().decode())
 
-    def extract_doc_uuids(self, config):
-        """Extract the uuid of the undeleted wiki pages not in the recycle bin"""
+    def extract_doc_uuids(self, config, deleted=False):
+        """Determine the UUID for extracting unremoved or deleted wiki pages based on the deleted parameter
+        """
         def extract_ids_from_navigation(navigation_items, navigation_ids):
             for item in navigation_items:
                 navigation_ids.add(item['id'])
@@ -150,28 +151,20 @@ class WikiIndex(object):
 
         navigation_ids = set()
         extract_ids_from_navigation(config['navigation'], navigation_ids)
-        doc_uuids = [page['docUuid'] for page in config['pages'] if page['id'] in navigation_ids]
+
+        if deleted:
+            doc_uuids = [page['docUuid'] for page in config['pages'] if page['id'] not in navigation_ids]
+        else:
+            doc_uuids = [page['docUuid'] for page in config['pages'] if page['id'] in navigation_ids]
+
         return doc_uuids
-
-    def extract_deleted_doc_uuids(self, config):
-        """Extract the uuid of the deleted wiki pages in the recycle bin"""
-        def extract_ids_from_navigation(navigation_items, navigation_ids):
-            for item in navigation_items:
-                navigation_ids.add(item['id'])
-                if 'children' in item and item['children']:
-                    extract_ids_from_navigation(item['children'], navigation_ids)
-
-        navigation_ids = set()
-        extract_ids_from_navigation(config['navigation'], navigation_ids)
-        non_navigation_doc_uuids = [page['docUuid'] for page in config['pages'] if page['id'] not in navigation_ids]
-        return non_navigation_doc_uuids
 
     def add_files(self, index_name, wiki_id, files, doc_uuids):
         bulk_add_params = []
         index_info = {'index': {'_index': index_name}}
 
         for path, obj_id, mtime, size in files:
-            if not is_wiki(path):
+            if not is_in_wiki_dirs(path):
                 continue
 
             doc_uuid = path.split('/')[2]
@@ -204,7 +197,7 @@ class WikiIndex(object):
         def delete_documents(doc_uuids):
             start = 0
             while True:
-                hits, total = self.query_data_by_doc_uuid(index_name, doc_uuids, start, per_size)
+                hits, total = self.query_data_by_doc_uuids(index_name, doc_uuids, start, per_size)
                 if hits:
                     delete_params = [{'delete': {'_id': hit['_id'], '_index': index_name}} for hit in hits]
                     self.seasearch_api.bulk(index_name, delete_params)
@@ -213,7 +206,7 @@ class WikiIndex(object):
                 start += per_size
 
         for pos in range(0, len(files), step):
-            get_doc_uuid = lambda file: file[0].split('/')[2] if is_wiki(file[0]) else None
+            get_doc_uuid = lambda file: file[0].split('/')[2] if is_in_wiki_dirs(file[0]) else None
             doc_uuids = list(filter(None, map(get_doc_uuid, files[pos: pos + step])))
             if doc_uuids:
                 delete_documents(doc_uuids)
