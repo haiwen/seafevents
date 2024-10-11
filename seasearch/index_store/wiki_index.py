@@ -227,7 +227,7 @@ class WikiIndex(object):
         conf = self.get_wiki_conf(wiki_id)
 
         doc_uuids = self.extract_doc_uuids(conf)
-        deleted_doc_uuids = self.extract_deleted_doc_uuids(conf)
+        deleted_doc_uuids = self.extract_doc_uuids(conf, deleted=True)
 
         need_deleted_files = deleted_files + modified_files
         self.delete_files(index_name, need_deleted_files, deleted_doc_uuids)
