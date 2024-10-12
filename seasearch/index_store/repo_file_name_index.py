@@ -106,32 +106,39 @@ class RepoFileNameIndex(object):
         searches.append(_make_match_query('description', keyword, **match_query_kwargs))
         return searches
 
+    def _ensure_filter_exists(self, query_map):
+        if 'filter' not in query_map['bool']:
+            query_map['bool']['filter'] = []
+        return query_map
+
     def _add_path_filter(self, query_map, search_path):
         if search_path is None:
             return query_map
 
-        if query_map['bool'].get('filter'):
-            query_map['bool']['filter'].append({'prefix': {'path': search_path}})
-        else:
-            query_map['bool']['filter'] = [{'prefix': {'path': search_path}}]
+        query_map = self._ensure_filter_exists(query_map)
+        query_map['bool']['filter'].append({'prefix': {'path': search_path}})
         return query_map
 
     def _add_suffix_filter(self, query_map, suffixes):
-        if suffixes:
-            if isinstance(suffixes, list):
-                suffixes = [x.lower() for x in suffixes]
-                query_map['bool']['filter'].append({'terms': {'suffix': suffixes}})
-            else:
-                query_map['bool']['filter'].append({'term': {'suffix': suffixes.lower()}})
+        if suffixes is None:
+            return query_map
+
+        query_map = self._ensure_filter_exists(query_map)
+
+        if isinstance(suffixes, list):
+            suffixes = [x.lower() for x in suffixes]
+            query_map['bool']['filter'].append({'terms': {'suffix': suffixes}})
+        else:
+            query_map['bool']['filter'].append({'term': {'suffix': suffixes.lower()}})
         return query_map
 
     def _add_obj_type_filter(self, query_map, obj_type):
         if obj_type is None:
             return query_map
-        elif obj_type == 'dir':
-            query_map['bool']['filter'].append({'term': {'is_dir': True}})
-        else:
-            query_map['bool']['filter'].append({'term': {'is_dir': False}})
+
+        query_map = self._ensure_filter_exists(query_map)
+
+        query_map['bool']['filter'].append({'term': {'is_dir': obj_type == 'dir'}})
         return query_map
 
     def search_files(self, repos, keyword, start=0, size=10, suffixes=None, search_path=None, obj_type=None):
@@ -140,7 +147,7 @@ class RepoFileNameIndex(object):
             repo_id = repo[0]
             origin_repo_id = repo[1]
             origin_path = repo[2]
-            query_map = {'bool': {'filter': [], 'should': [], 'minimum_should_match': 1}}
+            query_map = {'bool': {'should': [], 'minimum_should_match': 1}}
             searches = self._make_query_searches(keyword)
             query_map['bool']['should'] = searches
 
