@@ -195,14 +195,18 @@ class Settings(object):
         setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else 'LDAP'
         ldap_config.user_object_class = self.get_option(
             'LDAP_USER_OBJECT_CLASS'.replace('LDAP', setting_prefix, 1), 'person')
-        ldap_config.enable_extra_user_info_sync = self.get_option(
-            'ENABLE_EXTRA_USER_INFO_SYNC', True)
+        if not enable_multi_ldap:
+            ldap_config.enable_extra_user_info_sync = self.get_option(
+                'ENABLE_EXTRA_USER_INFO_SYNC', True)
+        else:
+            ldap_config.enable_extra_user_info_sync = self.get_option(
+                'ENABLE_MULTI_LDAP_1_EXTRA_USER_INFO_SYNC', True)
         ldap_config.first_name_attr = self.get_option(
-            'LDAP_USER_FIRST_NAME_ATTR', 'givenName')
+            'LDAP_USER_FIRST_NAME_ATTR'.replace('LDAP', setting_prefix, 1), 'givenName')
         ldap_config.last_name_attr = self.get_option(
-            'LDAP_USER_LAST_NAME_ATTR', 'sn')
+            'LDAP_USER_LAST_NAME_ATTR'.replace('LDAP', setting_prefix, 1), 'sn')
         ldap_config.name_reverse = self.get_option(
-            'LDAP_USER_NAME_REVERSE', False)
+            'LDAP_USER_NAME_REVERSE'.replace('LDAP', setting_prefix, 1), False)
         ldap_config.dept_attr = self.get_option(
             'LDAP_DEPT_ATTR'.replace('LDAP', setting_prefix, 1), 'department')
         ldap_config.uid_attr = self.get_option(
