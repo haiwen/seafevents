@@ -6,8 +6,8 @@ class RepoStatus(object):
         self.repo_id = repo_id
         self.from_commit = from_commit
         self.to_commit = to_commit
-        if metadata_updated_time := kwargs.get('metadata_updated_time'):
-            self.metadata_updated_time = metadata_updated_time
+        if 'metadata_updated_time' in kwargs:
+            self.metadata_updated_time = kwargs['metadata_updated_time']
 
     def need_recovery(self):
         return self.to_commit is not None
@@ -71,8 +71,8 @@ class RepoStatusIndex(object):
             'updatingto': updatingto,
         }
 
-        if metadata_updated_time := kwargs.get('metadata_updated_time'):
-            data.update(metadata_updated_time=metadata_updated_time)
+        if 'metadata_updated_time' in kwargs:
+            data.update(metadata_updated_time=kwargs['metadata_updated_time'])
 
         doc_id = repo_id
         self.seasearch_api.create_document_by_id(self.index_name, doc_id, data)
@@ -89,14 +89,18 @@ class RepoStatusIndex(object):
     def get_repo_status_by_id(self, repo_id):
         doc = self.seasearch_api.get_document_by_id(self.index_name, repo_id)
         if doc.get('error'):
-            return RepoStatus(repo_id, None, None, None)
+            if self.is_status_filename_index():
+                return RepoStatus(repo_id, None, None, metadata_updated_time=None)
+            else:
+                return RepoStatus(repo_id, None, None)
+
         commit_id = doc['_source']['commit_id']
         updatingto = doc['_source']['updatingto']
         repo_id = doc['_source']['repo_id']
 
         if self.is_status_filename_index():
             metadata_updated_time = doc['_source']['metadata_updated_time']
-            return RepoStatus(repo_id, commit_id, updatingto, metadata_updated_time)
+            return RepoStatus(repo_id, commit_id, updatingto, metadata_updated_time=metadata_updated_time)
 
         return RepoStatus(repo_id, commit_id, updatingto)
 
@@ -171,8 +175,8 @@ class RepoStatusIndex(object):
                 'commit_id': commit_id,
                 'updatingto': updatingto,
             }
-            if metadata_updated_time := hit.get('_source').get('metadata_updated_time'):
-                repo_head['metadata_updated_time'] = metadata_updated_time
+            if 'metadata_updated_time' in hit.get('_source', {}):
+                repo_head['metadata_updated_time'] = hit.get('_source').get('metadata_updated_time')
             repo_heads.append(repo_head)
         return repo_heads, total
 

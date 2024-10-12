@@ -58,9 +58,9 @@ class IndexManager(object):
                 commit_id = to_commit
                 time.sleep(1)
 
-            repo_status_filename_index.begin_update_repo(repo_id, commit_id, new_commit_id, metadata_last_updated_time)
+            repo_status_filename_index.begin_update_repo(repo_id, commit_id, new_commit_id, metadata_updated_time=metadata_last_updated_time)
             repo_filename_index.update(index_name, repo_id, commit_id, new_commit_id, rows, self.metadata_server_api, need_index_metadata)
-            repo_status_filename_index.finish_update_repo(repo_id, new_commit_id, metadata_query_time)
+            repo_status_filename_index.finish_update_repo(repo_id, new_commit_id, metadata_updated_time=metadata_query_time)
 
             logger.info('repo: %s, update repo filename index success', repo_id)
 
