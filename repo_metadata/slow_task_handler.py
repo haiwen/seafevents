@@ -51,9 +51,9 @@ class SlowTaskHandler(object):
 
         ai_section_name = 'AI'
         if config.has_section(ai_section_name):
-            image_embedding_server_url = get_opt_from_conf_or_env(config, ai_section_name, 'image_embedding_server_url')
+            image_embedding_service_url = get_opt_from_conf_or_env(config, ai_section_name, 'image_embedding_service_url')
             image_embedding_secret_key = get_opt_from_conf_or_env(config, ai_section_name, 'image_embedding_secret_key')
-            self.image_embedding_api = ImageEmbeddingAPI(image_embedding_server_url, image_embedding_secret_key)
+            self.image_embedding_api = ImageEmbeddingAPI(image_embedding_service_url, image_embedding_secret_key)
 
     @property
     def tname(self):

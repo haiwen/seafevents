@@ -22,9 +22,9 @@ class FaceRecognitionManager(object):
     def _parse_config(self, config):
         ai_section_name = 'AI'
         if config.has_section(ai_section_name):
-            image_embedding_server_url = get_opt_from_conf_or_env(config, ai_section_name, 'image_embedding_server_url')
+            image_embedding_service_url = get_opt_from_conf_or_env(config, ai_section_name, 'image_embedding_service_url')
             image_embedding_secret_key = get_opt_from_conf_or_env(config, ai_section_name, 'image_embedding_secret_key')
-            self.image_embedding_api = ImageEmbeddingAPI(image_embedding_server_url, image_embedding_secret_key)
+            self.image_embedding_api = ImageEmbeddingAPI(image_embedding_service_url, image_embedding_secret_key)
 
     def init_face_recognition(self, repo_id):
         sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.file_type.name}` = "_picture"'
