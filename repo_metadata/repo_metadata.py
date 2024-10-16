@@ -269,8 +269,9 @@ class RepoMetadata:
 
             if file_type:
                 row[METADATA_TABLE.columns.file_type.name] = file_type
-            if file_type == '_picture' and file_ext not in ('png', 'gif'):
-                obj_ids.append(de.obj_id)
+            if file_type == '_picture' and file_ext != 'gif':
+                if de.obj_id not in obj_ids:
+                    obj_ids.append(de.obj_id)
             rows.append(row)
 
             if len(rows) >= METADATA_OP_LIMIT:
@@ -278,7 +279,7 @@ class RepoMetadata:
 
                 if obj_ids:
                     data = {
-                        'task_type': 'location_extract',
+                        'task_type': 'image_info_extract',
                         'repo_id': repo_id,
                         'commit_id': commit_id,
                         'obj_ids': obj_ids
@@ -291,7 +292,7 @@ class RepoMetadata:
         self.metadata_server_api.insert_rows(repo_id, METADATA_TABLE.id, rows)
         if obj_ids:
             data = {
-                'task_type': 'location_extract',
+                'task_type': 'image_info_extract',
                 'repo_id': repo_id,
                 'commit_id': commit_id,
                 'obj_ids': obj_ids

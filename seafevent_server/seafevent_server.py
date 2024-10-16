@@ -4,6 +4,7 @@ from gevent.pywsgi import WSGIServer
 from seafevents.seafevent_server.request_handler import app as application
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
+from seafevents.seafevent_server.face_recognition_task_manager import face_recognition_task_manager
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 
 
@@ -15,9 +16,11 @@ class SeafEventServer(Thread):
         self.app = app
         task_manager.init(self.app, self._workers, self._task_expire_time, config)
         event_export_task_manager.init(self.app, self._workers, self._task_expire_time, config)
+        face_recognition_task_manager.init(self.app, self._workers, self._task_expire_time, config)
 
         task_manager.run()
         event_export_task_manager.run()
+        face_recognition_task_manager.run()
         self._server = WSGIServer((self._host, int(self._port)), application)
         
         index_task_manager.init(config)
