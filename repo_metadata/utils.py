@@ -92,7 +92,7 @@ def get_image_details(content):
                 'Exposure time': metadata.get('EXIF:ExposureTime', ''),
             }
             for k, v in metadata.items():
-                if k.startswith('XMP'):
+                if k.startswith('XMP') and k != 'XMP:XMPToolkit':
                     details[k[4:]] = v
 
             lat = metadata.get('EXIF:GPSLatitude')
@@ -182,8 +182,9 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_tas
 
         content = get_file_content(repo_id, obj_id)
         if file_type == '_picture':
-            records = obj_id_to_rows.get(obj_id, [])
-            known_faces = face_recognition_task_manager.face_recognition(obj_id, records, repo_id, faces_table_id, known_faces)
+            if faces_table_id:
+                records = obj_id_to_rows.get(obj_id, [])
+                known_faces = face_recognition_task_manager.face_recognition(obj_id, records, repo_id, faces_table_id, known_faces)
             update_row = add_image_detail_row(row_id, content, has_capture_time_column)
         elif file_type == '_video':
             update_row = add_video_detail_row(row_id, content, has_capture_time_column)

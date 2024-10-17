@@ -10,7 +10,6 @@ from seafevents.seafevent_server.face_recognition_task_manager import face_recog
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
-from seafevents.utils import get_opt_from_conf_or_env
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
@@ -205,9 +204,6 @@ def init_file_details():
         return {'error_msg': 'repo_id invalid.'}, 400
 
     metadata_server_api = MetadataServerAPI('seafevents')
-    image_embedding_service_url = get_opt_from_conf_or_env(config, ai_section_name, 'image_embedding_service_url')
-    image_embedding_secret_key = get_opt_from_conf_or_env(config, ai_section_name, 'image_embedding_secret_key')
-    self.image_embedding_api = ImageEmbeddingAPI(image_embedding_service_url, image_embedding_secret_key)
-    details = add_file_details(repo_id, obj_ids, metadata_server_api)
+    details = add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_task_manager)
 
     return {'details': details}, 200
