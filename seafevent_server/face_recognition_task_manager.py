@@ -51,6 +51,9 @@ class FaceRecognitionTaskManager:
             return True, task_result[6:]
         return False, None
 
+    def face_recognition(self, obj_id, records, repo_id, faces_table_id, used_faces):
+        return self.face_recognition_manager.face_recognition(obj_id, records, repo_id, faces_table_id, used_faces)
+
     def threads_is_alive(self):
         info = {}
         for t in self.threads:

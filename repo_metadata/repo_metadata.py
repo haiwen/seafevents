@@ -5,11 +5,11 @@ import logging
 from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_ext_by_name
 from seafevents.utils import timestamp_to_isoformat_timestr
 from seafevents.repo_metadata.metadata_manager import ZERO_OBJ_ID
+from seafevents.repo_metadata.constants import METADATA_OP_LIMIT
 
 logger = logging.getLogger(__name__)
 
 EXCLUDED_PATHS = ['/_Internal', '/images']
-METADATA_OP_LIMIT = 1000
 
 
 class DiffEntry(object):
@@ -272,6 +272,9 @@ class RepoMetadata:
             if file_type == '_picture' and file_ext != 'gif':
                 if de.obj_id not in obj_ids:
                     obj_ids.append(de.obj_id)
+            if file_type == '_video':
+                if de.obj_id not in obj_ids:
+                    obj_ids.append(de.obj_id)
             rows.append(row)
 
             if len(rows) >= METADATA_OP_LIMIT:
@@ -279,7 +282,7 @@ class RepoMetadata:
 
                 if obj_ids:
                     data = {
-                        'task_type': 'image_info_extract',
+                        'task_type': 'file_info_extract',
                         'repo_id': repo_id,
                         'commit_id': commit_id,
                         'obj_ids': obj_ids
@@ -292,7 +295,7 @@ class RepoMetadata:
         self.metadata_server_api.insert_rows(repo_id, METADATA_TABLE.id, rows)
         if obj_ids:
             data = {
-                'task_type': 'image_info_extract',
+                'task_type': 'file_info_extract',
                 'repo_id': repo_id,
                 'commit_id': commit_id,
                 'obj_ids': obj_ids
