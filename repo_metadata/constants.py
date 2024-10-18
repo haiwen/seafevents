@@ -119,3 +119,6 @@ class DurationFormatsType(object):
 class ViewType(object):
     TABLE = 'table'
     GALLERY = 'gallery'
+
+
+METADATA_OP_LIMIT = 1000

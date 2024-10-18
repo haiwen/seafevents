@@ -8,7 +8,8 @@ from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seafevents.seafevent_server.face_recognition_task_manager import face_recognition_task_manager
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
-
+from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
+from seafevents.repo_metadata.utils import add_file_details
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
@@ -180,3 +181,29 @@ def add_init_face_recognition_task():
         return make_response((e, 500))
 
     return make_response(({'task_id': task_id}, 200))
+
+
+@app.route('/extract-file-details', methods=['POST'])
+def extract_file_details():
+    is_valid = check_auth_token(request)
+    if not is_valid:
+        return {'error_msg': 'Permission denied'}, 403
+
+    try:
+        data = json.loads(request.data)
+    except Exception as e:
+        logger.exception(e)
+        return {'error_msg': 'Bad request.'}, 400
+
+    obj_ids = data.get('obj_ids')
+    repo_id = data.get('repo_id')
+
+    if not obj_ids or not isinstance(obj_ids, list):
+        return {'error_msg': 'obj_ids invalid.'}, 400
+    if not repo_id:
+        return {'error_msg': 'repo_id invalid.'}, 400
+
+    metadata_server_api = MetadataServerAPI('seafevents')
+    details = add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_task_manager, embedding_faces=False)
+
+    return {'details': details}, 200

@@ -1,5 +1,6 @@
 import json
 import os
+import pytz
 import random
 import math
 import exiftool
@@ -13,6 +14,7 @@ from seafobj import commit_mgr, fs_mgr
 from seafevents.app.config import METADATA_FILE_TYPES
 from seafevents.repo_metadata.view_data_sql import view_data_2_sql
 from seafevents.utils import timestamp_to_isoformat_timestr
+from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT
 
 
 def gen_fileext_type_map():
@@ -36,14 +38,14 @@ def get_file_type_ext_by_name(filename):
     return file_type, file_ext
 
 
-def face_recognition(face, known_faces, threshold):
+def face_compare(face, known_faces, threshold):
     for known_face in known_faces:
-        if feature_compare(face, json.loads(known_face[FACES_TABLE.columns.vector.name]), threshold):
+        if feature_distance(face, json.loads(known_face[FACES_TABLE.columns.vector.name]), threshold):
             return known_face
     return None
 
 
-def feature_compare(feature1, feature2, threshold):
+def feature_distance(feature1, feature2, threshold):
     diff = np.subtract(feature1, feature2)
     dist = np.sum(np.square(diff), 0)
     if dist < threshold:
@@ -52,10 +54,8 @@ def feature_compare(feature1, feature2, threshold):
         return False
 
 
-def get_file_content(repo_id, commit_id, obj_id):
-    new_commit = commit_mgr.load_commit(repo_id, 0, commit_id)
-    version = new_commit.get_version()
-    f = fs_mgr.load_seafile(repo_id, version, obj_id)
+def get_file_content(repo_id, obj_id):
+    f = fs_mgr.load_seafile(repo_id, 1, obj_id)
     content = f.get_content()
     return content
 
@@ -92,7 +92,7 @@ def get_image_details(content):
                 'Exposure time': metadata.get('EXIF:ExposureTime', ''),
             }
             for k, v in metadata.items():
-                if k.startswith('XMP'):
+                if k.startswith('XMP') and k != 'XMP:XMPToolkit':
                     details[k[4:]] = v
 
             lat = metadata.get('EXIF:GPSLatitude')
@@ -102,6 +102,140 @@ def get_image_details(content):
                 'lng': lng,
             } if lat is not None and lng is not None else {}
             return details, location
+
+
+def get_video_details(content):
+    with tempfile.NamedTemporaryFile() as temp_file:
+        temp_file.write(content)
+        temp_file.flush()
+        temp_file_path = temp_file.name
+        with exiftool.ExifTool() as et:
+            metadata = et.get_metadata(temp_file_path)
+            lat = metadata.get('Composite:GPSLatitude')
+            lng = metadata.get('Composite:GPSLongitude')
+            software = metadata.get('QuickTime:Software', '')
+            capture_time = metadata.get('QuickTime:CreateDate', '')
+            if capture_time:
+                capture_time = capture_time.replace(':', '-', 2)
+                capture_time = datetime.strptime(capture_time, '%Y-%m-%d %H:%M:%S')
+                capture_time = capture_time.replace(tzinfo=pytz.utc)
+                capture_time = capture_time.isoformat()
+            details = {
+                'Dimensions': str(metadata.get('QuickTime:SourceImageWidth')) + 'x' + str(metadata.get('QuickTime:SourceImageHeight')),
+                'Duration': str(metadata.get('QuickTime:Duration')),
+            }
+            if capture_time:
+                details['Capture time'] = capture_time
+            if software:
+                details['Encoding software'] = software
+
+            location = {
+                'lat': lat,
+                'lng': lng,
+            } if lat is not None and lng is not None else {}
+            return details, location
+
+
+def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_task_manager, embedding_faces=True):
+    all_updated_rows = []
+    query_result = get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api)
+    if not query_result:
+        return []
+
+    obj_id_to_rows = {}
+    for item in query_result:
+        obj_id = item[METADATA_TABLE.columns.obj_id.name]
+        if obj_id not in obj_id_to_rows:
+            obj_id_to_rows[obj_id] = []
+        obj_id_to_rows[obj_id].append(item)
+
+    if embedding_faces:
+        metadata = metadata_server_api.get_metadata(repo_id)
+        tables = metadata.get('tables', [])
+        if not tables:
+            return []
+        faces_table_id = [table['id'] for table in tables if table['name'] == FACES_TABLE.name]
+        faces_table_id = faces_table_id[0] if faces_table_id else None
+        if faces_table_id:
+            sql = f'SELECT * FROM `{FACES_TABLE.name}`'
+            known_faces = query_metadata_rows(repo_id, metadata_server_api, sql)
+            used_faces = []
+            no_used_face_row_ids = []
+            for item in known_faces:
+                if item.get(FACES_TABLE.columns.photo_links.name):
+                    used_faces.append(item)
+                else:
+                    no_used_face_row_ids.append(item[FACES_TABLE.columns.id.name])
+            if no_used_face_row_ids:
+                metadata_server_api.delete_rows(repo_id, faces_table_id, no_used_face_row_ids)
+            known_faces = used_faces
+        else:
+            known_faces = []
+
+    updated_rows = []
+    columns = metadata_server_api.list_columns(repo_id, METADATA_TABLE.id).get('columns', [])
+    capture_time_column = [column for column in columns if column.get('key') == PrivatePropertyKeys.CAPTURE_TIME]
+    has_capture_time_column = True if capture_time_column else False
+    for row in query_result:
+        file_type = row[METADATA_TABLE.columns.file_type.name]
+        row_id = row[METADATA_TABLE.columns.id.name]
+        obj_id = row[METADATA_TABLE.columns.obj_id.name]
+
+        content = get_file_content(repo_id, obj_id)
+        if file_type == '_picture':
+            if embedding_faces and faces_table_id:
+                records = obj_id_to_rows.get(obj_id, [])
+                known_faces = face_recognition_task_manager.face_recognition(obj_id, records, repo_id, faces_table_id, known_faces)
+            update_row = add_image_detail_row(row_id, content, has_capture_time_column)
+        elif file_type == '_video':
+            update_row = add_video_detail_row(row_id, content, has_capture_time_column)
+        else:
+            continue
+        updated_rows.append(update_row)
+
+        if len(updated_rows) >= METADATA_OP_LIMIT:
+            metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
+            all_updated_rows.extend(updated_rows)
+            updated_rows = []
+
+    if updated_rows:
+        metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
+        all_updated_rows.extend(updated_rows)
+
+    return all_updated_rows
+
+
+def add_image_detail_row(row_id, content, has_capture_time_column):
+    image_details, location = get_image_details(content)
+    update_row = {
+        METADATA_TABLE.columns.id.name: row_id,
+        METADATA_TABLE.columns.location.name: {'lng': location.get('lng', ''), 'lat': location.get('lat', '')},
+        METADATA_TABLE.columns.file_details.name: f'\n\n```json\n{json.dumps(image_details)}\n```\n\n\n',
+    }
+
+    if has_capture_time_column:
+        capture_time = image_details.get('Capture time')
+        if capture_time:
+            update_row[PrivatePropertyKeys.CAPTURE_TIME] = capture_time
+
+    return update_row
+
+
+def add_video_detail_row(row_id, content, has_capture_time_column):
+    video_details, location = get_video_details(content)
+
+    update_row = {
+        METADATA_TABLE.columns.id.name: row_id,
+        METADATA_TABLE.columns.location.name: {'lng': location.get('lng', ''), 'lat': location.get('lat', '')},
+        METADATA_TABLE.columns.file_details.name: f'\n\n```json\n{json.dumps(video_details)}\n```\n\n\n',
+    }
+
+    if has_capture_time_column:
+        capture_time = video_details.get('Capture time')
+        if capture_time:
+            update_row[PrivatePropertyKeys.CAPTURE_TIME] = capture_time
+
+    return update_row
 
 
 def gen_select_options(option_names):
