@@ -136,7 +136,7 @@ def get_video_details(content):
             return details, location
 
 
-def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_task_manager):
+def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_task_manager, embedding_faces=True):
     all_updated_rows = []
     query_result = get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api)
     if not query_result:
@@ -149,27 +149,28 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_tas
             obj_id_to_rows[obj_id] = []
         obj_id_to_rows[obj_id].append(item)
 
-    metadata = metadata_server_api.get_metadata(repo_id)
-    tables = metadata.get('tables', [])
-    if not tables:
-        return
-    faces_table_id = [table['id'] for table in tables if table['name'] == FACES_TABLE.name]
-    faces_table_id = faces_table_id[0] if faces_table_id else None
-    if faces_table_id:
-        sql = f'SELECT * FROM `{FACES_TABLE.name}`'
-        known_faces = query_metadata_rows(repo_id, metadata_server_api, sql)
-        used_faces = []
-        no_used_face_row_ids = []
-        for item in known_faces:
-            if item.get(FACES_TABLE.columns.photo_links.name):
-                used_faces.append(item)
-            else:
-                no_used_face_row_ids.append(item[FACES_TABLE.columns.id.name])
-        if no_used_face_row_ids:
-            metadata_server_api.delete_rows(repo_id, faces_table_id, no_used_face_row_ids)
-        known_faces = used_faces
-    else:
-        known_faces = []
+    if embedding_faces:
+        metadata = metadata_server_api.get_metadata(repo_id)
+        tables = metadata.get('tables', [])
+        if not tables:
+            return []
+        faces_table_id = [table['id'] for table in tables if table['name'] == FACES_TABLE.name]
+        faces_table_id = faces_table_id[0] if faces_table_id else None
+        if faces_table_id:
+            sql = f'SELECT * FROM `{FACES_TABLE.name}`'
+            known_faces = query_metadata_rows(repo_id, metadata_server_api, sql)
+            used_faces = []
+            no_used_face_row_ids = []
+            for item in known_faces:
+                if item.get(FACES_TABLE.columns.photo_links.name):
+                    used_faces.append(item)
+                else:
+                    no_used_face_row_ids.append(item[FACES_TABLE.columns.id.name])
+            if no_used_face_row_ids:
+                metadata_server_api.delete_rows(repo_id, faces_table_id, no_used_face_row_ids)
+            known_faces = used_faces
+        else:
+            known_faces = []
 
     updated_rows = []
     columns = metadata_server_api.list_columns(repo_id, METADATA_TABLE.id).get('columns', [])
@@ -182,7 +183,7 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_tas
 
         content = get_file_content(repo_id, obj_id)
         if file_type == '_picture':
-            if faces_table_id:
+            if embedding_faces and faces_table_id:
                 records = obj_id_to_rows.get(obj_id, [])
                 known_faces = face_recognition_task_manager.face_recognition(obj_id, records, repo_id, faces_table_id, known_faces)
             update_row = add_image_detail_row(row_id, content, has_capture_time_column)
