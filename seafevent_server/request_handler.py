@@ -183,8 +183,8 @@ def add_init_face_recognition_task():
     return make_response(({'task_id': task_id}, 200))
 
 
-@app.route('/init-file-details', methods=['POST'])
-def init_file_details():
+@app.route('/extract-file-details', methods=['POST'])
+def extract_file_details():
     is_valid = check_auth_token(request)
     if not is_valid:
         return {'error_msg': 'Permission denied'}, 403
