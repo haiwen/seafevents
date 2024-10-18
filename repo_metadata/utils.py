@@ -54,6 +54,14 @@ def feature_distance(feature1, feature2, threshold):
         return False
 
 
+def is_valid_datetime(date_string, format):
+    try:
+        datetime.strptime(date_string, format)
+        return True
+    except ValueError:
+        return False
+
+
 def get_file_content(repo_id, obj_id):
     f = fs_mgr.load_seafile(repo_id, 1, obj_id)
     content = f.get_content()
@@ -69,7 +77,7 @@ def get_image_details(content):
             metadata = et.get_metadata(temp_file_path)
             time_zone_str = metadata.get('EXIF:OffsetTimeOriginal', '')
             capture_time = metadata.get('EXIF:DateTimeOriginal', '')
-            if capture_time:
+            if is_valid_datetime(capture_time, '%Y:%m:%d %H:%M:%S'):
                 capture_time = datetime.strptime(capture_time, '%Y:%m:%d %H:%M:%S')
                 if time_zone_str:
                     hours, minutes = map(int, time_zone_str.split(':'))
@@ -79,6 +87,8 @@ def get_image_details(content):
                     capture_time = capture_time.isoformat()
                 else:
                     capture_time = timestamp_to_isoformat_timestr(capture_time.timestamp())
+            else:
+                capture_time = ''
             focal_length = str(metadata['EXIF:FocalLength']) + 'mm' if metadata.get('EXIF:FocalLength') else ''
             f_number = 'f/' + str(metadata['EXIF:FNumber']) if metadata.get('EXIF:FNumber') else ''
             details = {
@@ -115,11 +125,12 @@ def get_video_details(content):
             lng = metadata.get('Composite:GPSLongitude')
             software = metadata.get('QuickTime:Software', '')
             capture_time = metadata.get('QuickTime:CreateDate', '')
-            if capture_time:
-                capture_time = capture_time.replace(':', '-', 2)
-                capture_time = datetime.strptime(capture_time, '%Y-%m-%d %H:%M:%S')
+            if is_valid_datetime(capture_time, '%Y:%m:%d %H:%M:%S'):
+                capture_time = datetime.strptime(capture_time, '%Y:%m:%d %H:%M:%S')
                 capture_time = capture_time.replace(tzinfo=pytz.utc)
                 capture_time = capture_time.isoformat()
+            else:
+                capture_time = ''
             details = {
                 'Dimensions': str(metadata.get('QuickTime:SourceImageWidth')) + 'x' + str(metadata.get('QuickTime:SourceImageHeight')),
                 'Duration': str(metadata.get('QuickTime:Duration')),
