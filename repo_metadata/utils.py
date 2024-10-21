@@ -62,9 +62,9 @@ def is_valid_datetime(date_string, format):
         return False
 
 
-def get_file_content(repo_id, obj_id):
+def get_file_content(repo_id, obj_id, limit=-1):
     f = fs_mgr.load_seafile(repo_id, 1, obj_id)
-    content = f.get_content()
+    content = f.get_content(limit)
     return content
 
 
@@ -191,8 +191,10 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_tas
         file_type = row[METADATA_TABLE.columns.file_type.name]
         row_id = row[METADATA_TABLE.columns.id.name]
         obj_id = row[METADATA_TABLE.columns.obj_id.name]
+        suffix = row[METADATA_TABLE.columns.suffix.name]
 
-        content = get_file_content(repo_id, obj_id)
+        limit = 100000 if suffix == 'mp4' else -1
+        content = get_file_content(repo_id, obj_id, limit)
         if file_type == '_picture':
             if embedding_faces and faces_table_id:
                 records = obj_id_to_rows.get(obj_id, [])
