@@ -8,17 +8,13 @@ import tempfile
 import numpy as np
 
 from datetime import timedelta, timezone, datetime
-from urllib.parse import quote as urlquote
 
-import requests
 from seafobj import commit_mgr, fs_mgr
-from seaserv import seafile_api
 
 from seafevents.app.config import METADATA_FILE_TYPES
 from seafevents.repo_metadata.view_data_sql import view_data_2_sql
 from seafevents.utils import timestamp_to_isoformat_timestr
 from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT
-from seafevents.app.config import FILE_SERVER_ROOT
 
 
 def gen_fileext_type_map():
@@ -200,7 +196,6 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_tas
         limit = 100000 if suffix == 'mp4' else -1
         content = get_file_content(repo_id, obj_id, limit)
         if file_type == '_picture':
-            content = get_file_content(repo_id, obj_id)
             if embedding_faces and faces_table_id:
                 records = obj_id_to_rows.get(obj_id, [])
                 known_faces = face_recognition_task_manager.face_recognition(obj_id, records, repo_id, faces_table_id, known_faces)
