@@ -66,22 +66,9 @@ def is_valid_datetime(date_string, format):
         return False
 
 
-def get_file_content(repo_id, obj_id):
+def get_file_content(repo_id, obj_id, limit=-1):
     f = fs_mgr.load_seafile(repo_id, 1, obj_id)
-    content = f.get_content()
-    return content
-
-
-def get_file_header(repo_id, obj_id, filename):
-    token = seafile_api.get_fileserver_access_token(repo_id, obj_id, 'download', 'seafevents', use_onetime=True)
-    download_url = '%s/files/%s/%s' % (FILE_SERVER_ROOT, token, urlquote(filename))
-    headers = {
-        "Range": "bytes=0-100000"
-    }
-    response = requests.get(download_url, timeout=10, headers=headers)
-    if response.status_code >= 400:
-        raise ConnectionError(response.status_code, response.text)
-    content = response.content
+    content = f.get_content(limit)
     return content
 
 
@@ -210,18 +197,15 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_tas
         obj_id = row[METADATA_TABLE.columns.obj_id.name]
         suffix = row[METADATA_TABLE.columns.suffix.name]
 
-        records = obj_id_to_rows.get(obj_id, [])
-        file_name = records[0][METADATA_TABLE.columns.file_name.name]
+        limit = 100000 if suffix == 'mp4' else -1
+        content = get_file_content(repo_id, obj_id, limit)
         if file_type == '_picture':
             content = get_file_content(repo_id, obj_id)
             if embedding_faces and faces_table_id:
+                records = obj_id_to_rows.get(obj_id, [])
                 known_faces = face_recognition_task_manager.face_recognition(obj_id, records, repo_id, faces_table_id, known_faces)
             update_row = add_image_detail_row(row_id, content, has_capture_time_column)
         elif file_type == '_video':
-            if suffix == 'mp4':
-                content = get_file_header(repo_id, obj_id, file_name)
-            else:
-                content = get_file_content(repo_id, obj_id)
             update_row = add_video_detail_row(row_id, content, has_capture_time_column)
         else:
             continue
