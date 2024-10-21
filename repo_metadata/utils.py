@@ -188,10 +188,15 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_tas
     capture_time_column = [column for column in columns if column.get('key') == PrivatePropertyKeys.CAPTURE_TIME]
     has_capture_time_column = True if capture_time_column else False
     for row in query_result:
-        file_type = row[METADATA_TABLE.columns.file_type.name]
+        file_type = row.get(METADATA_TABLE.columns.file_type.name)
+        suffix = row.get(METADATA_TABLE.columns.suffix.name)
+        need_update_file_type = False
+        if not file_type:
+            file_name = row.get(METADATA_TABLE.columns.file_name.name)
+            file_type, suffix = get_file_type_ext_by_name(file_name)
+            need_update_file_type = True
         row_id = row[METADATA_TABLE.columns.id.name]
         obj_id = row[METADATA_TABLE.columns.obj_id.name]
-        suffix = row[METADATA_TABLE.columns.suffix.name]
 
         limit = 100000 if suffix == 'mp4' else -1
         content = get_file_content(repo_id, obj_id, limit)
@@ -204,6 +209,9 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_tas
             update_row = add_video_detail_row(row_id, content, has_capture_time_column)
         else:
             continue
+        if need_update_file_type:
+            update_row[METADATA_TABLE.columns.file_type.name] = file_type
+            update_row[METADATA_TABLE.columns.suffix.name] = suffix
         updated_rows.append(update_row)
 
         if len(updated_rows) >= METADATA_OP_LIMIT:
