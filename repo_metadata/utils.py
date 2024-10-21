@@ -8,13 +8,17 @@ import tempfile
 import numpy as np
 
 from datetime import timedelta, timezone, datetime
+from urllib.parse import quote as urlquote
 
+import requests
 from seafobj import commit_mgr, fs_mgr
+from seaserv import seafile_api
 
 from seafevents.app.config import METADATA_FILE_TYPES
 from seafevents.repo_metadata.view_data_sql import view_data_2_sql
 from seafevents.utils import timestamp_to_isoformat_timestr
 from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT
+from seafevents.app.config import FILE_SERVER_ROOT
 
 
 def gen_fileext_type_map():
@@ -65,6 +69,19 @@ def is_valid_datetime(date_string, format):
 def get_file_content(repo_id, obj_id):
     f = fs_mgr.load_seafile(repo_id, 1, obj_id)
     content = f.get_content()
+    return content
+
+
+def get_file_header(repo_id, obj_id, filename):
+    token = seafile_api.get_fileserver_access_token(repo_id, obj_id, 'download', 'seafevents', use_onetime=True)
+    download_url = '%s/files/%s/%s' % (FILE_SERVER_ROOT, token, urlquote(filename))
+    headers = {
+        "Range": "bytes=0-100000"
+    }
+    response = requests.get(download_url, timeout=10, headers=headers)
+    if response.status_code >= 400:
+        raise ConnectionError(response.status_code, response.text)
+    content = response.content
     return content
 
 
@@ -192,13 +209,15 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_tas
         row_id = row[METADATA_TABLE.columns.id.name]
         obj_id = row[METADATA_TABLE.columns.obj_id.name]
 
-        content = get_file_content(repo_id, obj_id)
+        records = obj_id_to_rows.get(obj_id, [])
+        file_name = records[0][METADATA_TABLE.columns.file_name.name]
         if file_type == '_picture':
+            content = get_file_content(repo_id, obj_id)
             if embedding_faces and faces_table_id:
-                records = obj_id_to_rows.get(obj_id, [])
                 known_faces = face_recognition_task_manager.face_recognition(obj_id, records, repo_id, faces_table_id, known_faces)
             update_row = add_image_detail_row(row_id, content, has_capture_time_column)
         elif file_type == '_video':
+            content = get_file_header(repo_id, obj_id, file_name)
             update_row = add_video_detail_row(row_id, content, has_capture_time_column)
         else:
             continue
