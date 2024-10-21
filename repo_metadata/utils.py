@@ -208,6 +208,7 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_tas
         file_type = row[METADATA_TABLE.columns.file_type.name]
         row_id = row[METADATA_TABLE.columns.id.name]
         obj_id = row[METADATA_TABLE.columns.obj_id.name]
+        suffix = row[METADATA_TABLE.columns.suffix.name]
 
         records = obj_id_to_rows.get(obj_id, [])
         file_name = records[0][METADATA_TABLE.columns.file_name.name]
@@ -217,7 +218,10 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_tas
                 known_faces = face_recognition_task_manager.face_recognition(obj_id, records, repo_id, faces_table_id, known_faces)
             update_row = add_image_detail_row(row_id, content, has_capture_time_column)
         elif file_type == '_video':
-            content = get_file_header(repo_id, obj_id, file_name)
+            if suffix == 'mp4':
+                content = get_file_header(repo_id, obj_id, file_name)
+            else:
+                content = get_file_content(repo_id, obj_id)
             update_row = add_video_detail_row(row_id, content, has_capture_time_column)
         else:
             continue
