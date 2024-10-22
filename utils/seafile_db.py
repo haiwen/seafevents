@@ -126,3 +126,25 @@ class SeafileDB(object):
                     repos_map[row[0]] = self.repo_info(row)
 
             return repos_map
+
+
+    def reset_download_rate_limit(self, rate_limit_users, rate_limit_orgs):
+        rate_limit_users_str = ','.join(["'%s'" % str(user) for user in rate_limit_users])
+        rate_limit_orgs_str = ','.join(["'%s'" % str(org_id) for org_id in rate_limit_orgs])
+
+        sql1 = f"""
+        UPDATE `{self.db_name}`.`UserDownloadRateLimit` u
+        SET u.download_limit = 0
+        WHERE
+            u.user IN ({rate_limit_users_str})
+        """
+        sql2 = f"""
+        UPDATE `{self.db_name}`.`OrgDownloadRateLimit` u
+        SET u.download_limit = 0
+        WHERE u.org_id IN ({rate_limit_orgs_str})
+        """
+        with self.seafile_db_cursor as cursor:
+            if len(rate_limit_users) > 0:
+                cursor.execute(sql1)
+            if len(rate_limit_orgs) > 0:
+                cursor.execute(sql2)

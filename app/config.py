@@ -24,6 +24,10 @@ try:
     METADATA_SERVER_URL = getattr(seahub_settings, 'METADATA_SERVER_URL', '')
     ENABLE_METADATA_MANAGEMENT = getattr(seahub_settings, 'ENABLE_METADATA_MANAGEMENT', False)
     METADATA_FILE_TYPES = getattr(seahub_settings, 'METADATA_FILE_TYPES', {})
+    DOWNLOAD_LIMIT = getattr(seahub_settings, 'DOWNLOAD_LIMIT', 100)
+    MONTHLY_RATE_LIMIT = getattr(seahub_settings, 'MONTHLY_RATE_LIMIT', 100)
+    MONTHLY_RATE_LIMIT_PER_USER = getattr(seahub_settings, 'MONTHLY_RATE_LIMIT_PER_USER', 100)
+
 except ImportError:
     logger.critical("Can not import seahub settings.")
     raise RuntimeError("Can not import seahub settings.")
