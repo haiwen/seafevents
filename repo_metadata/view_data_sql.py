@@ -1076,8 +1076,10 @@ class SQLGenerator(object):
             column = column_key and self._get_column_by_key(column_key)
             if not column:
                 column = column_name and self._get_column_by_name(column_name)
+            # skip when the column is deleted
             if not column:
-                raise ValueError('Column not found column_key: %s column_name: %s' % (column_key, column_name))
+                logger.error('Column not found column_key: %s column_name: %s' % (column_key, column_name))
+                continue
             
             if filter_item.get('filter_predicate') == 'include_me':
                 filter_item['filter_term'] = [self.username]
