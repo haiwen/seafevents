@@ -64,6 +64,7 @@ class LdapSync(Thread):
         data_ldap = self.get_data_from_ldap()
         data_ldap_custom = self.get_data_from_ldap(use_duplicated_user_filter=True)
         data_ladp_all = self.get_data_from_ldap(scope_all=True)
+        data_ldap_external = self.get_data_from_ldap(use_external_user_filter=True)
         if data_ldap is None:
             return
 
@@ -71,17 +72,17 @@ class LdapSync(Thread):
         if data_db is None:
             return
 
-        self.sync_data(data_db, data_ldap, data_ladp_all)
+        self.sync_data(data_db, data_ldap, data_ladp_all, data_ldap_external)
         self.cleanup_duplicated_ldap_data(data_ldap_custom)
 
     def get_data_from_db(self):
         return None
 
-    def get_data_from_ldap(self, use_duplicated_user_filter=False, scope_all=False):
+    def get_data_from_ldap(self, use_duplicated_user_filter=False, scope_all=False, use_external_user_filter=False):
         ret = {}
 
         for config in self.settings.ldap_configs:
-            cur_ret = self.get_data_from_ldap_by_server(config, use_duplicated_user_filter, scope_all)
+            cur_ret = self.get_data_from_ldap_by_server(config, use_duplicated_user_filter, scope_all, use_external_user_filter)
             # If get data from one server failed, then the result is failed
             if cur_ret is None:
                 return None
@@ -92,10 +93,10 @@ class LdapSync(Thread):
 
         return ret
 
-    def get_data_from_ldap_by_server(self, config, use_duplicated_user_filter=False, scope_all=False):
+    def get_data_from_ldap_by_server(self, config, use_duplicated_user_filter=False, scope_all=False, use_external_user_filter=False):
         return None
 
-    def sync_data(self, data_db, data_ldap, data_ldap_all):
+    def sync_data(self, data_db, data_ldap, data_ldap_all, data_ldap_external):
         pass
     
     def cleanup_duplicated_ldap_data(self, data_ldap):

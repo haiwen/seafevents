@@ -414,7 +414,7 @@ class LdapUserSync(LdapSync):
 
         return uid_to_ldap_user
 
-    def get_data_from_ldap_by_server(self, config, use_duplicated_user_filter=False, scope_all=False):
+    def get_data_from_ldap_by_server(self, config, use_duplicated_user_filter=False, scope_all=False, use_external_user_filter=False):
         if not config.enable_user_sync:
             return {}
         ldap_conn = LdapConn(config.host, config.user_dn, config.passwd, config.follow_referrals)
@@ -436,6 +436,16 @@ class LdapUserSync(LdapSync):
                 search_filter = '(&(objectClass=%s)(%s))' % \
                                 (config.user_object_class,
                                  config.duplicated_user_filter)
+            else:
+                return None
+
+        # 使用 外部权限的用户 过滤
+        elif use_external_user_filter:
+    
+            if config.external_user_filter:
+                search_filter = '(&(objectClass=%s)(%s))' % \
+                                (config.user_object_class,
+                                 config.external_user_filter)
             else:
                 return None
         
@@ -584,8 +594,29 @@ class LdapUserSync(LdapSync):
                     logger.debug('Update role time to user %s successs.' % email)
             except Exception as e:
                 logger.debug('Failed to update role time to user %s: %s.' % (email, e))
-
-    def sync_add_user(self, ldap_user, email, set_guest=False):
+    
+    def set_external_user(self, email, set_external=False):
+        self.cursor.execute('select 1 from ex_repo_user where email=%s', [email])
+        if self.cursor.rowcount == 0:
+            if set_external:
+                sql = 'insert into ex_repo_user (email, created_time, created_by, updated_time, updated_by) values (%s,%s,%s,%s,%s)'
+                try:
+                    self.cursor.execute(sql, [email, datetime.now(), 'ldap_sync', datetime.now(), 'ladp_sync'])
+                    if self.cursor.rowcount == 1:
+                        logger.debug('Create external user %s successs.' % email)
+                except Exception as e:
+                    logger.debug('Failed to create external user %s: %s.' % (email, e))
+        else:
+            if not set_external:
+                sql = 'delete from ex_repo_user where email=%s'
+                try:
+                    self.cursor.execute(sql, [email])
+                    if self.cursor.rowcount == 1:
+                        logger.debug('Create external user %s successs.' % email)
+                except Exception as e:
+                    logger.debug('Failed to create external user %s: %s.' % (email, e))
+    
+    def sync_add_user(self, ldap_user, email, set_guest=False, set_external=False):
         user_id = add_ldap_user(email, ldap_user.password, 0,
                                 1 if self.settings.activate_user else 0)
         if user_id <= 0:
@@ -625,7 +656,9 @@ class LdapUserSync(LdapSync):
             self.add_profile(email, ldap_user)
             self.add_dept(email, ldap_user.dept)
             
-    def sync_update_user(self, ldap_user, db_user, email, new_email, set_guest=False):
+        self.set_external_user(email, set_external)
+            
+    def sync_update_user(self, ldap_user, db_user, email, new_email, set_guest=False, set_external=False):
         # PingAn customization: reactivate user when it's added back to AD.
         if (email != new_email) or (db_user.password != ldap_user.password) or (db_user.is_active==0):
             db_user.is_active = 1
@@ -683,6 +716,8 @@ class LdapUserSync(LdapSync):
                 logger.warning('Reactivate user [%s] failed.' % email)
                 return
             logger.debug('Reactivate user [%s] success.' % email)
+
+        self.set_external_user(email, set_external)
 
     def sync_migrate_user(self, old_user, new_user):
         if ccnet_api.update_emailuser_id(old_user, new_user) < 0:
@@ -927,7 +962,7 @@ class LdapUserSync(LdapSync):
 
     # Note: customized for PinaAn's requirements. Do not deactivate renamed users in ldap.
     # The checking of rename is based on profile_profile.login_id database field and uid attribute.
-    def sync_data(self, data_db, data_ldap, data_ldap_all):
+    def sync_data(self, data_db, data_ldap, data_ldap_all, data_ldap_external=None):
         '''
         
         :param data_db:  seafile数据库中的用户数据
@@ -952,49 +987,26 @@ class LdapUserSync(LdapSync):
                             logger.debug('User[%s] not found in ldap, '
                                          'DEACTIVE_USER_IF_NOTFOUND option is not set, so not deactive it.' % del_user)
 
-        # collect migrated users
-        # nums = 0
-        # for k, v in data_ldap_all.items():
-        #     if uid_to_users:
-        #         uid = v.uid.lower()
-        #         if uid in uid_to_users:
-        #             found_active = False
-        #             users = uid_to_users[uid]
-        #             for user in users:
-        #                 if k == user:
-        #                     found_active = True
-        #                     break
-        #
-        #             if found_active:
-        #                 for user in users:
-        #                     if k == user:
-        #                         continue
-        #                     nums = nums + 1
-        #                 continue
-        #
-        #             for user in users:
-        #                 nums = nums + 1
-        #
-        # if nums > 0:
-        #     logger.debug('%d users need migrate.' % nums)
-
         # sync new and existing users from ldap to db
         for k, v in data_ldap_all.items():
             set_guest = False
+            set_external = False
             if k not in data_ldap.keys():  # 如果用户不在设置的安全组里
                 set_guest = True
+            if k in data_ldap_external.keys():
+                set_external = True
             if uid_to_users:
                 uid = v.uid.lower()
                 if uid not in uid_to_users:
                     if self.settings.import_new_user:
-                        self.sync_add_user(v, k, set_guest=set_guest)
+                        self.sync_add_user(v, k, set_guest=set_guest, set_external=set_external)
                 else:
                     found_active = False
                     users = uid_to_users[uid]
                     for user in users:
                         if k == user:
                             if user in data_db:
-                                self.sync_update_user(v, data_db[user], user, k, set_guest=set_guest)
+                                self.sync_update_user(v, data_db[user], user, k, set_guest=set_guest, set_external=set_external)
                             found_active = True
                             break
 
@@ -1009,7 +1021,7 @@ class LdapUserSync(LdapSync):
                         continue
 
                     email = users[0]
-                    self.sync_update_user(v, data_db[email], email, k, set_guest=set_guest)
+                    self.sync_update_user(v, data_db[email], email, k, set_guest=set_guest, set_external=set_external)
                     for user in users:
                         self.sync_migrate_user(user, k)
                         if email != user:

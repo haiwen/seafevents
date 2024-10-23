@@ -55,6 +55,8 @@ class LdapConfig(object):
         self.duplicated_user_filter = None
         # employee_type_attr: AD 中的一个自定义属性，标识账号类型
         self.employee_type_attr = 'employeeType'
+        # external_user_filter: 用于过滤外部资料库权限的用户
+        self.external_user_filter = None
 
 class Settings(object):
     def __init__(self, is_test=False):
@@ -180,6 +182,7 @@ class Settings(object):
         ldap_config.group_filter = self.get_option(ldap_sec, 'GROUP_FILTER')
         
         ldap_config.duplicated_user_filter = self.get_option(ldap_sec, 'DUPLICATED_USER_FILTER')
+        ldap_config.external_user_filter = self.get_option(ldap_sec, 'EXTERNAL_USER_FILTER')
 
         if ldap_config.host == '' or ldap_config.user_dn == '' or ldap_config.passwd == '' or ldap_config.base_dn == '':
             if is_test:

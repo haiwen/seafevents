@@ -13,10 +13,13 @@ from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
 from seafobj.commit_differ import DiffEntry
 from seafevents.events.db import save_file_audit_event, save_file_update_event, \
-        save_perm_audit_event, save_user_activity, save_filehistory, update_user_activity_timestamp
+        save_perm_audit_event, save_user_activity, save_filehistory, update_user_activity_timestamp, \
+        save_external_file_download_log
 from seafevents.app.config import appconfig
 from .change_file_path import ChangeFilePathHandler
 from .models import Activity
+
+logger = logging.getLogger('seafevents')
 
 def RepoUpdateEventHandler(session, msg):
     elements = msg['content'].split('\t')
@@ -425,7 +428,7 @@ def FileAuditEventHandler(session, msg):
     if len(elements) != 6:
         logging.warning("got bad message: %s", elements)
         return
-
+    
     timestamp = datetime.datetime.utcfromtimestamp(msg['ctime'])
     msg_type = elements[0]
     user_name = elements[1]
@@ -498,6 +501,28 @@ def DraftPublishEventHandler(session, msg):
     save_user_activity(session, record)
 
 
+def ExternalFileAuditEventHandler(session, msg):
+    elements = msg['content'].split('\t')
+    if len(elements) != 6:
+        logging.warning("got bad message: %s", elements)
+        return
+    
+    timestamp = datetime.datetime.utcfromtimestamp(msg['ctime'])
+    user_name = elements[1]
+    ip = elements[2]
+    repo_id = elements[4]
+    file_path = elements[5]
+    
+    repo = seafile_api.get_repo(repo_id)
+    if repo.repo_type != 'external':
+        return
+    dirent = seafile_api.get_dirent_by_path(repo_id, file_path)
+    logging.warning(dirent.__dict__)
+    if not file_path.startswith('/'):
+        file_path = '/' + file_path
+    save_external_file_download_log(session, timestamp, user_name, ip, repo_id, file_path, dirent.size)
+
+
 def register_handlers(handlers, enable_audit):
     handlers.add_handler('seaf_server.event:repo-update', RepoUpdateEventHandler)
     if enable_audit:
@@ -511,3 +536,11 @@ def register_handlers(handlers, enable_audit):
         handlers.add_handler('seahub.audit:file-download-share-link', FileAuditEventHandler)
         handlers.add_handler('seahub.audit:perm-change', PermAuditEventHandler)
         handlers.add_handler('seahub.draft:publish', DraftPublishEventHandler)
+
+        #
+        handlers.add_handler('seahub.audit:file-download-web', ExternalFileAuditEventHandler)
+        handlers.add_handler('seahub.audit:file-download-api', ExternalFileAuditEventHandler)
+        handlers.add_handler('seahub.audit:file-download-share-link', ExternalFileAuditEventHandler)
+        
+        # handlers.add_handler('seaf_server.event:repo-download-sync', ExternalFileAuditEventHandler)
+        # handlers.add_handler('seaf_server.event:seadrive-download-file', ExternalFileAuditEventHandler)

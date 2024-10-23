@@ -9,7 +9,7 @@ from sqlalchemy import desc
 from sqlalchemy.sql import exists
 
 from .models import Event, UserEvent, FileAudit, FileUpdate, PermAudit, \
-        Activity, UserActivity, FileHistory
+    Activity, UserActivity, FileHistory, ExternalFileDownloadLog
 
 from seafevents.app.config import appconfig
 
@@ -323,9 +323,18 @@ def save_file_audit_event(session, timestamp, etype, user, ip, device,
 
     file_audit = FileAudit(timestamp, etype, user, ip, device, org_id,
                            repo_id, file_path)
-
     session.add(file_audit)
     session.commit()
+
+
+def save_external_file_download_log(session, timestamp, user, ip, repo_id, file_path, size):
+    if timestamp is None:
+        timestamp = datetime.datetime.utcnow()
+    
+    file_audit = ExternalFileDownloadLog(timestamp, user, ip, repo_id, file_path, size, datetime.datetime.now(), user, datetime.datetime.now(), user)
+    session.add(file_audit)
+    session.commit()
+
 
 def save_perm_audit_event(session, timestamp, etype, from_user, to,
                           org_id, repo_id, file_path, perm):

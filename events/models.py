@@ -267,3 +267,31 @@ class PermAudit(Base):
                    RepoID = %s, FilePath = %s, Permission = %s>" % \
                     (self.etype, self.from_user, self.to,
                      self.repo_id, self.file_path, self.permission)
+        
+
+class ExternalFileDownloadLog(Base):
+    __tablename__ = 'ex_repo_download_log'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    user = Column(String(length=255), nullable=False, index=True)
+    ip = Column(String(length=45), nullable=False)
+    repo_id = Column(String(length=36), nullable=False, index=True)
+    file_path = Column(Text, nullable=False)
+    size = Column(BigInteger, nullable=False)
+    created_time = Column(DateTime, nullable=False)
+    created_by = Column(String(length=255), nullable=False)
+    updated_time = Column(DateTime, nullable=False)
+    updated_by = Column(String(length=255), nullable=False)
+    
+    def __init__(self, timestamp, user, ip, repo_id, file_path, size, created_at, created_by, updated_at, updated_by):
+        self.timestamp = timestamp
+        self.user = user
+        self.ip = ip
+        self.repo_id = repo_id
+        self.file_path = file_path
+        self.size = size
+        self.created_time = created_at
+        self.updated_time = updated_at
+        self.created_by = created_by
+        self.updated_by = updated_by
