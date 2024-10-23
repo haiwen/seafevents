@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import datetime
 import os
 import tempfile
 import subprocess
@@ -85,7 +86,7 @@ class VirusScan(object):
                 elif ret == 1:
                     logger.info('File %s virus scan by %s: Found virus.', fpath, self.settings.scan_cmd)
                     vnum += 1
-                    vrecords.append((scan_task.repo_id, scan_task.head_commit_id, fpath))
+                    vrecords.append((scan_task.repo_id, scan_task.head_commit_id, fpath, datetime.datetime.utcnow()))
                 else:
                     logger.debug('File %s virus scan by %s: Failed.', fpath, self.settings.scan_cmd)
                     nfailed += 1
