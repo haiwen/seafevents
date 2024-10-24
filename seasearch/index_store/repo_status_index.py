@@ -1,9 +1,13 @@
+from seafevents.seasearch.utils.constants import REPO_STATUS_FILENAME_INDEX_NAME
+
+
 class RepoStatus(object):
-    def __init__(self, repo_id, from_commit, to_commit, metadata_updated_time):
+    def __init__(self, repo_id, from_commit, to_commit, **kwargs):
         self.repo_id = repo_id
         self.from_commit = from_commit
         self.to_commit = to_commit
-        self.metadata_updated_time = metadata_updated_time
+        if 'metadata_updated_time' in kwargs:
+            self.metadata_updated_time = kwargs['metadata_updated_time']
 
     def need_recovery(self):
         return self.to_commit is not None
@@ -35,9 +39,6 @@ class RepoStatusIndex(object):
             'updatingto': {
                 'type': 'keyword'
             },
-            'metadata_updated_time': {
-                'type': 'keyword'
-            },
         },
     }
 
@@ -46,8 +47,15 @@ class RepoStatusIndex(object):
         self.seasearch_api = seasearch_api
         self.create_index_if_missing()
 
+    def is_status_filename_index(self):
+        return self.index_name.startswith(REPO_STATUS_FILENAME_INDEX_NAME)
+
     def create_index_if_missing(self):
         if not self.seasearch_api.check_index_mapping(self.index_name).get('is_exist'):
+            if self.is_status_filename_index():
+                self.mapping['properties']['metadata_updated_time'] = {
+                    'type': 'keyword'
+                }
             data = {
                 'mappings': self.mapping,
             }
@@ -56,21 +64,24 @@ class RepoStatusIndex(object):
     def check_repo_status(self, repo_id):
         return self.seasearch_api.check_document_by_id(self.index_name, repo_id).get('is_exist')
 
-    def add_repo_status(self, repo_id, commit_id, updatingto, metadata_updated_time):
-        date = {
+    def add_repo_status(self, repo_id, commit_id, updatingto,  **kwargs):
+        data = {
             'repo_id': repo_id,
             'commit_id': commit_id,
             'updatingto': updatingto,
-            'metadata_updated_time': metadata_updated_time,
         }
+
+        if 'metadata_updated_time' in kwargs:
+            data.update(metadata_updated_time=kwargs['metadata_updated_time'])
+
         doc_id = repo_id
-        self.seasearch_api.create_document_by_id(self.index_name, doc_id, date)
+        self.seasearch_api.create_document_by_id(self.index_name, doc_id, data)
 
-    def begin_update_repo(self, repo_id, old_commit_id, new_commit_id, metadata_updated_time):
-        self.add_repo_status(repo_id, old_commit_id, new_commit_id, metadata_updated_time)
+    def begin_update_repo(self, repo_id, old_commit_id, new_commit_id, **kwargs):
+        self.add_repo_status(repo_id, old_commit_id, new_commit_id, **kwargs)
 
-    def finish_update_repo(self, repo_id, commit_id, metadata_updated_time):
-        self.add_repo_status(repo_id, commit_id, None, metadata_updated_time)
+    def finish_update_repo(self, repo_id, commit_id, **kwargs):
+        self.add_repo_status(repo_id, commit_id, None, **kwargs)
 
     def delete_documents_by_repo(self, repo_id):
         return self.seasearch_api.delete_document_by_id(self.index_name, repo_id)
@@ -78,13 +89,20 @@ class RepoStatusIndex(object):
     def get_repo_status_by_id(self, repo_id):
         doc = self.seasearch_api.get_document_by_id(self.index_name, repo_id)
         if doc.get('error'):
-            return RepoStatus(repo_id, None, None, None)
+            if self.is_status_filename_index():
+                return RepoStatus(repo_id, None, None, metadata_updated_time=None)
+            else:
+                return RepoStatus(repo_id, None, None)
+
         commit_id = doc['_source']['commit_id']
         updatingto = doc['_source']['updatingto']
-        metadata_updated_time = doc['_source']['metadata_updated_time']
         repo_id = doc['_source']['repo_id']
 
-        return RepoStatus(repo_id, commit_id, updatingto, metadata_updated_time)
+        if self.is_status_filename_index():
+            metadata_updated_time = doc['_source']['metadata_updated_time']
+            return RepoStatus(repo_id, commit_id, updatingto, metadata_updated_time=metadata_updated_time)
+
+        return RepoStatus(repo_id, commit_id, updatingto)
 
     def update_repo_status_by_id(self, doc_id, data):
         self.seasearch_api.update_document_by_id(self.index_name, doc_id, data)
@@ -93,27 +111,28 @@ class RepoStatusIndex(object):
         per_size = 2000
         start = 0
         repo_head_list = []
-        while True:
-            query_params = {
-                "query": {
-                    "bool": {
-                        "must": [
-                            {"range":
-                                {"@timestamp":
-                                    {
-                                        "lt": check_time
-                                    }
+        query_params = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {"range":
+                            {"@timestamp":
+                                {
+                                    "lt": check_time
                                 }
                             }
-                        ]
-                    }
-                },
-                "_source": ["commit_id", "updatingto", "metadata_updated_time"],
-                "from": start,
-                "size": per_size,
-                "sort": ["-@timestamp"],
-            }
-
+                        }
+                    ]
+                }
+            },
+            "_source": ["commit_id", "updatingto"],
+            "from": start,
+            "size": per_size,
+            "sort": ["-@timestamp"],
+        }
+        if self.is_status_filename_index():
+            query_params['_source'].append('metadata_updated_time')
+        while True:
             repo_heads, total = self._repo_head_search(query_params)
             repo_head_list.extend(repo_heads)
             start += per_size
@@ -151,13 +170,14 @@ class RepoStatusIndex(object):
             repo_id = hit['_id']
             commit_id = hit.get('_source').get('commit_id')
             updatingto = hit.get('_source').get('updatingto')
-            metadata_updated_time = hit.get('_source').get('metadata_updated_time')
-            repo_heads.append({
+            repo_head = {
                 'repo_id': repo_id,
                 'commit_id': commit_id,
                 'updatingto': updatingto,
-                'metadata_updated_time': metadata_updated_time,
-            })
+            }
+            if 'metadata_updated_time' in hit.get('_source', {}):
+                repo_head['metadata_updated_time'] = hit.get('_source').get('metadata_updated_time')
+            repo_heads.append(repo_head)
         return repo_heads, total
 
     def delete_index_by_index_name(self):
