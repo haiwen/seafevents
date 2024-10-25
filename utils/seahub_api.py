@@ -35,12 +35,12 @@ class SeahubAPI(object):
             'Authorization': f'token {jwt_token}'
         }
 
-    def get_download_rate_limit(self, traffic_info_list):
+    def get_download_rate_limit_info(self, traffic_info_list):
         url = self.server + '/api/v2.1/internal/download-limit/'
         response = requests.post(url, headers=self.headers, json=traffic_info_list, timeout=self.timeout)
 
         if response.status_code == 400:
-            raise Exception('Failed get download rate limit, error: %s' % (response.text))
+            raise Exception('Failed get download rate limit, error: %s' % response.text)
         elif response.status_code > 400:
             raise ConnectionError(response.status_code, response.text)
         data = parse_response(response)
