@@ -204,6 +204,6 @@ def extract_file_details():
         return {'error_msg': 'repo_id invalid.'}, 400
 
     metadata_server_api = MetadataServerAPI('seafevents')
-    details = add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_task_manager, embedding_faces=False)
+    details = add_file_details(repo_id, obj_ids, metadata_server_api)
 
     return {'details': details}, 200

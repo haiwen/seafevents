@@ -8,6 +8,7 @@ import tempfile
 import numpy as np
 
 from datetime import timedelta, timezone, datetime
+from sqlalchemy.sql import text
 
 from seafobj import commit_mgr, fs_mgr
 
@@ -60,6 +61,15 @@ def is_valid_datetime(date_string, format):
         return True
     except ValueError:
         return False
+
+
+def clear_faces_rows(repo_id, table_id, metadata_server_api):
+    sql = f'SELECT * FROM `{FACES_TABLE.name}`'
+    query_result = query_metadata_rows(repo_id, metadata_server_api, sql)
+    if not query_result:
+        return
+    row_ids = [item[FACES_TABLE.columns.id.name] for item in query_result]
+    metadata_server_api.delete_rows(repo_id, table_id, row_ids)
 
 
 def get_file_content(repo_id, obj_id, limit=-1):
@@ -147,7 +157,7 @@ def get_video_details(content):
             return details, location
 
 
-def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_task_manager, embedding_faces=True):
+def add_file_details(repo_id, obj_ids, metadata_server_api, image_embedding_args=None):
     all_updated_rows = []
     query_result = get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api)
     if not query_result:
@@ -159,29 +169,6 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_tas
         if obj_id not in obj_id_to_rows:
             obj_id_to_rows[obj_id] = []
         obj_id_to_rows[obj_id].append(item)
-
-    if embedding_faces:
-        metadata = metadata_server_api.get_metadata(repo_id)
-        tables = metadata.get('tables', [])
-        if not tables:
-            return []
-        faces_table_id = [table['id'] for table in tables if table['name'] == FACES_TABLE.name]
-        faces_table_id = faces_table_id[0] if faces_table_id else None
-        if faces_table_id:
-            sql = f'SELECT * FROM `{FACES_TABLE.name}`'
-            known_faces = query_metadata_rows(repo_id, metadata_server_api, sql)
-            used_faces = []
-            no_used_face_row_ids = []
-            for item in known_faces:
-                if item.get(FACES_TABLE.columns.photo_links.name):
-                    used_faces.append(item)
-                else:
-                    no_used_face_row_ids.append(item[FACES_TABLE.columns.id.name])
-            if no_used_face_row_ids:
-                metadata_server_api.delete_rows(repo_id, faces_table_id, no_used_face_row_ids)
-            known_faces = used_faces
-        else:
-            known_faces = []
 
     updated_rows = []
     columns = metadata_server_api.list_columns(repo_id, METADATA_TABLE.id).get('columns', [])
@@ -201,10 +188,15 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_tas
         limit = 100000 if suffix == 'mp4' else -1
         content = get_file_content(repo_id, obj_id, limit)
         if file_type == '_picture':
-            if embedding_faces and faces_table_id:
-                records = obj_id_to_rows.get(obj_id, [])
-                known_faces = face_recognition_task_manager.face_recognition(obj_id, records, repo_id, faces_table_id, known_faces)
             update_row = add_image_detail_row(row_id, content, has_capture_time_column)
+            if image_embedding_args:
+                image_embedding_api, session = image_embedding_args
+                face_recognition_status = get_repo_face_recognition_status(repo_id, session)
+                if face_recognition_status and not row.get(METADATA_TABLE.columns.face_vectors.name):
+                    result = image_embedding_api.face_embeddings(repo_id, [obj_id]).get('data', [])
+                    if result:
+                        face_embeddings = result[0]['embeddings']
+                        update_row[METADATA_TABLE.columns.face_vectors.name] = json.dumps(face_embeddings)
         elif file_type == '_video':
             update_row = add_video_detail_row(row_id, content, has_capture_time_column)
         else:
@@ -335,6 +327,22 @@ def get_face_embeddings(repo_id, image_embedding_api, obj_ids):
     return embeddings
 
 
+def get_repo_face_recognition_status(repo_id, session):
+    with session() as session:
+        sql = "SELECT face_recognition_enabled FROM repo_metadata WHERE repo_id='%s'" % repo_id
+        record = session.execute(text(sql)).fetchone()
+
+    return record[0] if record else None
+
+
+def get_face_recognition_enabled_repo_list(session, start, count):
+    with session() as session:
+        cmd = """SELECT repo_id FROM repo_metadata WHERE face_recognition_enabled = True limit :start, :count"""
+        res = session.execute(text(cmd), {'start': start, 'count': count}).fetchall()
+
+    return res
+
+
 class MetadataTable(object):
     def __init__(self, table_id, name):
         self.id = table_id
@@ -366,6 +374,7 @@ class MetadataColumns(object):
 
         self.collaborator = MetadataColumn('_collaborators', '_collaborators', 'collaborator')
         self.owner = MetadataColumn('_owner', '_owner', 'collaborator')
+        self.face_vectors = MetadataColumn('_face_vectors', '_face_vectors', 'long-text')
         self.face_links = MetadataColumn('_face_links', '_face_links', 'link')
 
 

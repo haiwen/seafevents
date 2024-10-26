@@ -10,7 +10,7 @@ from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.image_embedding_api import ImageEmbeddingAPI
 from seafevents.repo_metadata.utils import add_file_details
-from seafevents.seafevent_server.face_recognition_task_manager import face_recognition_task_manager
+from seafevents.db import init_db_session_class
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,7 @@ class SlowTaskHandler(object):
         self.mq_port = 6379
         self.mq_password = ''
         self.worker_num = 3
+        self.session = init_db_session_class(config)
         self._parse_config(config)
 
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
@@ -98,6 +99,8 @@ class SlowTaskHandler(object):
 
         try:
             obj_ids = data.get('obj_ids')
-            add_file_details(repo_id, obj_ids, self.metadata_server_api, face_recognition_task_manager)
+            add_file_details(repo_id, obj_ids, self.metadata_server_api, (self.image_embedding_api, self.session))
         except Exception as e:
-            logger.exception('repo: %s, update metadata image info error: %s', repo_id, e)
+            logger.exception('repo: %s, update metadata file info error: %s', repo_id, e)
+
+        logger.info('%s finish extract file info repo %s' % (threading.currentThread().getName(), repo_id))
