@@ -12,16 +12,14 @@ logger = logging.getLogger(__name__)
 
 class RepoFaceClusterUpdater(object):
     def __init__(self, config):
-        self._interval = 3600 * 24  # 24 hours
         self._face_recognition_manager = FaceRecognitionManager(config)
         self._session = init_db_session_class(config)
 
     def start(self):
-        logging.info('Start to update face cluster, interval = %s sec', self._interval)
+        logging.info('Start to update face cluster')
         FaceClusterUpdaterTimer(
             self._face_recognition_manager,
             self._session,
-            self._interval
         ).start()
 
 
@@ -46,11 +44,10 @@ def update_face_cluster(face_recognition_manager, session):
 
 
 class FaceClusterUpdaterTimer(Thread):
-    def __init__(self, face_recognition_manager, session, interval):
+    def __init__(self, face_recognition_manager, session):
         super(FaceClusterUpdaterTimer, self).__init__()
         self.face_recognition_manager = face_recognition_manager
         self.session = session
-        self.interval = interval
 
     def run(self):
         sched = GeventScheduler()
