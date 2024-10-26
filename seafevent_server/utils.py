@@ -1,6 +1,8 @@
 import os
 import ast
 import logging
+import time
+
 import openpyxl
 import datetime
 import pytz
@@ -39,6 +41,8 @@ def write_xls(sheet_name, head, data_list):
     # write table data
     for row in data_list:
         row_num += 1
+        if row_num % 10000 == 0:
+            time.sleep(0.5)
         for col_num in range(len(row)):
             c = ws.cell(row=row_num + 1, column=col_num + 1)
             c.value = row[col_num]
