@@ -55,7 +55,7 @@ def get_cluster_by_center(center, clusters):
 
         vector = json.loads(vector)
         distance = feature_distance(center, vector)
-        if distance < 1.24 and distance < min_distance:
+        if distance < 1 and distance < min_distance:
             min_distance = distance
             nearest_cluster = cluster
     return nearest_cluster
