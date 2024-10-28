@@ -8,7 +8,7 @@ from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.image_embedding_api import ImageEmbeddingAPI
-from seafevents.repo_metadata.utils import METADATA_TABLE, FACES_TABLE, query_metadata_rows, get_face_embeddings, face_compare, clear_faces_rows
+from seafevents.repo_metadata.utils import METADATA_TABLE, FACES_TABLE, query_metadata_rows, get_face_embeddings, get_faces_rows, get_cluster_by_center
 from seafevents.repo_metadata.constants import METADATA_OP_LIMIT
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ class FaceRecognitionManager(object):
                 vectors.append(face_vector)
                 row_ids.append(row_id)
 
-        clear_faces_rows(repo_id, faces_table_id, self.metadata_server_api)
+        old_cluster = get_faces_rows(repo_id, self.metadata_server_api)
         clt = HDBSCAN(min_cluster_size=5)
         clt.fit(vectors)
 
@@ -99,10 +99,31 @@ class FaceRecognitionManager(object):
         for label_id in label_ids:
             idxs = np.where(clt.labels_ == label_id)[0]
             related_row_ids = [row_ids[i] for i in idxs]
+            if label_id != -1:
+                cluster_center = np.mean([vectors[i] for i in idxs], axis=0)
+                face_row = {
+                    FACES_TABLE.columns.vector.name: json.dumps(cluster_center.tolist()),
+                }
+                cluster = get_cluster_by_center(cluster_center, old_cluster)
+                if cluster:
+                    cluster_id = cluster[FACES_TABLE.columns.id.name]
+                    old_cluster = [item for item in old_cluster if item[FACES_TABLE.columns.id.name] != cluster_id]
+                    face_row[FACES_TABLE.columns.id.name] = cluster_id
+                    self.metadata_server_api.update_rows(repo_id, faces_table_id, [face_row])
+                    row_id_map = {
+                        cluster_id: related_row_ids
+                    }
+                    self.metadata_server_api.update_link(repo_id, FACES_TABLE.link_id, faces_table_id, row_id_map)
+                    continue
+            else:
+                face_row = dict()
 
-            result = self.metadata_server_api.insert_rows(repo_id, faces_table_id, [{}])
+            result = self.metadata_server_api.insert_rows(repo_id, faces_table_id, [face_row])
             row_id = result.get('row_ids')[0]
             row_id_map = {
                 row_id: related_row_ids
             }
             self.metadata_server_api.insert_link(repo_id, FACES_TABLE.link_id, faces_table_id, row_id_map)
+
+        need_delete_row_ids = [item[FACES_TABLE.columns.id.name] for item in old_cluster]
+        self.metadata_server_api.delete_rows(repo_id, faces_table_id, need_delete_row_ids)

@@ -39,20 +39,26 @@ def get_file_type_ext_by_name(filename):
     return file_type, file_ext
 
 
-def face_compare(face, known_faces, threshold):
-    for known_face in known_faces:
-        if feature_distance(face, json.loads(known_face[FACES_TABLE.columns.vector.name]), threshold):
-            return known_face
-    return None
-
-
-def feature_distance(feature1, feature2, threshold):
+def feature_distance(feature1, feature2):
     diff = np.subtract(feature1, feature2)
     dist = np.sum(np.square(diff), 0)
-    if dist < threshold:
-        return True
-    else:
-        return False
+    return dist
+
+
+def get_cluster_by_center(center, clusters):
+    min_distance = float('inf')
+    nearest_cluster = None
+    for cluster in clusters:
+        vector = cluster.get(FACES_TABLE.columns.vector.name)
+        if not vector:
+            continue
+
+        vector = json.loads(vector)
+        distance = feature_distance(center, vector)
+        if distance < 1.24 and distance < min_distance:
+            min_distance = distance
+            nearest_cluster = cluster
+    return nearest_cluster
 
 
 def is_valid_datetime(date_string, format):
@@ -63,13 +69,10 @@ def is_valid_datetime(date_string, format):
         return False
 
 
-def clear_faces_rows(repo_id, table_id, metadata_server_api):
+def get_faces_rows(repo_id, metadata_server_api):
     sql = f'SELECT * FROM `{FACES_TABLE.name}`'
     query_result = query_metadata_rows(repo_id, metadata_server_api, sql)
-    if not query_result:
-        return
-    row_ids = [item[FACES_TABLE.columns.id.name] for item in query_result]
-    metadata_server_api.delete_rows(repo_id, table_id, row_ids)
+    return query_result if query_result else []
 
 
 def get_file_content(repo_id, obj_id, limit=-1):
