@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime
 
 from sklearn.cluster import HDBSCAN
 import numpy as np
@@ -8,7 +9,7 @@ from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.image_embedding_api import ImageEmbeddingAPI
-from seafevents.repo_metadata.utils import METADATA_TABLE, FACES_TABLE, query_metadata_rows, get_face_embeddings, get_faces_rows, get_cluster_by_center
+from seafevents.repo_metadata.utils import METADATA_TABLE, FACES_TABLE, query_metadata_rows, get_face_embeddings, get_faces_rows, get_cluster_by_center, update_face_cluster_time
 from seafevents.repo_metadata.constants import METADATA_OP_LIMIT
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,9 @@ class FaceRecognitionManager(object):
         self.face_cluster(repo_id)
 
     def face_cluster(self, repo_id):
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        update_face_cluster_time(self._db_session_class, repo_id, current_time)
+
         sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.face_vectors.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.face_vectors.name}` IS NOT NULL'
         query_result = query_metadata_rows(repo_id, self.metadata_server_api, sql)
         if not query_result:

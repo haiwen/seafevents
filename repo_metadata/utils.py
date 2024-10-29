@@ -340,10 +340,17 @@ def get_repo_face_recognition_status(repo_id, session):
 
 def get_face_recognition_enabled_repo_list(session, start, count):
     with session() as session:
-        cmd = """SELECT repo_id FROM repo_metadata WHERE face_recognition_enabled = True limit :start, :count"""
+        cmd = """SELECT repo_id, last_face_cluster_time FROM repo_metadata WHERE face_recognition_enabled = True limit :start, :count"""
         res = session.execute(text(cmd), {'start': start, 'count': count}).fetchall()
 
     return res
+
+
+def update_face_cluster_time(session, repo_id, update_time):
+    with session() as session:
+        cmd = """UPDATE repo_metadata SET last_face_cluster_time = :update_time WHERE repo_id = :repo_id"""
+        session.execute(text(cmd), {'update_time': update_time, 'repo_id': repo_id})
+        session.commit()
 
 
 class MetadataTable(object):

@@ -5,7 +5,8 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.gevent import GeventScheduler
 from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.face_recognition_manager import FaceRecognitionManager
-from seafevents.repo_metadata.utils import get_face_recognition_enabled_repo_list
+from seafevents.repo_metadata.utils import get_face_recognition_enabled_repo_list, update_face_cluster_time
+from seafevents.repo_data import repo_data
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,18 @@ def update_face_cluster(face_recognition_manager, session):
             break
 
         repo_ids = [repo[0] for repo in repos]
-        for repo_id in repo_ids:
+        repos_mtime = repo_data.get_mtime_by_repo_ids(repo_ids)
+        repo_id_to_mtime = {repo[0]: repo[1] for repo in repos_mtime}
+
+        for repo in repos:
+            repo_id = repo[0]
+            last_face_cluster_time = repo[1]
+            mtime = repo_id_to_mtime.get(repo_id)
+            if not mtime:
+                continue
+
+            if last_face_cluster_time and int(mtime) <= int(last_face_cluster_time.timestamp()):
+                continue
             face_recognition_manager.face_cluster(repo_id)
 
     logger.info("Finish update face cluster")
