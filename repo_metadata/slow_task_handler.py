@@ -99,7 +99,7 @@ class SlowTaskHandler(object):
 
         try:
             obj_ids = data.get('obj_ids')
-            add_file_details(repo_id, obj_ids, self.metadata_server_api, (self.image_embedding_api, self.session))
+            add_file_details(repo_id, obj_ids, self.metadata_server_api, self.image_embedding_api, self.session)
         except Exception as e:
             logger.exception('repo: %s, update metadata file info error: %s', repo_id, e)
 

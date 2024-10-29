@@ -160,7 +160,7 @@ def get_video_details(content):
             return details, location
 
 
-def add_file_details(repo_id, obj_ids, metadata_server_api, image_embedding_args=None):
+def add_file_details(repo_id, obj_ids, metadata_server_api, image_embedding_api=None, session=None):
     all_updated_rows = []
     query_result = get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api)
     if not query_result:
@@ -192,8 +192,7 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, image_embedding_args
         content = get_file_content(repo_id, obj_id, limit)
         if file_type == '_picture':
             update_row = add_image_detail_row(row_id, content, has_capture_time_column)
-            if image_embedding_args:
-                image_embedding_api, session = image_embedding_args
+            if image_embedding_api and session:
                 face_recognition_status = get_repo_face_recognition_status(repo_id, session)
                 if face_recognition_status and not row.get(METADATA_TABLE.columns.face_vectors.name):
                     result = image_embedding_api.face_embeddings(repo_id, [obj_id]).get('data', [])

@@ -1,8 +1,6 @@
 import json
 import logging
 from datetime import datetime
-
-from sklearn.cluster import HDBSCAN
 import numpy as np
 
 from seafevents.utils import get_opt_from_conf_or_env
@@ -72,6 +70,12 @@ class FaceRecognitionManager(object):
         self.face_cluster(repo_id)
 
     def face_cluster(self, repo_id):
+        try:
+            from sklearn.cluster import HDBSCAN
+        except ImportError:
+            logger.warning('Package scikit-learn is not installed. ')
+            return
+
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         update_face_cluster_time(self._db_session_class, repo_id, current_time)
 
