@@ -13,6 +13,8 @@ from seafevents.repo_metadata.constants import METADATA_OP_LIMIT
 from seafevents.face_recognition.db import update_face_cluster_time
 from seafevents.face_recognition.utils import get_faces_rows, get_cluster_by_center
 
+logger = logging.getLogger(__name__)
+
 
 class FaceRecognitionManager(object):
 
@@ -74,7 +76,7 @@ class FaceRecognitionManager(object):
         try:
             from sklearn.cluster import HDBSCAN
         except ImportError:
-            logging.warning('Package scikit-learn is not installed. ')
+            logger.warning('Package scikit-learn is not installed. ')
             return
 
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
