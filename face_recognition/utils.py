@@ -1,0 +1,48 @@
+import base64
+import json
+import numpy as np
+
+from seafevents.repo_metadata.utils import FACES_TABLE, query_metadata_rows
+from seafevents.repo_metadata.constants import FACE_EMBEDDING_DIM
+
+
+def feature_distance(feature1, feature2):
+    diff = np.subtract(feature1, feature2)
+    dist = np.sum(np.square(diff), 0)
+    return dist
+
+
+def b64encode_embeddings(embeddings):
+    embedding_array = np.array(embeddings).astype(np.float32)
+    encode = base64.b64encode(embedding_array.tobytes())
+    return encode.decode('utf-8')
+
+
+def b64decode_embeddings(encode):
+    decode = base64.b64decode(encode)
+    embedding_array = np.frombuffer(decode, dtype=np.float32)
+    face_num = len(embedding_array) // FACE_EMBEDDING_DIM
+    embedding = embedding_array.reshape((face_num, FACE_EMBEDDING_DIM)).tolist()
+    return embedding
+
+
+def get_cluster_by_center(center, clusters):
+    min_distance = float('inf')
+    nearest_cluster = None
+    for cluster in clusters:
+        vector = cluster.get(FACES_TABLE.columns.vector.name)
+        if not vector:
+            continue
+
+        vector = json.loads(vector)
+        distance = feature_distance(center, vector)
+        if distance < 1 and distance < min_distance:
+            min_distance = distance
+            nearest_cluster = cluster
+    return nearest_cluster
+
+
+def get_faces_rows(repo_id, metadata_server_api):
+    sql = f'SELECT * FROM `{FACES_TABLE.name}`'
+    query_result = query_metadata_rows(repo_id, metadata_server_api, sql)
+    return query_result if query_result else []

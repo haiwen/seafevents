@@ -1,4 +1,3 @@
-import base64
 import json
 import os
 import pytz
@@ -6,7 +5,6 @@ import random
 import math
 import exiftool
 import tempfile
-import numpy as np
 
 from datetime import timedelta, timezone, datetime
 from sqlalchemy.sql import text
@@ -16,7 +14,8 @@ from seafobj import commit_mgr, fs_mgr
 from seafevents.app.config import METADATA_FILE_TYPES
 from seafevents.repo_metadata.view_data_sql import view_data_2_sql
 from seafevents.utils import timestamp_to_isoformat_timestr
-from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT, FACE_EMBEDDING_DIM
+from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT
+from seafevents.face_recognition.utils import b64encode_embeddings
 
 
 def gen_fileext_type_map():
@@ -40,54 +39,12 @@ def get_file_type_ext_by_name(filename):
     return file_type, file_ext
 
 
-def feature_distance(feature1, feature2):
-    diff = np.subtract(feature1, feature2)
-    dist = np.sum(np.square(diff), 0)
-    return dist
-
-
-def b64encode_embeddings(embeddings):
-    embedding_array = np.array(embeddings).astype(np.float32)
-    encode = base64.b64encode(embedding_array.tobytes())
-    return encode.decode('utf-8')
-
-
-def b64decode_embeddings(encode):
-    decode = base64.b64decode(encode)
-    embedding_array = np.frombuffer(decode, dtype=np.float32)
-    face_num = len(embedding_array) // FACE_EMBEDDING_DIM
-    embedding = embedding_array.reshape((face_num, FACE_EMBEDDING_DIM)).tolist()
-    return embedding
-
-
-def get_cluster_by_center(center, clusters):
-    min_distance = float('inf')
-    nearest_cluster = None
-    for cluster in clusters:
-        vector = cluster.get(FACES_TABLE.columns.vector.name)
-        if not vector:
-            continue
-
-        vector = b64decode_embeddings(vector)[0]
-        distance = feature_distance(center, vector)
-        if distance < 1 and distance < min_distance:
-            min_distance = distance
-            nearest_cluster = cluster
-    return nearest_cluster
-
-
 def is_valid_datetime(date_string, format):
     try:
         datetime.strptime(date_string, format)
         return True
     except ValueError:
         return False
-
-
-def get_faces_rows(repo_id, metadata_server_api):
-    sql = f'SELECT * FROM `{FACES_TABLE.name}`'
-    query_result = query_metadata_rows(repo_id, metadata_server_api, sql)
-    return query_result if query_result else []
 
 
 def get_file_content(repo_id, obj_id, limit=-1):
@@ -348,21 +305,6 @@ def get_repo_face_recognition_status(repo_id, session):
         record = session.execute(text(sql)).fetchone()
 
     return record[0] if record else None
-
-
-def get_face_recognition_enabled_repo_list(session, start, count):
-    with session() as session:
-        cmd = """SELECT repo_id, last_face_cluster_time FROM repo_metadata WHERE face_recognition_enabled = True limit :start, :count"""
-        res = session.execute(text(cmd), {'start': start, 'count': count}).fetchall()
-
-    return res
-
-
-def update_face_cluster_time(session, repo_id, update_time):
-    with session() as session:
-        cmd = """UPDATE repo_metadata SET last_face_cluster_time = :update_time WHERE repo_id = :repo_id"""
-        session.execute(text(cmd), {'update_time': update_time, 'repo_id': repo_id})
-        session.commit()
 
 
 class MetadataTable(object):

@@ -4,7 +4,7 @@ import logging
 import time
 import uuid
 from seafevents.db import init_db_session_class
-from seafevents.repo_metadata.face_recognition_manager import FaceRecognitionManager
+from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 
 logger = logging.getLogger(__name__)
 

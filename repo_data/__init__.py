@@ -40,6 +40,7 @@ class RepoData(object):
         finally:
             session.close()
 
+<<<<<<< HEAD
     def _get_mtime_by_repo_ids(self, repo_ids):
         session = self.db_session()
         try:
@@ -73,6 +74,8 @@ class RepoData(object):
         finally:
             session.close()
 
+=======
+>>>>>>> 677c77c (Separate face recognition log)
     def _get_all_trash_repo_list(self):
         session = self.db_session()
         try:
@@ -148,13 +151,6 @@ class RepoData(object):
         except Exception as e:
             logger.error(e)
             return self._get_all_repo_list()
-
-    def get_mtime_by_repo_ids(self, repo_ids):
-        try:
-            return self._get_mtime_by_repo_ids(repo_ids)
-        except Exception as e:
-            logger.error(e)
-            return self._get_mtime_by_repo_ids(repo_ids)
 
     def get_all_trash_repo_list(self):
         try:

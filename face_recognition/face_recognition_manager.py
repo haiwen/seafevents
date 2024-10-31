@@ -10,8 +10,8 @@ from seafevents.repo_metadata.image_embedding_api import ImageEmbeddingAPI
 from seafevents.repo_metadata.utils import METADATA_TABLE, FACES_TABLE, query_metadata_rows, get_face_embeddings, \
     get_faces_rows, get_cluster_by_center, update_face_cluster_time, b64encode_embeddings, b64decode_embeddings
 from seafevents.repo_metadata.constants import METADATA_OP_LIMIT
-
-logger = logging.getLogger(__name__)
+from seafevents.face_recognition.db import update_face_cluster_time
+from seafevents.face_recognition.utils import get_faces_rows, get_cluster_by_center
 
 
 class FaceRecognitionManager(object):
@@ -74,7 +74,7 @@ class FaceRecognitionManager(object):
         try:
             from sklearn.cluster import HDBSCAN
         except ImportError:
-            logger.warning('Package scikit-learn is not installed. ')
+            logging.warning('Package scikit-learn is not installed. ')
             return
 
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
