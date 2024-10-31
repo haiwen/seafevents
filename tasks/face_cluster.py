@@ -20,7 +20,7 @@ class FaceClusterTimer(Thread):
     def __init__(self, interval, log_file):
         Thread.__init__(self)
         self._interval = interval
-        self._logfile = '/data/dev/seafevents/face.log'
+        self._logfile = log_file
         self.finished = Event()
 
     def run(self):
