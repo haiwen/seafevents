@@ -28,6 +28,12 @@ from seafobj import CommitDiffer, commit_mgr, fs_mgr
 
 logger = logging.getLogger('seafevents')
 
+WIKI_PAGES_DIR = '/wiki-pages'
+WIKI_CONFIG_PATH = '_Internal/Wiki'
+WIKI_CONFIG_FILE_NAME = 'index.json'
+WIKI_FILE_TMP_DIR = '/tmp'
+SYS_DIR_PATHS = ['images']
+
 
 def write_xls(sheet_name, head, data_list):
     """write listed data into excel
@@ -413,18 +419,11 @@ def export_org_event_log_to_excel(session, start_time, end_time, log_type, task_
             wb.save(target_path)
 
 
-WIKI_PAGES_DIR = '/wiki-pages'
-WIKI_CONFIG_PATH = '_Internal/Wiki'
-WIKI_CONFIG_FILE_NAME = 'index.json'
-FILE_TMP_DIR = '/tmp'
-SYS_DIR_PATHS = ['images']
-
-
 def save_wiki_config(repo_id, username, wiki_config):
     dir_id = seafile_api.get_dir_id_by_path(repo_id, WIKI_CONFIG_PATH)
     if not dir_id:
         seafile_api.mkdir_with_parents(repo_id, '/', WIKI_CONFIG_PATH, username)
-    tmp_content_path = posixpath.join(FILE_TMP_DIR, WIKI_CONFIG_FILE_NAME)
+    tmp_content_path = posixpath.join(WIKI_FILE_TMP_DIR, WIKI_CONFIG_FILE_NAME)
     with open(tmp_content_path, 'wb') as f:
         f.write(wiki_config.encode())
 
@@ -456,7 +455,7 @@ def create_new_wiki_doc_by_old_wiki_path(page_name, file_parent_dir, new_repo_id
     if old_wiki_path_is_dir:
         seafile_api.post_empty_file(new_repo_id, parent_dir, sdoc_filename, modifier)
     else:
-        tmp_content_path = posixpath.join(FILE_TMP_DIR, sdoc_filename)
+        tmp_content_path = posixpath.join(WIKI_FILE_TMP_DIR, sdoc_filename)
         with open(tmp_content_path, 'wb') as f:
             f.write(file_content.encode())
 
