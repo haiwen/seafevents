@@ -11,6 +11,7 @@ from seafevents.seafevent_server.seafevent_server import SeafEventServer
 from seafevents.app.config import ENABLE_METADATA_MANAGEMENT
 from seafevents.seasearch.index_task.filename_index_updater import RepoFilenameIndexUpdater
 from seafevents.repo_metadata.face_recognition_updater import RepoFaceClusterUpdater
+from seafevents.seasearch.index_task.wiki_index_updater import WikiIndexUpdater
 
 
 class App(object):
@@ -44,6 +45,7 @@ class App(object):
                 self._slow_task_handler = SlowTaskHandler(config)
                 self._repo_face_cluster_updater = RepoFaceClusterUpdater(config)
             self._repo_filename_index_updater = RepoFilenameIndexUpdater(config)
+            self._wiki_index_updater = WikiIndexUpdater(config)
 
     def serve_forever(self):
         if self._fg_tasks_enabled:
@@ -69,3 +71,4 @@ class App(object):
                 self._slow_task_handler.start()
                 self._repo_face_cluster_updater.start()
             self._repo_filename_index_updater.start()
+            self._wiki_index_updater.start()

@@ -1,5 +1,6 @@
 import logging
 import hashlib
+import json
 
 from sqlalchemy import text
 
@@ -11,7 +12,7 @@ from seafobj.exceptions import GetObjectError
 logger = logging.getLogger(__name__)
 
 SYS_DIRS = ['images', '_Internal']
-
+WIKI_DIRS = ['wiki-pages']
 
 def get_library_diff_files(repo_id, old_commit_id, new_commit_id):
     if old_commit_id == new_commit_id:
@@ -98,3 +99,26 @@ def need_index_metadata_info(repo_id, session):
         return False
 
     return True
+
+
+def is_in_wiki_dirs(path):
+    if path.split('/')[1] in WIKI_DIRS:
+        return True
+    return False
+
+
+def extract_sdoc_text(content):
+    data = json.loads(content)
+    texts = []
+    def extract_text(node):
+        if isinstance(node, dict):
+            if "text" in node:
+                texts.append(node["text"])
+            for key, value in node.items():
+                extract_text(value)
+        elif isinstance(node, list):
+            for item in node:
+                extract_text(item)
+    extract_text(data)
+    result = ' '.join(texts)
+    return result

@@ -4,7 +4,8 @@ from datetime import datetime
 
 from seafevents.seasearch.utils import need_index_metadata_info
 from seafevents.db import init_db_session_class
-from seafevents.seasearch.utils.constants import ZERO_OBJ_ID, REPO_FILENAME_INDEX_PREFIX
+from seafevents.seasearch.utils.constants import ZERO_OBJ_ID, REPO_FILENAME_INDEX_PREFIX, \
+    WIKI_INDEX_PREFIX
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import METADATA_TABLE
 from seafevents.utils import timestamp_to_isoformat_timestr
@@ -74,3 +75,45 @@ class IndexManager(object):
 
     def keyword_search(self, query, repos, repo_filename_index, count, suffixes=None, search_path=None, obj_type=None):
         return repo_filename_index.search_files(repos, query, 0, count, suffixes, search_path, obj_type)
+
+    def delete_wiki_index(self, wiki_id, wiki_index, wiki_status_index):
+        # first delete wiki_index
+        wiki_index_name = WIKI_INDEX_PREFIX + wiki_id
+        wiki_index.delete_index_by_index_name(wiki_index_name)
+        wiki_status_index.delete_documents_by_repo(wiki_id)
+
+    def wiki_search(self, query, wiki, wiki_index, count):
+        return wiki_index.search_wiki(wiki, query, 0, count)
+
+    def update_wiki_index(self, wiki_id, commit_id, wiki_index, wiki_status_index):
+        try:
+            new_commit_id = commit_id
+            index_name = WIKI_INDEX_PREFIX + wiki_id
+
+            wiki_index.create_index_if_missing(index_name)
+
+            wiki_status = wiki_status_index.get_repo_status_by_id(wiki_id)
+            from_commit = wiki_status.from_commit
+            to_commit = wiki_status.to_commit
+
+            if new_commit_id == from_commit:
+                return
+
+            if not from_commit:
+                commit_id = ZERO_OBJ_ID
+            else:
+                commit_id = from_commit
+
+            if wiki_status.need_recovery():
+                logger.warning('%s: wiki index inrecovery', wiki_id)
+                wiki_index.update(index_name, wiki_id, commit_id, to_commit)
+                commit_id = to_commit
+                time.sleep(1)
+            wiki_status_index.begin_update_repo(wiki_id, commit_id, new_commit_id)
+            wiki_index.update(index_name, wiki_id, commit_id, new_commit_id)
+            wiki_status_index.finish_update_repo(wiki_id, new_commit_id)
+
+            logger.info('wiki: %s, update wiki index success', wiki_id)
+
+        except Exception as e:
+            logger.exception('wiki_id: %s, update wiki index error: %s.', wiki_id, e)

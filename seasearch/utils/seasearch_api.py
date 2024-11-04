@@ -56,9 +56,9 @@ class SeaSearchAPI(object):
 
         return data
 
-    def create_document_by_id(self, index_name, doc_id, date):
+    def create_document_by_id(self, index_name, doc_id, data):
         url = self.server + '/api/' + index_name + '/_doc/' + doc_id
-        response = requests.put(url, headers=self.headers, json=date, timeout=self.timeout)
+        response = requests.put(url, headers=self.headers, json=data, timeout=self.timeout)
         if response.status_code == 400:
             raise Exception('index: %s, add document: %s, error: %s' % (index_name, doc_id, response.text))
         data = parse_response(response)
