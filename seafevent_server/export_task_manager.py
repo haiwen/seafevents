@@ -4,7 +4,7 @@ import logging
 import time
 import uuid
 from seafevents.db import init_db_session_class
-from seafevents.seafevent_server.utils import export_event_log_to_excel, export_org_event_log_to_excel
+from seafevents.seafevent_server.utils import export_event_log_to_excel, export_org_event_log_to_excel, convert_wiki
 
 logger = logging.getLogger('seafevents')
 
@@ -48,6 +48,16 @@ class EventExportTaskManager(object):
         self.tasks_queue.put(task_id)
         self.tasks_map[task_id] = task
         return task_id
+
+    def add_convert_wiki_task(self, old_repo_id, new_repo_id, username):
+
+        task_id = str(uuid.uuid4())
+        task = (convert_wiki, (old_repo_id, new_repo_id, username, self._db_session_class))
+
+        self.tasks_queue.put(task_id)
+        self.tasks_map[task_id] = task
+        return task_id
+        pass
 
     def query_status(self, task_id):
         task_result = self.task_results_map.pop(task_id, None)

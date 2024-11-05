@@ -240,3 +240,31 @@ def search_wiki():
     results = index_task_manager.wiki_search(query, wiki, count)
 
     return {'results': results}, 200
+
+
+@app.route('/add-convert-wiki-task', methods=['GET'])
+def add_convert_wiki_task():
+    is_valid = check_auth_token(request)
+    if not is_valid:
+        return {'error_msg': 'Permission denied'}, 403
+
+    new_repo_id = request.args.get('new_repo_id')
+    old_repo_id = request.args.get('old_repo_id')
+    username = request.args.get('username')
+
+    if not new_repo_id:
+        return {'error_msg': 'new_repo_id invalid.'}, 400
+
+    if not old_repo_id:
+        return {'error_msg': 'old_repo_id invalid.'}, 400
+
+    if not username:
+        return {'error_msg': 'username invalid.'}, 400
+
+    try:
+        task_id = event_export_task_manager.add_convert_wiki_task(old_repo_id, new_repo_id, username)
+    except Exception as e:
+        logger.error(e)
+        return make_response((e, 500))
+
+    return {'task_id': task_id}, 200
