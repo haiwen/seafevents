@@ -122,3 +122,5 @@ class ViewType(object):
 
 
 METADATA_OP_LIMIT = 1000
+
+FACE_EMBEDDING_DIM = 512
