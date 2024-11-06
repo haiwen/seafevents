@@ -570,8 +570,12 @@ def convert_wiki(old_repo_id, new_repo_id, username, db_session_class):
 
     home_page_content = get_file_content_by_obj_id(old_repo_id, file_id)
     if home_page_content:
-        home_page_content = md2sdoc(home_page_content, username=username)
-        home_page_content = json.dumps(home_page_content)
+        try:
+            home_page_content = md2sdoc(home_page_content, username=username)
+            home_page_content = json.dumps(home_page_content)
+        except Exception as e:
+            logger.warning('convert wiki from old_repo_id: %s to new_repo_id: %s, convert markdown: %s to sdoc failed, error: %s', old_repo_id, new_repo_id, home_page_path, e)
+            home_page_content = ''
 
     parent_dir = os.path.dirname(home_page_path)
     base_name = os.path.basename(home_page_path)
@@ -619,8 +623,12 @@ def convert_wiki(old_repo_id, new_repo_id, username, db_session_class):
 
         markdown_content = get_file_content_by_obj_id(old_repo_id, obj_id)
         if markdown_content:
-            file_content = md2sdoc(markdown_content, username=username)
-            markdown_content = json.dumps(file_content)
+            try:
+                file_content = md2sdoc(markdown_content, username=username)
+                markdown_content = json.dumps(file_content)
+            except Exception as e:
+                logger.warning('convert wiki from old_repo_id: %s to new_repo_id: %s, convert markdown: %s to sdoc failed, error: %s', old_repo_id, new_repo_id, path, e)
+                markdown_content = ''
 
         page_name = os.path.splitext(file_name)[0]
         create_new_wiki_doc_by_old_wiki_path(page_name, file_parent_dir, new_repo_id, markdown_content, modifier,
