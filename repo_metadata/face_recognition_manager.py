@@ -7,7 +7,8 @@ from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.image_embedding_api import ImageEmbeddingAPI
-from seafevents.repo_metadata.utils import METADATA_TABLE, FACES_TABLE, query_metadata_rows, get_face_embeddings, get_faces_rows, get_cluster_by_center, update_face_cluster_time
+from seafevents.repo_metadata.utils import METADATA_TABLE, FACES_TABLE, query_metadata_rows, get_face_embeddings, \
+    get_faces_rows, get_cluster_by_center, update_face_cluster_time, b64encode_embeddings, b64decode_embeddings
 from seafevents.repo_metadata.constants import METADATA_OP_LIMIT
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ class FaceRecognitionManager(object):
                     row_id = row[METADATA_TABLE.columns.id.name]
                     updated_rows.append({
                         METADATA_TABLE.columns.id.name: row_id,
-                        METADATA_TABLE.columns.face_vectors.name: json.dumps(face_embeddings),
+                        METADATA_TABLE.columns.face_vectors.name: b64encode_embeddings(face_embeddings),
                     })
                     if len(updated_rows) >= METADATA_OP_LIMIT:
                         self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
@@ -94,7 +95,7 @@ class FaceRecognitionManager(object):
         row_ids = []
         for item in query_result:
             row_id = item[METADATA_TABLE.columns.id.name]
-            face_vectors = json.loads(item[METADATA_TABLE.columns.face_vectors.name])
+            face_vectors = b64decode_embeddings(item[METADATA_TABLE.columns.face_vectors.name])
             for face_vector in face_vectors:
                 vectors.append(face_vector)
                 row_ids.append(row_id)
@@ -105,26 +106,27 @@ class FaceRecognitionManager(object):
 
         label_ids = np.unique(clt.labels_)
         for label_id in label_ids:
+            if label_id == -1:
+                continue
+
             idxs = np.where(clt.labels_ == label_id)[0]
             related_row_ids = [row_ids[i] for i in idxs]
-            if label_id != -1:
-                cluster_center = np.mean([vectors[i] for i in idxs], axis=0)
-                face_row = {
-                    FACES_TABLE.columns.vector.name: json.dumps(cluster_center.tolist()),
+
+            cluster_center = np.mean([vectors[i] for i in idxs], axis=0)
+            face_row = {
+                FACES_TABLE.columns.vector.name: b64encode_embeddings(cluster_center.tolist()),
+            }
+            cluster = get_cluster_by_center(cluster_center, old_cluster)
+            if cluster:
+                cluster_id = cluster[FACES_TABLE.columns.id.name]
+                old_cluster = [item for item in old_cluster if item[FACES_TABLE.columns.id.name] != cluster_id]
+                face_row[FACES_TABLE.columns.id.name] = cluster_id
+                self.metadata_server_api.update_rows(repo_id, faces_table_id, [face_row])
+                row_id_map = {
+                    cluster_id: related_row_ids
                 }
-                cluster = get_cluster_by_center(cluster_center, old_cluster)
-                if cluster:
-                    cluster_id = cluster[FACES_TABLE.columns.id.name]
-                    old_cluster = [item for item in old_cluster if item[FACES_TABLE.columns.id.name] != cluster_id]
-                    face_row[FACES_TABLE.columns.id.name] = cluster_id
-                    self.metadata_server_api.update_rows(repo_id, faces_table_id, [face_row])
-                    row_id_map = {
-                        cluster_id: related_row_ids
-                    }
-                    self.metadata_server_api.update_link(repo_id, FACES_TABLE.link_id, faces_table_id, row_id_map)
-                    continue
-            else:
-                face_row = dict()
+                self.metadata_server_api.update_link(repo_id, FACES_TABLE.link_id, faces_table_id, row_id_map)
+                continue
 
             result = self.metadata_server_api.insert_rows(repo_id, faces_table_id, [face_row])
             row_id = result.get('row_ids')[0]

@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import pytz
@@ -15,7 +16,7 @@ from seafobj import commit_mgr, fs_mgr
 from seafevents.app.config import METADATA_FILE_TYPES
 from seafevents.repo_metadata.view_data_sql import view_data_2_sql
 from seafevents.utils import timestamp_to_isoformat_timestr
-from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT
+from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT, FACE_EMBEDDING_DIM
 
 
 def gen_fileext_type_map():
@@ -45,6 +46,20 @@ def feature_distance(feature1, feature2):
     return dist
 
 
+def b64encode_embeddings(embeddings):
+    embedding_array = np.array(embeddings).astype(np.float16)
+    encode = base64.b64encode(embedding_array.tobytes())
+    return encode
+
+
+def b64decode_embeddings(encode):
+    decode = base64.b64decode(encode)
+    embedding_array = np.frombuffer(decode, dtype=np.float16)
+    face_num = len(embedding_array) // FACE_EMBEDDING_DIM
+    embedding = embedding_array.reshape((face_num, FACE_EMBEDDING_DIM)).tolist()
+    return embedding
+
+
 def get_cluster_by_center(center, clusters):
     min_distance = float('inf')
     nearest_cluster = None
@@ -53,7 +68,7 @@ def get_cluster_by_center(center, clusters):
         if not vector:
             continue
 
-        vector = json.loads(vector)
+        vector = b64decode_embeddings(vector)[0]
         distance = feature_distance(center, vector)
         if distance < 1 and distance < min_distance:
             min_distance = distance
@@ -196,7 +211,7 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, image_embedding_api=
                 result = image_embedding_api.face_embeddings(repo_id, [obj_id]).get('data', [])
                 if result:
                     face_embeddings = result[0]['embeddings']
-                    update_row[METADATA_TABLE.columns.face_vectors.name] = json.dumps(face_embeddings)
+                    update_row[METADATA_TABLE.columns.face_vectors.name] = b64encode_embeddings(face_embeddings)
         elif file_type == '_video':
             update_row = add_video_detail_row(row_id, content, has_capture_time_column)
         else:
