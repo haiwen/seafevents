@@ -128,23 +128,37 @@ class SeafileDB(object):
             return repos_map
 
 
-    def reset_download_rate_limit(self, rate_limit_users, rate_limit_orgs):
-        rate_limit_users_str = ','.join(["'%s'" % str(user) for user in rate_limit_users])
-        rate_limit_orgs_str = ','.join(["'%s'" % str(org_id) for org_id in rate_limit_orgs])
-
-        sql1 = f"""
-        UPDATE `{self.db_name}`.`UserDownloadRateLimit` u
-        SET u.download_limit = 0
-        WHERE
-            u.user IN ({rate_limit_users_str})
-        """
-        sql2 = f"""
-        UPDATE `{self.db_name}`.`OrgDownloadRateLimit` u
-        SET u.download_limit = 0
-        WHERE u.org_id IN ({rate_limit_orgs_str})
-        """
+    def set_download_rate_limit(self, user, download_rate_limit, status):
+        sql = f"""
+                INSERT INTO `{self.db_name}`.`UserDownloadRateLimit` (`user`, `download_limit`, `status`)
+                VALUES ('{user}', {download_rate_limit}, {status})
+                ON DUPLICATE KEY UPDATE
+                download_limit={download_rate_limit},
+                status={status}
+                """
         with self.seafile_db_cursor as cursor:
-            if len(rate_limit_users) > 0:
-                cursor.execute(sql1)
-            if len(rate_limit_orgs) > 0:
-                cursor.execute(sql2)
+            cursor.execute(sql)
+
+    def set_org_download_rate_limit(self, org_id, download_rate_limit, status):
+        sql = f"""
+                INSERT INTO `{self.db_name}`.`OrgDownloadRateLimit`  (`org_id`, `download_limit`, `status`)
+                VALUES ('{org_id}', {download_rate_limit}, {status})
+                ON DUPLICATE KEY UPDATE
+                download_limit={download_rate_limit},
+                status={status}
+                """
+        with self.seafile_db_cursor as cursor:
+            cursor.execute(sql)
+
+    def reset_download_rate_limit(self):
+        sql1 = f"""
+                DELETE FROM `{self.db_name}`.`UserDownloadRateLimit`
+                WHERE status=2
+                """
+        sql2 = f"""
+                DELETE FROM `{self.db_name}`.`OrgDownloadRateLimit`
+                WHERE status=2
+                """
+        with self.seafile_db_cursor as cursor:
+            cursor.execute(sql1)
+            cursor.execute(sql2)
