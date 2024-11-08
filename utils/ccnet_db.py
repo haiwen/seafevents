@@ -136,5 +136,6 @@ class CcnetDB(object):
         """
         with self.ccnet_db_cursor as cursor:
             cursor.execute(sql)
+            result = cursor.fetchone()
 
-            return cursor.fetchone()[0]
+            return result[0] if result else 'default'

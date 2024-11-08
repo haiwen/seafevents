@@ -34,18 +34,6 @@ MONTHLY_RATE_LIMIT_PER_USER = 'monthly_rate_limit_per_user'
 MONTHLY_RATE_LIMIT = 'monthly_rate_limit'
 
 
-def format_user_role(role):
-    """Get a user's role.
-    """
-    if role is None or role == '' or role == DEFAULT_USER:
-        return DEFAULT_USER
-
-    if role == GUEST_USER:
-        return GUEST_USER
-
-    return role
-
-
 def get_org_user_count(local_traffic_info, date_str):
     org_user_dict = {}
     for row in local_traffic_info[date_str]:
@@ -292,7 +280,7 @@ class TrafficInfoCounter(object):
             if traffic_info_dict and oper in self.download_type_list:
                 with CcnetDB() as ccnet_db:
                     user_role = ccnet_db.get_user_role(user)
-                    role = format_user_role(user_role)
+                    role = DEFAULT_USER if (user_role == '' or user_role == DEFAULT_USER) else user_role
                 traffic_threshold = traffic_info_dict[role][MONTHLY_RATE_LIMIT]
                 if org_id > 0:
                     traffic_threshold = traffic_info_dict[role][MONTHLY_RATE_LIMIT_PER_USER] * org_user_count_dict[org_id]
@@ -352,11 +340,10 @@ class TrafficInfoCounter(object):
             org_id = row[0]
             oper = row[1]
             size = org_delta[row]
-            if traffic_info_dict and oper in self.download_type_list:
-                traffic_threshold = row[2]
             try:
                 # Check org download traffic for current month.
-                if org_id > 0 and oper in self.download_type_list and not rate_limit_orgs.get(org_id):
+                if traffic_info_dict and org_id > 0 and oper in self.download_type_list and not rate_limit_orgs.get(org_id):
+                    traffic_threshold = row[2]
                     stmt2 = select(func.sum(SysTraffic.size).label("size")).where(
                         SysTraffic.timestamp.between(first_day_of_month, date),
                         SysTraffic.org_id == org_id,
