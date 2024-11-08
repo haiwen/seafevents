@@ -6,7 +6,7 @@ from flask import Flask, request, make_response
 from seafevents.app.config import SEAHUB_SECRET_KEY
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
-from seafevents.seafevent_server.face_recognition_task_manager import face_recognition_task_manager
+from seafevents.face_recognition.face_recognition_task_manager import face_recognition_task_manager
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
