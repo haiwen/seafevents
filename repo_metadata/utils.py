@@ -47,14 +47,14 @@ def feature_distance(feature1, feature2):
 
 
 def b64encode_embeddings(embeddings):
-    embedding_array = np.array(embeddings).astype(np.float16)
+    embedding_array = np.array(embeddings).astype(np.float32)
     encode = base64.b64encode(embedding_array.tobytes())
     return encode.decode('utf-8')
 
 
 def b64decode_embeddings(encode):
     decode = base64.b64decode(encode)
-    embedding_array = np.frombuffer(decode, dtype=np.float16)
+    embedding_array = np.frombuffer(decode, dtype=np.float32)
     face_num = len(embedding_array) // FACE_EMBEDDING_DIM
     embedding = embedding_array.reshape((face_num, FACE_EMBEDDING_DIM)).tolist()
     return embedding
