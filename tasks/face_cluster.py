@@ -8,7 +8,7 @@ from seafevents.utils import get_python_executable, run
 
 class FaceCluster(object):
     def __init__(self):
-        self._interval = 20
+        self._interval = 24 * 60 * 60
         self._logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'face_recognition.log')
 
     def start(self):
@@ -20,7 +20,7 @@ class FaceClusterTimer(Thread):
     def __init__(self, interval, log_file):
         Thread.__init__(self)
         self._interval = interval
-        self._logfile = '/data/dev/seafevents/face.log'
+        self._logfile = log_file
         self.finished = Event()
 
     def run(self):

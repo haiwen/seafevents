@@ -40,20 +40,6 @@ class RepoData(object):
         finally:
             session.close()
 
-    def _get_mtime_by_repo_ids(self, repo_ids):
-        session = self.db_session()
-        try:
-            if len(repo_ids) == 1:
-                cmd = """SELECT repo_id, update_time FROM RepoInfo WHERE repo_id = '%s'""" % repo_ids[0]
-            else:
-                cmd = """SELECT repo_id, update_time FROM RepoInfo WHERE repo_id IN {}""".format(tuple(repo_ids))
-            res = session.execute(text(cmd)).fetchall()
-            return res
-        except Exception as e:
-            raise e
-        finally:
-            session.close()
-
     def _get_wiki_repo_id_commit_id(self, start, count):
         session = self.db_session()
         try:
