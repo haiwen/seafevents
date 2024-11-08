@@ -127,37 +127,12 @@ class SeafileDB(object):
 
             return repos_map
 
-
-    def set_download_rate_limit(self, user, download_rate_limit, status):
-        sql = f"""
-                INSERT INTO `{self.db_name}`.`UserDownloadRateLimit` (`user`, `download_limit`, `status`)
-                VALUES ('{user}', {download_rate_limit}, {status})
-                ON DUPLICATE KEY UPDATE
-                download_limit={download_rate_limit},
-                status={status}
-                """
-        with self.seafile_db_cursor as cursor:
-            cursor.execute(sql)
-
-    def set_org_download_rate_limit(self, org_id, download_rate_limit, status):
-        sql = f"""
-                INSERT INTO `{self.db_name}`.`OrgDownloadRateLimit`  (`org_id`, `download_limit`, `status`)
-                VALUES ('{org_id}', {download_rate_limit}, {status})
-                ON DUPLICATE KEY UPDATE
-                download_limit={download_rate_limit},
-                status={status}
-                """
-        with self.seafile_db_cursor as cursor:
-            cursor.execute(sql)
-
     def reset_download_rate_limit(self):
         sql1 = f"""
-                DELETE FROM `{self.db_name}`.`UserDownloadRateLimit`
-                WHERE status=2
+                TRUNCATE TABLE `{self.db_name}`.`UserDownloadRateLimit`;
                 """
         sql2 = f"""
-                DELETE FROM `{self.db_name}`.`OrgDownloadRateLimit`
-                WHERE status=2
+                TRUNCATE TABLE `{self.db_name}`.`OrgDownloadRateLimit`
                 """
         with self.seafile_db_cursor as cursor:
             cursor.execute(sql1)

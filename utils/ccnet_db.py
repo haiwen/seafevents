@@ -119,3 +119,22 @@ class CcnetDB(object):
                 groups_map[item[0]] = self.get_group_info(item)
 
             return groups_map
+
+    def get_org_user_count(self, org_id):
+        sql = f"""
+        SELECT COUNT(1) FROM `{self.db_name}`.`OrgUser` WHERE org_id={org_id}
+        """
+        with self.ccnet_db_cursor as cursor:
+            cursor.execute(sql)
+
+            return cursor.fetchone()[0]
+
+    def get_user_role(self, email):
+        sql = f"""
+        SELECT role FROM `{self.db_name}`.`UserRole`
+        WHERE email="{email}"
+        """
+        with self.ccnet_db_cursor as cursor:
+            cursor.execute(sql)
+
+            return cursor.fetchone()[0]
