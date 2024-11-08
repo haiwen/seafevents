@@ -49,7 +49,7 @@ def feature_distance(feature1, feature2):
 def b64encode_embeddings(embeddings):
     embedding_array = np.array(embeddings).astype(np.float16)
     encode = base64.b64encode(embedding_array.tobytes())
-    return encode
+    return encode.decode('utf-8')
 
 
 def b64decode_embeddings(encode):
