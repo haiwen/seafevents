@@ -173,7 +173,7 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, image_embedding_api=
             if image_embedding_api and not row.get(METADATA_TABLE.columns.face_vectors.name):
                 result = image_embedding_api.face_embeddings(repo_id, [obj_id]).get('data', [])
                 if result:
-                    face_embeddings = result[0]['embeddings']
+                    face_embeddings = [face['embedding'] for face in result[0]['faces']]
                     update_row[METADATA_TABLE.columns.face_vectors.name] = b64encode_embeddings(face_embeddings)
         elif file_type == '_video':
             update_row = add_video_detail_row(row_id, content, has_capture_time_column)

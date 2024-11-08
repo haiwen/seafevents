@@ -1,9 +1,16 @@
 import base64
+import io
 import json
 import numpy as np
+import requests
+from PIL import Image
 
-from seafevents.repo_metadata.utils import FACES_TABLE, query_metadata_rows
+from seaserv import seafile_api
+
+from seafevents.repo_metadata.utils import FACES_TABLE, query_metadata_rows, get_file_content
 from seafevents.repo_metadata.constants import FACE_EMBEDDING_DIM
+
+from seafevents.app.config import FILE_SERVER_ROOT
 
 
 def feature_distance(feature1, feature2):
@@ -57,3 +64,49 @@ def get_face_embeddings(repo_id, image_embedding_api, obj_ids):
         embeddings.append(query_results)
 
     return embeddings
+
+
+def get_image_face(repo_id, obj_id, image_embedding_api, center):
+    result = image_embedding_api.face_embeddings(repo_id, [obj_id]).get('data', [])
+    if not result:
+        return None
+
+    if len(result) == 1:
+        return get_face_by_box(repo_id, obj_id, result[0]['faces'][0]['box'])
+
+    faces = result[0]['faces']
+    sim = [feature_distance(center, face['embedding']) for face in faces]
+    return get_face_by_box(repo_id, obj_id, faces[min(sim)]['box'])
+
+
+def get_face_by_box(repo_id, obj_id, box):
+    content = get_file_content(repo_id, obj_id)
+    if not content:
+        return None
+
+    image = Image.open(io.BytesIO(content))
+    cropped_image = image.crop((box[0], box[1], box[2], box[3]))
+    output_buffer = io.BytesIO()
+    cropped_image.save(output_buffer, format='jpeg')
+    output_buffer.seek(0)
+
+    return output_buffer.getvalue()
+
+
+def save_face(repo_id, parent_dir, image, filename):
+    obj_id = json.dumps({'parent_dir': parent_dir})
+    token = seafile_api.get_fileserver_access_token(repo_id, obj_id, 'upload', 'system', use_onetime=False)
+    upload_link = gen_file_upload_url(token, 'upload-aj')
+
+    response = requests.post(upload_link, files={'file': (filename, image)}, data={
+        'parent_dir': parent_dir,
+    }, timeout=30)
+    if response.status_code != 200:
+        raise ConnectionError(response.status_code, response.text)
+
+
+def gen_file_upload_url(token, op, replace=False):
+    url = '%s/%s/%s' % (FILE_SERVER_ROOT, op, token)
+    if replace is True:
+        url += '?replace=1'
+    return url
