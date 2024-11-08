@@ -5,9 +5,10 @@ import random
 import math
 import exiftool
 import tempfile
+import base64
 
 from datetime import timedelta, timezone, datetime
-from sqlalchemy.sql import text
+import numpy as np
 
 from seafobj import commit_mgr, fs_mgr
 
@@ -15,7 +16,6 @@ from seafevents.app.config import METADATA_FILE_TYPES
 from seafevents.repo_metadata.view_data_sql import view_data_2_sql
 from seafevents.utils import timestamp_to_isoformat_timestr
 from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT
-from seafevents.face_recognition.utils import b64encode_embeddings
 
 
 def gen_fileext_type_map():
@@ -45,6 +45,12 @@ def is_valid_datetime(date_string, format):
         return True
     except ValueError:
         return False
+
+
+def b64encode_embeddings(embeddings):
+    embedding_array = np.array(embeddings).astype(np.float32)
+    encode = base64.b64encode(embedding_array.tobytes())
+    return encode.decode('utf-8')
 
 
 def get_file_content(repo_id, obj_id, limit=-1):
@@ -286,25 +292,6 @@ def query_metadata_rows(repo_id, metadata_server_api, sql):
         start += offset
 
     return rows
-
-
-def get_face_embeddings(repo_id, image_embedding_api, obj_ids):
-    embeddings = []
-
-    per_size = 50
-    for i in range(0, len(obj_ids), per_size):
-        query_results = image_embedding_api.face_embeddings(repo_id, obj_ids[i: i + per_size]).get('data', [])
-        embeddings.append(query_results)
-
-    return embeddings
-
-
-def get_repo_face_recognition_status(repo_id, session):
-    with session() as session:
-        sql = "SELECT face_recognition_enabled FROM repo_metadata WHERE repo_id='%s'" % repo_id
-        record = session.execute(text(sql)).fetchone()
-
-    return record[0] if record else None
 
 
 class MetadataTable(object):

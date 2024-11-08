@@ -34,7 +34,7 @@ def get_cluster_by_center(center, clusters):
         if not vector:
             continue
 
-        vector = json.loads(vector)
+        vector = b64decode_embeddings(vector)[0]
         distance = feature_distance(center, vector)
         if distance < 1 and distance < min_distance:
             min_distance = distance
@@ -46,3 +46,14 @@ def get_faces_rows(repo_id, metadata_server_api):
     sql = f'SELECT * FROM `{FACES_TABLE.name}`'
     query_result = query_metadata_rows(repo_id, metadata_server_api, sql)
     return query_result if query_result else []
+
+
+def get_face_embeddings(repo_id, image_embedding_api, obj_ids):
+    embeddings = []
+
+    per_size = 50
+    for i in range(0, len(obj_ids), per_size):
+        query_results = image_embedding_api.face_embeddings(repo_id, obj_ids[i: i + per_size]).get('data', [])
+        embeddings.append(query_results)
+
+    return embeddings

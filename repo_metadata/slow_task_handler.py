@@ -9,7 +9,8 @@ from seafevents.mq import get_mq
 from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.image_embedding_api import ImageEmbeddingAPI
-from seafevents.repo_metadata.utils import add_file_details, get_repo_face_recognition_status
+from seafevents.repo_metadata.utils import add_file_details
+from seafevents.face_recognition.db import get_repo_face_recognition_status
 from seafevents.db import init_db_session_class
 
 logger = logging.getLogger(__name__)
