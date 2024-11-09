@@ -50,6 +50,9 @@ def main(background_tasks_only=False):
     if is_syslog_enabled(config):
         app_logger.add_syslog_handler()
 
+    face_recognition_log_path = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'face_recognition.log')
+    app_logger.add_face_recognition_logger(face_recognition_log_path)
+
     foreground_tasks_enabled = True
     background_tasks_enabled = True
 

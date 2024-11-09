@@ -9,8 +9,10 @@ from PIL import Image
 from seaserv import seafile_api
 
 from seafevents.repo_metadata.utils import FACES_TABLE, query_metadata_rows, get_file_content
-from seafevents.repo_metadata.constants import FACE_EMBEDDING_DIM
 
+
+VECTOR_DEFAULT_FLAG = '0'
+FACE_EMBEDDING_DIM = 512
 FACES_TMP_DIR = '/tmp'
 FACES_SAVE_PATH = '_Internal/Faces'
 

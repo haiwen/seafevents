@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime
 import numpy as np
 
@@ -8,11 +9,11 @@ from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.image_embedding_api import ImageEmbeddingAPI
 from seafevents.repo_metadata.utils import METADATA_TABLE, FACES_TABLE, query_metadata_rows
 from seafevents.repo_metadata.constants import METADATA_OP_LIMIT
-from seafevents.face_recognition.db import update_face_cluster_time, update_face_cluster_time
+from seafevents.face_recognition.db import update_face_cluster_time, update_face_cluster_time, get_repo_face_recognition_status
 from seafevents.face_recognition.utils import get_faces_rows, get_cluster_by_center, b64encode_embeddings, \
-    b64decode_embeddings, get_faces_rows, get_face_embeddings, get_image_face, save_face
+    b64decode_embeddings, get_faces_rows, get_face_embeddings, get_image_face, save_face, VECTOR_DEFAULT_FLAG
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('face_recognition')
 
 
 class FaceRecognitionManager(object):
@@ -31,6 +32,10 @@ class FaceRecognitionManager(object):
             image_embedding_secret_key = get_opt_from_conf_or_env(config, ai_section_name, 'image_embedding_secret_key')
             self.image_embedding_api = ImageEmbeddingAPI(image_embedding_service_url, image_embedding_secret_key)
 
+    def check_face_recognition_status(self, repo_id):
+        face_recognition_status = get_repo_face_recognition_status(repo_id, self._db_session_class)
+        return face_recognition_status
+
     def init_face_recognition(self, repo_id):
         sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.file_type.name}` = "_picture"'
 
@@ -38,8 +43,13 @@ class FaceRecognitionManager(object):
         if not query_result:
             return
 
+        self.face_embeddings(repo_id, query_result)
+        self.face_cluster(repo_id)
+
+    def face_embeddings(self, repo_id, rows):
+        logger.info('repo %s need update face_vectors rows count: %d', repo_id, len(rows))
         obj_id_to_rows = {}
-        for item in query_result:
+        for item in rows:
             obj_id = item[METADATA_TABLE.columns.obj_id.name]
             if obj_id not in obj_id_to_rows:
                 obj_id_to_rows[obj_id] = []
@@ -47,6 +57,7 @@ class FaceRecognitionManager(object):
 
         obj_ids = list(obj_id_to_rows.keys())
         updated_rows = []
+        start_time = time.time()
         for i in range(0, len(obj_ids), 50):
             obj_ids_batch = obj_ids[i: i + 50]
             result = self.image_embedding_api.face_embeddings(repo_id, obj_ids_batch).get('data', [])
@@ -56,20 +67,32 @@ class FaceRecognitionManager(object):
             for item in result:
                 obj_id = item['obj_id']
                 face_embeddings = [face['embedding'] for face in item['faces']]
+                vector = b64encode_embeddings(face_embeddings) if face_embeddings else VECTOR_DEFAULT_FLAG
                 for row in obj_id_to_rows.get(obj_id, []):
                     row_id = row[METADATA_TABLE.columns.id.name]
                     updated_rows.append({
                         METADATA_TABLE.columns.id.name: row_id,
-                        METADATA_TABLE.columns.face_vectors.name: b64encode_embeddings(face_embeddings),
+                        METADATA_TABLE.columns.face_vectors.name: vector,
                     })
                     if len(updated_rows) >= METADATA_OP_LIMIT:
                         self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
                         updated_rows = []
+                        logger.info('repo %s updated face_vectors rows count: %d, cost time: %.2f', repo_id, len(updated_rows), time.time() - start_time)
+                        start_time = time.time()
 
         if updated_rows:
+            logger.info('repo %s updated face_vectors rows count: %d, cost time: %.2f', repo_id, len(updated_rows), time.time() - start_time)
             self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
 
-        self.face_cluster(repo_id)
+    def check_face_vectors(self, repo_id):
+        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.file_type.name}` = "_picture" AND `{METADATA_TABLE.columns.face_vectors.name}` IS NULL'
+
+        query_result = query_metadata_rows(repo_id, self.metadata_server_api, sql)
+        if not query_result:
+            return
+
+        self.face_embeddings(repo_id, query_result)
+        logger.info('repo %s face vectors is completed', repo_id)
 
     def face_cluster(self, repo_id):
         try:
@@ -81,7 +104,7 @@ class FaceRecognitionManager(object):
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         update_face_cluster_time(self._db_session_class, repo_id, current_time)
 
-        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.face_vectors.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.face_vectors.name}` IS NOT NULL'
+        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.face_vectors.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.face_vectors.name}` IS NOT NULL AND `{METADATA_TABLE.columns.face_vectors.name}` <> "{VECTOR_DEFAULT_FLAG}"'
         query_result = query_metadata_rows(repo_id, self.metadata_server_api, sql)
         if not query_result:
             return

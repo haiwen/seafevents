@@ -48,3 +48,12 @@ class LogConfigurator(object):
         else:
             return logging.WARNING
 
+    def add_face_recognition_logger(self, logfile):
+        logger = logging.getLogger('face_recognition')
+        handler = logging.handlers.TimedRotatingFileHandler(logfile, when='W0', interval=1)
+        handler.setLevel(self._level)
+        formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s')
+        handler.setFormatter(formatter)
+
+        logger.setLevel(self._level)
+        logger.addHandler(handler)

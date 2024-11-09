@@ -49,6 +49,7 @@ class RepoFaceClusterUpdater(object):
                     continue
 
                 try:
+                    self._face_recognition_manager.check_face_vectors(repo_id)
                     self._face_recognition_manager.face_cluster(repo_id)
                 except Exception as e:
                     logger.error("repo: %s, update face cluster error: %s" % (repo_id, e))
