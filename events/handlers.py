@@ -28,6 +28,7 @@ from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, 
 from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
 
 recent_added_events = {'recent_added_events': []}
+EXCLUDED_PATHS = ['/_Internal', ]
 
 
 def RepoUpdateEventHandler(config, session, msg):
@@ -247,6 +248,8 @@ def generate_repo_monitor_records(repo_id, commit,
         #  'size': 0}
         for de in added_files:
 
+            if de.path.startswith(EXCLUDED_PATHS[0]):
+                continue
             if commit.description.startswith('Reverted'):
                 op_type = OP_RECOVER
             else:
@@ -269,6 +272,8 @@ def generate_repo_monitor_records(repo_id, commit,
 
         for de in deleted_files:
 
+            if de.path.startswith(EXCLUDED_PATHS[0]):
+                continue
             commit_diff = dict()
             commit_diff['op_type'] = OP_DELETE
             commit_diff['obj_type'] = OBJ_FILE
@@ -287,6 +292,8 @@ def generate_repo_monitor_records(repo_id, commit,
 
         for de in added_dirs:
 
+            if de.path.startswith(EXCLUDED_PATHS[0]):
+                continue
             if commit.description.startswith('Recovered'):
                 op_type = OP_RECOVER
             else:
@@ -309,6 +316,8 @@ def generate_repo_monitor_records(repo_id, commit,
 
         for de in deleted_dirs:
 
+            if de.path.startswith(EXCLUDED_PATHS[0]):
+                continue
             commit_diff = dict()
             commit_diff['op_type'] = OP_DELETE
             commit_diff['obj_type'] = OBJ_DIR
@@ -326,6 +335,8 @@ def generate_repo_monitor_records(repo_id, commit,
 
         for de in renamed_files:
 
+            if de.path.startswith(EXCLUDED_PATHS[0]):
+                continue
             commit_diff = dict()
             commit_diff['op_type'] = OP_RENAME
             commit_diff['obj_type'] = OBJ_FILE
@@ -345,6 +356,8 @@ def generate_repo_monitor_records(repo_id, commit,
 
         for de in renamed_dirs:
 
+            if de.path.startswith(EXCLUDED_PATHS[0]):
+                continue
             commit_diff = dict()
             commit_diff['op_type'] = OP_RENAME
             commit_diff['obj_type'] = OBJ_DIR
@@ -364,6 +377,8 @@ def generate_repo_monitor_records(repo_id, commit,
 
         for de in moved_files:
 
+            if de.path.startswith(EXCLUDED_PATHS[0]):
+                continue
             commit_diff = dict()
             commit_diff['op_type'] = OP_MOVE
             commit_diff['obj_type'] = OBJ_FILE
@@ -383,6 +398,8 @@ def generate_repo_monitor_records(repo_id, commit,
 
         for de in moved_dirs:
 
+            if de.path.startswith(EXCLUDED_PATHS[0]):
+                continue
             commit_diff = dict()
             commit_diff['op_type'] = OP_MOVE
             commit_diff['obj_type'] = OBJ_DIR
@@ -406,7 +423,8 @@ def generate_repo_monitor_records(repo_id, commit,
                 op_type = OP_RECOVER
             else:
                 op_type = OP_EDIT
-
+            if de.path.startswith(EXCLUDED_PATHS[0]):
+                continue
             commit_diff = dict()
             commit_diff['op_type'] = op_type
             commit_diff['obj_type'] = OBJ_FILE
@@ -417,6 +435,10 @@ def generate_repo_monitor_records(repo_id, commit,
             modified_files_record["commit_diff"].append(commit_diff)
 
         records.append(modified_files_record)
+    # remove empty commit_diff
+    for record in records:
+        if len(record['commit_diff']) == 0:
+            records.remove(record)
 
     return records
 
