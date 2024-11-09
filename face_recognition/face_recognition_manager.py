@@ -1,4 +1,3 @@
-import json
 import logging
 from datetime import datetime
 import numpy as np
@@ -11,7 +10,7 @@ from seafevents.repo_metadata.utils import METADATA_TABLE, FACES_TABLE, query_me
 from seafevents.repo_metadata.constants import METADATA_OP_LIMIT
 from seafevents.face_recognition.db import update_face_cluster_time, update_face_cluster_time
 from seafevents.face_recognition.utils import get_faces_rows, get_cluster_by_center, b64encode_embeddings, \
-    b64decode_embeddings, get_faces_rows, get_face_embeddings
+    b64decode_embeddings, get_faces_rows, get_face_embeddings, get_image_face, save_face
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ class FaceRecognitionManager(object):
 
             for item in result:
                 obj_id = item['obj_id']
-                face_embeddings = item['embeddings']
+                face_embeddings = [face['embedding'] for face in item['faces']]
                 for row in obj_id_to_rows.get(obj_id, []):
                     row_id = row[METADATA_TABLE.columns.id.name]
                     updated_rows.append({
@@ -82,7 +81,7 @@ class FaceRecognitionManager(object):
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         update_face_cluster_time(self._db_session_class, repo_id, current_time)
 
-        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.face_vectors.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.face_vectors.name}` IS NOT NULL'
+        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.face_vectors.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.face_vectors.name}` IS NOT NULL'
         query_result = query_metadata_rows(repo_id, self.metadata_server_api, sql)
         if not query_result:
             return
@@ -95,7 +94,9 @@ class FaceRecognitionManager(object):
 
         vectors = []
         row_ids = []
+        id_to_record = dict()
         for item in query_result:
+            id_to_record[item[METADATA_TABLE.columns.id.name]] = item
             row_id = item[METADATA_TABLE.columns.id.name]
             face_vectors = b64decode_embeddings(item[METADATA_TABLE.columns.face_vectors.name])
             for face_vector in face_vectors:
@@ -131,11 +132,27 @@ class FaceRecognitionManager(object):
                 continue
 
             result = self.metadata_server_api.insert_rows(repo_id, faces_table_id, [face_row])
-            row_id = result.get('row_ids')[0]
+            face_row_id = result.get('row_ids')[0]
             row_id_map = {
-                row_id: related_row_ids
+                face_row_id: related_row_ids
             }
             self.metadata_server_api.insert_link(repo_id, FACES_TABLE.link_id, faces_table_id, row_id_map)
 
-        need_delete_row_ids = [item[FACES_TABLE.columns.id.name] for item in old_cluster]
-        self.metadata_server_api.delete_rows(repo_id, faces_table_id, need_delete_row_ids)
+            face_image = None
+            for row_id in related_row_ids:
+                if row_ids.count(row_id) == 1:
+                    record = id_to_record[row_id]
+                    obj_id = record[METADATA_TABLE.columns.obj_id.name]
+                    face_image = get_image_face(repo_id, obj_id, self.image_embedding_api, cluster_center.tolist())
+                    break
+
+            if not face_image:
+                record = id_to_record[related_row_ids[0]]
+                obj_id = record[METADATA_TABLE.columns.obj_id.name]
+                face_image = get_image_face(repo_id, obj_id, self.image_embedding_api, cluster_center.tolist())
+
+            if not face_image:
+                continue
+
+            filename = f'{face_row_id}.jpg'
+            save_face(repo_id, face_image, filename)

@@ -47,6 +47,10 @@ class RepoFaceClusterUpdater(object):
 
                 if last_face_cluster_time and int(mtime) <= int(last_face_cluster_time.timestamp()):
                     continue
-                self._face_recognition_manager.face_cluster(repo_id)
+
+                try:
+                    self._face_recognition_manager.face_cluster(repo_id)
+                except Exception as e:
+                    logger.error("repo: %s, update face cluster error: %s" % (repo_id, e))
 
         logger.info("Finish update face cluster")

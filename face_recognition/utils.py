@@ -1,9 +1,18 @@
 import base64
-import json
-import numpy as np
+import io
+import os
+import posixpath
 
-from seafevents.repo_metadata.utils import FACES_TABLE, query_metadata_rows
+import numpy as np
+from PIL import Image
+
+from seaserv import seafile_api
+
+from seafevents.repo_metadata.utils import FACES_TABLE, query_metadata_rows, get_file_content
 from seafevents.repo_metadata.constants import FACE_EMBEDDING_DIM
+
+FACES_TMP_DIR = '/tmp'
+FACES_SAVE_PATH = '_Internal/Faces'
 
 
 def feature_distance(feature1, feature2):
@@ -57,3 +66,39 @@ def get_face_embeddings(repo_id, image_embedding_api, obj_ids):
         embeddings.append(query_results)
 
     return embeddings
+
+
+def get_image_face(repo_id, obj_id, image_embedding_api, center):
+    result = image_embedding_api.face_embeddings(repo_id, [obj_id]).get('data', [])
+    if not result:
+        return None
+
+    if len(result) == 1:
+        return get_face_by_box(repo_id, obj_id, result[0]['faces'][0]['box'])
+
+    faces = result[0]['faces']
+    sim = [feature_distance(center, face['embedding']) for face in faces]
+    return get_face_by_box(repo_id, obj_id, faces[min(sim)]['box'])
+
+
+def get_face_by_box(repo_id, obj_id, box):
+    content = get_file_content(repo_id, obj_id)
+    if not content:
+        return None
+
+    image = Image.open(io.BytesIO(content))
+    cropped_image = image.crop((box[0], box[1], box[2], box[3]))
+    output_buffer = io.BytesIO()
+    cropped_image.save(output_buffer, format='jpeg')
+    output_buffer.seek(0)
+
+    return output_buffer.getvalue()
+
+
+def save_face(repo_id, image, filename):
+    tmp_content_path = posixpath.join(FACES_TMP_DIR, filename)
+    with open(tmp_content_path, 'wb') as f:
+        f.write(image)
+
+    seafile_api.post_file(repo_id, tmp_content_path, FACES_SAVE_PATH, filename, 'system')
+    os.remove(tmp_content_path)
