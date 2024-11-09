@@ -1,8 +1,9 @@
 import base64
 import io
-import json
+import os
+import posixpath
+
 import numpy as np
-import requests
 from PIL import Image
 
 from seaserv import seafile_api
@@ -10,7 +11,8 @@ from seaserv import seafile_api
 from seafevents.repo_metadata.utils import FACES_TABLE, query_metadata_rows, get_file_content
 from seafevents.repo_metadata.constants import FACE_EMBEDDING_DIM
 
-from seafevents.app.config import FILE_SERVER_ROOT
+FACES_TMP_DIR = '/tmp'
+FACES_SAVE_PATH = '_Internal/Faces'
 
 
 def feature_distance(feature1, feature2):
@@ -93,20 +95,10 @@ def get_face_by_box(repo_id, obj_id, box):
     return output_buffer.getvalue()
 
 
-def save_face(repo_id, parent_dir, image, filename):
-    obj_id = json.dumps({'parent_dir': parent_dir})
-    token = seafile_api.get_fileserver_access_token(repo_id, obj_id, 'upload', 'system', use_onetime=False)
-    upload_link = gen_file_upload_url(token, 'upload-aj')
+def save_face(repo_id, image, filename):
+    tmp_content_path = posixpath.join(FACES_TMP_DIR, filename)
+    with open(tmp_content_path, 'wb') as f:
+        f.write(image)
 
-    response = requests.post(upload_link, files={'file': (filename, image)}, data={
-        'parent_dir': parent_dir,
-    }, timeout=30)
-    if response.status_code != 200:
-        raise ConnectionError(response.status_code, response.text)
-
-
-def gen_file_upload_url(token, op, replace=False):
-    url = '%s/%s/%s' % (FILE_SERVER_ROOT, op, token)
-    if replace is True:
-        url += '?replace=1'
-    return url
+    seafile_api.post_file(repo_id, tmp_content_path, FACES_SAVE_PATH, filename, 'system')
+    os.remove(tmp_content_path)

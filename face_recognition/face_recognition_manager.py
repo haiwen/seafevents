@@ -7,7 +7,7 @@ from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.image_embedding_api import ImageEmbeddingAPI
 from seafevents.repo_metadata.utils import METADATA_TABLE, FACES_TABLE, query_metadata_rows
-from seafevents.repo_metadata.constants import METADATA_OP_LIMIT, FACES_SAVE_PATH
+from seafevents.repo_metadata.constants import METADATA_OP_LIMIT
 from seafevents.face_recognition.db import update_face_cluster_time, update_face_cluster_time
 from seafevents.face_recognition.utils import get_faces_rows, get_cluster_by_center, b64encode_embeddings, \
     b64decode_embeddings, get_faces_rows, get_face_embeddings, get_image_face, save_face
@@ -155,4 +155,4 @@ class FaceRecognitionManager(object):
                 continue
 
             filename = f'{face_row_id}.jpg'
-            save_face(repo_id, FACES_SAVE_PATH, face_image, filename)
+            save_face(repo_id, face_image, filename)
