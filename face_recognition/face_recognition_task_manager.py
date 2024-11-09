@@ -6,7 +6,7 @@ import uuid
 from seafevents.db import init_db_session_class
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('face_recognition')
 
 
 class FaceRecognitionTaskManager:
@@ -72,7 +72,7 @@ class FaceRecognitionTaskManager:
             task_info = task_id + ' ' + str(task[0].__name__)
             try:
                 self.current_task_info[task_id] = task_info
-                logging.info('Run task: %s' % task_info)
+                logger.info('Run task: %s' % task_info)
                 start_time = time.time()
 
                 # run
@@ -80,7 +80,7 @@ class FaceRecognitionTaskManager:
                 self.task_results_map[task_id] = 'success'
 
                 finish_time = time.time()
-                logging.info('Run task success: %s cost %ds \n' % (task_info, int(finish_time - start_time)))
+                logger.info('Run task success: %s cost %ds \n' % (task_info, int(finish_time - start_time)))
                 self.current_task_info.pop(task_id, None)
             except Exception as e:
                 self.task_results_map[task_id] = 'error_' + str(e.args[0])

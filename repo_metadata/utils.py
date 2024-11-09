@@ -5,10 +5,8 @@ import random
 import math
 import exiftool
 import tempfile
-import base64
 
 from datetime import timedelta, timezone, datetime
-import numpy as np
 
 from seafobj import commit_mgr, fs_mgr
 
@@ -45,12 +43,6 @@ def is_valid_datetime(date_string, format):
         return True
     except ValueError:
         return False
-
-
-def b64encode_embeddings(embeddings):
-    embedding_array = np.array(embeddings).astype(np.float32)
-    encode = base64.b64encode(embedding_array.tobytes())
-    return encode.decode('utf-8')
 
 
 def get_file_content(repo_id, obj_id, limit=-1):
@@ -138,11 +130,16 @@ def get_video_details(content):
             return details, location
 
 
-def add_file_details(repo_id, obj_ids, metadata_server_api, image_embedding_api=None):
+def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_manager=None):
     all_updated_rows = []
     query_result = get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api)
     if not query_result:
         return []
+
+    if face_recognition_manager and face_recognition_manager.check_face_recognition_status(repo_id):
+        rows = [row for row in query_result if not row.get(METADATA_TABLE.columns.face_vectors.name) and row.get(METADATA_TABLE.columns.file_type.name) == '_picture']
+        if rows:
+            face_recognition_manager.face_embeddings(repo_id, rows)
 
     obj_id_to_rows = {}
     for item in query_result:
@@ -170,11 +167,6 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, image_embedding_api=
         content = get_file_content(repo_id, obj_id, limit)
         if file_type == '_picture':
             update_row = add_image_detail_row(row_id, content, has_capture_time_column)
-            if image_embedding_api and not row.get(METADATA_TABLE.columns.face_vectors.name):
-                result = image_embedding_api.face_embeddings(repo_id, [obj_id]).get('data', [])
-                if result:
-                    face_embeddings = [face['embedding'] for face in result[0]['faces']]
-                    update_row[METADATA_TABLE.columns.face_vectors.name] = b64encode_embeddings(face_embeddings)
         elif file_type == '_video':
             update_row = add_video_detail_row(row_id, content, has_capture_time_column)
         else:
