@@ -121,27 +121,27 @@ class LdapSync(Thread):
             logger.warning('Failed to init ccnet db: %s.' % e)
             return
 
-        ccnet_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('CCNET_CONF_DIR')
-        if not ccnet_conf_dir:
-            logging.warning('Environment variable ccnet_conf_dir is not define')
+        seafile_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('SEAFILE_CONF_DIR')
+        if not seafile_conf_dir:
+            logging.warning('Environment variable seafile_conf_dir is not define')
             return
 
-        ccnet_conf_path = os.path.join(ccnet_conf_dir, 'ccnet.conf')
-        ccnet_config = get_config(ccnet_conf_path)
+        seafile_conf_path = os.path.join(seafile_conf_dir, 'seafile.conf')
+        seafile_config = get_config(seafile_conf_path)
 
-        if not ccnet_config.has_section('Database'):
-            logger.warning('Failed to init ccnet db, can not find db info in ccnet.conf.')
+        if not seafile_config.has_section('database'):
+            logger.warning('Failed to init ccnet db, can not find db info in seafile.conf.')
             return
 
-        if ccnet_config.get('Database', 'ENGINE') != 'mysql':
+        if seafile_config.get('database', 'type') != 'mysql':
             logger.warning('Failed to init ccnet db, only mysql db supported.')
             return
 
-        db_name = ccnet_config.get('Database', 'DB', fallback='ccnet')
-        db_host = ccnet_config.get('Database', 'HOST', fallback='127.0.0.1')
-        db_port = ccnet_config.getint('Database', 'PORT', fallback=3306)
-        db_user = ccnet_config.get('Database', 'USER')
-        db_passwd = ccnet_config.get('Database', 'PASSWD')
+        db_name = os.environ.get('SEAFILE_MYSQL_DB_CCNET_DB_NAME', '') or 'ccnet_db'
+        db_host = seafile_config.get('database', 'host', fallback='127.0.0.1')
+        db_port = seafile_config.getint('database', 'port', fallback=3306)
+        db_user = seafile_config.get('database', 'user')
+        db_passwd = seafile_config.get('database', 'password')
 
         try:
             self.ccnet_db_conn = pymysql.connect(host=db_host, port=db_port, user=db_user,

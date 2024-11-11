@@ -6,8 +6,8 @@ from seafevents.ldap_syncer import Settings
 
 
 class LdapSyncer(object):
-    def __init__(self, config, ccnet_config):
-        self.settings = Settings(config, ccnet_config)
+    def __init__(self, config):
+        self.settings = Settings(config)
 
     def enable_sync(self):
         return self.settings.enable_sync()

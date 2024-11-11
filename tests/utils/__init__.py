@@ -53,10 +53,8 @@ class LDAPSyncerTest(unittest.TestCase):
     def setUp(self):
         # read conf file
         config_file = os.path.join(os.environ['CCNET_CONF_DIR'], 'seafevents.conf')
-        ccnet_conf_path = os.path.join(os.environ['CCNET_CONF_DIR'], 'ccnet.conf')
         config = get_config(config_file)
-        ccnet_config = get_config(ccnet_conf_path)
-        self.settings = Settings(config, ccnet_config, is_test=True)
+        self.settings = Settings(config, is_test=True)
 
         self.test_base_dn = 'OU=test-tmp-base-ou,dc=seafile,dc=ren'
 

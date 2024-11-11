@@ -14,7 +14,7 @@ from seafevents.seasearch.index_task.wiki_index_updater import WikiIndexUpdater
 
 
 class App(object):
-    def __init__(self, config, ccnet_config, seafile_config,
+    def __init__(self, config, seafile_config,
                  foreground_tasks_enabled=True,
                  background_tasks_enabled=True):
         self._fg_tasks_enabled = foreground_tasks_enabled
@@ -30,7 +30,7 @@ class App(object):
         if self._bg_tasks_enabled:
             self._index_updater = IndexUpdater(config)
             self._seahub_email_sender = SeahubEmailSender(config)
-            self._ldap_syncer = LdapSyncer(config, ccnet_config)
+            self._ldap_syncer = LdapSyncer(config)
             self._virus_scanner = VirusScanner(config, seafile_config)
             self._statistics = Statistics(config, seafile_config)
             self._content_scanner = ContentScanner(config)

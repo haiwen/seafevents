@@ -8,24 +8,7 @@ logger = logging.getLogger('seafevents')
 
 
 def get_ccnet_db_name():
-    ccnet_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('CCNET_CONF_DIR')
-    if not ccnet_conf_dir:
-        error_msg = 'Environment variable ccnet_conf_dir is not define.'
-        return None, error_msg
-
-    ccnet_conf_path = os.path.join(ccnet_conf_dir, 'ccnet.conf')
-    config = configparser.ConfigParser()
-    config.read(ccnet_conf_path)
-
-    if config.has_section('Database'):
-        db_name = config.get('Database', 'DB', fallback='ccnet')
-    else:
-        db_name = 'ccnet'
-
-    if config.get('Database', 'ENGINE') != 'mysql':
-        error_msg = 'Failed to init ccnet db, only mysql db supported.'
-        return None, error_msg
-    return db_name, None
+    return os.environ.get('SEAFILE_MYSQL_DB_CCNET_DB_NAME', '') or 'ccnet_db'
 
 
 class CcnetDB(object):
@@ -33,7 +16,7 @@ class CcnetDB(object):
         self.ccnet_db_conn = None
         self.ccnet_db_cursor = None
         self.init_ccnet_db()
-        self.db_name = get_ccnet_db_name()[0]
+        self.db_name = get_ccnet_db_name()
         if self.ccnet_db_cursor is None:
             raise RuntimeError('Failed to init ccnet db.')
 
@@ -51,27 +34,27 @@ class CcnetDB(object):
             logger.warning('Failed to init ccnet db: %s.' % e)
             return
 
-        ccnet_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('CCNET_CONF_DIR')
-        if not ccnet_conf_dir:
-            logging.warning('Environment variable ccnet_conf_dir is not define')
+        seafile_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('SEAFILE_CONF_DIR')
+        if not seafile_conf_dir:
+            logging.warning('Environment variable seafile_conf_dir is not define')
             return
 
-        ccnet_conf_path = os.path.join(ccnet_conf_dir, 'ccnet.conf')
-        ccnet_config = get_config(ccnet_conf_path)
+        seafile_conf_path = os.path.join(seafile_conf_dir, 'seafile.conf')
+        seafile_config = get_config(seafile_conf_path)
 
-        if not ccnet_config.has_section('Database'):
-            logger.warning('Failed to init ccnet db, can not find db info in ccnet.conf.')
+        if not seafile_config.has_section('database'):
+            logger.warning('Failed to init ccnet db, can not find db info in seafile.conf.')
             return
 
-        if ccnet_config.get('Database', 'ENGINE') != 'mysql':
+        if seafile_config.get('database', 'type') != 'mysql':
             logger.warning('Failed to init ccnet db, only mysql db supported.')
             return
 
-        db_name = ccnet_config.get('Database', 'DB', fallback='ccnet')
-        db_host = ccnet_config.get('Database', 'HOST', fallback='127.0.0.1')
-        db_port = ccnet_config.getint('Database', 'PORT', fallback=3306)
-        db_user = ccnet_config.get('Database', 'USER')
-        db_passwd = ccnet_config.get('Database', 'PASSWD')
+        db_name = os.environ.get('SEAFILE_MYSQL_DB_CCNET_DB_NAME', '') or 'ccnet_db'
+        db_host = seafile_config.get('Database', 'host', fallback='127.0.0.1')
+        db_port = seafile_config.getint('Database', 'port', fallback=3306)
+        db_user = seafile_config.get('Database', 'user')
+        db_passwd = seafile_config.get('Database', 'password')
 
         try:
             self.ccnet_db_conn = pymysql.connect(host=db_host, port=db_port, user=db_user,
