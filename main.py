@@ -25,18 +25,15 @@ def main(background_tasks_only=False):
     if args.pidfile:
         write_pidfile(args.pidfile)
 
-    ccnet_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('CCNET_CONF_DIR')
     seafile_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('SEAFILE_CONF_DIR')
-    if not ccnet_conf_dir or not seafile_conf_dir:
-        logging.error('Environment variable ccnet_conf_dir or seafile_conf_dir is not define')
-        raise RuntimeError('Environment variable ccnet_conf_dir and seafile_conf_dir is not define')
+    if not seafile_conf_dir:
+        logging.error('Environment variable seafile_conf_dir is not define')
+        raise RuntimeError('Environment variable seafile_conf_dir is not define')
 
     os.environ['EVENTS_CONFIG_FILE'] = os.path.expanduser(args.config_file)
-    ccnet_conf_path = os.path.join(ccnet_conf_dir, 'ccnet.conf')
     seafile_conf_path = os.path.join(seafile_conf_dir, 'seafile.conf')
     os.environ['DJANGO_SETTINGS_MODULE'] = 'seahub.settings'  # set env for repo monitor cache
 
-    ccnet_config = get_config(ccnet_conf_path)
     seafile_config = get_config(seafile_conf_path)
     config = get_config(args.config_file)
     try:
@@ -65,7 +62,7 @@ def main(background_tasks_only=False):
 
     from gevent import monkey; monkey.patch_all()
 
-    app = App(config, ccnet_config, seafile_config, foreground_tasks_enabled=foreground_tasks_enabled,
+    app = App(config, seafile_config, foreground_tasks_enabled=foreground_tasks_enabled,
               background_tasks_enabled=background_tasks_enabled)
 
     app.serve_forever()
