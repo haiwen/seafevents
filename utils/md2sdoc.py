@@ -135,7 +135,7 @@ def parse_html_inline_block(html):
             'id': get_random_id(),
             'type': 'image',
             'children': [{'id': get_random_id(), 'text': ''}],
-            'data': {'src': imgsrc, 'width': int(width)}
+            'data': {'src': imgsrc, 'width': float(width)}
         }
         return [empty_elem, img_struct, empty_elem]
     else:
