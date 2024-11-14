@@ -28,7 +28,13 @@ from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, 
 from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
 
 recent_added_events = {'recent_added_events': []}
-EXCLUDED_PATHS = ['/_Internal', ]
+EXCLUDED_PATHS = ['/_Internal', '/images/sdoc', '/images/auto-upload']
+
+def _check_ignored_path(path):
+    for p in EXCLUDED_PATHS:
+        if path.startswith(p):
+            return True
+    return False
 
 
 def RepoUpdateEventHandler(config, session, msg):
@@ -247,8 +253,7 @@ def generate_repo_monitor_records(repo_id, commit,
         #  'path': '/3',
         #  'size': 0}
         for de in added_files:
-
-            if de.path.startswith(EXCLUDED_PATHS[0]):
+            if _check_ignored_path(de.path):
                 continue
             if commit.description.startswith('Reverted'):
                 op_type = OP_RECOVER
@@ -271,8 +276,7 @@ def generate_repo_monitor_records(repo_id, commit,
         deleted_files_record["commit_diff"] = []
 
         for de in deleted_files:
-
-            if de.path.startswith(EXCLUDED_PATHS[0]):
+            if _check_ignored_path(de.path):
                 continue
             commit_diff = dict()
             commit_diff['op_type'] = OP_DELETE
@@ -291,8 +295,7 @@ def generate_repo_monitor_records(repo_id, commit,
         added_dirs_record["commit_diff"] = []
 
         for de in added_dirs:
-
-            if de.path.startswith(EXCLUDED_PATHS[0]):
+            if _check_ignored_path(de.path):
                 continue
             if commit.description.startswith('Recovered'):
                 op_type = OP_RECOVER
@@ -315,8 +318,7 @@ def generate_repo_monitor_records(repo_id, commit,
         deleted_dirs_record["commit_diff"] = []
 
         for de in deleted_dirs:
-
-            if de.path.startswith(EXCLUDED_PATHS[0]):
+            if _check_ignored_path(de.path):
                 continue
             commit_diff = dict()
             commit_diff['op_type'] = OP_DELETE
@@ -334,8 +336,7 @@ def generate_repo_monitor_records(repo_id, commit,
         renamed_files_record["commit_diff"] = []
 
         for de in renamed_files:
-
-            if de.path.startswith(EXCLUDED_PATHS[0]):
+            if _check_ignored_path(de.path):
                 continue
             commit_diff = dict()
             commit_diff['op_type'] = OP_RENAME
@@ -355,8 +356,7 @@ def generate_repo_monitor_records(repo_id, commit,
         renamed_dirs_record["commit_diff"] = []
 
         for de in renamed_dirs:
-
-            if de.path.startswith(EXCLUDED_PATHS[0]):
+            if _check_ignored_path(de.path):
                 continue
             commit_diff = dict()
             commit_diff['op_type'] = OP_RENAME
@@ -376,8 +376,7 @@ def generate_repo_monitor_records(repo_id, commit,
         moved_files_record["commit_diff"] = []
 
         for de in moved_files:
-
-            if de.path.startswith(EXCLUDED_PATHS[0]):
+            if _check_ignored_path(de.path):
                 continue
             commit_diff = dict()
             commit_diff['op_type'] = OP_MOVE
@@ -397,8 +396,7 @@ def generate_repo_monitor_records(repo_id, commit,
         moved_dirs_record["commit_diff"] = []
 
         for de in moved_dirs:
-
-            if de.path.startswith(EXCLUDED_PATHS[0]):
+            if _check_ignored_path(de.path):
                 continue
             commit_diff = dict()
             commit_diff['op_type'] = OP_MOVE
@@ -418,12 +416,11 @@ def generate_repo_monitor_records(repo_id, commit,
         modified_files_record["commit_diff"] = []
 
         for de in modified_files:
-
             if commit.description.startswith('Reverted'):
                 op_type = OP_RECOVER
             else:
                 op_type = OP_EDIT
-            if de.path.startswith(EXCLUDED_PATHS[0]):
+            if _check_ignored_path(de.path):
                 continue
             commit_diff = dict()
             commit_diff['op_type'] = op_type
@@ -435,12 +432,13 @@ def generate_repo_monitor_records(repo_id, commit,
             modified_files_record["commit_diff"].append(commit_diff)
 
         records.append(modified_files_record)
-    # remove empty commit_diff
+
+    filtered_records = []
     for record in records:
         if len(record['commit_diff']) == 0:
-            records.remove(record)
-
-    return records
+            continue
+        filtered_records.append(record)
+    return filtered_records
 
 
 def save_message_to_user_notification(session, records):
