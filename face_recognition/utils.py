@@ -5,7 +5,8 @@ import posixpath
 import numpy as np
 from seaserv import seafile_api
 
-from seafevents.repo_metadata.utils import FACES_TABLE, query_metadata_rows, get_file_content
+from seafevents.repo_metadata.utils import query_metadata_rows, get_file_content
+from seafevents.repo_metadata.constants import FACES_TABLE
 
 
 VECTOR_DEFAULT_FLAG = '0'
