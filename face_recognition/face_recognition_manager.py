@@ -98,7 +98,6 @@ class FaceRecognitionManager(object):
     def face_cluster(self, repo_id):
         try:
             from sklearn.cluster import HDBSCAN
-            import cv2
         except ImportError:
             logger.warning('Package scikit-learn or opencv-python is not installed.')
             return

@@ -68,36 +68,16 @@ def get_face_embeddings(repo_id, image_embedding_api, obj_ids):
 
 
 def get_image_face(repo_id, obj_id, image_embedding_api, center):
-    result = image_embedding_api.face_embeddings(repo_id, [obj_id]).get('data', [])
+    result = image_embedding_api.face_embeddings(repo_id, [obj_id], True).get('data', [])
     if not result:
         return None
 
     if len(result) == 1:
-        return get_face_by_box(repo_id, obj_id, result[0]['faces'][0]['box'])
+        return base64.b64decode(result[0]['faces'][0]['face'])
 
     faces = result[0]['faces']
     sim = [feature_distance(center, face['embedding']) for face in faces]
-    return get_face_by_box(repo_id, obj_id, faces[min(sim)]['box'])
-
-
-def get_face_by_box(repo_id, obj_id, box):
-    import cv2
-    content = get_file_content(repo_id, obj_id)
-    if not content:
-        return None
-
-    img_array = np.frombuffer(content, dtype=np.uint8)
-    image = cv2.imdecode(img_array, 1)
-    height, width, _ = image.shape
-    face_height = box[3] - box[1]
-    face_width = box[2] - box[0]
-    left = max(box[0] - int(face_width * 0.25), 0)
-    top = max(box[1] - int(face_height * 0.25), 0)
-    right = min(box[2] + int(face_width * 0.25), width)
-    bottom = min(box[3] + int(face_height * 0.25), height)
-    cropped_image = image[top:bottom, left:right]
-
-    return cropped_image
+    return base64.b64decode(faces[min(sim)]['face'])
 
 
 def get_min_cluster_size(faces_num):
@@ -105,9 +85,9 @@ def get_min_cluster_size(faces_num):
 
 
 def save_face(repo_id, image, filename):
-    import cv2
     tmp_content_path = posixpath.join(FACES_TMP_DIR, filename)
-    cv2.imwrite(tmp_content_path, image)
+    with open(tmp_content_path, 'wb') as f:
+        f.write(image)
 
     seafile_api.post_file(repo_id, tmp_content_path, FACES_SAVE_PATH, filename, 'system')
     os.remove(tmp_content_path)
