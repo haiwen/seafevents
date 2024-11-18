@@ -77,7 +77,7 @@ def get_image_face(repo_id, obj_id, image_embedding_api, center):
 
     faces = result[0]['faces']
     sim = [feature_distance(center, face['embedding']) for face in faces]
-    return base64.b64decode(faces[min(sim)]['face'])
+    return base64.b64decode(faces[sim.index(min(sim))]['face'])
 
 
 def get_min_cluster_size(faces_num):
