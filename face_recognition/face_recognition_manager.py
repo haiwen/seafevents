@@ -102,6 +102,8 @@ class FaceRecognitionManager(object):
             logger.warning('Package scikit-learn is not installed. ')
             return
 
+        self.clean_faces(repo_id)
+
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         update_face_cluster_time(self._db_session_class, repo_id, current_time)
 
@@ -171,13 +173,25 @@ class FaceRecognitionManager(object):
                     face_image = get_image_face(repo_id, obj_id, self.image_embedding_api, cluster_center.tolist())
                     break
 
-            if face_image is None:
+            if not face_image:
                 record = id_to_record[related_row_ids[0]]
                 obj_id = record[METADATA_TABLE.columns.obj_id.name]
                 face_image = get_image_face(repo_id, obj_id, self.image_embedding_api, cluster_center.tolist())
 
-            if face_image is None:
+            if not face_image:
                 continue
 
             filename = f'{face_row_id}.jpg'
             save_face(repo_id, face_image, filename)
+
+    def clean_faces(self, repo_id):
+        metadata = self.metadata_server_api.get_metadata(repo_id)
+        tables = metadata.get('tables', [])
+        faces_table = [table for table in tables if table['name'] == FACES_TABLE.name]
+        if not faces_table:
+            return
+        faces_table_id = faces_table[0]['id']
+
+        old_faces = get_faces_rows(repo_id, self.metadata_server_api)
+        row_ids = [item[FACES_TABLE.columns.id.name] for item in old_faces]
+        self.metadata_server_api.delete_rows(repo_id, faces_table_id, row_ids)
