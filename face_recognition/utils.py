@@ -1,11 +1,9 @@
 import base64
-import io
 import os
 import posixpath
+import cv2
 
 import numpy as np
-from PIL import Image
-
 from seaserv import seafile_api
 
 from seafevents.repo_metadata.utils import FACES_TABLE, query_metadata_rows, get_file_content
@@ -88,19 +86,25 @@ def get_face_by_box(repo_id, obj_id, box):
     if not content:
         return None
 
-    image = Image.open(io.BytesIO(content))
-    cropped_image = image.crop((box[0], box[1], box[2], box[3]))
-    output_buffer = io.BytesIO()
-    cropped_image.save(output_buffer, format='jpeg')
-    output_buffer.seek(0)
+    img_array = np.frombuffer(content, dtype=np.uint8)
+    image = cv2.imdecode(img_array, 1)
+    height, width, _ = image.shape
+    left = max(int(box[0] * 0.9), 0)
+    top = max(int(box[1] * 0.9), 0)
+    right = min(int(box[2] * 1.1), width)
+    bottom = min(int(box[3] * 1.1), height)
+    cropped_image = image[top:bottom, left:right]
 
-    return output_buffer.getvalue()
+    return cropped_image
+
+
+def get_min_cluster_size(faces_num):
+    return max(faces_num // 100, 5)
 
 
 def save_face(repo_id, image, filename):
     tmp_content_path = posixpath.join(FACES_TMP_DIR, filename)
-    with open(tmp_content_path, 'wb') as f:
-        f.write(image)
+    cv2.imwrite(tmp_content_path, image)
 
     seafile_api.post_file(repo_id, tmp_content_path, FACES_SAVE_PATH, filename, 'system')
     os.remove(tmp_content_path)
