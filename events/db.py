@@ -233,7 +233,7 @@ def save_user_activity(session, record):
     activity = Activity(record)
     session.add(activity)
     session.commit()
-    for username in record['related_users']:
+    for username in record['related_users'][:50]:
         user_activity = UserActivity(username, activity.id, record['timestamp'])
         session.add(user_activity)
     session.commit()
