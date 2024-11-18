@@ -11,8 +11,7 @@ from seafevents.repo_metadata.utils import METADATA_TABLE, FACES_TABLE, query_me
 from seafevents.repo_metadata.constants import METADATA_OP_LIMIT
 from seafevents.face_recognition.db import update_face_cluster_time, update_face_cluster_time, get_repo_face_recognition_status
 from seafevents.face_recognition.utils import get_faces_rows, get_cluster_by_center, b64encode_embeddings, \
-    b64decode_embeddings, get_faces_rows, get_face_embeddings, get_image_face, save_face, VECTOR_DEFAULT_FLAG, \
-    get_min_cluster_size
+    b64decode_embeddings, get_faces_rows, get_face_embeddings, get_image_face, save_face, VECTOR_DEFAULT_FLAG
 
 logger = logging.getLogger('face_recognition')
 
@@ -128,8 +127,7 @@ class FaceRecognitionManager(object):
                 row_ids.append(row_id)
 
         old_cluster = get_faces_rows(repo_id, self.metadata_server_api)
-        min_cluster_size = get_min_cluster_size(len(vectors))
-        clt = HDBSCAN(min_cluster_size=min_cluster_size)
+        clt = HDBSCAN(min_cluster_size=5)
         clt.fit(vectors)
 
         label_ids = np.unique(clt.labels_)
@@ -171,12 +169,12 @@ class FaceRecognitionManager(object):
                     face_image = get_image_face(repo_id, obj_id, self.image_embedding_api, cluster_center.tolist())
                     break
 
-            if face_image is None:
+            if not face_image:
                 record = id_to_record[related_row_ids[0]]
                 obj_id = record[METADATA_TABLE.columns.obj_id.name]
                 face_image = get_image_face(repo_id, obj_id, self.image_embedding_api, cluster_center.tolist())
 
-            if face_image is None:
+            if not face_image:
                 continue
 
             filename = f'{face_row_id}.jpg'
