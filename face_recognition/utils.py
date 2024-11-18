@@ -89,10 +89,12 @@ def get_face_by_box(repo_id, obj_id, box):
     img_array = np.frombuffer(content, dtype=np.uint8)
     image = cv2.imdecode(img_array, 1)
     height, width, _ = image.shape
-    left = max(int(box[0] * 0.9), 0)
-    top = max(int(box[1] * 0.9), 0)
-    right = min(int(box[2] * 1.1), width)
-    bottom = min(int(box[3] * 1.1), height)
+    face_height = box[3] - box[1]
+    face_width = box[2] - box[0]
+    left = max(box[0] - int(face_width * 0.25), 0)
+    top = max(box[1] - int(face_height * 0.25), 0)
+    right = min(box[2] + int(face_width * 0.25), width)
+    bottom = min(box[3] + int(face_height * 0.25), height)
     cropped_image = image[top:bottom, left:right]
 
     return cropped_image
