@@ -22,12 +22,13 @@ class ImageEmbeddingAPI:
         token = jwt.encode(payload, self.secret_key, algorithm='HS256')
         return {"Authorization": "Token %s" % token}
 
-    def face_embeddings(self, repo_id, obj_ids):
+    def face_embeddings(self, repo_id, obj_ids, need_face=False):
         headers = self.gen_headers()
         url = f'{self.server_url}/api/v1/face-embeddings'
         data = {
             'repo_id': repo_id,
             'obj_ids': obj_ids,
+            'need_face': need_face
         }
         response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response)

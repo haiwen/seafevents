@@ -1,11 +1,8 @@
 import base64
-import io
 import os
 import posixpath
 
 import numpy as np
-from PIL import Image
-
 from seaserv import seafile_api
 
 from seafevents.repo_metadata.utils import FACES_TABLE, query_metadata_rows, get_file_content
@@ -71,30 +68,20 @@ def get_face_embeddings(repo_id, image_embedding_api, obj_ids):
 
 
 def get_image_face(repo_id, obj_id, image_embedding_api, center):
-    result = image_embedding_api.face_embeddings(repo_id, [obj_id]).get('data', [])
+    result = image_embedding_api.face_embeddings(repo_id, [obj_id], True).get('data', [])
     if not result:
         return None
 
     if len(result) == 1:
-        return get_face_by_box(repo_id, obj_id, result[0]['faces'][0]['box'])
+        return base64.b64decode(result[0]['faces'][0]['face'])
 
     faces = result[0]['faces']
     sim = [feature_distance(center, face['embedding']) for face in faces]
-    return get_face_by_box(repo_id, obj_id, faces[min(sim)]['box'])
+    return base64.b64decode(faces[sim.index(min(sim))]['face'])
 
 
-def get_face_by_box(repo_id, obj_id, box):
-    content = get_file_content(repo_id, obj_id)
-    if not content:
-        return None
-
-    image = Image.open(io.BytesIO(content))
-    cropped_image = image.crop((box[0], box[1], box[2], box[3]))
-    output_buffer = io.BytesIO()
-    cropped_image.save(output_buffer, format='jpeg')
-    output_buffer.seek(0)
-
-    return output_buffer.getvalue()
+def get_min_cluster_size(faces_num):
+    return max(faces_num // 100, 5)
 
 
 def save_face(repo_id, image, filename):
