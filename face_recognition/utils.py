@@ -1,7 +1,6 @@
 import base64
 import os
 import posixpath
-import cv2
 
 import numpy as np
 from seaserv import seafile_api
@@ -82,6 +81,7 @@ def get_image_face(repo_id, obj_id, image_embedding_api, center):
 
 
 def get_face_by_box(repo_id, obj_id, box):
+    import cv2
     content = get_file_content(repo_id, obj_id)
     if not content:
         return None
@@ -105,6 +105,7 @@ def get_min_cluster_size(faces_num):
 
 
 def save_face(repo_id, image, filename):
+    import cv2
     tmp_content_path = posixpath.join(FACES_TMP_DIR, filename)
     cv2.imwrite(tmp_content_path, image)
 
