@@ -8,11 +8,10 @@ from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.image_embedding_api import ImageEmbeddingAPI
 from seafevents.repo_metadata.utils import METADATA_TABLE, FACES_TABLE, query_metadata_rows
-from seafevents.repo_metadata.constants import METADATA_OP_LIMIT
 from seafevents.face_recognition.db import update_face_cluster_time, update_face_cluster_time, get_repo_face_recognition_status
 from seafevents.face_recognition.utils import get_faces_rows, get_cluster_by_center, b64encode_embeddings, \
     b64decode_embeddings, get_faces_rows, get_face_embeddings, get_image_face, save_face, VECTOR_DEFAULT_FLAG, \
-    get_min_cluster_size
+    get_min_cluster_size, SUPPORTED_IMAGE_FORMATS, EMBEDDING_UPDATE_LIMIT
 
 logger = logging.getLogger('face_recognition')
 
@@ -37,8 +36,14 @@ class FaceRecognitionManager(object):
         face_recognition_status = get_repo_face_recognition_status(repo_id, self._db_session_class)
         return face_recognition_status
 
+    def is_support_format(self, suffix):
+        if suffix in SUPPORTED_IMAGE_FORMATS:
+            return True
+
+        return False
+
     def init_face_recognition(self, repo_id):
-        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.file_type.name}` = "_picture"'
+        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.suffix.name}` in {SUPPORTED_IMAGE_FORMATS}'
 
         query_result = query_metadata_rows(repo_id, self.metadata_server_api, sql)
         if not query_result:
@@ -75,18 +80,18 @@ class FaceRecognitionManager(object):
                         METADATA_TABLE.columns.id.name: row_id,
                         METADATA_TABLE.columns.face_vectors.name: vector,
                     })
-                    if len(updated_rows) >= METADATA_OP_LIMIT:
+                    if len(updated_rows) >= EMBEDDING_UPDATE_LIMIT:
                         self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
-                        updated_rows = []
                         logger.info('repo %s updated face_vectors rows count: %d, cost time: %.2f', repo_id, len(updated_rows), time.time() - start_time)
                         start_time = time.time()
+                        updated_rows = []
 
         if updated_rows:
             logger.info('repo %s updated face_vectors rows count: %d, cost time: %.2f', repo_id, len(updated_rows), time.time() - start_time)
             self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
 
     def check_face_vectors(self, repo_id):
-        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.file_type.name}` = "_picture" AND `{METADATA_TABLE.columns.face_vectors.name}` IS NULL'
+        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.suffix.name}` in {SUPPORTED_IMAGE_FORMATS} AND `{METADATA_TABLE.columns.face_vectors.name}` IS NULL'
 
         query_result = query_metadata_rows(repo_id, self.metadata_server_api, sql)
         if not query_result:

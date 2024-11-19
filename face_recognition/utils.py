@@ -12,6 +12,8 @@ VECTOR_DEFAULT_FLAG = '0'
 FACE_EMBEDDING_DIM = 512
 FACES_TMP_DIR = '/tmp'
 FACES_SAVE_PATH = '_Internal/Faces'
+EMBEDDING_UPDATE_LIMIT = 200
+SUPPORTED_IMAGE_FORMATS = ('jpeg', 'jpg', 'heic', 'png', 'bmp', 'tif', 'tiff', 'jfif', 'jpe', 'ppm')
 
 
 def feature_distance(feature1, feature2):
