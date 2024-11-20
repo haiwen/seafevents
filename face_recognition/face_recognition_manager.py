@@ -16,6 +16,17 @@ from seafevents.face_recognition.utils import get_faces_rows, get_cluster_by_cen
 
 logger = logging.getLogger('face_recognition')
 
+from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_ext_by_name
+import os
+import json
+from sqlalchemy.sql import text
+from seafevents.repo_metadata.metadata_manager import get_diff_files
+import pymysql
+from seaserv import seafile_api
+from datetime import timedelta
+
+EXCLUDED_PATHS = ['/_Internal', '/images']
+
 
 class FaceRecognitionManager(object):
 
@@ -108,9 +119,6 @@ class FaceRecognitionManager(object):
             logger.warning('Package scikit-learn is not installed. ')
             return
 
-        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        update_face_cluster_time(self._db_session_class, repo_id, current_time)
-
         sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.face_vectors.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.face_vectors.name}` IS NOT NULL AND `{METADATA_TABLE.columns.face_vectors.name}` <> "{VECTOR_DEFAULT_FLAG}"'
         query_result = query_metadata_rows(repo_id, self.metadata_server_api, sql)
         if not query_result:
@@ -126,8 +134,8 @@ class FaceRecognitionManager(object):
         row_ids = []
         id_to_record = dict()
         for item in query_result:
-            id_to_record[item[METADATA_TABLE.columns.id.name]] = item
             row_id = item[METADATA_TABLE.columns.id.name]
+            id_to_record[row_id] = item
             face_vectors = b64decode_embeddings(item[METADATA_TABLE.columns.face_vectors.name])
             for face_vector in face_vectors:
                 vectors.append(face_vector)
@@ -150,6 +158,7 @@ class FaceRecognitionManager(object):
             face_row = {
                 FACES_TABLE.columns.vector.name: b64encode_embeddings(cluster_center.tolist()),
             }
+            # b64decode_embeddings 这步需不需放到循环外面执行？get_cluster_by_center 中的
             cluster = get_cluster_by_center(cluster_center, old_cluster)
             if cluster:
                 cluster_id = cluster[FACES_TABLE.columns.id.name]
@@ -187,3 +196,107 @@ class FaceRecognitionManager(object):
 
             filename = f'{face_row_id}.jpg'
             save_face(repo_id, face_image, filename)
+
+    def update_face_cluster(self, repo_id, face_commit, metadata_from_commit, face_creator):
+        # 更新到某一个时，可能这个资料库已经关闭的face_cluster
+        need_cluster = self.check_need_face_cluster(repo_id, face_commit, metadata_from_commit)
+        print('need_cluster')
+        print(need_cluster)
+        if not need_cluster:
+            # 如果更新的话，那么新增图片后只能等23小时后才能再更新，不更新的话，查询时又会每次都检查这个资料库
+            # self._face_recognition_manager.finish_face_cluster(repo_id, latest_commit_id)
+            return
+        # self._face_recognition_manager.check_face_vectors(repo_id)
+        latest_commit_id = self.get_latest_metadata_commit_id(repo_id)
+        self.check_face_vectors(repo_id)  # 这步比较耗时，获取latest_commit_id的应该放到上面？
+        # 在这步进行的过程中有可能slow_task 中也添加了一些face_vector吧？
+        # latest_commit_id = self.get_latest_commit_id(repo_id)
+        # 为后面的更新使用，放在这里是因为挨着查询，下面的运算可能比较耗时，时间太长就不准了，也不适合放到 check_need_face_cluster 中，
+        # 因为后面还有ensure_face_vectors，这步会调用face_embedding耗时会较长，当然这步也是在 latest_commit_id 里的，
+        # 所以可以放 check_need_face_cluster 中
+        self.face_cluster(repo_id)
+        # logger.warning('Package scikit-learn is not installed. ')
+        # face_cluster 中的这步判断是不是应该放到整个项目启动定时任务中判断呢？判断是否enable中？ 这样更合理吧，否则没配的话，每次都要空跑这个程序
+        self.finish_face_cluster(repo_id, latest_commit_id)
+
+        if not face_commit:
+            # 第一次开启时发送一个通知，关闭face时，需要删除face_commit
+            self.save_face_cluster_message_to_user_notification(repo_id, face_creator)
+
+    def get_pending_face_cluster_repo_list(self, start, count):
+        # 需不需要加order_by? order_by 可以根据repo_id
+        per_day_check_time = datetime.now() - timedelta(hours=23)
+        with self._db_session_class() as session:
+            cmd = """SELECT repo_id, face_creator, face_commit, from_commit FROM repo_metadata WHERE face_recognition_enabled = True 
+            AND (last_face_cluster_time < :per_day_check_time OR last_face_cluster_time IS NULL) limit :start, :count"""
+            res = session.execute(text(cmd),
+                                  {'start': start, 'count': count, 'per_day_check_time': per_day_check_time}).fetchall()
+
+        return res
+
+    def get_latest_metadata_commit_id(self, repo_id):
+        with self._db_session_class() as session:
+            cmd = """SELECT from_commit FROM repo_metadata WHERE face_recognition_enabled = True AND repo_id = :repo_id"""
+            res = session.execute(text(cmd), {'repo_id': repo_id}).fetchone()
+
+        return res[0] if res else None
+
+    def finish_face_cluster(self, repo_id, new_face_commit):
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        with self._db_session_class() as session:
+            cmd = """UPDATE repo_metadata SET last_face_cluster_time = :update_time, face_commit = :face_commit WHERE repo_id = :repo_id"""
+            session.execute(text(cmd), {'update_time': current_time, 'repo_id': repo_id, 'face_commit': new_face_commit})
+            session.commit()
+
+    def is_excluded_path(self, path):
+        if not path or path == '/':
+            return True
+        for ex_path in EXCLUDED_PATHS:
+            if path.startswith(ex_path):
+                return True
+
+    def check_need_face_cluster(self, repo_id, face_commit, metadata_from_commit):
+        # 这里可以改成和最新from_commit 进行diff, （每次1000个到990个的时候 commit已经落后很多了），当然不用最新的也可以，只要更新用的是最新的就可以了
+        if face_commit == metadata_from_commit:
+            return False
+        files = get_diff_files(repo_id, face_commit, metadata_from_commit)
+        if not files:
+            return False
+        added_files, deleted_files, added_dirs, deleted_dirs, modified_files, _, _, \
+        _, _ = files
+
+        if not added_files and not deleted_files:
+            return False
+
+        for file in (added_files + deleted_files):
+            path = file.path.rstrip('/')
+            file_name = os.path.basename(path)
+            file_type, file_ext = get_file_type_ext_by_name(file_name)
+            #
+            if self.is_excluded_path(path):
+                continue
+            if file_type == '_picture':
+                return True
+        return False
+
+    def save_face_cluster_message_to_user_notification(self, repo_id, op_user):
+        values = []
+        repo = seafile_api.get_repo(repo_id)
+        repo_name = repo.repo_name
+        detail = {
+            'repo_id': repo_id,
+            'repo_name': repo_name,
+            'op_user': op_user,
+            'op_type': 'init_face_cluster',
+        }
+        msg_type = 'face_cluster'
+        local_datetime_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        detail = json.dumps(detail)
+
+        values.append((op_user, msg_type, detail, local_datetime_str, 0))
+        with self._db_session_class() as session:
+            sql = """INSERT INTO notifications_usernotification (to_user, msg_type, detail, timestamp, seen)
+                                             VALUES %s""" % ', '.join(
+                ["('%s', '%s', '%s', '%s', %s)" % value for value in values])
+            session.execute(text(sql))
+            session.commit()

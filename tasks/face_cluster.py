@@ -25,7 +25,7 @@ class FaceClusterTimer(Thread):
 
     def run(self):
         while not self.finished.is_set():
-            self.finished.wait(self._interval)
+            self.finished.wait(60)
             if not self.finished.is_set():
                 try:
                     cmd = [
