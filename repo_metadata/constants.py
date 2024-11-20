@@ -229,7 +229,6 @@ class TagsColumns(object):
         self.name = MetadataColumn('_tag_name', '_tag_name', PropertyTypes.TEXT)
         self.color = MetadataColumn('_tag_color', '_tag_color', PropertyTypes.TEXT)
         self.file_links = MetadataColumn('_tag_file_links', '_tag_file_links', PropertyTypes.LINK)
-        self.category = MetadataColumn('_tag_category', '_tag_category', PropertyTypes.SINGLE_SELECT, { 'options': [] })
 
 
 METADATA_TABLE = MetadataTable('0001', 'Table1')
@@ -254,21 +253,3 @@ METADATA_TABLE_SYS_COLUMNS = [
 FACES_TABLE = FacesTable('faces', '0001')
 
 TAGS_TABLE = TagsTable('tags', '0002')
-TAG_COLORS = [
-    '#FBD44A', '#EAA775',
-    '#F4667C', '#DC82D2',
-    '#9860E5', '#9F8CF1',
-    '#59CB74', '#ADDF84',
-    '#89D2EA', '#4ECCCB',
-    '#46A1FD', '#C2C2C2',
-]
-
-TAGS_TABLE_DEFAULT_ROWS = [
-    { TAGS_TABLE.columns.name.name: '_red', TAGS_TABLE.columns.color.name: '#FF0000' },
-    { TAGS_TABLE.columns.name.name: '_orange', TAGS_TABLE.columns.color.name: '#FFC000' },
-    { TAGS_TABLE.columns.name.name: '_yellow', TAGS_TABLE.columns.color.name: '#FFFF00' },
-    { TAGS_TABLE.columns.name.name: '_green', TAGS_TABLE.columns.color.name: '#00B050' },
-    { TAGS_TABLE.columns.name.name: '_blue', TAGS_TABLE.columns.color.name: '#0070C0' },
-    { TAGS_TABLE.columns.name.name: '_indigo', TAGS_TABLE.columns.color.name: '#00FFFF' },
-    { TAGS_TABLE.columns.name.name: '_purple', TAGS_TABLE.columns.color.name: '#7030A0' },
-]

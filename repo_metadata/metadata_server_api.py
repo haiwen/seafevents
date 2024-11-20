@@ -45,6 +45,15 @@ class MetadataServerAPI:
         if response.status_code == 404:
             return {'success': True}
         return parse_response(response)
+    
+    def create_table(self, base_id, table_name):
+        headers = self.gen_headers(base_id)
+        url = f'{METADATA_SERVER_URL}/api/v1/base/{base_id}/tables'
+        data = {
+            'name': table_name,
+        }
+        response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
+        return parse_response(response)
 
     def add_column(self, base_id, table_id, column):
         headers = self.gen_headers(base_id)
