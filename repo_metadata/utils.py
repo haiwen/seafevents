@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import pytz
@@ -8,6 +9,7 @@ import tempfile
 
 from datetime import timedelta, timezone, datetime
 
+from PIL import Image, UnidentifiedImageError
 from seafobj import commit_mgr, fs_mgr
 
 from seafevents.app.config import METADATA_FILE_TYPES
@@ -74,8 +76,17 @@ def get_image_details(content):
                 capture_time = ''
             focal_length = str(metadata['EXIF:FocalLength']) + 'mm' if metadata.get('EXIF:FocalLength') else ''
             f_number = 'f/' + str(metadata['EXIF:FNumber']) if metadata.get('EXIF:FNumber') else ''
+            width = metadata.get('File:ImageWidth')
+            height = metadata.get('File:ImageHeight')
+            if not width or not height:
+                try:
+                    img = Image.open(io.BytesIO(content))
+                    width, height = img.size
+                except UnidentifiedImageError as e:
+                    pass
+            dimensions = str(width) + 'x' + str(height) if width and height else ''
             details = {
-                'Dimensions': str(metadata.get('File:ImageWidth')) + 'x' + str(metadata.get('File:ImageHeight')),
+                'Dimensions': dimensions,
                 'Device make': metadata.get('EXIF:Make', ''),
                 'Device model': metadata.get('EXIF:Model', ''),
                 'Color space': metadata.get('ICC_Profile:ColorSpaceData', ''),
