@@ -3,7 +3,8 @@ import logging
 
 from seafevents.seasearch.utils import get_library_diff_files, md5, is_sys_dir_or_file
 from seafevents.seasearch.utils.constants import REPO_FILENAME_INDEX_PREFIX
-from seafevents.repo_metadata.utils import get_metadata_by_obj_ids, METADATA_TABLE
+from seafevents.repo_metadata.constants import METADATA_TABLE
+from seafevents.repo_metadata.utils import get_metadata_by_obj_ids
 
 logger = logging.getLogger(__name__)
 

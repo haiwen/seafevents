@@ -7,7 +7,7 @@ from seafevents.db import init_db_session_class
 from seafevents.seasearch.utils.constants import ZERO_OBJ_ID, REPO_FILENAME_INDEX_PREFIX, \
     WIKI_INDEX_PREFIX
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
-from seafevents.repo_metadata.utils import METADATA_TABLE
+from seafevents.repo_metadata.constants import METADATA_TABLE
 from seafevents.utils import timestamp_to_isoformat_timestr
 
 from seafevents.repo_metadata.utils import query_metadata_rows

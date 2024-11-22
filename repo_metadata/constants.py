@@ -1,3 +1,5 @@
+from seafevents.app.config import METADATA_FILE_TYPES
+
 class PropertyTypes:
     FILE_NAME = 'file-name'
     TEXT = 'text'
@@ -122,3 +124,132 @@ class ViewType(object):
 
 
 METADATA_OP_LIMIT = 1000
+
+# metadata table
+class MetadataTable(object):
+    def __init__(self, table_id, name):
+        self.id = table_id
+        self.name = name
+
+    @property
+    def columns(self):
+        return MetadataColumns()
+
+def gen_file_type_options(option_ids):
+    options = []
+
+    for option_id in option_ids:
+        options.append({ 'id': option_id, 'name': option_id })
+    return options
+
+class MetadataColumns(object):
+    def __init__(self):
+        self.id = MetadataColumn('_id', '_id', PropertyTypes.TEXT)
+        self.file_creator = MetadataColumn('_file_creator', '_file_creator', PropertyTypes.TEXT)
+        self.file_ctime = MetadataColumn('_file_ctime', '_file_ctime', PropertyTypes.DATE)
+        self.file_modifier = MetadataColumn('_file_modifier', '_file_modifier', PropertyTypes.TEXT)
+        self.file_mtime = MetadataColumn('_file_mtime', '_file_mtime', PropertyTypes.DATE)
+        self.parent_dir = MetadataColumn('_parent_dir', '_parent_dir', PropertyTypes.TEXT)
+        self.file_name = MetadataColumn('_name', '_name', PropertyTypes.TEXT)
+        self.is_dir = MetadataColumn('_is_dir', '_is_dir', PropertyTypes.CHECKBOX)
+        self.file_type = MetadataColumn('_file_type', '_file_type', PropertyTypes.SINGLE_SELECT,
+                                        {'options': gen_file_type_options(list(METADATA_FILE_TYPES.keys()))})
+        self.location = MetadataColumn('_location', '_location', PropertyTypes.GEOLOCATION, {'geo_format': 'lng_lat'})
+        self.obj_id = MetadataColumn('_obj_id', '_obj_id', PropertyTypes.TEXT)
+        self.size = MetadataColumn('_size', '_size', PropertyTypes.NUMBER)
+        self.suffix = MetadataColumn('_suffix', '_suffix', PropertyTypes.TEXT)
+        self.file_details = MetadataColumn('_file_details', '_file_details', PropertyTypes.LONG_TEXT)
+        self.description = MetadataColumn('_description', '_description', PropertyTypes.LONG_TEXT)
+
+        self.collaborator = MetadataColumn('_collaborators', '_collaborators', PropertyTypes.COLLABORATOR)
+        self.owner = MetadataColumn('_owner', '_owner', PropertyTypes.COLLABORATOR)
+        
+        # face
+        self.face_vectors = MetadataColumn('_face_vectors', '_face_vectors', PropertyTypes.LONG_TEXT)
+        self.face_links = MetadataColumn('_face_links', '_face_links', PropertyTypes.LINK)
+
+        # tag
+        self.tags = MetadataColumn('_tags', '_tags', PropertyTypes.LINK)
+
+
+class MetadataColumn(object):
+    def __init__(self, key, name, type, data=None):
+        self.key = key
+        self.name = name
+        self.type = type
+        self.data = data
+
+    def to_dict(self, data=None):
+        column_data = {
+            'key': self.key,
+            'name': self.name,
+            'type': self.type,
+        }
+        if self.data:
+            column_data['data'] = self.data
+
+        if data:
+            column_data['data'] = data
+
+        return column_data
+
+
+# faces table
+class FacesTable(object):
+    def __init__(self, name, link_id):
+        self.link_id = link_id
+        self.name = name
+
+    @property
+    def columns(self):
+        return FacesColumns()
+
+
+class FacesColumns(object):
+    def __init__(self):
+        self.id = MetadataColumn('_id', '_id', PropertyTypes.TEXT)
+        self.name = MetadataColumn('_name', '_name', PropertyTypes.TEXT)
+        self.photo_links = MetadataColumn('_photo_links', '_photo_links', PropertyTypes.LINK)
+        self.vector = MetadataColumn('_vector', '_vector', PropertyTypes.LONG_TEXT)
+
+
+# tags table
+class TagsTable(object):
+    def __init__(self, name, link_id):
+        self.link_id = link_id
+        self.name = name
+
+    @property
+    def columns(self):
+        return TagsColumns()
+
+class TagsColumns(object):
+    def __init__(self):
+        self.id = MetadataColumn('_id', '_id', PropertyTypes.TEXT)
+        self.name = MetadataColumn('_tag_name', '_tag_name', PropertyTypes.TEXT)
+        self.color = MetadataColumn('_tag_color', '_tag_color', PropertyTypes.TEXT)
+        self.file_links = MetadataColumn('_tag_file_links', '_tag_file_links', PropertyTypes.LINK)
+
+
+METADATA_TABLE = MetadataTable('0001', 'Table1')
+METADATA_TABLE_SYS_COLUMNS = [
+    METADATA_TABLE.columns.file_creator.to_dict(),
+    METADATA_TABLE.columns.file_ctime.to_dict(),
+    METADATA_TABLE.columns.file_modifier.to_dict(),
+    METADATA_TABLE.columns.file_mtime.to_dict(),
+    METADATA_TABLE.columns.parent_dir.to_dict(),
+    METADATA_TABLE.columns.file_name.to_dict(),
+    METADATA_TABLE.columns.is_dir.to_dict(),
+    METADATA_TABLE.columns.file_type.to_dict(),
+    METADATA_TABLE.columns.location.to_dict(),
+    METADATA_TABLE.columns.obj_id.to_dict(),
+    METADATA_TABLE.columns.size.to_dict(),
+    METADATA_TABLE.columns.suffix.to_dict(),
+    METADATA_TABLE.columns.file_details.to_dict(),
+    METADATA_TABLE.columns.description.to_dict(),
+]
+
+
+FACES_TABLE = FacesTable('faces', '0001')
+
+TAGS_TABLE = TagsTable('tags', '0002')

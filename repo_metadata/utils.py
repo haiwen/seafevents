@@ -15,7 +15,7 @@ from seafobj import commit_mgr, fs_mgr
 from seafevents.app.config import METADATA_FILE_TYPES
 from seafevents.repo_metadata.view_data_sql import view_data_2_sql
 from seafevents.utils import timestamp_to_isoformat_timestr
-from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT
+from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT, METADATA_TABLE
 
 
 def gen_fileext_type_map():
@@ -243,13 +243,6 @@ def gen_select_options(option_names):
     return options
 
 
-def gen_file_type_options(option_ids):
-    options = []
-
-    for option_id in option_ids:
-        options.append({ 'id': option_id, 'name': option_id })
-    return options
-
 
 def gen_option_id(id_set):
     _id = str(math.floor(random.uniform(0.1, 1) * (10 ** 6)))
@@ -295,86 +288,6 @@ def query_metadata_rows(repo_id, metadata_server_api, sql):
         start += offset
 
     return rows
-
-
-class MetadataTable(object):
-    def __init__(self, table_id, name):
-        self.id = table_id
-        self.name = name
-
-    @property
-    def columns(self):
-        return MetadataColumns()
-
-
-class MetadataColumns(object):
-    def __init__(self):
-        self.id = MetadataColumn('_id', '_id', 'text')
-        self.file_creator = MetadataColumn('_file_creator', '_file_creator', 'text')
-        self.file_ctime = MetadataColumn('_file_ctime', '_file_ctime', 'date')
-        self.file_modifier = MetadataColumn('_file_modifier', '_file_modifier', 'text')
-        self.file_mtime = MetadataColumn('_file_mtime', '_file_mtime', 'date')
-        self.parent_dir = MetadataColumn('_parent_dir', '_parent_dir', 'text')
-        self.file_name = MetadataColumn('_name', '_name', 'text')
-        self.is_dir = MetadataColumn('_is_dir', '_is_dir', 'checkbox')
-        self.file_type = MetadataColumn('_file_type', '_file_type', 'single-select',
-                                        {'options': gen_file_type_options(list(METADATA_FILE_TYPES.keys()))})
-        self.location = MetadataColumn('_location', '_location', 'geolocation', {'geo_format': 'lng_lat'})
-        self.obj_id = MetadataColumn('_obj_id', '_obj_id', 'text')
-        self.size = MetadataColumn('_size', '_size', 'number')
-        self.suffix = MetadataColumn('_suffix', '_suffix', 'text')
-        self.file_details = MetadataColumn('_file_details', '_file_details', 'long-text')
-        self.description = MetadataColumn('_description', '_description', 'long-text')
-
-        self.collaborator = MetadataColumn('_collaborators', '_collaborators', 'collaborator')
-        self.owner = MetadataColumn('_owner', '_owner', 'collaborator')
-        self.face_vectors = MetadataColumn('_face_vectors', '_face_vectors', 'long-text')
-        self.face_links = MetadataColumn('_face_links', '_face_links', 'link')
-
-
-class FacesTable(object):
-    def __init__(self, name, link_id):
-        self.link_id = link_id
-        self.name = name
-
-    @property
-    def columns(self):
-        return FacesColumns()
-
-
-class FacesColumns(object):
-    def __init__(self):
-        self.id = MetadataColumn('_id', '_id', 'text')
-        self.name = MetadataColumn('_name', '_name', 'text')
-        self.photo_links = MetadataColumn('_photo_links', '_photo_links', 'link')
-        self.vector = MetadataColumn('_vector', '_vector', 'long-text')
-
-
-class MetadataColumn(object):
-    def __init__(self, key, name, type, data=None):
-        self.key = key
-        self.name = name
-        self.type = type
-        self.data = data
-
-    def to_dict(self, data=None):
-        column_data = {
-            'key': self.key,
-            'name': self.name,
-            'type': self.type,
-        }
-        if self.data:
-            column_data['data'] = self.data
-
-        if data:
-            column_data['data'] = data
-
-        return column_data
-
-
-METADATA_TABLE = MetadataTable('0001', 'Table1')
-FACES_TABLE = FacesTable('faces', '0001')
-
 
 def gen_view_data_sql(table, columns, view, start, limit, username = '', id_in_org = ''):
     return view_data_2_sql(table, columns, view, start, limit, username, id_in_org)

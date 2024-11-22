@@ -2,10 +2,10 @@ import json
 import os
 import logging
 
-from seafevents.repo_metadata.utils import METADATA_TABLE, get_file_type_ext_by_name
+from seafevents.repo_metadata.utils import get_file_type_ext_by_name
 from seafevents.utils import timestamp_to_isoformat_timestr
 from seafevents.repo_metadata.metadata_manager import ZERO_OBJ_ID
-from seafevents.repo_metadata.constants import METADATA_OP_LIMIT
+from seafevents.repo_metadata.constants import METADATA_OP_LIMIT, METADATA_TABLE
 
 logger = logging.getLogger(__name__)
 
