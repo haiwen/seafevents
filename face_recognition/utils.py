@@ -6,7 +6,7 @@ import numpy as np
 from seaserv import seafile_api
 
 from seafevents.repo_metadata.utils import query_metadata_rows, get_file_content
-from seafevents.repo_metadata.constants import FACES_TABLE
+from seafevents.repo_metadata.constants import FACES_TABLE, METADATA_TABLE
 
 
 VECTOR_DEFAULT_FLAG = '0'
@@ -47,7 +47,7 @@ def get_cluster_by_center(center, clusters):
 
         vector = b64decode_embeddings(vector)[0]
         distance = feature_distance(center, vector)
-        if distance < 1 and distance < min_distance:
+        if distance < 0.5 and distance < min_distance:
             min_distance = distance
             nearest_cluster = cluster
     return nearest_cluster
@@ -81,6 +81,27 @@ def get_image_face(repo_id, obj_id, image_embedding_api, center):
     faces = result[0]['faces']
     sim = [feature_distance(center, face['embedding']) for face in faces]
     return base64.b64decode(faces[sim.index(min(sim))]['face'])
+
+
+def save_cluster_face(repo_id, related_row_ids, row_ids, id_to_record, cluster_center, face_row_id, image_embedding_api):
+    face_image = None
+    for row_id in related_row_ids:
+        if row_ids.count(row_id) == 1:
+            record = id_to_record[row_id]
+            obj_id = record[METADATA_TABLE.columns.obj_id.name]
+            face_image = get_image_face(repo_id, obj_id, image_embedding_api, cluster_center.tolist())
+            break
+
+    if not face_image:
+        record = id_to_record[related_row_ids[0]]
+        obj_id = record[METADATA_TABLE.columns.obj_id.name]
+        face_image = get_image_face(repo_id, obj_id, image_embedding_api, cluster_center.tolist())
+
+    if not face_image:
+        return
+
+    filename = f'{face_row_id}.jpg'
+    save_face(repo_id, face_image, filename)
 
 
 def get_min_cluster_size(faces_num):

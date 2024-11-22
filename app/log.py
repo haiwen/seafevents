@@ -57,3 +57,4 @@ class LogConfigurator(object):
 
         logger.setLevel(self._level)
         logger.addHandler(handler)
+        logger.propagate = False

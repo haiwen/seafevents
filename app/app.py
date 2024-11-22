@@ -42,7 +42,7 @@ class App(object):
                 self._index_master = RepoMetadataIndexMaster(config)
                 self._index_worker = RepoMetadataIndexWorker(config)
                 self._slow_task_handler = SlowTaskHandler(config)
-                self._face_cluster = FaceCluster()
+                self._face_cluster = FaceCluster(config)
             self._repo_filename_index_updater = RepoFilenameIndexUpdater(config)
             self._wiki_index_updater = WikiIndexUpdater(config)
 
