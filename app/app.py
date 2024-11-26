@@ -2,7 +2,7 @@ from seafevents.app.mq_handler import EventsHandler, init_message_handlers
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
         WorkWinxinNoticeSender, FileUpdatesSender, RepoOldFileAutoDelScanner,\
-        DeletedFilesCountCleaner, FaceCluster, EsWikiIndexUpdater
+        DeletedFilesCountCleaner, FaceCluster, ESWikiIndexUpdater
 
 from seafevents.repo_metadata.index_master import RepoMetadataIndexMaster
 from seafevents.repo_metadata.index_worker import RepoMetadataIndexWorker
@@ -44,7 +44,7 @@ class App(object):
                 self._slow_task_handler = SlowTaskHandler(config)
                 self._face_cluster = FaceCluster()
             self._repo_filename_index_updater = RepoFilenameIndexUpdater(config)
-            self._es_wiki_index_updater = EsWikiIndexUpdater(config)
+            self._es_wiki_index_updater = ESWikiIndexUpdater(config)
             self._seasearch_wiki_index_updater = SeasearchWikiIndexUpdater(config)
 
     def serve_forever(self):

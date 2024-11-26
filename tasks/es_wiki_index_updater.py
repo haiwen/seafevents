@@ -7,23 +7,20 @@ from threading import Thread, Event
 from seafevents.utils import get_python_executable, run, parse_bool, parse_interval, get_opt_from_conf_or_env
 
 __all__ = [
-    'EsWikiIndexUpdater',
+    'ESWikiIndexUpdater',
 ]
 
 
-class EsWikiIndexUpdater(object):
+class ESWikiIndexUpdater(object):
     def __init__(self, config):
         self._enabled = False
 
         self._seafesdir = None
         self._interval = None
-        self._index_office_pdf = None
         self._logfile = None
         self._loglevel = None
         self._es_host = None
         self._es_port = None
-
-        self._timer = None
 
         self._parse_config(config)
 
@@ -65,7 +62,7 @@ class EsWikiIndexUpdater(object):
         # [ index logfile ]
 
         # default index file is 'index.log' in SEAFEVENTS_LOG_DIR
-        default_logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'index.log')
+        default_logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'index_wiki.log')
         logfile = get_opt_from_conf_or_env (config, section_name,
                                             key_logfile,
                                             'SEAFES_LOGFILE',
