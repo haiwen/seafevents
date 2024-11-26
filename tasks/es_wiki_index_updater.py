@@ -61,7 +61,7 @@ class ESWikiIndexUpdater(object):
 
         # [ index logfile ]
 
-        # default index file is 'index.log' in SEAFEVENTS_LOG_DIR
+        # default index file is 'index_wiki.log' in SEAFEVENTS_LOG_DIR
         default_logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'index_wiki.log')
         logfile = get_opt_from_conf_or_env (config, section_name,
                                             key_logfile,
