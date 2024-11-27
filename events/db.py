@@ -14,6 +14,9 @@ from .models import FileAudit, FileUpdate, PermAudit, \
 
 logger = logging.getLogger('seafevents')
 
+USER_ACTIVITIES_GENERATE_LIMIT = 50
+
+
 class UserEventDetail(object):
     """Regular objects which can be used by seahub without worrying about ORM"""
     def __init__(self, org_id, user_name, event):
@@ -233,7 +236,7 @@ def save_user_activity(session, record):
     activity = Activity(record)
     session.add(activity)
     session.commit()
-    for username in record['related_users'][:50]:
+    for username in record['related_users'][:USER_ACTIVITIES_GENERATE_LIMIT]:
         user_activity = UserActivity(username, activity.id, record['timestamp'])
         session.add(user_activity)
     session.commit()
