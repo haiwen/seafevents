@@ -29,7 +29,7 @@ class ESWikiIndexUpdater(object):
         section_name = 'INDEX FILES'
         key_enabled = 'enabled'
         key_seafesdir = 'seafesdir'
-        key_logfile = 'logfile'
+        key_logfile = 'wiki_logfile'
         key_loglevel = 'loglevel'
         key_index_interval = 'interval'
         key_es_host = 'es_host'
@@ -65,7 +65,7 @@ class ESWikiIndexUpdater(object):
         default_logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'index_wiki.log')
         logfile = get_opt_from_conf_or_env (config, section_name,
                                             key_logfile,
-                                            'SEAFES_LOGFILE',
+                                            'SEAFES_WIKI_LOGFILE',
                                             default=default_logfile)
 
         default_loglevel = 'warning'
@@ -141,7 +141,7 @@ class WikiIndexUpdateTimer(Thread):
                     assert os.path.exists(self._seafesdir)
                     cmd = [
                         get_python_executable(),
-                        '-m', 'seafes.wiki.index_wiki_local',
+                        '-m', 'seafes.indexes.wiki.index_wiki_local',
                         '--logfile', self._logfile,
                         '--loglevel', self._loglevel,
                         'update',

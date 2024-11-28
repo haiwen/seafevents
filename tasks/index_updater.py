@@ -160,7 +160,7 @@ class IndexUpdateTimer(Thread):
                     assert os.path.exists(self._seafesdir)
                     cmd = [
                         get_python_executable(),
-                        '-m', 'seafes.index_local',
+                        '-m', 'seafes.indexes.repo_file.index_local',
                         '--logfile', self._logfile,
                         '--loglevel', self._loglevel,
                         'update',
