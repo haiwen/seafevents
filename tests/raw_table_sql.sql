@@ -213,8 +213,7 @@ CREATE TABLE `UserActivity` (
   PRIMARY KEY (`id`),
   KEY `activity_id` (`activity_id`),
   KEY `ix_UserActivity_timestamp` (`timestamp`),
-  KEY `idx_username_timestamp` (`username`,`timestamp`),
-  CONSTRAINT `UserActivity_ibfk_1` FOREIGN KEY (`activity_id`) REFERENCES `Activity` (`id`) ON DELETE CASCADE
+  KEY `idx_username_timestamp` (`username`,`timestamp`)
 ) ENGINE=InnoDB AUTO_INCREMENT=342 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1728,8 +1727,7 @@ CREATE TABLE `UserActivity` (
   PRIMARY KEY (`id`),
   KEY `activity_id` (`activity_id`),
   KEY `ix_UserActivity_timestamp` (`timestamp`),
-  KEY `idx_username_timestamp` (`username`,`timestamp`),
-  CONSTRAINT `UserActivity_ibfk_1` FOREIGN KEY (`activity_id`) REFERENCES `Activity` (`id`) ON DELETE CASCADE
+  KEY `idx_username_timestamp` (`username`,`timestamp`)
 ) ENGINE=InnoDB AUTO_INCREMENT=342 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;

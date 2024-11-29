@@ -39,8 +39,7 @@ CREATE TABLE IF NOT EXISTS `UserActivity` (
   PRIMARY KEY (`id`),
   KEY `activity_id` (`activity_id`),
   KEY `ix_UserActivity_timestamp` (`timestamp`),
-  KEY `idx_username_timestamp` (`username`,`timestamp`),
-  CONSTRAINT `UserActivity_ibfk_1` FOREIGN KEY (`activity_id`) REFERENCES `Activity` (`id`) ON DELETE CASCADE
+  KEY `idx_username_timestamp` (`username`,`timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `FileHistory` (
