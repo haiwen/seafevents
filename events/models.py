@@ -55,7 +55,7 @@ class UserActivity(Base):
 
     id = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     username = mapped_column(String(length=255), nullable=False)
-    activity_id = mapped_column(BigInteger, ForeignKey('Activity.id', ondelete='CASCADE'))
+    activity_id = mapped_column(BigInteger, nullable=False, index=True)
     timestamp = mapped_column(DateTime, nullable=False, index=True)
 
     __table_args__ = (Index('idx_username_timestamp',
