@@ -47,10 +47,10 @@ def get_cluster_by_center(center, clusters):
 
         vector = b64decode_embeddings(vector)[0]
         distance = feature_distance(center, vector)
-        if distance < 0.5 and distance < min_distance:
+        if distance < 1 and distance < min_distance:
             min_distance = distance
             nearest_cluster = cluster
-    return nearest_cluster
+    return nearest_cluster, min_distance
 
 
 def get_faces_rows(repo_id, metadata_server_api):
