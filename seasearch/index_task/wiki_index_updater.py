@@ -15,7 +15,7 @@ from seafevents.utils import parse_bool, get_opt_from_conf_or_env, parse_interva
 logger = logging.getLogger(__name__)
 
 
-class WikiIndexUpdater(object):
+class SeasearchWikiIndexUpdater(object):
     def __init__(self, config):
         self._enabled = False
 

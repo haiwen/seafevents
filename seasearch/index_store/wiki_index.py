@@ -2,7 +2,7 @@ import logging
 import posixpath
 import json
 
-from seafevents.seasearch.utils import get_library_diff_files, is_in_wiki_dirs, extract_sdoc_text, md5
+from seafevents.seasearch.utils import get_library_diff_files, is_wiki_page, extract_sdoc_text, md5
 from seafevents.seasearch.utils.constants import ZERO_OBJ_ID, WIKI_INDEX_PREFIX
 from seafobj import fs_mgr, commit_mgr
 from seaserv import seafile_api
@@ -173,7 +173,7 @@ class WikiIndex(object):
                 bulk_add()
 
         for path, obj_id, mtime, size in files:
-            if not is_in_wiki_dirs(path):
+            if not is_wiki_page(path):
                 continue
 
             if self.size_cap is not None and int(size) >= int(self.size_cap):
@@ -198,7 +198,7 @@ class WikiIndex(object):
                 delete_params.clear()
 
         for path in dirs:
-            if not is_in_wiki_dirs(path):
+            if not is_wiki_page(path):
                 continue
             doc_uuid = path.split('/')[2]
             delete_params.append({'delete': {'_id': doc_uuid, '_index': index_name}})

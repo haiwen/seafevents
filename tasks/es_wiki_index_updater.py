@@ -2,29 +2,25 @@
 
 import os
 import logging
-import configparser
 from threading import Thread, Event
 
 from seafevents.utils import get_python_executable, run, parse_bool, parse_interval, get_opt_from_conf_or_env
 
 __all__ = [
-    'IndexUpdater',
+    'ESWikiIndexUpdater',
 ]
 
 
-class IndexUpdater(object):
+class ESWikiIndexUpdater(object):
     def __init__(self, config):
         self._enabled = False
 
         self._seafesdir = None
         self._interval = None
-        self._index_office_pdf = None
         self._logfile = None
         self._loglevel = None
         self._es_host = None
         self._es_port = None
-
-        self._timer = None
 
         self._parse_config(config)
 
@@ -33,10 +29,9 @@ class IndexUpdater(object):
         section_name = 'INDEX FILES'
         key_enabled = 'enabled'
         key_seafesdir = 'seafesdir'
-        key_logfile = 'logfile'
+        key_logfile = 'wiki_logfile'
         key_loglevel = 'loglevel'
         key_index_interval = 'interval'
-        key_index_office_pdf = 'index_office_pdf'
         key_es_host = 'es_host'
         key_es_port = 'es_port'
 
@@ -66,11 +61,11 @@ class IndexUpdater(object):
 
         # [ index logfile ]
 
-        # default index file is 'index.log' in SEAFEVENTS_LOG_DIR
-        default_logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'index.log')
+        # default index file is 'index_wiki.log' in SEAFEVENTS_LOG_DIR
+        default_logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'index_wiki.log')
         logfile = get_opt_from_conf_or_env (config, section_name,
                                             key_logfile,
-                                            'SEAFES_LOGFILE',
+                                            'SEAFES_WIKI_LOGFILE',
                                             default=default_logfile)
 
         default_loglevel = 'warning'
@@ -80,17 +75,6 @@ class IndexUpdater(object):
         interval = get_opt_from_conf_or_env(config, section_name, key_index_interval,
                                             default=default_index_interval)
         interval = parse_interval(interval, default_index_interval)
-
-        # [ index office/pdf files  ]
-        index_office_pdf = False
-        try:
-            index_office_pdf = config.get(section_name, key_index_office_pdf)
-        except (configparser.NoOptionError, configparser.NoSectionError):
-            pass
-        else:
-            index_office_pdf = index_office_pdf.lower()
-            if index_office_pdf == 'true' or index_office_pdf == '1':
-                index_office_pdf = True
 
         # [ es host/port  ]
         es_host = None
@@ -109,7 +93,6 @@ class IndexUpdater(object):
         logging.debug('seafes dir: %s', seafesdir)
         logging.debug('seafes logfile: %s', logfile)
         logging.debug('seafes index interval: %s sec', interval)
-        logging.debug('seafes index office/pdf: %s', index_office_pdf)
 
         if es_host:
             logging.debug('elasticsearch host: %s', es_host)
@@ -117,7 +100,6 @@ class IndexUpdater(object):
 
         self._seafesdir = seafesdir
         self._interval = interval
-        self._index_office_pdf = index_office_pdf
         self._logfile = os.path.abspath(logfile)
         self._loglevel = loglevel
         self._es_host = es_host
@@ -125,12 +107,12 @@ class IndexUpdater(object):
 
     def start(self):
         if not self.is_enabled():
-            logging.warning('Can not start index updater: it is not enabled!')
+            logging.warning('Can not start wiki index updater: it is not enabled!')
             return
 
-        logging.info('search indexer is started, interval = %s sec', self._interval)
-        IndexUpdateTimer(
-            self._interval, self._seafesdir, self._index_office_pdf,
+        logging.info('search wiki indexer is started, interval = %s sec', self._interval)
+        WikiIndexUpdateTimer(
+            self._interval, self._seafesdir,
             self._logfile, self._loglevel, self._es_host, self._es_port
         ).start()
 
@@ -138,13 +120,12 @@ class IndexUpdater(object):
         return self._enabled
 
 
-class IndexUpdateTimer(Thread):
+class WikiIndexUpdateTimer(Thread):
 
-    def __init__(self, interval, seafesdir, index_office_pdf, logfile, loglevel, es_host, es_port):
+    def __init__(self, interval, seafesdir, logfile, loglevel, es_host, es_port):
         Thread.__init__(self)
         self._interval = interval
         self._seafesdir = seafesdir
-        self._index_office_pdf = index_office_pdf
         self._logfile = logfile
         self._loglevel = loglevel
         self._es_host = es_host
@@ -155,28 +136,25 @@ class IndexUpdateTimer(Thread):
         while not self.finished.is_set():
             self.finished.wait(self._interval)
             if not self.finished.is_set():
-                logging.info('starts to index files')
+                logging.info('starts to index wiki files')
                 try:
                     assert os.path.exists(self._seafesdir)
                     cmd = [
                         get_python_executable(),
-                        '-m', 'seafes.indexes.repo_file.index_local',
+                        '-m', 'seafes.indexes.wiki.index_wiki_local',
                         '--logfile', self._logfile,
                         '--loglevel', self._loglevel,
                         'update',
                     ]
 
                     env = dict(os.environ)
-                    if self._index_office_pdf:
-                        env['SEAFES_INDEX_OFFICE_PDF'] = 'true'
-
                     if self._es_host:
                         env['SEAFES_ES_HOST'] = self._es_host
                         env['SEAFES_ES_PORT'] = str(self._es_port)
 
                     run(cmd, cwd=self._seafesdir, env=env)
                 except Exception as e:
-                    logging.exception('error when index files: %s', e)
+                    logging.exception('error when index wiki files: %s', e)
 
     def cancel(self):
         self.finished.set()

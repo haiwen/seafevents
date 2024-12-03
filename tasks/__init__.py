@@ -10,3 +10,4 @@ from .file_updates_sender import FileUpdatesSender
 from .repo_old_file_auto_del_scanner import RepoOldFileAutoDelScanner
 from .deleted_files_count_cleaner import DeletedFilesCountCleaner
 from .face_cluster import FaceCluster
+from .es_wiki_index_updater import ESWikiIndexUpdater

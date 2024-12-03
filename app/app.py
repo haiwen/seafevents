@@ -2,7 +2,7 @@ from seafevents.app.mq_handler import EventsHandler, init_message_handlers
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
         WorkWinxinNoticeSender, FileUpdatesSender, RepoOldFileAutoDelScanner,\
-        DeletedFilesCountCleaner, FaceCluster
+        DeletedFilesCountCleaner, FaceCluster, ESWikiIndexUpdater
 
 from seafevents.repo_metadata.index_master import RepoMetadataIndexMaster
 from seafevents.repo_metadata.index_worker import RepoMetadataIndexWorker
@@ -10,7 +10,7 @@ from seafevents.repo_metadata.slow_task_handler import SlowTaskHandler
 from seafevents.seafevent_server.seafevent_server import SeafEventServer
 from seafevents.app.config import ENABLE_METADATA_MANAGEMENT
 from seafevents.seasearch.index_task.filename_index_updater import RepoFilenameIndexUpdater
-from seafevents.seasearch.index_task.wiki_index_updater import WikiIndexUpdater
+from seafevents.seasearch.index_task.wiki_index_updater import SeasearchWikiIndexUpdater
 
 
 class App(object):
@@ -44,7 +44,8 @@ class App(object):
                 self._slow_task_handler = SlowTaskHandler(config)
                 self._face_cluster = FaceCluster()
             self._repo_filename_index_updater = RepoFilenameIndexUpdater(config)
-            self._wiki_index_updater = WikiIndexUpdater(config)
+            self._es_wiki_index_updater = ESWikiIndexUpdater(config)
+            self._seasearch_wiki_index_updater = SeasearchWikiIndexUpdater(config)
 
     def serve_forever(self):
         if self._fg_tasks_enabled:
@@ -70,4 +71,5 @@ class App(object):
                 self._slow_task_handler.start()
                 self._face_cluster.start()
             self._repo_filename_index_updater.start()
-            self._wiki_index_updater.start()
+            self._seasearch_wiki_index_updater.start()
+            self._es_wiki_index_updater.start()
