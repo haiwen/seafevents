@@ -101,7 +101,7 @@ def need_index_metadata_info(repo_id, session):
     return True
 
 
-def is_wiki_body(path):
+def is_wiki_page(path):
     if path.split('/')[1] in WIKI_DIRS and path.endswith('.sdoc'):
         return True
     return False
