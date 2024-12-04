@@ -121,6 +121,22 @@ class RepoData(object):
         finally:
             session.close()
 
+    def _get_mtime_by_repo_ids(self, repo_ids):
+        session = self.db_session()
+        if not repo_ids:
+            return []
+        try:
+            if len(repo_ids) == 1:
+                cmd = """SELECT repo_id, update_time FROM RepoInfo WHERE repo_id = '%s'""" % repo_ids[0]
+            else:
+                cmd = """SELECT repo_id, update_time FROM RepoInfo WHERE repo_id IN {}""".format(tuple(repo_ids))
+            res = session.execute(text(cmd)).fetchall()
+            return res
+        except Exception as e:
+            raise e
+        finally:
+            session.close()
+
     def get_repo_name_mtime_size(self, repo_id):
         try:
             return self._get_repo_name_mtime_size(repo_id)
@@ -169,5 +185,12 @@ class RepoData(object):
         except Exception as e:
             logger.error(e)
             return self._get_virtual_repo_in_repos(repo_ids)
+
+    def get_mtime_by_repo_ids(self, repo_ids):
+        try:
+            return self._get_mtime_by_repo_ids(repo_ids)
+        except Exception as e:
+            logger.error(e)
+            return self._get_mtime_by_repo_ids(repo_ids)
 
 repo_data = RepoData()

@@ -12,7 +12,7 @@ def parse_response(response):
 
 
 class ImageEmbeddingAPI:
-    def __init__(self, server_url, secret_key, timeout=30):
+    def __init__(self, server_url, secret_key, timeout=90):
         self.timeout = timeout
         self.secret_key = secret_key
         self.server_url = server_url

@@ -2,16 +2,15 @@ import logging
 
 from seafevents.db import init_db_session_class
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
-from seafevents.face_recognition.db import get_mtime_by_repo_ids, get_face_recognition_enabled_repo_list, update_face_cluster_time
+from repo_data import repo_data
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('face_recognition')
 
 
 class RepoFaceClusterUpdater(object):
-    def __init__(self, config, seafile_config):
+    def __init__(self, config):
         self._face_recognition_manager = FaceRecognitionManager(config)
         self._session = init_db_session_class(config)
-        self._seafdb_session = init_db_session_class(seafile_config, db='seafile')
 
     def start(self):
         try:
@@ -20,14 +19,14 @@ class RepoFaceClusterUpdater(object):
             logger.exception("Error: %s" % e)
 
     def update_face_cluster(self):
-        logger.info("Start update face cluster")
+        logger.info("Start timer update face cluster")
 
         start, count = 0, 1000
         while True:
             try:
-                repos = get_face_recognition_enabled_repo_list(self._session, start, count)
+                repos = self._face_recognition_manager.get_pending_face_cluster_repo_list(start, count)
             except Exception as e:
-                logger.error("Error: %s" % e)
+                logger.error("Fail to get cluster repo list, Error: %s" % e)
                 return
             start += 1000
 
@@ -35,7 +34,7 @@ class RepoFaceClusterUpdater(object):
                 break
 
             repo_ids = [repo[0] for repo in repos]
-            repos_mtime = get_mtime_by_repo_ids(self._seafdb_session, repo_ids)
+            repos_mtime = repo_data.get_mtime_by_repo_ids(repo_ids)
             repo_id_to_mtime = {repo[0]: repo[1] for repo in repos_mtime}
 
             for repo in repos:
@@ -49,9 +48,8 @@ class RepoFaceClusterUpdater(object):
                     continue
 
                 try:
-                    self._face_recognition_manager.check_face_vectors(repo_id)
-                    self._face_recognition_manager.face_cluster(repo_id)
+                    self._face_recognition_manager.update_face_cluster(repo_id)
                 except Exception as e:
-                    logger.error("repo: %s, update face cluster error: %s" % (repo_id, e))
+                    logger.exception("repo: %s, update face cluster error: %s" % (repo_id, e))
 
         logger.info("Finish update face cluster")

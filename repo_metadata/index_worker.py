@@ -11,6 +11,8 @@ from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.repo_metadata import RepoMetadata
 from seafevents.repo_metadata.metadata_manager import MetadataManager
+from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,7 @@ class RepoMetadataIndexWorker(object):
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
         self.repo_metadata = RepoMetadata(self.metadata_server_api, self.mq)
         self.metadata_manager = MetadataManager(self._db_session_class, self.repo_metadata)
+        self._face_recognition_manager = FaceRecognitionManager(config)
 
     def _parse_config(self, config):
         redis_section_name = 'REDIS'
@@ -66,6 +69,10 @@ class RepoMetadataIndexWorker(object):
         for i in range(int(self.worker_num)):
             threading.Thread(target=self.worker_handler, name='subscribe_' + str(i),
                               daemon=True).start()
+
+        for i in range(int(self.worker_num)):
+            threading.Thread(target=self.face_cluster_handler, name='face_cluster_handler' + str(i),
+                              daemon=True).start()
         threading.Thread(target=self.refresh_lock, name='refresh_thread', daemon=True).start()
 
     def worker_handler(self):
@@ -81,7 +88,7 @@ class RepoMetadataIndexWorker(object):
                             logger.info('Bad message: %s' % str(msg))
                         else:
                             op_type, repo_id = msg[0], msg[1]
-                            self.worker_task_handler(self.mq, repo_id, self.should_stop)
+                            self.worker_task_handler(self.mq, repo_id, self.should_stop, op_type)
                 except (ResponseError, NoMQAvailable, TimeoutError) as e:
                     logger.error('The connection to the redis server failed: %s' % e)
         except Exception as e:
@@ -90,7 +97,29 @@ class RepoMetadataIndexWorker(object):
             # prevent case that redis break at program running.
             time.sleep(0.3)
 
-    def worker_task_handler(self, mq, repo_id, should_stop):
+    def face_cluster_handler(self):
+        logger.info('%s starting face cluster' % self.tname)
+        try:
+            while not self.should_stop.isSet():
+                try:
+                    res = self.mq.brpop('face_cluster_task', timeout=30)
+                    if res is not None:
+                        key, value = res
+                        msg = value.split('\t')
+                        if len(msg) != 3:
+                            logger.info('Bad message: %s' % str(msg))
+                        else:
+                            op_type, repo_id, username = msg[0], msg[1], msg[2]
+                            self.worker_task_handler(self.mq, repo_id, self.should_stop, op_type, username)
+                except (ResponseError, NoMQAvailable, TimeoutError) as e:
+                    logger.error('The connection to the redis server failed: %s' % e)
+        except Exception as e:
+            logger.error('%s Handle face cluster Task Error' % self.tname)
+            logger.error(e, exc_info=True)
+            # prevent case that redis break at program running.
+            time.sleep(0.3)
+
+    def worker_task_handler(self, mq, repo_id, should_stop, op_type, username=None):
         # Python cannot kill threads, so stop it generate more locked key.
         if not should_stop.isSet():
             # set key-value if does not exist which will expire 30 minutes later
@@ -101,7 +130,10 @@ class RepoMetadataIndexWorker(object):
                             (threading.currentThread().getName(), repo_id))
                 lock_key = self._get_lock_key(repo_id)
                 self.locked_keys.add(lock_key)
-                self.update_metadata(repo_id)
+                if op_type == 'init_face_recognition':
+                    self.init_face_cluster(repo_id, username)
+                else:
+                    self.update_metadata(repo_id)
                 try:
                     self.locked_keys.remove(lock_key)
                 except KeyError:
@@ -110,8 +142,10 @@ class RepoMetadataIndexWorker(object):
                 logger.info("%s Finish updating repo: %s, delete redis lock %s" %
                             (self.tname, repo_id, lock_key))
             else:
+                if op_type == 'init_face_recognition':
+                    return
                 # the repo is updated by other thread, push back to the queue
-                self.add_to_undo_task(mq, repo_id)
+                self.add_to_undo_task(mq, repo_id, op_type)
 
     def update_metadata(self, repo_id):
         commit_id = repo_data.get_repo_head_commit(repo_id)
@@ -124,15 +158,22 @@ class RepoMetadataIndexWorker(object):
         except Exception as e:
             logger.exception('update repo: %s metadata error: %s', repo_id, e)
 
-    def add_to_undo_task(self, mq, repo_id):
+    def init_face_cluster(self, repo_id, username):
+        logger.info('start init face_cluster')
+        try:
+            repo_id = repo_id[13:]
+            self._face_recognition_manager.update_face_cluster(repo_id, username=username)
+        except Exception as e:
+            logger.exception('update repo: %s metadata error: %s', repo_id, e)
+
+    def add_to_undo_task(self, mq, repo_id, op_type):
         """Push task back to the end of the queue.
         """
         # avoid get the same task repeatedly
         time.sleep(0.1)
-        mq.lpush('metadata_task', '\t'.join(['repo-update', repo_id]))
+        mq.lpush('metadata_task', '\t'.join([op_type, repo_id]))
         logger.debug('%s push back task (%s,) to the queue' %
                      (self.tname, repo_id))
-
 
     def refresh_lock(self):
         logger.info('%s Starting refresh locks' % self.tname)

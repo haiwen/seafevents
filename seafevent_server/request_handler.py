@@ -6,7 +6,6 @@ from flask import Flask, request, make_response
 from seafevents.app.config import SEAHUB_SECRET_KEY
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
-from seafevents.face_recognition.face_recognition_task_manager import face_recognition_task_manager
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
@@ -168,14 +167,16 @@ def add_init_face_recognition_task():
     if not is_valid:
         return make_response((error, 403))
 
-    if face_recognition_task_manager.tasks_queue.full():
-        logger.warning('seafevent server busy, queue size: %d' % (task_manager.tasks_queue.qsize(), ))
+    if task_manager.tasks_queue.full():
+        logger.warning('seafevent server busy, queue size: %d' % (task_manager.tasks_queue.qsize(),))
         return make_response(('seafevent server busy.', 400))
 
+    username = request.args.get('username')
     repo_id = request.args.get('repo_id')
 
     try:
-        task_id = face_recognition_task_manager.add_face_recognition_task(repo_id)
+        task_id = task_manager.add_init_face_recognition_task(
+            username, repo_id)
     except Exception as e:
         logger.error(e)
         return make_response((e, 500))

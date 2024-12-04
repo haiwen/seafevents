@@ -6,10 +6,9 @@ from seafevents.repo_metadata.utils import get_file_type_ext_by_name
 from seafevents.utils import timestamp_to_isoformat_timestr
 from seafevents.repo_metadata.metadata_manager import ZERO_OBJ_ID
 from seafevents.repo_metadata.constants import METADATA_OP_LIMIT, METADATA_TABLE
+from seafevents.seasearch.utils import is_sys_dir_or_file
 
 logger = logging.getLogger(__name__)
-
-EXCLUDED_PATHS = ['/_Internal', '/images']
 
 
 class DiffEntry(object):
@@ -136,9 +135,9 @@ class RepoMetadata:
     def is_excluded_path(self, path):
         if not path or path == '/':
             return True
-        for ex_path in EXCLUDED_PATHS:
-            if path.startswith(ex_path):
-                return True
+
+        if is_sys_dir_or_file(path):
+            return True
 
     def delete_rows_by_query(self, repo_id, sql, parameters):
         query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
