@@ -19,7 +19,7 @@ class RepoFaceClusterUpdater(object):
             logger.exception("Error: %s" % e)
 
     def update_face_cluster(self):
-        logger.info("Start update face cluster")
+        logger.info("Start timer update face cluster")
 
         start, count = 0, 1000
         while True:
@@ -48,7 +48,7 @@ class RepoFaceClusterUpdater(object):
                     continue
 
                 try:
-                    self._face_recognition_manager.update_face_cluster(repo_id, last_face_cluster_time)
+                    self._face_recognition_manager.update_face_cluster(repo_id)
                 except Exception as e:
                     logger.exception("repo: %s, update face cluster error: %s" % (repo_id, e))
 

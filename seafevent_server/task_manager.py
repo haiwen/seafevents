@@ -91,9 +91,20 @@ class TaskManager:
 
     def add_init_metadata_task(self, username, repo_id):
         msg_content = {
-            'msg_type': 'init-metadata',
+            'msg_type': 'init_metadata',
             'repo_id': repo_id,
             'commit_id': ZERO_OBJ_ID,
+        }
+        if self._redis_connection.publish('metadata_update', json.dumps(msg_content)) > 0:
+            logging.debug('Publish event: %s' % msg_content)
+        else:
+            logging.info('No one subscribed to metadata_update channel, event (%s) has not been send' % msg_content)
+
+    def add_init_face_recognition_task(self, username, repo_id):
+        msg_content = {
+            'msg_type': 'init_face_recognition',
+            'repo_id': repo_id,
+            'username': username
         }
         if self._redis_connection.publish('metadata_update', json.dumps(msg_content)) > 0:
             logging.debug('Publish event: %s' % msg_content)

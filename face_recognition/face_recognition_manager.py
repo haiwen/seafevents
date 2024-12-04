@@ -190,17 +190,15 @@ class FaceRecognitionManager(object):
             # save a cover for new face cluster.
             save_cluster_face(repo_id, related_row_ids, row_ids, id_to_record, cluster_center, face_row_id, self.image_embedding_api)
 
-    def is_init_face_cluster(self, last_face_cluster_time):
-        return False if last_face_cluster_time else True
-
-    def update_face_cluster(self, repo_id, last_face_cluster_time):
+    def update_face_cluster(self, repo_id, username=None):
+        logger.info('Updating face cluster repo %s' % repo_id)
         start_update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.ensure_face_vectors(repo_id)
         self.face_cluster(repo_id)
         self.finish_face_cluster(repo_id, start_update_time)
 
-        if self.is_init_face_cluster(last_face_cluster_time):
-            self.send_face_cluster_message_to_repo_owner(repo_id)
+        if username:
+            self.save_face_cluster_message_to_user_notification(repo_id, username)
 
     def get_pending_face_cluster_repo_list(self, start, count):
         per_day_check_time = datetime.now() - timedelta(hours=23)
@@ -239,14 +237,3 @@ class FaceRecognitionManager(object):
                 ["('%s', '%s', '%s', '%s', %s)" % value for value in values])
             session.execute(text(sql))
             session.commit()
-
-    def send_face_cluster_message_to_repo_owner(self, repo_id):
-        org_id = get_org_id_by_repo_id(repo_id)
-        if org_id > 0:
-            owner = seafile_api.get_org_repo_owner(repo_id)
-        else:
-            owner = seafile_api.get_repo_owner(repo_id)
-        if 'seafile_group' in owner:
-            return
-
-        self.save_face_cluster_message_to_user_notification(repo_id, owner)
