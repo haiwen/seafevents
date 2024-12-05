@@ -2,7 +2,7 @@ import logging
 
 from seafevents.db import init_db_session_class
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
-from repo_data import repo_data
+from seafevents.repo_data import repo_data
 
 logger = logging.getLogger('face_recognition')
 
