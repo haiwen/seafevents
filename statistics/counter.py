@@ -13,7 +13,7 @@ from seafevents.db import SeafBase, init_db_session_class
 from seaserv import seafile_api
 from seafevents.utils.seafile_db import SeafileDB
 from seafevents.utils.ccnet_db import CcnetDB
-from seafevents.app.config import DOWNLOAD_LIMIT
+from seafevents.app.config import DOWNLOAD_LIMIT_WHEN_THROTTLE
 from seafevents.utils.seahub_api import SeahubAPI
 from .db import get_org_id
 
@@ -307,7 +307,7 @@ class TrafficInfoCounter(object):
                     user_monthly_traffic_size = self.edb_session.scalars(stmt2).first()
                     # not org user rate limit
                     if user_monthly_traffic_size and user_monthly_traffic_size > traffic_threshold:
-                        seafile_api.set_user_download_rate_limit(user, DOWNLOAD_LIMIT)
+                        seafile_api.set_user_download_rate_limit(user, DOWNLOAD_LIMIT_WHEN_THROTTLE)
                         rate_limit_users[user] = True
 
                 stmt = select(UserTraffic.size).where(
@@ -352,7 +352,7 @@ class TrafficInfoCounter(object):
                     org_monthly_traffic_size = self.edb_session.scalars(stmt2).first()
                     # org rate limit
                     if org_monthly_traffic_size and org_monthly_traffic_size > traffic_threshold:
-                        seafile_api.org_set_download_rate_limit(org_id, DOWNLOAD_LIMIT)
+                        seafile_api.org_set_download_rate_limit(org_id, DOWNLOAD_LIMIT_WHEN_THROTTLE)
                         rate_limit_orgs[org_id] = True
 
                 stmt = select(SysTraffic.size).where(
