@@ -25,7 +25,7 @@ try:
     SEAHUB_SERVER_URL = getattr(seahub_settings, 'SERVICE_URL', '')
     ENABLE_METADATA_MANAGEMENT = getattr(seahub_settings, 'ENABLE_METADATA_MANAGEMENT', False)
     METADATA_FILE_TYPES = getattr(seahub_settings, 'METADATA_FILE_TYPES', {})
-    DOWNLOAD_LIMIT_WHEN_THROTTLE = getattr(seahub_settings, 'DOWNLOAD_LIMIT_WHEN_THROTTLE', 1000)
+    DOWNLOAD_LIMIT_WHEN_THROTTLE = getattr(seahub_settings, 'DOWNLOAD_LIMIT_WHEN_THROTTLE', '1k')
     JWT_PRIVATE_KEY = getattr(seahub_settings, 'JWT_PRIVATE_KEY', '')
 
 except ImportError:
