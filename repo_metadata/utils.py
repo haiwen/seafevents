@@ -13,7 +13,7 @@ from PIL import Image, UnidentifiedImageError
 from seafobj import commit_mgr, fs_mgr
 
 from seafevents.app.config import METADATA_FILE_TYPES
-from seafevents.repo_metadata.view_data_sql import view_data_2_sql
+from seafevents.repo_metadata.view_data_sql import view_data_2_sql, sort_data_2_sql
 from seafevents.utils import timestamp_to_isoformat_timestr
 from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT, METADATA_TABLE
 
@@ -290,5 +290,10 @@ def query_metadata_rows(repo_id, metadata_server_api, sql):
     return rows
 
 def gen_view_data_sql(table, columns, view, start, limit, username = '', id_in_org = ''):
+    """ generate view data sql """
     return view_data_2_sql(table, columns, view, start, limit, username, id_in_org)
 
+
+def gen_sorts_sql(table, columns, sorts):
+    """ generate sorts sql """
+    return sort_data_2_sql(table, columns, sorts)

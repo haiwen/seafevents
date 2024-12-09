@@ -972,7 +972,7 @@ def _get_operator_by_type(column_type):
 
 class SQLGenerator(object):
 
-    def __init__(self, table, columns, view, start, limit, username = '', id_in_org = ''):
+    def __init__(self, table, columns, view, start=0, limit=0, username = '', id_in_org = ''):
         self.table = table
         self.table_name = table.name
         self.view = view
@@ -994,7 +994,7 @@ class SQLGenerator(object):
                 return col
         return None
 
-    def _sort_2_sql(self):
+    def sort_2_sql(self):
         condition_sorts = self.view.get('sorts', [])
         order_header = 'ORDER BY '
         clauses = []
@@ -1002,7 +1002,7 @@ class SQLGenerator(object):
             for sort in condition_sorts:
                 column_key = sort.get('column_key', '')
                 column_name = sort.get('column_name', '')
-                sort_type = sort.get('sort_type', 'DESC') == 'up' and 'ASC' or 'DESC'
+                sort_type = 'ASC' if sort.get('sort_type', 'DESC') == 'up' else 'DESC'
                 column = self._get_column_by_key(column_key)
                 if not column:
                     column = self._get_column_by_name(column_name)
@@ -1017,10 +1017,7 @@ class SQLGenerator(object):
                 order_condition = '`%s` %s' % (column.get('name'), sort_type)
                 clauses.append(order_condition)
         if not clauses:
-            return f' ORDER BY \
-            `{self.table.columns.parent_dir.name}` ASC, \
-            `{self.table.columns.is_dir.name}` DESC, \
-            `{self.table.columns.file_name.name}` ASC'
+            return f' ORDER BY `{self.table.columns.file_ctime.name}`'
 
         return "%s%s" % (
             order_header,
@@ -1064,7 +1061,7 @@ class SQLGenerator(object):
     def _generator_filters_sql(self, filters, filter_conjunction = 'And'):
         if not filters:
             return ''
-        
+
         filter_string_list = []
         filter_conjunction_split = " %s " % filter_conjunction
         for filter_item in filters:
@@ -1080,12 +1077,12 @@ class SQLGenerator(object):
             if not column:
                 logger.error('Column not found column_key: %s column_name: %s' % (column_key, column_name))
                 continue
-            
+
             if filter_item.get('filter_predicate') == 'include_me':
                 filter_item['filter_term'] = [self.username]
             if filter_item.get('filter_predicate') == 'is_current_user_ID':
                 filter_item['filter_term'] = self.id_in_org
-            
+
             column_type = self._get_column_type(column)
             column['type'] = column_type
             operator_cls = _get_operator_by_type(column_type)
@@ -1096,7 +1093,7 @@ class SQLGenerator(object):
             if not sql_condition:
                 continue
             filter_string_list.append(sql_condition)
-        
+
         if filter_string_list:
             return "%s" % (
                 filter_conjunction_split.join(filter_string_list)
@@ -1143,7 +1140,7 @@ class SQLGenerator(object):
         filters = self.view.get('filters', [])
         filter_conjunction = self.view.get('filter_conjunction', 'And')
         return self._generator_filters_sql(filters, filter_conjunction)
-    
+
     def _filter_2_sql(self):
         filter_header = 'WHERE'
         basic_filters_sql = self._basic_filters_sql()
@@ -1151,14 +1148,14 @@ class SQLGenerator(object):
 
         if not basic_filters_sql and not filters_sql:
             return ''
-        
+
         if basic_filters_sql and filters_sql:
             return "%s (%s) AND (%s)" % (
                 filter_header,
                 basic_filters_sql,
                 filters_sql,
             )
-        
+
         if basic_filters_sql and not filters_sql:
             return "%s %s" % (
                 filter_header,
@@ -1180,7 +1177,7 @@ class SQLGenerator(object):
     def to_sql(self):
         sql = "%s `%s`" % ("SELECT * FROM", self.table_name)
         filter_clause = self._filter_2_sql()
-        sort_clause = self._sort_2_sql()
+        sort_clause = self.sort_2_sql()
         limit_clause = self._limit_2_sql()
 
         if filter_clause:
@@ -1193,6 +1190,11 @@ class SQLGenerator(object):
 
 
 def view_data_2_sql(table, columns, view, start, limit, username = '', id_in_org = ''):
+    """ view to sql """
     sql_generator = SQLGenerator(table, columns, view, start, limit, username, id_in_org)
     return sql_generator.to_sql()
 
+def sort_data_2_sql(table, columns, sorts):
+    """ sorts to sql """
+    sql_generator = SQLGenerator(table, columns, {'sorts': sorts})
+    return sql_generator.sort_2_sql()
