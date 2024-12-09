@@ -277,14 +277,16 @@ class TrafficInfoCounter(object):
             size = local_traffic_info[date_str][row]
             if size == 0:
                 continue
-
+            
+            traffic_threshold = None
             if traffic_info_dict and oper in self.download_type_list:
                 with CcnetDB() as ccnet_db:
                     user_role = ccnet_db.get_user_role(user)
                     role = DEFAULT_USER if (user_role == '' or user_role == DEFAULT_USER) else user_role
                 traffic_threshold = traffic_info_dict[role][MONTHLY_RATE_LIMIT]
                 if org_id > 0:
-                    traffic_threshold = traffic_info_dict[role][MONTHLY_RATE_LIMIT_PER_USER] * org_user_count_dict[org_id]
+                    monthly_rate_limit_per_user = traffic_info_dict[role][MONTHLY_RATE_LIMIT_PER_USER]
+                    traffic_threshold = monthly_rate_limit_per_user * org_user_count_dict[org_id] if monthly_rate_limit_per_user else None
                 if (org_id, oper) not in org_delta:
                     org_delta[(org_id, oper, traffic_threshold)] = size
                 else:
@@ -294,10 +296,9 @@ class TrafficInfoCounter(object):
                     org_delta[(org_id, oper)] = size
                 else:
                     org_delta[(org_id, oper)] += size
-
             try:
                 # Check the download traffic for the current month.
-                if traffic_info_dict and (org_id < 0 and oper in self.download_type_list
+                if traffic_threshold and (org_id < 0 and oper in self.download_type_list
                                           and not rate_limit_users.get(user, False)):
                     stmt2 = select(func.sum(UserTraffic.size).label("size")).where(
                         UserTraffic.timestamp.between(first_day_of_month, date),
@@ -353,7 +354,7 @@ class TrafficInfoCounter(object):
                     )
                     org_monthly_traffic_size = self.edb_session.scalars(stmt2).first()
                     # org rate limit
-                    if org_monthly_traffic_size and org_monthly_traffic_size > traffic_threshold:
+                    if org_monthly_traffic_size and traffic_threshold and org_monthly_traffic_size > traffic_threshold:
                         download_limit_format = get_quota_from_string(DOWNLOAD_LIMIT_WHEN_THROTTLE)
                         seafile_api.org_set_download_rate_limit(org_id, download_limit_format)
                         rate_limit_orgs[org_id] = True

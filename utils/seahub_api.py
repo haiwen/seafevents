@@ -2,7 +2,7 @@ import jwt
 import json
 import requests
 import logging
-from seafevents.app.config import JWT_PRIVATE_KEY, SEAHUB_INNER_SERVICE_URL
+from seafevents.app.config import JWT_PRIVATE_KEY, INNER_SEAHUB_SERVICE_URL
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ def parse_response(response):
 class SeahubAPI(object):
 
     def __init__(self, timeout=180):
-        self.server = SEAHUB_INNER_SERVICE_URL
+        self.server = INNER_SEAHUB_SERVICE_URL
         self.timeout = timeout
         self.gen_header()
 
