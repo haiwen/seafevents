@@ -22,8 +22,12 @@ try:
     SEAHUB_SECRET_KEY = getattr(seahub_settings, 'SECRET_KEY', '')
     METADATA_SERVER_SECRET_KEY = getattr(seahub_settings, 'METADATA_SERVER_SECRET_KEY', '')
     METADATA_SERVER_URL = getattr(seahub_settings, 'METADATA_SERVER_URL', '')
+    INNER_SEAHUB_SERVICE_URL = getattr(seahub_settings, 'INNER_SEAHUB_SERVICE_URL', 'http://127.0.0.1')
     ENABLE_METADATA_MANAGEMENT = getattr(seahub_settings, 'ENABLE_METADATA_MANAGEMENT', False)
     METADATA_FILE_TYPES = getattr(seahub_settings, 'METADATA_FILE_TYPES', {})
+    DOWNLOAD_LIMIT_WHEN_THROTTLE = getattr(seahub_settings, 'DOWNLOAD_LIMIT_WHEN_THROTTLE', '1k')
+    JWT_PRIVATE_KEY = getattr(seahub_settings, 'JWT_PRIVATE_KEY', '')
+
 except ImportError:
     logger.critical("Can not import seahub settings.")
     raise RuntimeError("Can not import seahub settings.")
