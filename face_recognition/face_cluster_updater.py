@@ -1,8 +1,11 @@
 import logging
+import json
 
 from seafevents.db import init_db_session_class
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 from seafevents.repo_data import repo_data
+from seafevents.utils import get_opt_from_conf_or_env
+from seafevents.mq import get_mq
 
 logger = logging.getLogger('face_recognition')
 
@@ -11,6 +14,25 @@ class RepoFaceClusterUpdater(object):
     def __init__(self, config):
         self._face_recognition_manager = FaceRecognitionManager(config)
         self._session = init_db_session_class(config)
+        self.mq_server = '127.0.0.1'
+        self.mq_port = 6379
+        self.mq_password = ''
+        self._parse_config(config)
+
+        self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
+
+    def _parse_config(self, config):
+        section_name = 'REDIS'
+        key_server = 'server'
+        key_port = 'port'
+        key_password = 'password'
+
+        if not config.has_section(section_name):
+            return
+
+        self.mq_server = get_opt_from_conf_or_env(config, section_name, key_server, default='')
+        self.mq_port = get_opt_from_conf_or_env(config, section_name, key_port, default=6379)
+        self.mq_password = get_opt_from_conf_or_env(config, section_name, key_password, default='')
 
     def start(self):
         try:
@@ -48,8 +70,14 @@ class RepoFaceClusterUpdater(object):
                     continue
 
                 try:
-                    self._face_recognition_manager.update_face_cluster(repo_id)
+                    msg_content = {
+                        'msg_type': 'update_face_recognition',
+                        'repo_id': repo_id
+                    }
+                    if self.mq.publish('metadata_update', json.dumps(msg_content)) > 0:
+                        logger.debug('Publish event: %s' % msg_content)
+                    else:
+                        logger.info(
+                            'No one subscribed to metadata_update channel, event (%s) has not been send' % msg_content)
                 except Exception as e:
                     logger.exception("repo: %s, update face cluster error: %s" % (repo_id, e))
-
-        logger.info("Finish update face cluster")
