@@ -5,6 +5,7 @@ from datetime import timedelta
 from datetime import datetime
 from sqlalchemy import func, select, update, null
 from sqlalchemy.sql import text
+
 from .models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic,\
                    MonthlyUserTraffic, MonthlySysTraffic
 from seafevents.events.models import FileUpdate
@@ -14,8 +15,7 @@ from seaserv import seafile_api
 from seafevents.utils.seafile_db import SeafileDB
 from seafevents.utils.ccnet_db import CcnetDB
 from seafevents.utils import get_quota_from_string
-from seafevents.app.config import DOWNLOAD_LIMIT_WHEN_THROTTLE
-from seafevents.utils.seahub_api import SeahubAPI
+from seafevents.app.config import DOWNLOAD_LIMIT_WHEN_THROTTLE, ENABLED_ROLE_PERMISSIONS
 from .db import get_org_id
 
 # This is a throwaway variable to deal with a python bug
@@ -61,6 +61,23 @@ def save_traffic_info(session, timestamp, user_name, repo_id, oper, size):
         traffic_info[time_str][(org_id, user_name, oper)] = size
     else:
         traffic_info[time_str][(org_id, user_name, oper)] += size
+        
+def get_role_download_rate_limit_info():
+    if not ENABLED_ROLE_PERMISSIONS:
+        return None
+    traffic_info_dict = {}
+    for role, v in ENABLED_ROLE_PERMISSIONS.items():
+        rate_limit = {}
+        if MONTHLY_RATE_LIMIT in v:
+            monthly_rate_limit = get_quota_from_string(v[MONTHLY_RATE_LIMIT])
+            rate_limit[MONTHLY_RATE_LIMIT] = monthly_rate_limit
+        if MONTHLY_RATE_LIMIT_PER_USER in v:
+            monthly_rate_limit_per_user = get_quota_from_string(v[MONTHLY_RATE_LIMIT_PER_USER])
+            rate_limit[MONTHLY_RATE_LIMIT_PER_USER] = monthly_rate_limit_per_user
+        traffic_info_dict[role] = rate_limit
+    return traffic_info_dict
+    
+    
 
 class FileOpsCounter(object):
     def __init__(self, config):
@@ -264,8 +281,7 @@ class TrafficInfoCounter(object):
         org_user_count_dict = get_org_user_count(local_traffic_info, date_str)
         try:
             # list role traffic info
-            seahub_api = SeahubAPI()
-            traffic_info_dict = seahub_api.get_role_download_rate_limit_info()
+            traffic_info_dict = get_role_download_rate_limit_info()
         except Exception as e:
             logging.warning('Failed get download rate limit info: %s.', e)
         # Update UserTraffic
@@ -283,9 +299,9 @@ class TrafficInfoCounter(object):
                 with CcnetDB() as ccnet_db:
                     user_role = ccnet_db.get_user_role(user)
                     role = DEFAULT_USER if (user_role == '' or user_role == DEFAULT_USER) else user_role
-                traffic_threshold = traffic_info_dict[role][MONTHLY_RATE_LIMIT]
+                traffic_threshold = traffic_info_dict[role].get(MONTHLY_RATE_LIMIT) or None
                 if org_id > 0:
-                    monthly_rate_limit_per_user = traffic_info_dict[role][MONTHLY_RATE_LIMIT_PER_USER]
+                    monthly_rate_limit_per_user = traffic_info_dict[role].get(MONTHLY_RATE_LIMIT_PER_USER) or None
                     traffic_threshold = monthly_rate_limit_per_user * org_user_count_dict[org_id] if monthly_rate_limit_per_user else None
                 if (org_id, oper) not in org_delta:
                     org_delta[(org_id, oper, traffic_threshold)] = size
