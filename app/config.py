@@ -24,6 +24,9 @@ try:
     METADATA_SERVER_URL = getattr(seahub_settings, 'METADATA_SERVER_URL', '')
     ENABLE_METADATA_MANAGEMENT = getattr(seahub_settings, 'ENABLE_METADATA_MANAGEMENT', False)
     METADATA_FILE_TYPES = getattr(seahub_settings, 'METADATA_FILE_TYPES', {})
+    DOWNLOAD_LIMIT_WHEN_THROTTLE = getattr(seahub_settings, 'DOWNLOAD_LIMIT_WHEN_THROTTLE', '1k')
+    ENABLED_ROLE_PERMISSIONS = getattr(seahub_settings, 'ENABLED_ROLE_PERMISSIONS', {})
+
 except ImportError:
     logger.critical("Can not import seahub settings.")
     raise RuntimeError("Can not import seahub settings.")

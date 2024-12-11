@@ -126,3 +126,14 @@ class SeafileDB(object):
                     repos_map[row[0]] = self.repo_info(row)
 
             return repos_map
+
+    def reset_download_rate_limit(self):
+        sql1 = f"""
+                TRUNCATE TABLE `{self.db_name}`.`UserDownloadRateLimit`;
+                """
+        sql2 = f"""
+                TRUNCATE TABLE `{self.db_name}`.`OrgDownloadRateLimit`
+                """
+        with self.seafile_db_cursor as cursor:
+            cursor.execute(sql1)
+            cursor.execute(sql2)
