@@ -102,7 +102,7 @@ class TaskManager:
 
     def add_init_face_recognition_task(self, username, repo_id):
         msg_content = {
-            'msg_type': 'init_face_recognition',
+            'msg_type': 'update_face_recognition',
             'repo_id': repo_id,
             'username': username
         }
