@@ -92,7 +92,7 @@ class AcvitityTest(EventTest):
 
     def test_get_user_activites(self):
         session = self.get_session()
-        rows = get_user_activities(session, 'admin@admin.com', '', 0, 2)
+        rows = get_user_activities(session, 'admin@admin.com', 0, 2)
         self.assertEqual(len(rows), 0)
         session.close()
 
@@ -101,13 +101,13 @@ class AcvitityTest(EventTest):
         session.close()
 
         session = self.get_session()
-        rows = get_user_activities(session, 'admin@admin.com', '', 0, 2)
+        rows = get_user_activities(session, 'admin@admin.com', 0, 2)
         self.assertEqual(len(rows), 1)
         session.close()
 
     def test_get_user_activities_by_page(self):
         session = self.get_session()
-        rows = get_user_activities(session, 'admin@admin.com', '', 0, 2)
+        rows = get_user_activities(session, 'admin@admin.com', 0, 2)
         self.assertEqual(len(rows), 0)
         session.close()
 
@@ -132,22 +132,17 @@ class AcvitityTest(EventTest):
         session.close()
 
         session = self.get_session()
-        rows = get_user_activities(session, 'admin@admin.com', '', 0, 3)
+        rows = get_user_activities(session, 'admin@admin.com', 0, 3)
         self.assertEqual(len(rows), 3)
         self.assertEqual(rows[0].op_type, 'recover')
         session.close()
 
         session = self.get_session()
-        rows = get_user_activities(session, 'admin@admin.com', '', 0, 2)
+        rows = get_user_activities(session, 'admin@admin.com', 0, 2)
         self.assertEqual(len(rows), 2)
         session.close()
 
         session = self.get_session()
-        rows = get_user_activities(session, 'admin@admin.com', '', 1, 1)
-        self.assertEqual(len(rows), 1)
-        session.close()
-
-        session = self.get_session()
-        rows = get_user_activities(session, 'admin@admin.com', 'admin@admin.com', 1, 1)
+        rows = get_user_activities(session, 'admin@admin.com', 1, 1)
         self.assertEqual(len(rows), 1)
         session.close()
