@@ -27,6 +27,7 @@ class PropertyTypes:
     RATE = 'rate'
     GEOLOCATION = 'geolocation'
     BUTTON = 'button'
+    OCR = 'ocr'
 
 class PrivatePropertyKeys:
     ID = '_id'
@@ -56,6 +57,10 @@ class PrivatePropertyKeys:
     FILE_DETAILS = '_file_details'
     CAPTURE_TIME = '_capture_time'
     OWNER = '_owner'
+    FACE_VECTORS = '_face_vectors'
+    FACE_LINKS = '_face_links'
+    TAGS = '_tags'
+    OCR = '_ocr'
 
 
 class FilterPredicateTypes(object):
@@ -144,32 +149,35 @@ def gen_file_type_options(option_ids):
 
 class MetadataColumns(object):
     def __init__(self):
-        self.id = MetadataColumn('_id', '_id', PropertyTypes.TEXT)
-        self.file_creator = MetadataColumn('_file_creator', '_file_creator', PropertyTypes.TEXT)
-        self.file_ctime = MetadataColumn('_file_ctime', '_file_ctime', PropertyTypes.DATE)
-        self.file_modifier = MetadataColumn('_file_modifier', '_file_modifier', PropertyTypes.TEXT)
-        self.file_mtime = MetadataColumn('_file_mtime', '_file_mtime', PropertyTypes.DATE)
-        self.parent_dir = MetadataColumn('_parent_dir', '_parent_dir', PropertyTypes.TEXT)
-        self.file_name = MetadataColumn('_name', '_name', PropertyTypes.TEXT)
-        self.is_dir = MetadataColumn('_is_dir', '_is_dir', PropertyTypes.CHECKBOX)
-        self.file_type = MetadataColumn('_file_type', '_file_type', PropertyTypes.SINGLE_SELECT,
+        self.id = MetadataColumn(PrivatePropertyKeys.ID, '_id', PropertyTypes.TEXT)
+        self.file_creator = MetadataColumn(PrivatePropertyKeys.FILE_CREATOR, '_file_creator', PropertyTypes.TEXT)
+        self.file_ctime = MetadataColumn(PrivatePropertyKeys.FILE_CTIME, '_file_ctime', PropertyTypes.DATE)
+        self.file_modifier = MetadataColumn(PrivatePropertyKeys.FILE_MODIFIER, '_file_modifier', PropertyTypes.TEXT)
+        self.file_mtime = MetadataColumn(PrivatePropertyKeys.FILE_MTIME, '_file_mtime', PropertyTypes.DATE)
+        self.parent_dir = MetadataColumn(PrivatePropertyKeys.PARENT_DIR, '_parent_dir', PropertyTypes.TEXT)
+        self.file_name = MetadataColumn(PrivatePropertyKeys.FILE_NAME, '_name', PropertyTypes.TEXT)
+        self.is_dir = MetadataColumn(PrivatePropertyKeys.IS_DIR, '_is_dir', PropertyTypes.CHECKBOX)
+        self.file_type = MetadataColumn(PrivatePropertyKeys.FILE_TYPE, '_file_type', PropertyTypes.SINGLE_SELECT,
                                         {'options': gen_file_type_options(list(METADATA_FILE_TYPES.keys()))})
-        self.location = MetadataColumn('_location', '_location', PropertyTypes.GEOLOCATION, {'geo_format': 'lng_lat'})
-        self.obj_id = MetadataColumn('_obj_id', '_obj_id', PropertyTypes.TEXT)
-        self.size = MetadataColumn('_size', '_size', PropertyTypes.NUMBER)
-        self.suffix = MetadataColumn('_suffix', '_suffix', PropertyTypes.TEXT)
-        self.file_details = MetadataColumn('_file_details', '_file_details', PropertyTypes.LONG_TEXT)
-        self.description = MetadataColumn('_description', '_description', PropertyTypes.LONG_TEXT)
+        self.location = MetadataColumn(PrivatePropertyKeys.LOCATION, '_location', PropertyTypes.GEOLOCATION, {'geo_format': 'lng_lat'})
+        self.obj_id = MetadataColumn(PrivatePropertyKeys.OBJ_ID, '_obj_id', PropertyTypes.TEXT)
+        self.size = MetadataColumn(PrivatePropertyKeys.SIZE, '_size', PropertyTypes.NUMBER)
+        self.suffix = MetadataColumn(PrivatePropertyKeys.SUFFIX, '_suffix', PropertyTypes.TEXT)
+        self.file_details = MetadataColumn(PrivatePropertyKeys.FILE_DETAILS, '_file_details', PropertyTypes.LONG_TEXT)
+        self.description = MetadataColumn(PrivatePropertyKeys.FILE_DESCRIPTION, '_description', PropertyTypes.LONG_TEXT)
 
-        self.collaborator = MetadataColumn('_collaborators', '_collaborators', PropertyTypes.COLLABORATOR)
-        self.owner = MetadataColumn('_owner', '_owner', PropertyTypes.COLLABORATOR)
-        
+        self.collaborator = MetadataColumn(PrivatePropertyKeys.FILE_COLLABORATORS, '_collaborators', PropertyTypes.COLLABORATOR)
+        self.owner = MetadataColumn(PrivatePropertyKeys.OWNER, '_owner', PropertyTypes.COLLABORATOR)
+
         # face
-        self.face_vectors = MetadataColumn('_face_vectors', '_face_vectors', PropertyTypes.LONG_TEXT)
-        self.face_links = MetadataColumn('_face_links', '_face_links', PropertyTypes.LINK)
+        self.face_vectors = MetadataColumn(PrivatePropertyKeys.FACE_VECTORS, '_face_vectors', PropertyTypes.LONG_TEXT)
+        self.face_links = MetadataColumn(PrivatePropertyKeys.FACE_LINKS, '_face_links', PropertyTypes.LINK)
 
         # tag
-        self.tags = MetadataColumn('_tags', '_tags', PropertyTypes.LINK)
+        self.tags = MetadataColumn(PrivatePropertyKeys.TAGS, '_tags', PropertyTypes.LINK)
+
+        # ocr
+        self.ocr = MetadataColumn(PrivatePropertyKeys.OCR, '_ocr', PropertyTypes.TEXT)
 
 
 class MetadataColumn(object):
