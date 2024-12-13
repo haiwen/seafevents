@@ -27,7 +27,6 @@ class PropertyTypes:
     RATE = 'rate'
     GEOLOCATION = 'geolocation'
     BUTTON = 'button'
-    OCR = 'ocr'
 
 class PrivatePropertyKeys:
     ID = '_id'
