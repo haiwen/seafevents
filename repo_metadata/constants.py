@@ -1,5 +1,6 @@
 from seafevents.app.config import METADATA_FILE_TYPES
 
+
 class PropertyTypes:
     FILE_NAME = 'file-name'
     TEXT = 'text'
@@ -27,6 +28,7 @@ class PropertyTypes:
     RATE = 'rate'
     GEOLOCATION = 'geolocation'
     BUTTON = 'button'
+
 
 class PrivatePropertyKeys:
     ID = '_id'
@@ -58,6 +60,7 @@ class PrivatePropertyKeys:
     OWNER = '_owner'
     FACE_VECTORS = '_face_vectors'
     FACE_LINKS = '_face_links'
+    DELETED_FACE_LINKS = '_deleted_face_links'
     TAGS = '_tags'
     OCR = '_ocr'
 
@@ -129,6 +132,7 @@ class ViewType(object):
 
 METADATA_OP_LIMIT = 1000
 
+
 # metadata table
 class MetadataTable(object):
     def __init__(self, table_id, name):
@@ -139,12 +143,14 @@ class MetadataTable(object):
     def columns(self):
         return MetadataColumns()
 
+
 def gen_file_type_options(option_ids):
     options = []
 
     for option_id in option_ids:
-        options.append({ 'id': option_id, 'name': option_id })
+        options.append({'id': option_id, 'name': option_id})
     return options
+
 
 class MetadataColumns(object):
     def __init__(self):
@@ -171,6 +177,7 @@ class MetadataColumns(object):
         # face
         self.face_vectors = MetadataColumn(PrivatePropertyKeys.FACE_VECTORS, '_face_vectors', PropertyTypes.LONG_TEXT)
         self.face_links = MetadataColumn(PrivatePropertyKeys.FACE_LINKS, '_face_links', PropertyTypes.LINK)
+        self.deleted_face_links = MetadataColumn(PrivatePropertyKeys.DELETED_FACE_LINKS, '_deleted_face_links', PropertyTypes.LINK)
 
         # tag
         self.tags = MetadataColumn(PrivatePropertyKeys.TAGS, '_tags', PropertyTypes.LINK)
@@ -203,8 +210,9 @@ class MetadataColumn(object):
 
 # faces table
 class FacesTable(object):
-    def __init__(self, name, link_id):
-        self.link_id = link_id
+    def __init__(self, name, face_link_id, deleted_face_link_id):
+        self.face_link_id = face_link_id
+        self.deleted_face_link_id = deleted_face_link_id
         self.name = name
 
     @property
@@ -217,6 +225,7 @@ class FacesColumns(object):
         self.id = MetadataColumn('_id', '_id', PropertyTypes.TEXT)
         self.name = MetadataColumn('_name', '_name', PropertyTypes.TEXT)
         self.photo_links = MetadataColumn('_photo_links', '_photo_links', PropertyTypes.LINK)
+        self.deleted_photo_links = MetadataColumn('_deleted_photo_links', '_deleted_photo_links', PropertyTypes.LINK)
         self.vector = MetadataColumn('_vector', '_vector', PropertyTypes.LONG_TEXT)
 
 
@@ -229,6 +238,7 @@ class TagsTable(object):
     @property
     def columns(self):
         return TagsColumns()
+
 
 class TagsColumns(object):
     def __init__(self):
@@ -257,6 +267,6 @@ METADATA_TABLE_SYS_COLUMNS = [
 ]
 
 
-FACES_TABLE = FacesTable('faces', '0001')
+FACES_TABLE = FacesTable('faces', '0001', '0003')
 
 TAGS_TABLE = TagsTable('tags', '0002')

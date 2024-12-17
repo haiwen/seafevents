@@ -176,7 +176,7 @@ class FaceRecognitionManager(object):
             row_id_map = {
                 cluster_id: related_row_ids
             }
-            self.metadata_server_api.update_link(repo_id, FACES_TABLE.link_id, faces_table_id, row_id_map)
+            self.metadata_server_api.update_link(repo_id, FACES_TABLE.face_link_id, faces_table_id, row_id_map)
 
         for value in label_id_to_added_cluster.values():
             face_row, related_row_ids, cluster_center = value
@@ -185,7 +185,7 @@ class FaceRecognitionManager(object):
             row_id_map = {
                 face_row_id: related_row_ids
             }
-            self.metadata_server_api.insert_link(repo_id, FACES_TABLE.link_id, faces_table_id, row_id_map)
+            self.metadata_server_api.insert_link(repo_id, FACES_TABLE.face_link_id, faces_table_id, row_id_map)
 
             # save a cover for new face cluster.
             save_cluster_face(repo_id, related_row_ids, row_ids, id_to_record, cluster_center, face_row_id, self.image_embedding_api)
