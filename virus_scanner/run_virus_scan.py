@@ -13,8 +13,8 @@ from seafevents.app.config import get_config
 
 if __name__ == "__main__":
     kw = {
-        'format': '[%(asctime)s] [%(levelname)s] %(message)s',
-        'datefmt': '%m/%d/%Y %H:%M:%S',
+        'format': '[%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(funcName)s %(message)s',
+        'datefmt': '%Y-%m-%d %H:%M:%S',
         'level': logging.INFO,
         'stream': sys.stdout
     }

@@ -53,7 +53,7 @@ def update_face_info(face_recognition_manager, session):
 def init_logging(args):
     kw = {
         'format': '%(asctime)s [%(levelname)s] %(name)s:%(lineno)s %(funcName)s: %(message)s',
-        'datefmt': '%m/%d/%Y %H:%M:%S',
+        'datefmt': '%Y-%m-%d %H:%M:%S',
         'level': logging.INFO,
         'stream': args.logfile
     }

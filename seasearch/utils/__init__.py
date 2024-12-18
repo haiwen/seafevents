@@ -69,7 +69,7 @@ def init_logging(args):
 
     kw = {
         'format': '%(asctime)s [%(levelname)s] %(name)s:%(lineno)s %(funcName)s: %(message)s',
-        'datefmt': '%m/%d/%Y %H:%M:%S',
+        'datefmt': '%Y-%m-%d %H:%M:%S',
         'level': level,
         'stream': args.logfile
     }
