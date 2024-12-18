@@ -51,11 +51,22 @@ def update_face_info(face_recognition_manager, session):
 
 
 def init_logging(args):
+    seafile_log_to_stdout = os.getenv('SEAFILE_LOG_TO_STDOUT', 0)
+    try:
+        enable_log_to_stdout = int(seafile_log_to_stdout)
+    except ValueError:
+        enable_log_to_stdout = 0
+    stream = args.logfile
+    format = '[%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(funcName)s %(message)s'
+    if enable_log_to_stdout:
+        stream = sys.stdout
+        format = '[seafevents] [%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(funcName)s %(message)s'
+
     kw = {
-        'format': '%(asctime)s [%(levelname)s] %(name)s:%(lineno)s %(funcName)s: %(message)s',
-        'datefmt': '%m/%d/%Y %H:%M:%S',
+        'format': format,
+        'datefmt': '%Y-%m-%d %H:%M:%S',
         'level': logging.INFO,
-        'stream': args.logfile
+        'stream': stream
     }
 
     logging.basicConfig(**kw)

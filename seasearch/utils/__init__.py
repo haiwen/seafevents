@@ -1,7 +1,8 @@
 import logging
 import hashlib
 import json
-
+import sys
+import os
 from sqlalchemy import text
 
 from seafevents.seasearch.utils.commit_differ import CommitDiffer
@@ -73,11 +74,13 @@ def init_logging(args):
     except ValueError:
         enable_log_to_stdout = 0
     stream = args.logfile
+    format = '[%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(funcName)s %(message)s'
     if enable_log_to_stdout:
         stream = sys.stdout
+        format = '[seafevents] [%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(funcName)s %(message)s'
     kw = {
         # 'format': '[seafevents] [%(asctime)s] [%(levelname)s] %(message)s',
-        'format': '[seafevents] [%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(funcName)s %(message)s',
+        'format': format,
         'datefmt': '%Y-%m-%d %H:%M:%S',
         'level': level,
         'stream': stream
