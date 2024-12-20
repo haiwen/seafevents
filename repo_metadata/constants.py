@@ -210,9 +210,9 @@ class MetadataColumn(object):
 
 # faces table
 class FacesTable(object):
-    def __init__(self, name, face_link_id, deleted_face_link_id):
+    def __init__(self, name, face_link_id, excluded_face_link_id):
         self.face_link_id = face_link_id
-        self.deleted_face_link_id = deleted_face_link_id
+        self.excluded_face_link_id = excluded_face_link_id
         self.name = name
 
     @property
@@ -225,7 +225,7 @@ class FacesColumns(object):
         self.id = MetadataColumn('_id', '_id', PropertyTypes.TEXT)
         self.name = MetadataColumn('_name', '_name', PropertyTypes.TEXT)
         self.photo_links = MetadataColumn('_photo_links', '_photo_links', PropertyTypes.LINK)
-        self.deleted_photo_links = MetadataColumn('_deleted_photo_links', '_deleted_photo_links', PropertyTypes.LINK)
+        self.excluded_photo_links = MetadataColumn('_excluded_photo_links', '_excluded_photo_links', PropertyTypes.LINK)
         self.vector = MetadataColumn('_vector', '_vector', PropertyTypes.LONG_TEXT)
 
 
