@@ -222,8 +222,9 @@ class FacesColumns(object):
 
 # tags table
 class TagsTable(object):
-    def __init__(self, name, link_id):
-        self.link_id = link_id
+    def __init__(self, name, file_link_id, self_link_id):
+        self.file_link_id = file_link_id
+        self.self_link_id = self_link_id
         self.name = name
 
     @property
@@ -236,6 +237,8 @@ class TagsColumns(object):
         self.name = MetadataColumn('_tag_name', '_tag_name', PropertyTypes.TEXT)
         self.color = MetadataColumn('_tag_color', '_tag_color', PropertyTypes.TEXT)
         self.file_links = MetadataColumn('_tag_file_links', '_tag_file_links', PropertyTypes.LINK)
+        self.parent_links = MetadataColumn('_tag_parent_links', '_tag_parent_links', PropertyTypes.LINK)
+        self.sub_links = MetadataColumn('_tag_sub_links', '_tag_sub_links', PropertyTypes.LINK)
 
 
 METADATA_TABLE = MetadataTable('0001', 'Table1')
@@ -259,4 +262,4 @@ METADATA_TABLE_SYS_COLUMNS = [
 
 FACES_TABLE = FacesTable('faces', '0001')
 
-TAGS_TABLE = TagsTable('tags', '0002')
+TAGS_TABLE = TagsTable('tags', '0002', '0003')
