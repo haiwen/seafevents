@@ -60,7 +60,7 @@ class PrivatePropertyKeys:
     OWNER = '_owner'
     FACE_VECTORS = '_face_vectors'
     FACE_LINKS = '_face_links'
-    DELETED_FACE_LINKS = '_deleted_face_links'
+    EXCLUDED_FACE_LINKS = '_excluded_face_links'
     TAGS = '_tags'
     OCR = '_ocr'
 
@@ -177,7 +177,7 @@ class MetadataColumns(object):
         # face
         self.face_vectors = MetadataColumn(PrivatePropertyKeys.FACE_VECTORS, '_face_vectors', PropertyTypes.LONG_TEXT)
         self.face_links = MetadataColumn(PrivatePropertyKeys.FACE_LINKS, '_face_links', PropertyTypes.LINK)
-        self.deleted_face_links = MetadataColumn(PrivatePropertyKeys.DELETED_FACE_LINKS, '_deleted_face_links', PropertyTypes.LINK)
+        self.excluded_face_links = MetadataColumn(PrivatePropertyKeys.EXCLUDED_FACE_LINKS, '_excluded_face_links', PropertyTypes.LINK)
 
         # tag
         self.tags = MetadataColumn(PrivatePropertyKeys.TAGS, '_tags', PropertyTypes.LINK)
