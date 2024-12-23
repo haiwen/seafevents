@@ -270,6 +270,6 @@ METADATA_TABLE_SYS_COLUMNS = [
 ]
 
 
-FACES_TABLE = FacesTable('faces', '0001', '0003')
+FACES_TABLE = FacesTable('faces', '0001', '0004')
 
 TAGS_TABLE = TagsTable('tags', '0002', '0003')
