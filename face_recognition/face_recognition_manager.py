@@ -128,7 +128,7 @@ class FaceRecognitionManager(object):
                 vectors.append(face_vector)
                 row_ids.append(row_id)
 
-        old_clusters = get_faces_rows(repo_id, self.metadata_server_api)
+        culstered_rows, unclustered_rows = get_faces_rows(repo_id, self.metadata_server_api)
         min_cluster_size = get_min_cluster_size(len(vectors))
         clt = HDBSCAN(min_cluster_size=min_cluster_size)
         clt.fit(vectors)
@@ -139,17 +139,23 @@ class FaceRecognitionManager(object):
         cluster_id_to_label = {}
         label_ids = np.unique(clt.labels_)
         for label_id in label_ids:
-            if label_id == -1:
-                continue
-
             idxs = np.where(clt.labels_ == label_id)[0]
             related_row_ids = [row_ids[i] for i in idxs]
+
+            if label_id == -1:
+                if not unclustered_rows:
+                    label_id_to_added_cluster[label_id] = ({}, related_row_ids, None)
+                else:
+                    cluster_id = unclustered_rows[0][FACES_TABLE.columns.id.name]
+                    label_id_to_updated_cluster[label_id] = ({}, related_row_ids, cluster_id, None)
+
+                continue
 
             cluster_center = np.mean([vectors[i] for i in idxs], axis=0)
             face_row = {
                 FACES_TABLE.columns.vector.name: b64encode_embeddings(cluster_center.tolist()),
             }
-            old_cluster, distance = get_cluster_by_center(cluster_center, old_clusters)
+            old_cluster, distance = get_cluster_by_center(cluster_center, culstered_rows)
             if old_cluster:
                 cluster_id = old_cluster[FACES_TABLE.columns.id.name]
                 old_distance = cluster_id_to_min_distance.get(cluster_id)
@@ -171,8 +177,9 @@ class FaceRecognitionManager(object):
 
         for value in label_id_to_updated_cluster.values():
             face_row, related_row_ids, cluster_id, _ = value
-            face_row[FACES_TABLE.columns.id.name] = cluster_id
-            self.metadata_server_api.update_rows(repo_id, faces_table_id, [face_row])
+            if face_row:
+                face_row[FACES_TABLE.columns.id.name] = cluster_id
+                self.metadata_server_api.update_rows(repo_id, faces_table_id, [face_row])
             row_id_map = {
                 cluster_id: related_row_ids
             }
@@ -186,6 +193,9 @@ class FaceRecognitionManager(object):
                 face_row_id: related_row_ids
             }
             self.metadata_server_api.insert_link(repo_id, FACES_TABLE.face_link_id, faces_table_id, row_id_map)
+
+            if cluster_center is None:
+                continue
 
             # save a cover for new face cluster.
             save_cluster_face(repo_id, related_row_ids, row_ids, id_to_record, cluster_center, face_row_id, self.image_embedding_api)
@@ -204,7 +214,7 @@ class FaceRecognitionManager(object):
     def get_pending_face_cluster_repo_list(self, start, count):
         per_day_check_time = datetime.now() - timedelta(hours=23)
         with self._db_session_class() as session:
-            cmd = """SELECT repo_id, last_face_cluster_time FROM repo_metadata WHERE face_recognition_enabled = True 
+            cmd = """SELECT repo_id, last_face_cluster_time FROM repo_metadata WHERE face_recognition_enabled = True
             AND (last_face_cluster_time < :per_day_check_time OR last_face_cluster_time IS NULL) limit :start, :count"""
             res = session.execute(text(cmd),
                                   {'start': start, 'count': count, 'per_day_check_time': per_day_check_time}).fetchall()
