@@ -12,6 +12,7 @@ from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.image_embedding_api import ImageEmbeddingAPI
 from seafevents.repo_metadata.utils import query_metadata_rows
 from seafevents.repo_metadata.constants import METADATA_TABLE, FACES_TABLE
+from seafevents.face_recognition.constants import UNKNOWN_PEOPLE_NAME
 from seafevents.face_recognition.utils import get_faces_rows, get_cluster_by_center, b64encode_embeddings, \
     b64decode_embeddings, VECTOR_DEFAULT_FLAG, get_min_cluster_size, SUPPORTED_IMAGE_FORMATS, EMBEDDING_UPDATE_LIMIT, \
     save_cluster_face
@@ -144,7 +145,9 @@ class FaceRecognitionManager(object):
 
             if label_id == -1:
                 if not unclustered_rows:
-                    label_id_to_added_cluster[label_id] = ({}, related_row_ids, None)
+                    label_id_to_added_cluster[label_id] = ({
+                        FACES_TABLE.columns.name.name: UNKNOWN_PEOPLE_NAME,
+                    }, related_row_ids, None)
                 else:
                     cluster_id = unclustered_rows[0][FACES_TABLE.columns.id.name]
                     label_id_to_updated_cluster[label_id] = ({}, related_row_ids, cluster_id, None)
