@@ -829,6 +829,63 @@ class CreatorOperator(Operator):
             creator
         )
 
+class TagsOperator(Operator):
+    SUPPORT_FILTER_PREDICATE = [
+        FilterPredicateTypes.HAS_ANY_OF,
+        FilterPredicateTypes.HAS_NONE_OF,
+        FilterPredicateTypes.HAS_ALL_OF,
+        FilterPredicateTypes.IS_EXACTLY,
+        FilterPredicateTypes.EMPTY,
+        FilterPredicateTypes.NOT_EMPTY,
+    ]
+
+    def __init__(self, column, filter_item):
+        super(TagsOperator, self).__init__(column, filter_item)
+
+    def _get_name_by_id(self, option_id):
+        options = self.column.get('data', {}).get('options', [])
+        for op in options:
+            if op.get('id') == option_id:
+                return op.get('name')
+
+    def _generate_filter_term_str(self, filter_terms):
+        return ", ".join(["'%s'" % term for term in filter_terms])
+
+    def op_has_any_of(self):
+        if not self.filter_term:
+            return ""
+        filter_terms = [self._get_name_by_id(f) for f in self.filter_term]
+        return "`%(column_name)s` in (%(filter_term_str)s)" % ({
+            "column_name": self.column_name,
+            "filter_term_str": self._generate_filter_term_str(filter_terms)
+        })
+
+    def op_has_none_of(self):
+        if not self.filter_term:
+            return ""
+        filter_terms = [self._get_name_by_id(f) for f in self.filter_term]
+        return "`%(column_name)s` has none of (%(filter_term_str)s)" % ({
+            "column_name": self.column_name,
+            "filter_term_str": self._generate_filter_term_str(filter_terms)
+        })
+
+    def op_has_all_of(self):
+        if not self.filter_term:
+            return ""
+        filter_terms = [self._get_name_by_id(f) for f in self.filter_term]
+        return "`%(column_name)s` has all of (%(filter_term_str)s)" % ({
+            "column_name": self.column_name,
+            "filter_term_str": self._generate_filter_term_str(filter_terms)
+        })
+
+    def op_is_exactly(self):
+        if not self.filter_term:
+            return ""
+        filter_terms = [self._get_display_value_by_id(f) for f in self.filter_term]
+        return "`%(column_name)s` is exactly (%(filter_term_str)s)" % ({
+            "column_name": self.column_name,
+            "filter_term_str": self._generate_filter_term_str(filter_terms)
+        })
 
 class FileOperator(Operator):
     SUPPORT_FILTER_PREDICATE = [
@@ -966,6 +1023,9 @@ def _get_operator_by_type(column_type):
         PropertyTypes.LONG_TEXT,
     ]:
         return FileOperator
+
+    if column_type == PropertyTypes.LINK:
+        return TagsOperator
 
     return None
 
