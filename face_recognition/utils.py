@@ -56,7 +56,14 @@ def get_cluster_by_center(center, clusters):
 def get_faces_rows(repo_id, metadata_server_api):
     sql = f'SELECT * FROM `{FACES_TABLE.name}`'
     query_result = query_metadata_rows(repo_id, metadata_server_api, sql)
-    return query_result if query_result else []
+    culstered_rows = []
+    unclustered_rows = []
+    for row in query_result:
+        if not row.get(FACES_TABLE.columns.vector.name):
+            unclustered_rows.append(row)
+        else:
+            culstered_rows.append(row)
+    return culstered_rows, unclustered_rows
 
 
 def get_face_embeddings(repo_id, image_embedding_api, obj_ids):
