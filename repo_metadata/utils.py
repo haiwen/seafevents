@@ -265,9 +265,6 @@ def get_metadata_by_record_ids(repo_id, record_ids, metadata_server_api):
     sql = sql.rstrip(', ') + ');'
     query_result = metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
 
-    if not query_result:
-        return []
-
     return query_result
 
 def get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api):
@@ -282,9 +279,6 @@ def get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api):
         return []
     sql = sql.rstrip(', ') + ');'
     query_result = metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
-
-    if not query_result:
-        return []
 
     return query_result
 
