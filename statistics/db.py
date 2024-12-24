@@ -495,3 +495,23 @@ def get_user_traffic_by_month(session, user, month):
         logging.warning('Failed to get user traffic by month: %s.', e)
 
     return ret
+
+
+def get_org_traffic_by_month(session, org_id, month):
+    month_str = month.strftime('%Y-%m-01 00:00:00')
+    _month = datetime.strptime(month_str, '%Y-%m-%d %H:%M:%S')
+
+    ret = {}
+    try:
+        stmt = select(MonthlySysTraffic).where(MonthlySysTraffic.timestamp == _month,
+                                               MonthlySysTraffic.org_id == org_id).limit(1)
+        result = session.scalars(stmt).first()
+        if result:
+            d = result.__dict__
+            d.pop('_sa_instance_state')
+            d.pop('id')
+            ret = d
+    except Exception as e:
+        logging.warning('Failed to get org traffic by month: %s.', e)
+
+    return ret
