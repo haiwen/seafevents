@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 from seafevents.repo_metadata.constants import FilterPredicateTypes, FilterTermModifier, PropertyTypes, \
-    DurationFormatsType, PrivatePropertyKeys, ViewType
+    DurationFormatsType, PrivatePropertyKeys, ViewType, FormulaResultType
 
 logger = logging.getLogger(__name__)
 
@@ -838,64 +838,44 @@ class FileOperator(Operator):
     def __init__(self, column, filter_item):
         super(FileOperator, self).__init__(column, filter_item)
 
-class TagsOperator(Operator):
-    SUPPORT_FILTER_PREDICATE = [
-        FilterPredicateTypes.CONTAINS,
-        FilterPredicateTypes.NOT_CONTAIN,
-        FilterPredicateTypes.IS,
-        FilterPredicateTypes.IS_NOT,
-        FilterPredicateTypes.EMPTY,
-        FilterPredicateTypes.NOT_EMPTY,
-    ]
+class ArrayOperator(Operator):
+    def __new__(cls, column, filter_item):
+        column_data = column.get('data', {})
+        column_name = column.get('name', '')
+        column_type = column.get('type', '')
+        array_type, array_data = column_data.get('array_type', ''), column_data.get('array_data')
+        linked_column = {
+            'name': column_name,
+            'type': array_type,
+            'data': array_data
+        }
 
-    def op_is(self):
-        term = self.filter_term
-        if not term:
-            return ""
-        if isinstance(self.filter_term, list):
-            term = term[0]
-        return "`%s` %s '%s'" % (
-            self.column_name,
-            '=',
-            term,
-        )
+        if array_type == FormulaResultType.STRING:
+            new_column = {
+                'name': column_name,
+                'type': PropertyTypes.TEXT,
+            }
+            return TextOperator(new_column, filter_item)
 
-    def op_is_not(self):
-        term = self.filter_term
-        if not term:
-            return ""
-        if isinstance(self.filter_term, list):
-            term = term[0]
-        return "`%s` %s '%s'" % (
-            self.column_name,
-            '<>',
-            term
-        )
+        if array_type == FormulaResultType.BOOL:
+            new_column = {
+                'name': column_name,
+                'type': PropertyTypes.CHECKBOX,
+            }
+            return CheckBoxOperator(new_column, filter_item)
 
-    def op_contains(self):
-        select_tags = self.filter_term
-        if not select_tags:
-            return ''
-        if not isinstance(select_tags, list):
-            select_tags = [select_tags, ]
-        tag_list = ["'%s'" % tag for tag in select_tags]
-        filter_term_str = ", ".join(tag_list)
-        return "`%(column_name)s` in (%(filter_term_str)s)" % ({
-            "column_name": self.column_name,
-            "filter_term_str": filter_term_str
-        })
+        if array_type == PropertyTypes.SINGLE_SELECT:
+            return MultipleSelectOperator(linked_column, filter_item)
 
-    def op_does_not_contain(self):
-        select_tags = self.filter_term
-        if not select_tags:
-            return ''
-        if not isinstance(select_tags, list):
-            select_tags = [select_tags, ]
-        tag_list = ["'%s'" % tag for tag in select_tags]
-        return "`%(column_name)s` not in (%(filter_term_str)s)" % ({
-            "column_name": self.column_name,
-            "filter_term_str": ', '.join(tag_list)
-        })
+        if array_type in [PropertyTypes.CREATOR, PropertyTypes.LAST_MODIFIER]:
+            return CollaboratorOperator(linked_column, filter_item)
+
+        operator = _get_operator_by_type(array_type)
+
+        if column_type == PropertyTypes.LINK:
+            operator = _get_operator_by_type(PropertyTypes.TEXT)
+
+        return operator(linked_column, filter_item)
 
 def _filter2sql(operator):
     support_filter_predicates = operator.SUPPORT_FILTER_PREDICATE
@@ -1024,8 +1004,8 @@ def _get_operator_by_type(column_type):
     ]:
         return FileOperator
 
-    if column_type == PropertyTypes.TAGS:
-        return TagsOperator
+    if column_type == PropertyTypes.LINK:
+        return ArrayOperator
 
     return None
 
@@ -1116,8 +1096,6 @@ class SQLGenerator(object):
             return PropertyTypes.GEOLOCATION
         if key == PrivatePropertyKeys.OWNER:
             return PropertyTypes.COLLABORATOR
-        if key == PrivatePropertyKeys.TAGS:
-            return PropertyTypes.TAGS
         return type
 
     def _generator_filters_sql(self, filters, filter_conjunction = 'And'):

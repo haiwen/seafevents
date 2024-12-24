@@ -118,6 +118,14 @@ class FilterTermModifier(object):
     THIS_YEAR = 'this_year'
 
 
+class FormulaResultType(object):
+    NUMBER = 'number'
+    STRING = 'string'
+    DATE = 'date'
+    BOOL = 'bool'
+    ARRAY = 'array'
+
+
 class DurationFormatsType(object):
     H_MM = 'h:mm'
     H_MM_SS = 'h:mm:ss'
