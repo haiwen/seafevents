@@ -281,8 +281,8 @@ class OrgLastActivityTime(Base):
     __tablename__ = 'org_last_active_time'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
-    org_id = mapped_column(Integer, nullable=False)
-    timestamp = mapped_column(DateTime, nullable=False, index=True)
+    org_id = mapped_column(Integer, nullable=False, index=True)
+    timestamp = mapped_column(DateTime, nullable=False)
 
     def __init__(self, org_id, timestamp):
         self.org_id = org_id
