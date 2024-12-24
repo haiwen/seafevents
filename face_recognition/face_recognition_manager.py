@@ -212,7 +212,7 @@ class FaceRecognitionManager(object):
         logger.info('Finish face cluster repo %s' % repo_id)
 
     def get_pending_face_cluster_repo_list(self, start, count):
-        per_day_check_time = datetime.now()
+        per_day_check_time = per_day_check_time = datetime.now() - timedelta(hours=23)
         with self._db_session_class() as session:
             cmd = """SELECT repo_id, last_face_cluster_time FROM repo_metadata WHERE face_recognition_enabled = True
             AND (last_face_cluster_time < :per_day_check_time OR last_face_cluster_time IS NULL) limit :start, :count"""
