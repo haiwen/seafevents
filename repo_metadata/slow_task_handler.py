@@ -92,8 +92,8 @@ class SlowTaskHandler(object):
         logger.info('%s start extract file info repo %s' % (threading.currentThread().getName(), repo_id))
 
         try:
-            obj_ids = data.get('obj_ids')
-            add_file_details(repo_id, obj_ids, self.metadata_server_api, self.face_recognition_manager)
+            record_ids = data.get('record_ids')
+            add_file_details(repo_id, record_ids, self.metadata_server_api, self.face_recognition_manager)
         except Exception as e:
             logger.exception('repo: %s, update metadata file info error: %s', repo_id, e)
 

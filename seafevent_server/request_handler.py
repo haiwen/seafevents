@@ -196,16 +196,16 @@ def extract_file_details():
         logger.exception(e)
         return {'error_msg': 'Bad request.'}, 400
 
-    obj_ids = data.get('obj_ids')
+    record_ids = data.get('record_ids')
     repo_id = data.get('repo_id')
 
-    if not obj_ids or not isinstance(obj_ids, list):
-        return {'error_msg': 'obj_ids invalid.'}, 400
+    if not record_ids or not isinstance(record_ids, list):
+        return {'error_msg': 'record_ids invalid.'}, 400
     if not repo_id:
         return {'error_msg': 'repo_id invalid.'}, 400
 
     metadata_server_api = MetadataServerAPI('seafevents')
-    details = add_file_details(repo_id, obj_ids, metadata_server_api)
+    details = add_file_details(repo_id, record_ids, metadata_server_api)
 
     return {'details': details}, 200
 

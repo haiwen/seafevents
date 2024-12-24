@@ -141,9 +141,9 @@ def get_video_details(content):
             return details, location
 
 
-def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_manager=None):
+def add_file_details(repo_id, record_ids, metadata_server_api, face_recognition_manager=None):
     all_updated_rows = []
-    query_result = get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api)
+    query_result = get_metadata_by_record_ids(repo_id, record_ids, metadata_server_api)
     if not query_result:
         return []
 
@@ -252,6 +252,23 @@ def gen_option_id(id_set):
             return _id
         _id = str(math.floor(random.uniform(0.1, 1) * (10 ** 6)))
 
+def get_metadata_by_record_ids(repo_id, record_ids, metadata_server_api):
+    sql = f'SELECT * FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.id.name}` IN ('
+    parameters = []
+
+    for record_id in record_ids:
+        sql += '?, '
+        parameters.append(record_id)
+
+    if not parameters:
+        return []
+    sql = sql.rstrip(', ') + ');'
+    query_result = metadata_server_api.query_rows(repo_id, sql, parameters).get('results', [])
+
+    if not query_result:
+        return []
+
+    return query_result
 
 def get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api):
     sql = f'SELECT * FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.obj_id.name}` IN ('
