@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 from seafevents.repo_metadata.constants import FilterPredicateTypes, FilterTermModifier, PropertyTypes, \
-    DurationFormatsType, PrivatePropertyKeys, ViewType
+    DurationFormatsType, PrivatePropertyKeys, ViewType, FormulaResultType
 
 logger = logging.getLogger(__name__)
 
@@ -839,6 +839,50 @@ class FileOperator(Operator):
         super(FileOperator, self).__init__(column, filter_item)
 
 
+class ArrayOperator(object):
+
+    def __new__(cls, column, filter_item):
+        column_data = column.get('data', {})
+        column_name = column.get('name', '')
+        column_key = column.get('key', '')
+        if column_key == PrivatePropertyKeys.TAGS:
+            new_column = {
+                'name': column_name,
+                'type': PropertyTypes.TEXT,
+            }
+            return TextOperator(new_column, filter_item)
+
+        array_type, array_data = column_data.get('array_type', ''), column_data.get('array_data')
+        linked_column = {
+            'name': column_name,
+            'type': array_type,
+            'data': array_data
+        }
+
+        if array_type == FormulaResultType.STRING:
+            new_column = {
+                'name': column_name,
+                'type': PropertyTypes.TEXT,
+            }
+            return TextOperator(new_column, filter_item)
+
+        if array_type == FormulaResultType.BOOL:
+            new_column = {
+                'name': column_name,
+                'type': PropertyTypes.CHECKBOX,
+            }
+            return CheckBoxOperator(new_column, filter_item)
+
+        if array_type == PropertyTypes.SINGLE_SELECT:
+            return MultipleSelectOperator(linked_column, filter_item)
+
+        if array_type in [PropertyTypes.CREATOR, PropertyTypes.LAST_MODIFIER]:
+            return CollaboratorOperator(linked_column, filter_item)
+
+        operator = _get_operator_by_type(array_type)
+        return operator(linked_column, filter_item)
+
+
 def _filter2sql(operator):
     support_filter_predicates = operator.SUPPORT_FILTER_PREDICATE
     filter_predicate = operator.filter_predicate
@@ -924,7 +968,6 @@ def _get_operator_by_type(column_type):
         PropertyTypes.EMAIL,
         PropertyTypes.GEOLOCATION,
         PropertyTypes.FILE_NAME
-        
     ]:
         return TextOperator
 
@@ -966,6 +1009,9 @@ def _get_operator_by_type(column_type):
         PropertyTypes.LONG_TEXT,
     ]:
         return FileOperator
+
+    if column_type == PropertyTypes.LINK:
+        return ArrayOperator
 
     return None
 
