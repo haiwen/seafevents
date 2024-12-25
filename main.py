@@ -43,12 +43,8 @@ def main(background_tasks_only=False):
         logging.error('Failed create tables, error: %s' % e)
         raise RuntimeError('Failed create tables, error: %s' % e)
     logfile = args.logfile
-    seafile_log_to_stdout = os.getenv('SEAFILE_LOG_TO_STDOUT', 0)
-    try:
-        enable_log_to_stdout = int(seafile_log_to_stdout)
-    except ValueError:
-        enable_log_to_stdout = 0
-    if enable_log_to_stdout:
+    seafile_log_to_stdout = os.getenv('SEAFILE_LOG_TO_STDOUT', 'false') == 'true'
+    if seafile_log_to_stdout:
         logfile = None
     app_logger = LogConfigurator(args.loglevel, logfile)
     if is_syslog_enabled(config):

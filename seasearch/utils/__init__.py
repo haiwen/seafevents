@@ -68,14 +68,10 @@ def init_logging(args):
     except:
         pass
 
-    seafile_log_to_stdout = os.getenv('SEAFILE_LOG_TO_STDOUT', 0)
-    try:
-        enable_log_to_stdout = int(seafile_log_to_stdout)
-    except ValueError:
-        enable_log_to_stdout = 0
+    seafile_log_to_stdout = os.getenv('SEAFILE_LOG_TO_STDOUT', 'false') == 'true'
     stream = args.logfile
     format = '[%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(funcName)s %(message)s'
-    if enable_log_to_stdout:
+    if seafile_log_to_stdout:
         stream = sys.stdout
         format = '[seafevents] [%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(funcName)s %(message)s'
     kw = {
