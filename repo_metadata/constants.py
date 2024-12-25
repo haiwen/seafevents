@@ -61,6 +61,7 @@ class PrivatePropertyKeys:
     FACE_VECTORS = '_face_vectors'
     FACE_LINKS = '_face_links'
     EXCLUDED_FACE_LINKS = '_excluded_face_links'
+    INCLUDED_FACE_LINKS = '_included_face_links'
     TAGS = '_tags'
     OCR = '_ocr'
 
@@ -178,6 +179,7 @@ class MetadataColumns(object):
         self.face_vectors = MetadataColumn(PrivatePropertyKeys.FACE_VECTORS, '_face_vectors', PropertyTypes.LONG_TEXT)
         self.face_links = MetadataColumn(PrivatePropertyKeys.FACE_LINKS, '_face_links', PropertyTypes.LINK)
         self.excluded_face_links = MetadataColumn(PrivatePropertyKeys.EXCLUDED_FACE_LINKS, '_excluded_face_links', PropertyTypes.LINK)
+        self.included_face_links = MetadataColumn(PrivatePropertyKeys.INCLUDED_FACE_LINKS, '_included_face_links', PropertyTypes.LINK)
 
         # tag
         self.tags = MetadataColumn(PrivatePropertyKeys.TAGS, '_tags', PropertyTypes.LINK)
@@ -210,9 +212,10 @@ class MetadataColumn(object):
 
 # faces table
 class FacesTable(object):
-    def __init__(self, name, face_link_id, excluded_face_link_id):
+    def __init__(self, name, face_link_id, excluded_face_link_id, included_face_link_id):
         self.face_link_id = face_link_id
         self.excluded_face_link_id = excluded_face_link_id
+        self.included_face_link_id = included_face_link_id
         self.name = name
 
     @property
@@ -226,6 +229,7 @@ class FacesColumns(object):
         self.name = MetadataColumn('_name', '_name', PropertyTypes.TEXT)
         self.photo_links = MetadataColumn('_photo_links', '_photo_links', PropertyTypes.LINK)
         self.excluded_photo_links = MetadataColumn('_excluded_photo_links', '_excluded_photo_links', PropertyTypes.LINK)
+        self.included_photo_links = MetadataColumn('_included_photo_links', '_included_photo_links', PropertyTypes.LINK)
         self.vector = MetadataColumn('_vector', '_vector', PropertyTypes.LONG_TEXT)
 
 
@@ -270,6 +274,6 @@ METADATA_TABLE_SYS_COLUMNS = [
 ]
 
 
-FACES_TABLE = FacesTable('faces', '0001', '0004')
+FACES_TABLE = FacesTable('faces', '0001', '0004', '0005')
 
 TAGS_TABLE = TagsTable('tags', '0002', '0003')

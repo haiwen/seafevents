@@ -2,7 +2,6 @@ import base64
 import os
 import posixpath
 
-import numpy as np
 from seaserv import seafile_api
 
 from seafevents.repo_metadata.utils import query_metadata_rows, get_file_content
@@ -19,18 +18,21 @@ SUPPORTED_IMAGE_FORMATS = ('jpeg', 'jpg', 'heic', 'png', 'bmp', 'tif', 'tiff', '
 
 
 def feature_distance(feature1, feature2):
+    import numpy as np
     diff = np.subtract(feature1, feature2)
     dist = np.sum(np.square(diff), 0)
     return dist
 
 
 def b64encode_embeddings(embeddings):
+    import numpy as np
     embedding_array = np.array(embeddings).astype(np.float32)
     encode = base64.b64encode(embedding_array.tobytes())
     return encode.decode('utf-8')
 
 
 def b64decode_embeddings(encode):
+    import numpy as np
     decode = base64.b64decode(encode)
     embedding_array = np.frombuffer(decode, dtype=np.float32)
     face_num = len(embedding_array) // FACE_EMBEDDING_DIM
