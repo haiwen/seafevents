@@ -131,16 +131,20 @@ class FaceRecognitionManager(object):
 
         culstered_rows, unclustered_rows = get_faces_rows(repo_id, self.metadata_server_api)
         min_cluster_size = get_min_cluster_size(len(vectors))
-        clt = HDBSCAN(min_cluster_size=min_cluster_size)
-        clt.fit(vectors)
+        if len(vectors) < min_cluster_size:
+            clt_labels = [-1] * len(vectors)
+        else:
+            clt = HDBSCAN(min_cluster_size=min_cluster_size)
+            clt.fit(vectors)
+            clt_labels = clt.labels_
 
         cluster_id_to_min_distance = {}
         label_id_to_added_cluster = {}
         label_id_to_updated_cluster = {}
         cluster_id_to_label = {}
-        label_ids = np.unique(clt.labels_)
+        label_ids = np.unique(clt_labels)
         for label_id in label_ids:
-            idxs = np.where(clt.labels_ == label_id)[0]
+            idxs = np.where(clt_labels == label_id)[0]
             related_row_ids = [row_ids[i] for i in idxs]
 
             if label_id == -1:
