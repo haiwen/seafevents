@@ -852,7 +852,6 @@ class ArrayOperator(object):
             }
             return TextOperator(new_column, filter_item)
 
-
         array_type, array_data = column_data.get('array_type', ''), column_data.get('array_data')
         linked_column = {
             'name': column_name,
