@@ -17,6 +17,9 @@ from seafevents.repo_metadata.view_data_sql import view_data_2_sql, sort_data_2_
 from seafevents.utils import timestamp_to_isoformat_timestr
 from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT, METADATA_TABLE
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 def gen_fileext_type_map():
     """
@@ -143,6 +146,7 @@ def get_video_details(content):
 
 def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_manager=None):
     all_updated_rows = []
+    row_id_2_obj_id = {}
     query_result = get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api)
     if not query_result:
         return []
@@ -173,6 +177,7 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_man
             need_update_file_type = True
         row_id = row[METADATA_TABLE.columns.id.name]
         obj_id = row[METADATA_TABLE.columns.obj_id.name]
+        row_id_2_obj_id[row_id] = obj_id
 
         limit = 100000 if suffix == 'mp4' else -1
         content = get_file_content(repo_id, obj_id, limit)
@@ -195,6 +200,10 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_man
     if updated_rows:
         metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
         all_updated_rows.extend(updated_rows)
+
+    for row in all_updated_rows:
+        obj_id = row_id_2_obj_id.get(row[METADATA_TABLE.columns.id.name], '')
+        row[METADATA_TABLE.columns.obj_id.name] = obj_id
 
     return all_updated_rows
 
