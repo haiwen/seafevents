@@ -1,7 +1,6 @@
 import logging
 import time
 from datetime import datetime, timedelta
-import numpy as np
 import json
 
 from sqlalchemy.sql import text
@@ -104,6 +103,7 @@ class FaceRecognitionManager(object):
     def face_cluster(self, repo_id):
         try:
             from sklearn.cluster import HDBSCAN
+            import numpy as np
         except ImportError:
             logger.warning('Package scikit-learn is not installed. ')
             return
