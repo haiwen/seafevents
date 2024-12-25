@@ -838,11 +838,21 @@ class FileOperator(Operator):
     def __init__(self, column, filter_item):
         super(FileOperator, self).__init__(column, filter_item)
 
-class ArrayOperator(Operator):
+
+class ArrayOperator(object):
+
     def __new__(cls, column, filter_item):
         column_data = column.get('data', {})
         column_name = column.get('name', '')
-        column_type = column.get('type', '')
+        column_key = column.get('key', '')
+        if column_key == PrivatePropertyKeys.TAGS:
+            new_column = {
+                'name': column_name,
+                'type': PropertyTypes.TEXT,
+            }
+            return TextOperator(new_column, filter_item)
+
+
         array_type, array_data = column_data.get('array_type', ''), column_data.get('array_data')
         linked_column = {
             'name': column_name,
@@ -871,11 +881,8 @@ class ArrayOperator(Operator):
             return CollaboratorOperator(linked_column, filter_item)
 
         operator = _get_operator_by_type(array_type)
-
-        if column_type == PropertyTypes.LINK:
-            operator = _get_operator_by_type(PropertyTypes.TEXT)
-
         return operator(linked_column, filter_item)
+
 
 def _filter2sql(operator):
     support_filter_predicates = operator.SUPPORT_FILTER_PREDICATE
