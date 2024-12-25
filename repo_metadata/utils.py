@@ -17,9 +17,6 @@ from seafevents.repo_metadata.view_data_sql import view_data_2_sql, sort_data_2_
 from seafevents.utils import timestamp_to_isoformat_timestr
 from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT, METADATA_TABLE
 
-import logging
-logger = logging.getLogger(__name__)
-
 
 def gen_fileext_type_map():
     """
