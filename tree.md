@@ -11,15 +11,17 @@
 │   └── seatable_api.py 从 Seatable 获取表格信息（dtable-server 表格行列增删, dtable-db 查询）
 ```
 
+## statistics 统计流量日志
+
+```
+│   ├── counter.py 计数器，获取文件操作，流量统计，存储情况，用户登录情况计数，并写入数据库和日志中（对应 models 中定义的数据库模型）
+│   ├── db.py 封装了一系列统计函数（获取用户，系统的流量，进一步调用 models 中的 UserActivityStat 数据库对象）
+│   ├── handlers.py 用户事件和文件事件，触发回调函数，把文件操作写入数据库
+│   └── models.py 用于存储统计数据的数据库模型，收集、处理和分析统计数据
+```
 
 
 # 未整理
-
-├── statistics
-│   ├── counter.py
-│   ├── db.py
-│   ├── handlers.py
-│   └── models.py
 
 
 ├── run.sh.template

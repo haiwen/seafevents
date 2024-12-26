@@ -10,7 +10,10 @@ from seaserv import seafile_api, get_org_id_by_repo_id
 repo_org = {}
 is_org = -1
 
+# 提供一个数据库连接和操作的接口，用于存储和管理统计数据。
+
 def get_org_id(repo_id):
+    # 可以根据资料库 ID 获取 org ID，并作为全局变量 is_org 存储
     global is_org
     if is_org == -1:
         org_conf = seafile_api.get_server_config_string('general', 'multi_tenancy')
@@ -33,6 +36,7 @@ def get_org_id(repo_id):
 
 
 def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
+    # 获取用户的活动统计（某段时间）
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
@@ -41,6 +45,7 @@ def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
     # offset is not supported for now
     offset='+00:00'
 
+    # 查询数据库
     stmt = select(func.date(func.convert_tz(UserActivityStat.timestamp, '+00:00', offset)).label("timestamp"),
                   func.count(distinct(UserActivityStat.username)).label("number")).where(
                   UserActivityStat.timestamp.between(
@@ -55,6 +60,7 @@ def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
     return ret
 
 def get_org_user_activity_stats_by_day(session, org_id, start, end):
+    # 获取 org 用户活动统计情况
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
@@ -78,6 +84,7 @@ def get_org_user_activity_stats_by_day(session, org_id, start, end):
     return ret
 
 def _get_total_storage_stats(session, start, end, offset='+00:00', org_id=0):
+    # 获取总存储统计（某段时间）如果有 org_id 返回某个 org
     ret = []
     try:
         stmt = select(func.convert_tz(TotalStorageStat.timestamp, '+00:00', offset).label("timestamp"),
@@ -102,6 +109,7 @@ def _get_total_storage_stats(session, start, end, offset='+00:00', org_id=0):
     return ret
 
 def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
+    # 获取总存储统计（某段时间）和上面的函数类似
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
@@ -129,6 +137,7 @@ def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
     return ret
 
 def get_org_storage_stats_by_day(session, org_id, start, end, offset='+00:00'):
+    # 获取 org 下面的存储统计
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
@@ -142,6 +151,7 @@ def get_org_storage_stats_by_day(session, org_id, start, end, offset='+00:00'):
     record the last piece of data in each day.
     '''
 
+    # 转换数据结构
     last_date = None
     ret = []
     for result in results:
@@ -157,6 +167,7 @@ def get_org_storage_stats_by_day(session, org_id, start, end, offset='+00:00'):
     return ret
 
 def get_file_ops_stats_by_day(session, start, end, offset='+00:00'):
+    # 获取文件操作统计
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
@@ -178,6 +189,7 @@ def get_file_ops_stats_by_day(session, start, end, offset='+00:00'):
     return ret
 
 def get_org_file_ops_stats_by_day(session, org_id, start, end, offset='+00:00'):
+    # 获取 org 下面的文件操作
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
@@ -207,6 +219,7 @@ def get_org_file_ops_stats_by_day(session, org_id, start, end, offset='+00:00'):
     return ret
 
 def get_org_user_traffic_by_day(session, org_id, user, start, end, offset='+00:00', op_type='all'):
+    # 获取 org 下面的用户流量
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
@@ -215,6 +228,7 @@ def get_org_user_traffic_by_day(session, org_id, user, start, end, offset='+00:0
     # offset is not supported for now
     offset='+00:00'
 
+    # 根据不同操作类型查询不同 SQL
     if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
        or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':
         stmt = select(func.date(func.convert_tz(UserTraffic.timestamp, '+00:00', offset)).label("timestamp"),
@@ -248,6 +262,7 @@ def get_org_user_traffic_by_day(session, org_id, user, start, end, offset='+00:0
     return ret
 
 def get_user_traffic_by_day(session, user, start, end, offset='+00:00', op_type='all'):
+    # 按天获取用户流量
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
@@ -287,6 +302,7 @@ def get_user_traffic_by_day(session, user, start, end, offset='+00:00', op_type=
     return ret
 
 def get_org_traffic_by_day(session, org_id, start, end, offset='+00:00', op_type='all'):
+    # 按天获取 org 下面的流量
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
@@ -328,6 +344,7 @@ def get_org_traffic_by_day(session, org_id, start, end, offset='+00:00', op_type
     return ret
 
 def get_system_traffic_by_day(session, start, end, offset='+00:00', op_type='all'):
+    # 按天获取系统流量
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
@@ -366,9 +383,11 @@ def get_system_traffic_by_day(session, start, end, offset='+00:00', op_type='all
 
 
 def get_all_users_traffic_by_month(session, month, start=-1, limit=-1, order_by='user', org_id=-1):
+    # 按月获取全部用户流量
     month_str = month.strftime('%Y-%m-01 00:00:00')
     _month = datetime.strptime(month_str, '%Y-%m-%d %H:%M:%S')
 
+    # 根据不同排序类型 order_by 显示
     ret = []
     try:
         stmt = select(MonthlyUserTraffic).where(
@@ -422,6 +441,7 @@ def get_all_users_traffic_by_month(session, month, start=-1, limit=-1, order_by=
     return ret
 
 def get_all_orgs_traffic_by_month(session, month, start=-1, limit=-1, order_by='org_id'):
+    # 按月获取全部 org 流量
     month_str = month.strftime('%Y-%m-01 00:00:00')
     _month = datetime.strptime(month_str, '%Y-%m-%d %H:%M:%S')
 
@@ -478,6 +498,18 @@ def get_all_orgs_traffic_by_month(session, month, start=-1, limit=-1, order_by='
     return ret
 
 def get_user_traffic_by_month(session, user, month):
+    """
+    Get the user traffic by month.
+
+    :param session: database session
+    :param user: the user to get traffic for
+    :param month: the month to get traffic for
+    :return: A dictionary of user traffic for the given month.
+
+    The keys of the returned dictionary are 'web_file_upload', 'web_file_download', 'link_file_upload',
+    'link_file_download', 'sync_file_upload', 'sync_file_download', and 'timestamp'. The values are the
+    corresponding sizes in bytes.
+    """
     month_str = month.strftime('%Y-%m-01 00:00:00')
     _month = datetime.strptime(month_str, '%Y-%m-%d %H:%M:%S')
 

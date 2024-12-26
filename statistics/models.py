@@ -4,15 +4,38 @@ from sqlalchemy.sql.schema import Index
 
 from seafevents.db import Base
 
+# statistics/models.py 定义了各种用于存储统计数据的数据库模型。这些模型包括：
+
+# * SysTraffic：代表系统流量数据
+# * MonthlyUserTraffic：代表月度用户流量数据
+# * MonthlySysTraffic：代表月度系统流量数据
+# * UserTraffic：代表用户流量数据
+# * FileOpsStat：代表文件操作统计数据
+# * UserActivityStat：代表用户活动统计数据
+# * TotalStorageStat：代表总存储统计数据
+
+# 这些模型可能用于存储和管理数据库中的统计数据，并可能与 statistics 目录中的其他文件（如 counter.py 和 db.py）一起使用，以收集、处理和分析统计数据。
 
 class TotalStorageStat(Base):
+    # 总存储统计对象
+    # __tablename__是 SQLAlchemy 模型的特殊变量，指定了这个模型对应的数据库表名
     __tablename__ = 'TotalStorageStat'
 
+    # id是该对象的唯一标识符
+    # mapped_column是 SQLAlchemy 的一个函数，用于将该对象的属性，映射到对应的数据库表的某个字段上
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # timestamp是该对象的创建时间
     timestamp = mapped_column(DateTime, nullable=False)
+
+    # total_size是该对象的总存储大小
     total_size = mapped_column(BigInteger, nullable=False)
+
+    # org_id是该对象所属的组织id
     org_id = mapped_column(Integer, nullable=False)
 
+    # __table_args__ 是 SQLAlchemy 模型的一个特殊变量，指定了该模型对应的数据库表的其他参数
+    # 例如，可以在这里指定该表的索引
     __table_args__ = (Index('idx_storage_time_org', 'timestamp', 'org_id'), )
 
     def __init__(self, org_id, timestamp, total_size):
@@ -23,6 +46,7 @@ class TotalStorageStat(Base):
 
 
 class FileOpsStat(Base):
+    # FileOpsStat 文件操作数量的统计对象
     __tablename__ = 'FileOpsStat'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -42,6 +66,7 @@ class FileOpsStat(Base):
 
 
 class UserActivityStat(Base):
+    # 用户活动统计
     __tablename__ = 'UserActivityStat'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -61,6 +86,7 @@ class UserActivityStat(Base):
 
 
 class UserTraffic(Base):
+    # 用户流量
     __tablename__ = 'UserTraffic'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -82,6 +108,7 @@ class UserTraffic(Base):
 
 
 class SysTraffic(Base):
+    # 系统流量
     __tablename__ = 'SysTraffic'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -101,6 +128,7 @@ class SysTraffic(Base):
 
 
 class MonthlyUserTraffic(Base):
+    # 每月用户流量
     __tablename__ = 'MonthlyUserTraffic'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -116,6 +144,7 @@ class MonthlyUserTraffic(Base):
 
     __table_args__ = (Index('idx_monthlyusertraffic_time_org_user', 'timestamp', 'user', 'org_id'), )
 
+    # 将对象的属性映射到数据库表的字段上
     def __init__(self, user, org_id, timestamp, size_dict):
         super().__init__()
         self.user = user
@@ -130,6 +159,7 @@ class MonthlyUserTraffic(Base):
 
 
 class MonthlySysTraffic(Base):
+    # 每月系统流量
     __tablename__ = 'MonthlySysTraffic'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)

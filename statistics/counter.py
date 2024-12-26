@@ -18,6 +18,10 @@ from seafevents.utils import get_quota_from_string
 from seafevents.app.config import DOWNLOAD_LIMIT_WHEN_THROTTLE, ENABLED_ROLE_PERMISSIONS
 from .db import get_org_id
 
+# 定义了几个用于统计数据的类, 都有 start_count 方法，用于启动统计数据的收集和处理。
+# 它们使用 SQLAlchemy 库来操作数据库，存储和检索统计数据。
+
+# 这是一个临时变量，用于解决Python的一个bug。
 # This is a throwaway variable to deal with a python bug
 throwaway = datetime.strptime('20110101', '%Y%m%d')
 
@@ -35,33 +39,46 @@ MONTHLY_RATE_LIMIT_PER_USER = 'monthly_rate_limit_per_user'
 MONTHLY_RATE_LIMIT = 'monthly_rate_limit'
 
 
+# 返回 org 用户数量
+# 计算指定日期每个组织的用户数量，通过查询数据库并将结果存储在字典中。接受两个参数：`local_traffic_info` 和 `date_str`。
 def get_org_user_count(local_traffic_info, date_str):
+    # 函数首先初始化一个空字典 `org_user_dict`。
     org_user_dict = {}
+    # 它遍历 `local_traffic_info[date_str]` 中的每一行。
+    # 对于每一行，它提取 `org_id` 并检查是否大于 0 且不在 `org_user_dict` 中。
+    # 如果条件满足，它打开一个数据库连接使用 `CcnetDB` 类，并检索给定 `org_id` 的用户数量。
+    # 用户数量被存储在 `org_user_dict` 中，以 `org_id` 作为键。
     for row in local_traffic_info[date_str]:
         org_id = row[0]
         if org_id > 0 and org_id not in org_user_dict:
             with CcnetDB() as ccnet_db:
                 user_count = ccnet_db.get_org_user_count(org_id)
                 org_user_dict[org_id] = user_count
+    # 最后，函数返回 `org_user_dict`，其中包含 `org_id` 作为键，相应的用户数量作为值。
     return org_user_dict
 
 
+# 这个函数使用用户名和日期生成MD5密钥，更新登录记录（`login_records`）中的用户登录信息。
 def update_hash_record(session, login_name, login_time, org_id):
     time_str = login_time.strftime('%Y-%m-%d 00:00:00')
     time_by_day = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S')
     md5_key = hashlib.md5((login_name + time_str).encode('utf-8')).hexdigest()
     login_records[md5_key] = (login_name, time_by_day, org_id)
 
+# 保存特定组织、用户和操作在特定日期的流量信息（如数据大小）。
 def save_traffic_info(session, timestamp, user_name, repo_id, oper, size):
     org_id = get_org_id(repo_id)
     time_str = timestamp.strftime('%Y-%m-%d')
+    # 如果该日期下已经存在该组织、用户和操作的组合，则更新现有条目；
     if time_str not in traffic_info:
         traffic_info[time_str] = {}
     if (org_id, user_name, oper) not in traffic_info[time_str]:
         traffic_info[time_str][(org_id, user_name, oper)] = size
+    # 否则，创建新条目。
     else:
         traffic_info[time_str][(org_id, user_name, oper)] += size
         
+# 该函数返回一个字典，包含每个角色的速率限制信息，但仅当角色权限启用时。速率限制信息包括每月下载限制和每月每用户下载限制（如果定义）。
 def get_role_download_rate_limit_info():
     if not ENABLED_ROLE_PERMISSIONS:
         return None
@@ -79,11 +96,13 @@ def get_role_download_rate_limit_info():
     
     
 
+# 用于统计文件操作（添加、删除、修改、访问）的类，并分类写入日志
 class FileOpsCounter(object):
     def __init__(self, config):
         self.edb_session = init_db_session_class(config)()
 
     def start_count(self):
+        # 统计文件操作
         logging.info('Start counting file operations..')
         time_start = time.time()
         added = 0
@@ -94,27 +113,34 @@ class FileOpsCounter(object):
         delta = timedelta(hours=1)
         _start = (dt - delta)
 
+        # 设置开始时间和结束时间
         start = _start.strftime('%Y-%m-%d %H:00:00')
         end = _start.strftime('%Y-%m-%d %H:59:59')
 
         s_timestamp = datetime.strptime(start, '%Y-%m-%d %H:%M:%S')
         e_timestamp = datetime.strptime(end, '%Y-%m-%d %H:%M:%S')
 
+        # 初始化统计数据
         total_added = total_deleted = total_visited = total_modified = 0
         org_added = {}
         org_deleted = {}
         org_visited = {}
         org_modified = {}
+
+        # 查询不同操作的记录
         try:
             stmt = select(FileOpsStat).where(FileOpsStat.timestamp == s_timestamp).limit(1)
             if self.edb_session.scalars(stmt).first():
                 self.edb_session.close()
                 return
 
+            # 选择这段时间内的所有操作记录
             # Select 'Added', 'Deleted', 'Modified' info from FileUpdate
             stmt = select(FileUpdate).where(
                           FileUpdate.timestamp.between(s_timestamp, e_timestamp))
             rows = self.edb_session.scalars(stmt).all()
+
+            # Select 'Added', 'Deleted', 'Modified' info from FileAudit
             for row in rows:
                 org_id = row.org_id
                 if 'Added' in row.file_oper:
@@ -150,6 +176,12 @@ class FileOpsCounter(object):
             logging.warning('[FileOpsCounter] query error : %s.', e)
             return
 
+        # 插入统计数据
+        # 在 FileOpsStat 表中插入数据，包括组织ID、时间戳、操作类型和数量。
+        # 对于每种操作类型，插入一个记录，记录操作类型和数量。
+        # 对于每个组织，插入一个记录，记录该组织的操作数量。
+        # 例如，如果某个组织在某个时间段内添加了5个文件，删除了3个文件，修改了2个文件，访问了10个文件
+        # 那么，FileOpsStat 表中将插入4个记录：Added-5，Deleted-3，Modified-2，Visited-10
         for k, v in org_added.items():
             new_record = FileOpsStat(k, s_timestamp, 'Added', v)
             self.edb_session.add(new_record)
@@ -166,13 +198,16 @@ class FileOpsCounter(object):
             new_record = FileOpsStat(k, s_timestamp, 'Modified', v)
             self.edb_session.add(new_record)
 
+        # 写入日志
         logging.info('[FileOpsCounter] Finish counting file operations in %s seconds, %d added, %d deleted, %d visited,'
                      ' %d modified',
                      str(time.time() - time_start), total_added, total_deleted, total_visited, total_modified)
 
+        # 提交SQL
         self.edb_session.commit()
         self.edb_session.close()
 
+# 用于统计总存储空间的类。
 class TotalStorageCounter(object):
     def __init__(self, config, seafile_config):
         self.edb_session = init_db_session_class(config)()
@@ -182,10 +217,14 @@ class TotalStorageCounter(object):
         logging.info('Start counting total storage..')
         time_start = time.time()
         try:
+            # 不同资料库的容量
             RepoSize = SeafBase.classes.RepoSize
             VirtualRepo = SeafBase.classes.VirtualRepo
             OrgRepo = SeafBase.classes.OrgRepo
-
+            # 执行 SQL 查询以计算每个组织的存储总量。
+            # 使用 select、func 和 outerjoin 方法来连接 RepoSize、VirtualRepo 和 OrgRepo 表。
+            # 通过过滤条件（VirtualRepo.repo_id 为 null）排除虚拟资料库。
+            # 结果按 OrgRepo.org_id 分组，以便为每个组织计算存储总量。
             stmt = select(func.sum(RepoSize.size).label("size"), OrgRepo.org_id).outerjoin(
                           VirtualRepo, RepoSize.repo_id == VirtualRepo.repo_id).outerjoin(
                           OrgRepo, RepoSize.repo_id == OrgRepo.repo_id).where(
@@ -207,6 +246,8 @@ class TotalStorageCounter(object):
         _timestamp = dt.strftime('%Y-%m-%d %H:00:00')
         timestamp = datetime.strptime(_timestamp, '%Y-%m-%d %H:%M:%S')
 
+        # 由于 TotalStorageStat 表的 timestamp 字段精度是天，故将 datetime 对象转换为 UTC 时间，并将分、秒、微秒部分清零。
+        # 这样可以确保每个组织的存储总量统计数据只有一个记录，避免在同一天内多次统计。
         try:
             for result in results:
                 org_id = result[1]
@@ -230,6 +271,7 @@ class TotalStorageCounter(object):
         self.seafdb_session.close()
         self.edb_session.close()
 
+# 用于统计流量信息的类。
 class TrafficInfoCounter(object):
     def __init__(self, config):
         self.edb_session = init_db_session_class(config)()
@@ -239,15 +281,21 @@ class TrafficInfoCounter(object):
         time_start = time.time()
         logging.info('Start counting traffic info..')
 
+        # 统计昨天的流量信息。
+        # 首先，构建一个包含昨天日期的字符串，例如 '2021-12-27'。
+        # 'org_id' 是组织 ID，'total' 是总流量，'daily' 是每日流量。
         dt = datetime.utcnow()
         delta = timedelta(days=1)
         yesterday = (dt - delta).date()
         yesterday_str = yesterday.strftime('%Y-%m-%d')
         today = dt.date()
         today_str = today.strftime('%Y-%m-%d')
+        # 然后，从 traffic_info 字典中获取 key 为昨天日期的记录，key 是日期，value 是字典，包含 'org_id', 'total', 'daily' 三个字段。
         local_traffic_info = traffic_info.copy()
         traffic_info.clear()
 
+        # 如果 traffic_info 字典中没有昨天的记录，跳过下面的代码，继续执行下一行。
+        # 否则，从 traffic_info 字典中删除昨天的记录，这样可以避免在同一天内多次统计。
         if yesterday_str in local_traffic_info:
             s_time = time.time()
             self.update_record(local_traffic_info, yesterday, yesterday_str)
@@ -260,6 +308,7 @@ class TrafficInfoCounter(object):
             logging.info('Traffic Counter: %d items has been updated on %s, time: %s seconds.' %\
                         (len(local_traffic_info[today_str]), today_str, str(time.time() - s_time)))
 
+        # 最后，将昨天的流量信息写入到 SysTraffic 表中。
         try:
             self.edb_session.commit()
         except Exception as e:
@@ -394,6 +443,7 @@ class TrafficInfoCounter(object):
             except Exception as e:
                 logging.warning('Failed to update traffic info: %s.', e)
 
+# 用于统计月度流量信息的类。
 class MonthlyTrafficCounter(object):
     def __init__(self, config):
         self.edb_session = init_db_session_class(config)()
@@ -496,6 +546,7 @@ class MonthlyTrafficCounter(object):
             logging.warning('Failed to update monthly traffic info: %s.', e)
             self.edb_session.close()
 
+    # 辅助函数：Update MonthlyUserTraffic
     def update_monthly_user_traffic_record(self, user, org_id, timestamp, size_dict):
         stmt = select(MonthlyUserTraffic).where(
                                    MonthlyUserTraffic.timestamp == timestamp,
@@ -526,16 +577,19 @@ class MonthlyTrafficCounter(object):
             self.edb_session.add(new_record)
         self.sys_item_count += 1
 
+# 用于统计用户活动信息的类。
 class UserActivityCounter(object):
     def __init__(self, config):
         self.edb_session = init_db_session_class(config)()
 
+    # 统计用户活动信息
     def start_count(self):
         logging.info('Start counting user activity info..')
         ret = 0
         try:
             while True:
                 all_keys = list(login_records.keys())
+                # 找到最近300条登录信息，写入数据库
                 if len(all_keys) > 300:
                     keys = all_keys[:300]
                     self.update_login_record(keys)
@@ -543,6 +597,7 @@ class UserActivityCounter(object):
                     keys = all_keys
                     self.update_login_record(keys)
                     break
+            # 存储到 sql 中
             self.edb_session.commit()
             logging.info("[UserActivityCounter] update %s items." % len(all_keys))
         except Exception as e:
@@ -555,6 +610,7 @@ class UserActivityCounter(object):
                 cmd: 'REPLACE INTO UserActivityStat values (:key1, :name1, :tim1), (:key2, :name2, :time2)'
                 data: {key1: xxx, name1: xxx, time1: xxx, key2: xxx, name2: xxx, time2: xxx}
         """
+        # 登录数量小于0，不写入
         l = len(keys)
         if l <= 0:
             return
@@ -564,6 +620,7 @@ class UserActivityCounter(object):
                      for i in range(l)])[:-1]
         cmd += cmd_extend
         data = {}
+        # 把每一个记录增加到 user_activity_stat 表中，循环信息
         for key in keys:
             pop_data = login_records.pop(key)
             i = str(keys.index(key))
