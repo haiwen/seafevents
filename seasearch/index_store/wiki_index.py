@@ -157,7 +157,7 @@ class WikiIndex(object):
         f = fs_mgr.load_seafile(wiki_id, 1, file_id)
         return json.loads(f.get_content().decode())
 
-    def get_updated_title_uuids(old_conf, new_conf):
+    def get_updated_title_uuids(self, old_conf, new_conf):
         """Calculate the items that are in new_conf but not in old_conf, 
         or the names in New_conf are different from the names in old_conf.
         return based on new_conf data
@@ -295,7 +295,7 @@ class WikiIndex(object):
         # Check whether wiki title is changed
         # This is a necessary but not sufficient condition judgment.
         wiki_conf_path = posixpath.join(WIKI_CONFIG_PATH, WIKI_CONFIG_FILE_NAME)
-        is_wiki_title_modified = any(wiki_conf_path == tup[0] for tup in need_added_files)
+        is_wiki_title_modified = any(wiki_conf_path == tup[0].lstrip('/') for tup in need_added_files)
 
         if is_wiki_title_modified:
             need_updated_title_uuids = self.get_updated_title_uuids(old_cfg, new_cfg)
