@@ -2,7 +2,7 @@
 
 已整理
 
-## utils 工具函数
+## 01 utils 工具函数
 
 ```
 │   ├── ccnet_db.py 从 ccnet 查询用户和群组信息
@@ -11,7 +11,7 @@
 │   └── seatable_api.py 从 Seatable 获取表格信息（dtable-server 表格行列增删, dtable-db 查询）
 ```
 
-## statistics 统计流量日志
+## 02 statistics 统计流量日志
 
 ```
 │   ├── counter.py 计数器，获取文件操作，流量统计，存储情况，用户登录情况计数，并写入数据库和日志中（对应 models 中定义的数据库模型）
@@ -20,9 +20,15 @@
 │   └── models.py 用于存储统计数据的数据库模型，收集、处理和分析统计数据
 ```
 
+## 03 batch_delete_files_notice 批量删除文件通知
+```
+│   ├── db.py 保存/获取/清空已删除文件的数量
+│   ├── models.py 数据库对象：已删除文件的数量 DeletedFilesCount
+│   └── utils.py 计算删除文件数量，获取删除文件数量，每天保存删除文件信息到数据库
+```
+
 
 # 未整理
-
 
 ├── run.sh.template
 ├── seafevents_api.py
@@ -42,13 +48,6 @@
 │   ├── log.py
 │   ├── mq_handler.py
 │   └── signal_handler.py
-
-
-├── batch_delete_files_notice
-│   ├── db.py
-│   ├── models.py
-│   └── utils.py
-
 
 ├── content_scanner
 │   ├── ali_scan.py
