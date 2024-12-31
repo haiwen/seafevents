@@ -139,6 +139,8 @@ def _get_user_activities_by_timestamp(session, username, start, end):
 
     return [ UserActivityDetail(ev, username=username) for ev in events ]
 
+@duration_seconds_decorator('get_user_activities_by_timestamp')
+@file_activity_func_decorate('get_user_activities_by_timestamp')
 def get_user_activities_by_timestamp(session, username, start, end):
     return _get_user_activities_by_timestamp(session, username, start, end)
 
@@ -199,6 +201,8 @@ def convert_file_history_to_dict(file_history):
         pass
     return new_file_history
 
+@duration_seconds_decorator('get_file_history_by_day')
+@history_func_decorator('get_file_history_by_day')
 def get_file_history_by_day(session, repo_id, path, start, limit, to_tz, history_limit=-1):
     repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
     current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
@@ -244,6 +248,8 @@ def get_file_history_by_day(session, repo_id, path, start, limit, to_tz, history
 
     return new_events
 
+@duration_seconds_decorator('get_file_daily_history_detail')
+@history_func_decorator('get_file_daily_history_detail')
 def get_file_daily_history_detail(session, repo_id, path, start_time, end_time, to_tz):
     repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
     current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
@@ -310,6 +316,8 @@ def clean_up_all_repo_trash(session, keep_days):
         session.commit()
 
 
+@duration_seconds_decorator('update_user_activity_timestamp')
+@file_activity_func_decorate('update_user_activity_timestamp')
 def update_user_activity_timestamp(session, activity_id, record):
     activity_stmt = update(Activity).where(Activity.id == activity_id).\
         values(timestamp=record["timestamp"])

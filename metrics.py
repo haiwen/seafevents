@@ -1,21 +1,28 @@
 import time
 from functools import wraps
-from prometheus_client import exposition
-from seafevents.utils.metrics_config import registry
 from prometheus_client.metrics import Counter, Gauge
-# from seafevents.seafevent_server.export_task_manager import task_queue_size
+from prometheus_client.core import CollectorRegistry
 
+registry = CollectorRegistry()
 
-__all__ = ['task_metric_decorator', 'history_func_decorator', 'duration_seconds_decorator', 'file_activity_func_decorate']
 
 ### metrics
 # task metric
-seafevents_task_metric = Gauge(
-    "seafevents_task_queue_size",
-    f"The total number of task queues.",
-    ['instance', 'taskname'],
-    registry=registry
-)
+# seafevents_task_metric = Gauge(
+#     "seafevents_task_queue_size",
+#     f"The total number of task queues.",
+#     ['instance', 'taskname'],
+#     registry=registry
+# )
+# def task_metric_decorator(func_name):
+#     def decorator(func):
+#         @wraps(func)
+#         def wrapper(*args, **kwargs):
+#             seafevents_task_metric.labels('seafevents', func_name).inc()
+#             result = func(*args, **kwargs)
+#             return result
+#         return wrapper
+#     return decorator
 
 # request metric
 seafevents_request = Counter(
@@ -70,8 +77,8 @@ def duration_seconds_decorator(func_name):
         def wrapper(*args, **kwargs):
             start_time = time.time()
             result = func(*args, **kwargs)
-            seafevents_duration_seconds.labels('seafevents', func_name).set(time.time() - start_time)
-            seafevents_duration_seconds_total.labels('seafevents', func_name).inc(time.time() - start_time)
+            seafevents_duration_seconds.labels('seafevents', func_name).set(round((time.time() - start_time), 3))
+            seafevents_duration_seconds_total.labels('seafevents', func_name).inc(round((time.time() - start_time), 3))
             return result
         return wrapper
     return decorator
@@ -80,7 +87,6 @@ def duration_seconds_decorator(func_name):
 def history_func_decorator(func_name):
     def decorator(func):
         def wrapper(*args, **kwargs):
-            print(id(registry), 'histor')
             seafevents_history_func_num.labels('seafevents', func_name).inc()
             result = func(*args, **kwargs)
             seafevents_history_func_num.labels('seafevents', func_name).dec()
@@ -88,21 +94,3 @@ def history_func_decorator(func_name):
         return wrapper
 
     return decorator
-
-def task_metric_decorator(func_name):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            seafevents_task_metric.labels('seafevents', func_name).inc()
-            result = func(*args, **kwargs)
-            return result
-        return wrapper
-    return decorator
-
-
-def get_metric():
-    from seafevents.seafevent_server.request_handler import event_export_task_manager
-
-    print(event_export_task_manager.get_tasks_queue_size())
-    return exposition.generate_latest(registry)
-
