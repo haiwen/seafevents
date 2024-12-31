@@ -4,6 +4,7 @@ import json
 
 from seafevents.seasearch.utils import get_library_diff_files, is_wiki_page, extract_sdoc_text, md5
 from seafevents.seasearch.utils.constants import ZERO_OBJ_ID, WIKI_INDEX_PREFIX
+from seafevents.utils.constants import WIKI_PAGES_DIR, WIKI_CONFIG_PATH, WIKI_CONFIG_FILE_NAME
 from seafobj import fs_mgr, commit_mgr
 from seaserv import seafile_api
 
@@ -13,9 +14,6 @@ logger = logging.getLogger(__name__)
 
 SEASEARCH_WIKI_BULK_ADD_LIMIT = 10
 SEASEARCH_WIKI_BULK_DELETE_LIMIT = 50
-WIKI_PAGES_DIR = '/wiki-pages'
-WIKI_CONFIG_PATH = '_Internal/Wiki'
-WIKI_CONFIG_FILE_NAME = 'index.json'
 
 
 class WikiIndex(object):
@@ -136,12 +134,6 @@ class WikiIndex(object):
 
         return content.strip()
 
-    def get_wiki_title(self, doc_uuid, conf):
-        for page in conf['pages']:
-            if page['docUuid'] == doc_uuid:
-                return page['name']
-        return None
-
     def get_wiki_conf(self, wiki_id, commit_id=None):
         # Get wiki config dict
         conf_path = posixpath.join(WIKI_CONFIG_PATH, WIKI_CONFIG_FILE_NAME)
@@ -167,8 +159,8 @@ class WikiIndex(object):
         Returns:
             set: A set of doc_uuids for updated titles."""
 
-        old_pages = {page['id']: page for page in old_conf['pages']}
-        new_pages = {page['id']: page for page in new_conf['pages']}
+        old_pages = {page['id']: page for page in old_conf['pages']} if old_conf else {}
+        new_pages = {page['id']: page for page in new_conf['pages']} if new_conf else {}
 
         doc_uuids = set()
         for new_id, new_page in new_pages.items():
@@ -199,7 +191,17 @@ class WikiIndex(object):
 
         return uuid_to_path, rm_uuid_to_path
 
-    def add_files(self, index_name, wiki_id, files, uuid_path, commit_id, updated_title_uuids, wiki_conf):
+    def add_files(
+        self,
+        index_name,
+        wiki_id,
+        files,
+        uuid_path,
+        commit_id,
+        updated_title_uuids,
+        wiki_conf,
+        uuid_title_name_mapping,
+    ):
         bulk_add_params = []
 
         def bulk_add():
@@ -230,13 +232,13 @@ class WikiIndex(object):
             # this is for the case: both the title and content are updated
             updated_title_uuids.discard(doc_uuid)
             content = self.get_wiki_content(wiki_id, obj_id)
-            title = self.get_wiki_title(doc_uuid, wiki_conf)
+            title = uuid_title_name_mapping.get(doc_uuid)
             process_file(doc_uuid, content, title)
 
         # Recovered files
         for doc_uuid, path in uuid_path.items():
             file_id = seafile_api.get_file_id_by_commit_and_path(wiki_id, commit_id, path)
-            title = self.get_wiki_title(doc_uuid, wiki_conf)
+            title = uuid_title_name_mapping.get(doc_uuid)
             content = self.get_wiki_content(wiki_id, file_id)
             process_file(doc_uuid, content, title)
 
@@ -246,7 +248,7 @@ class WikiIndex(object):
             f_path = get_path_by_uuid(doc_uuid)
             file_id = seafile_api.get_file_id_by_commit_and_path(wiki_id, commit_id, f_path)
             content = self.get_wiki_content(wiki_id, file_id)
-            title = self.get_wiki_title(doc_uuid, wiki_conf)
+            title = uuid_title_name_mapping.get(doc_uuid)
             process_file(doc_uuid, content,title)
         bulk_add()
 
@@ -295,9 +297,9 @@ class WikiIndex(object):
         # Check whether wiki title is changed
         # This is a necessary but not sufficient condition judgment.
         wiki_conf_path = posixpath.join(WIKI_CONFIG_PATH, WIKI_CONFIG_FILE_NAME)
-        is_wiki_title_modified = any(wiki_conf_path == tup[0].lstrip('/') for tup in need_added_files)
+        is_wiki_conf_modified = any(wiki_conf_path == tup[0].lstrip('/') for tup in need_added_files)
 
-        if is_wiki_title_modified:
+        if is_wiki_conf_modified:
             need_updated_title_uuids = self.get_updated_title_uuids(old_cfg, new_cfg)
         else:
             need_updated_title_uuids = set()
@@ -307,6 +309,13 @@ class WikiIndex(object):
             for uuid, path in curr_uuid_paths.items()
             if uuid in prev_recycled_uuid_paths
         }
+        get_title_uuid_name_mapping = lambda conf: {
+            page['docUuid']: page['name']
+            for page in conf.get('pages', [])
+            if 'docUuid' in page and 'name' in page
+        }
+        uuid_title_name_mapping = get_title_uuid_name_mapping(new_cfg)
+
         self.add_files(
             index_name,
             wiki_id,
@@ -314,7 +323,8 @@ class WikiIndex(object):
             recently_restore_uuid_to_path,
             new_commit_id,
             need_updated_title_uuids,
-            new_cfg
+            new_cfg,
+            uuid_title_name_mapping
         )
 
     def search_wiki(self, wiki, keyword, start=0, size=10):
