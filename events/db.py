@@ -10,6 +10,7 @@ from sqlalchemy.sql import exists
 
 from .models import FileAudit, FileUpdate, PermAudit, \
         Activity, UserActivity, FileHistory, FileTrash
+from seafevents.metrics import history_func_decorator, duration_seconds_decorator, file_activity_func_decorate
 
 
 logger = logging.getLogger('seafevents')
@@ -141,6 +142,9 @@ def _get_user_activities_by_timestamp(session, username, start, end):
 def get_user_activities_by_timestamp(session, username, start, end):
     return _get_user_activities_by_timestamp(session, username, start, end)
 
+
+@duration_seconds_decorator('get_file_history')
+@history_func_decorator('get_file_history')
 def get_file_history(session, repo_id, path, start, limit, history_limit=-1):
     repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
     current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
@@ -261,6 +265,8 @@ def get_file_daily_history_detail(session, repo_id, path, start_time, end_time, 
 def not_include_all_keys(record, keys):
     return any(record.get(k, None) is None for k in keys)
 
+@duration_seconds_decorator('save_user_activity')
+@file_activity_func_decorate('save_user_activity')
 def save_user_activity(session, record):
     activity = Activity(record)
     session.add(activity)

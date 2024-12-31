@@ -6,7 +6,7 @@ from .models import UserActivityStat, UserTraffic, SysTraffic, \
                    FileOpsStat, TotalStorageStat, MonthlyUserTraffic, MonthlySysTraffic
 
 from seaserv import seafile_api, get_org_id_by_repo_id
-
+from seafevents.metrics import seafevents_request
 repo_org = {}
 is_org = -1
 
@@ -102,6 +102,7 @@ def _get_total_storage_stats(session, start, end, offset='+00:00', org_id=0):
     return ret
 
 def get_total_storage_stats_by_day(session, start, end, offset='+00:00'):
+    seafevents_request.labels('seafevents', 'get_total_storage_stats_by_day').inc()
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')

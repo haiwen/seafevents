@@ -1,12 +1,12 @@
+
 from .db import init_db_session_class
 from .statistics.db import *
 from .events.db import *
-from .events.handlers import get_delete_records
 from .content_scanner.db import *
 from .virus_scanner.db_oper import *
 from .app.config import is_repo_auto_del_enabled, is_search_enabled, is_audit_enabled, \
     is_seasearch_enabled
-
+from seafevents.metrics import get_metric
 
 def is_pro():
     return False
@@ -24,3 +24,7 @@ def get_file_history_suffix(config):
         suffix = config.get('FILE HISTORY', 'suffix')
     fh_suffix_list = suffix.strip(',').split(',') if suffix else []
     return fh_suffix_list
+
+
+def get_metrics():
+    return get_metric()
