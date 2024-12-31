@@ -23,12 +23,15 @@ from seafevents.repo_metadata.metadata_manager import get_diff_files, ZERO_OBJ_I
 from seafevents.repo_data import repo_data
 from seafevents.utils.md2sdoc import md2sdoc
 from seafevents.utils.constants import WIKI_PAGES_DIR, WIKI_CONFIG_PATH, \
-    WIKI_CONFIG_FILE_NAME, WIKI_FILE_TMP_DIR, SYS_DIR_PATHS
+    WIKI_CONFIG_FILE_NAME
 
 from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
 
 logger = logging.getLogger('seafevents')
+
+WIKI_FILE_TMP_DIR = '/tmp'
+SYS_DIR_PATHS = ['images']
 
 
 def write_xls(sheet_name, head, data_list):
