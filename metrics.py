@@ -25,7 +25,7 @@ registry = CollectorRegistry()
 #     return decorator
 
 # request metric
-seafevents_request = Counter(
+seafevents_request_total = Counter(
         'seafevents_request',
         'Total seafevents api request count',
         ['instance', 'request'],
@@ -64,7 +64,12 @@ def file_activity_func_decorate(func_name):
     def decorator(func):
         def wrapper(*args, **kwargs):
             seafevents_file_activity_func_num.labels('seafevents', func_name).inc()
+            seafevents_request_total.labels('seafevents', func_name).inc()
+            start_time = time.time()
             result = func(*args, **kwargs)
+            end_time = time.time()
+            seafevents_duration_seconds.labels('seafevents', func_name).set(round((end_time - start_time), 3))
+            seafevents_duration_seconds_total.labels('seafevents', func_name).inc(round((end_time - start_time), 3))
             seafevents_file_activity_func_num.labels('seafevents', func_name).dec()
             return result
         return wrapper
@@ -72,23 +77,16 @@ def file_activity_func_decorate(func_name):
     return decorator
 
 
-def duration_seconds_decorator(func_name):
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            start_time = time.time()
-            result = func(*args, **kwargs)
-            seafevents_duration_seconds.labels('seafevents', func_name).set(round((time.time() - start_time), 3))
-            seafevents_duration_seconds_total.labels('seafevents', func_name).inc(round((time.time() - start_time), 3))
-            return result
-        return wrapper
-    return decorator
-
-
 def history_func_decorator(func_name):
     def decorator(func):
         def wrapper(*args, **kwargs):
             seafevents_history_func_num.labels('seafevents', func_name).inc()
+            seafevents_request_total.labels('seafevents', func_name).inc()
+            start_time = time.time()
             result = func(*args, **kwargs)
+            end_time = time.time()
+            seafevents_duration_seconds.labels('seafevents', func_name).set(round((end_time - start_time), 3))
+            seafevents_duration_seconds_total.labels('seafevents', func_name).inc(round((end_time - start_time), 3))
             seafevents_history_func_num.labels('seafevents', func_name).dec()
             return result
         return wrapper

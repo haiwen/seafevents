@@ -1,19 +1,19 @@
-
 from .db import init_db_session_class
 from .statistics.db import *
 from .events.db import *
+from .events.handlers import get_delete_records
 from .content_scanner.db import *
 from .virus_scanner.db_oper import *
 from .app.config import is_repo_auto_del_enabled, is_search_enabled, is_audit_enabled, \
     is_seasearch_enabled
-# from seafevents.metrics import get_metric
-from seafevents.metrics import registry, history_func_decorator, duration_seconds_decorator
+from seafevents.metrics import registry, history_func_decorator
 from prometheus_client import exposition
+
+
 def is_pro():
     return False
 
 
-@duration_seconds_decorator('get_file_history_suffix')
 @history_func_decorator('get_file_history_suffix')
 def get_file_history_suffix(config):
     fh_enabled = True
