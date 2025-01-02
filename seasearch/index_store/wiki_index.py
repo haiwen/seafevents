@@ -149,7 +149,7 @@ class WikiIndex(object):
         f = fs_mgr.load_seafile(wiki_id, 1, file_id)
         return json.loads(f.get_content().decode())
 
-    def get_updated_title_uuids(self, old_conf, new_conf, excluded_uuids=None):
+    def get_updated_title_uuids(self, old_conf, new_conf, excluded_uuids):
         """Calculate the items that are in new_conf but not in old_conf, 
         or the names in New_conf are different from the names in old_conf.
         return based on new_conf data
