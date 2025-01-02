@@ -166,10 +166,8 @@ class WikiIndex(object):
         doc_uuids = set()
         for new_id, new_page in new_pages.items():
             if new_id not in old_pages or new_page['name'] != old_pages[new_id]['name']:
-                doc_uuids.add(new_page['docUuid'])
-
-        if excluded_uuids:
-            doc_uuids.difference_update(excluded_uuids)
+                if new_page['docUuid'] not in excluded_uuids:
+                    doc_uuids.add(new_page['docUuid'])
         return doc_uuids
 
     def get_uuid_path_mapping(self, config):
