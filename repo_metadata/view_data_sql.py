@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 from seafevents.repo_metadata.constants import FilterPredicateTypes, FilterTermModifier, PropertyTypes, \
-    DurationFormatsType, PrivatePropertyKeys, ViewType, FormulaResultType
+    DurationFormatsType, PrivatePropertyKeys, ViewType, FormulaResultType, TAGS_TABLE
 
 logger = logging.getLogger(__name__)
 
@@ -839,18 +839,64 @@ class FileOperator(Operator):
         super(FileOperator, self).__init__(column, filter_item)
 
 
+class TagsOperator(Operator):
+    SUPPORT_FILTER_PREDICATE = [
+        FilterPredicateTypes.HAS_ANY_OF,
+        FilterPredicateTypes.HAS_NONE_OF,
+        FilterPredicateTypes.HAS_ALL_OF,
+        FilterPredicateTypes.IS_EXACTLY,
+    ]
+
+    def __init__(self, column, filter_item, tags_data):
+        super(TagsOperator, self).__init__(column, filter_item)
+        self.tags_data = tags_data.get('results', [])
+
+    def _get_tag_name_by_id(self, tag_id):
+        if not self.tags_data:
+            return tag_id
+        for tag in self.tags_data:
+            if tag.get(TAGS_TABLE.columns.id.name) == tag_id:
+                return tag.get(TAGS_TABLE.columns.name.name)
+        return ''
+
+    def get_tags_names_str(self):
+        if not self.filter_term:
+            return ''
+        if not isinstance(self.filter_term, list):
+            return ''
+        filter_term = [self._get_tag_name_by_id(tag_id) for tag_id in self.filter_term]
+        return ', '.join([f'"{tag_name}"' for tag_name in filter_term])
+
+    def op_has_any_of(self):
+        tags_names_str = self.get_tags_names_str()
+        if not tags_names_str:
+            return ''
+        return f'`{self.column_name}` in ({tags_names_str})'
+
+    def op_has_none_of(self):
+        tags_names_str = self.get_tags_names_str()
+        if not tags_names_str:
+            return ''
+        return f'`{self.column_name}` has none of ({tags_names_str})'
+
+    def op_has_all_of(self):
+        tags_names_str = self.get_tags_names_str()
+        if not tags_names_str:
+            return ''
+        return f'`{self.column_name}` has all of ({tags_names_str})'
+
+    def op_is_exactly(self):
+        tags_names_str = self.get_tags_names_str()
+        if not tags_names_str:
+            return ''
+        return f'`{self.column_name}` is exactly ({tags_names_str})'
+
+
 class ArrayOperator(object):
 
     def __new__(cls, column, filter_item):
         column_data = column.get('data', {})
         column_name = column.get('name', '')
-        column_key = column.get('key', '')
-        if column_key == PrivatePropertyKeys.TAGS:
-            new_column = {
-                'name': column_name,
-                'type': PropertyTypes.TEXT,
-            }
-            return TextOperator(new_column, filter_item)
 
         array_type, array_data = column_data.get('array_type', ''), column_data.get('array_data')
         linked_column = {
@@ -1010,6 +1056,9 @@ def _get_operator_by_type(column_type):
     ]:
         return FileOperator
 
+    if column_type == PropertyTypes.TAGS:
+        return TagsOperator
+
     if column_type == PropertyTypes.LINK:
         return ArrayOperator
 
@@ -1018,15 +1067,16 @@ def _get_operator_by_type(column_type):
 
 class SQLGenerator(object):
 
-    def __init__(self, table, columns, view, start=0, limit=0, username = '', id_in_org = ''):
+    def __init__(self, table, columns, view, start=0, limit=0, other_params={'username': '', 'id_in_org': '', 'tags_data': {}}):
         self.table = table
         self.table_name = table.name
         self.view = view
         self.columns = columns
         self.start = start
         self.limit = limit
-        self.username = username
-        self.id_in_org = id_in_org
+        self.username = other_params.get('username', '')
+        self.id_in_org = other_params.get('id_in_org', '')
+        self.tags_data = other_params.get('tags_data', {})
 
     def _get_column_by_key(self, col_key):
         for col in self.columns:
@@ -1072,7 +1122,7 @@ class SQLGenerator(object):
 
     def _get_column_type(self, column):
         key = column.get('key', '')
-        type = column.get('type', '')
+        column_type = column.get('type', '')
 
         if key == PrivatePropertyKeys.FILE_CTIME:
             return PropertyTypes.CTIME
@@ -1102,7 +1152,9 @@ class SQLGenerator(object):
             return PropertyTypes.GEOLOCATION
         if key == PrivatePropertyKeys.OWNER:
             return PropertyTypes.COLLABORATOR
-        return type
+        if key == PrivatePropertyKeys.TAGS:
+            return PropertyTypes.TAGS
+        return column_type
 
     def _generator_filters_sql(self, filters, filter_conjunction = 'And'):
         if not filters:
@@ -1134,7 +1186,10 @@ class SQLGenerator(object):
             operator_cls = _get_operator_by_type(column_type)
             if not operator_cls:
                 raise ValueError('filter: %s not support to sql' % filter_item)
-            operator = operator_cls(column, filter_item)
+            if column_type == PropertyTypes.TAGS:
+                operator = operator_cls(column, filter_item, self.tags_data)
+            else:
+                operator = operator_cls(column, filter_item)
             sql_condition = _filter2sql(operator)
             if not sql_condition:
                 continue
@@ -1144,8 +1199,7 @@ class SQLGenerator(object):
             return "%s" % (
                 filter_conjunction_split.join(filter_string_list)
             )
-        else:
-            return ''
+        return ''
 
     def _basic_filters_sql(self):
         basic_filters = self.view.get('basic_filters', [])
@@ -1235,9 +1289,9 @@ class SQLGenerator(object):
         return sql
 
 
-def view_data_2_sql(table, columns, view, start, limit, username = '', id_in_org = ''):
+def view_data_2_sql(table, columns, view, start, limit, params):
     """ view to sql """
-    sql_generator = SQLGenerator(table, columns, view, start, limit, username, id_in_org)
+    sql_generator = SQLGenerator(table, columns, view, start, limit, params)
     return sql_generator.to_sql()
 
 def sort_data_2_sql(table, columns, sorts):
