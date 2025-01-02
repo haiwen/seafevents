@@ -7,24 +7,6 @@ registry = CollectorRegistry()
 
 
 ### metrics
-# task metric
-# seafevents_task_metric = Gauge(
-#     "seafevents_task_queue_size",
-#     f"The total number of task queues.",
-#     ['instance', 'taskname'],
-#     registry=registry
-# )
-# def task_metric_decorator(func_name):
-#     def decorator(func):
-#         @wraps(func)
-#         def wrapper(*args, **kwargs):
-#             seafevents_task_metric.labels('seafevents', func_name).inc()
-#             result = func(*args, **kwargs)
-#             return result
-#         return wrapper
-#     return decorator
-
-# request metric
 seafevents_request_total = Counter(
         'seafevents_request',
         'Total seafevents api request count',
@@ -70,7 +52,6 @@ def file_activity_func_decorate(func_name):
             end_time = time.time()
             seafevents_duration_seconds.labels('seafevents', func_name).set(round((end_time - start_time), 3))
             seafevents_duration_seconds_total.labels('seafevents', func_name).inc(round((end_time - start_time), 3))
-            seafevents_file_activity_func_num.labels('seafevents', func_name).dec()
             return result
         return wrapper
 
@@ -87,7 +68,6 @@ def history_func_decorator(func_name):
             end_time = time.time()
             seafevents_duration_seconds.labels('seafevents', func_name).set(round((end_time - start_time), 3))
             seafevents_duration_seconds_total.labels('seafevents', func_name).inc(round((end_time - start_time), 3))
-            seafevents_history_func_num.labels('seafevents', func_name).dec()
             return result
         return wrapper
 
