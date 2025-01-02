@@ -28,6 +28,7 @@ class PropertyTypes:
     RATE = 'rate'
     GEOLOCATION = 'geolocation'
     BUTTON = 'button'
+    TAGS = 'tags'
 
 
 class PrivatePropertyKeys:

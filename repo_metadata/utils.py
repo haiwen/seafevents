@@ -289,9 +289,9 @@ def query_metadata_rows(repo_id, metadata_server_api, sql):
 
     return rows
 
-def gen_view_data_sql(table, columns, view, start, limit, username = '', id_in_org = ''):
+def gen_view_data_sql(table, columns, view, start, limit, params):
     """ generate view data sql """
-    return view_data_2_sql(table, columns, view, start, limit, username, id_in_org)
+    return view_data_2_sql(table, columns, view, start, limit, params)
 
 
 def gen_sorts_sql(table, columns, sorts):
