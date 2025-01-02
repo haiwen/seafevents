@@ -50,8 +50,10 @@ def file_activity_func_decorate(func_name):
             start_time = time.time()
             result = func(*args, **kwargs)
             end_time = time.time()
-            seafevents_duration_seconds.labels('seafevents', func_name).set(round((end_time - start_time), 3))
-            seafevents_duration_seconds_total.labels('seafevents', func_name).inc(round((end_time - start_time), 3))
+            duration_seconds = end_time - start_time
+            duration_seconds_rounded = round(duration_seconds, 3)
+            seafevents_duration_seconds.labels('seafevents', func_name).set(duration_seconds_rounded)
+            seafevents_duration_seconds_total.labels('seafevents', func_name).inc(duration_seconds_rounded)
             return result
         return wrapper
 
@@ -66,8 +68,10 @@ def history_func_decorator(func_name):
             start_time = time.time()
             result = func(*args, **kwargs)
             end_time = time.time()
-            seafevents_duration_seconds.labels('seafevents', func_name).set(round((end_time - start_time), 3))
-            seafevents_duration_seconds_total.labels('seafevents', func_name).inc(round((end_time - start_time), 3))
+            duration_seconds = end_time - start_time
+            duration_seconds_rounded = round(duration_seconds, 3)
+            seafevents_duration_seconds.labels('seafevents', func_name).set(duration_seconds_rounded)
+            seafevents_duration_seconds_total.labels('seafevents', func_name).inc(duration_seconds_rounded)
             return result
         return wrapper
 
