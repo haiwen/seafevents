@@ -19,12 +19,13 @@ from seafevents.events.models import FileAudit, FileUpdate, PermAudit, UserLogin
 from seafevents.app.config import TIME_ZONE
 from seafevents.utils.ccnet_db import CcnetDB
 from seafevents.utils.seafile_db import SeafileDB
-from seafevents.repo_metadata.metadata_manager import get_diff_files, ZERO_OBJ_ID
+from seafevents.repo_metadata.constants import ZERO_OBJ_ID
 from seafevents.repo_data import repo_data
 from seafevents.utils.md2sdoc import md2sdoc
 
 from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
+from seafobj.exceptions import GetObjectError
 
 logger = logging.getLogger('seafevents')
 
@@ -33,6 +34,39 @@ WIKI_CONFIG_PATH = '_Internal/Wiki'
 WIKI_CONFIG_FILE_NAME = 'index.json'
 WIKI_FILE_TMP_DIR = '/tmp'
 SYS_DIR_PATHS = ['images']
+
+
+def get_diff_files(repo_id, old_commit_id, new_commit_id):
+    if old_commit_id == new_commit_id:
+        return
+
+    old_root = None
+    if old_commit_id:
+        try:
+            old_commit = commit_mgr.load_commit(repo_id, 0, old_commit_id)
+            old_root = old_commit.root_id
+        except GetObjectError as e:
+            logger.debug(e)
+            old_root = None
+
+    try:
+        new_commit = commit_mgr.load_commit(repo_id, 0, new_commit_id)
+    except GetObjectError as e:
+        # new commit should exists in the obj store
+        logger.warning(e)
+        return
+
+    new_root = new_commit.root_id
+    version = new_commit.get_version()
+
+    if old_root == new_root:
+        return
+
+    old_root = old_root if old_root else ZERO_OBJ_ID
+
+    differ = CommitDiffer(repo_id, version, old_root, new_root, False, False)
+
+    return differ.diff()
 
 
 def write_xls(sheet_name, head, data_list):

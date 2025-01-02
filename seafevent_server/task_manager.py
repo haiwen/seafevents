@@ -6,7 +6,7 @@ from threading import Thread, Lock
 
 from seafevents.db import init_db_session_class
 from seafevents.app.event_redis import RedisClient
-from seafevents.repo_metadata.metadata_manager import ZERO_OBJ_ID
+from seafevents.repo_metadata.constants import ZERO_OBJ_ID
 
 
 logger = logging.getLogger(__name__)
