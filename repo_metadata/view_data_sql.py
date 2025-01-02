@@ -853,7 +853,7 @@ class TagsOperator(Operator):
 
     def _get_tag_name_by_id(self, tag_id):
         if not self.tags_data:
-            return tag_id
+            return ''
         for tag in self.tags_data:
             if tag.get(TAGS_TABLE.columns.id.name) == tag_id:
                 return tag.get(TAGS_TABLE.columns.name.name)
