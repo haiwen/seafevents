@@ -77,6 +77,7 @@ class RepoMetadataIndexMaster(Thread):
                     repo_id = data.get('repo_id')
                     commit_id = data.get('commit_id')
                     if op_type == 'init_metadata':
+                        op_type = 'update-metadata'
                         data = op_type + '\t' + repo_id
                         self.mq.lpush('metadata_task', data)
                         logger.debug('init metadata: %s has been add to metadata task queue' % message['data'])
