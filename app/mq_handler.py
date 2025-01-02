@@ -63,8 +63,8 @@ message_handler = MessageHandler()
 
 
 def init_message_handlers(enable_audit):
-    events_handlers.register_handlers(message_handler, enable_audit)
-    stats_handlers.register_handlers(message_handler)
+    #events_handlers.register_handlers(message_handler, enable_audit)
+    #stats_handlers.register_handlers(message_handler)
     publisher_handlers.register_handlers(message_handler)
 
 
