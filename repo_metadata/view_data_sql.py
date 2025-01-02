@@ -865,6 +865,9 @@ class TagsOperator(Operator):
         if not isinstance(self.filter_term, list):
             return ''
         filter_term = [self._get_tag_name_by_id(tag_id) for tag_id in self.filter_term]
+        filter_term = [tag_name for tag_name in filter_term if tag_name]
+        if not filter_term:
+            return ''
         return ', '.join([f'"{tag_name}"' for tag_name in filter_term])
 
     def op_has_any_of(self):
