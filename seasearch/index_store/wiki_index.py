@@ -309,7 +309,7 @@ class WikiIndex(object):
         is_wiki_conf_modified = any(wiki_conf_path == tup[0].lstrip('/') for tup in need_added_files)
 
         if is_wiki_conf_modified:
-            need_updated_title_uuids = self.wiki_index.get_updated_title_uuids(
+            need_updated_title_uuids = self.get_updated_title_uuids(
                 old_cfg, new_cfg, excluded_uuids=curr_recycled_uuid_paths.keys()
             )
         else:
