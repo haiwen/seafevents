@@ -80,7 +80,7 @@ class WikiIndex(object):
         self.repo_data = repo_data
         self.shard_num = shard_num
         if size_cap := kwargs.get('wiki_file_size_limit'):
-            self.size_cap = size_cap 
+            self.size_cap = size_cap
 
     def _make_query_searches(self, keyword):
         match_query_kwargs = {'minimum_should_match': '-25%'}
@@ -150,7 +150,7 @@ class WikiIndex(object):
         return json.loads(f.get_content().decode())
 
     def get_updated_title_uuids(self, old_conf, new_conf, excluded_uuids):
-        """Calculate the items that are in new_conf but not in old_conf, 
+        """Calculate the items that are in new_conf but not in old_conf,
         or the names in New_conf are different from the names in old_conf.
         return based on new_conf data
         Args:
@@ -238,6 +238,8 @@ class WikiIndex(object):
             if self.size_cap is not None and int(size) >= int(self.size_cap):
                 continue
             doc_uuid = path.split('/')[2]
+            if not title_info.get(doc_uuid):
+                continue
             # remove docuuid from updated_title_uuids if it is in the need updated files
             # this is for the case: both the title and content are updated
             updated_title_uuids.discard(doc_uuid)
@@ -247,6 +249,7 @@ class WikiIndex(object):
 
         # Recovered files
         for doc_uuid, path in uuid_path.items():
+            updated_title_uuids.discard(doc_uuid)
             file_id = seafile_api.get_file_id_by_commit_and_path(wiki_id, commit_id, path)
             title = title_info.get(doc_uuid)[0]
             content = self.get_wiki_content(wiki_id, file_id)
@@ -355,7 +358,7 @@ class WikiIndex(object):
                 "pre_tags": ["<mark>"],
                 "post_tags": ["</mark>"],
                 "fields": {"content": {}, "title": {}},
-            },    
+            },
         }
         index_name = WIKI_INDEX_PREFIX + wiki
         index_info = {"index": index_name}
