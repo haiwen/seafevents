@@ -22,6 +22,8 @@ from seafevents.utils.seafile_db import SeafileDB
 from seafevents.repo_metadata.constants import ZERO_OBJ_ID
 from seafevents.repo_data import repo_data
 from seafevents.utils.md2sdoc import md2sdoc
+from seafevents.utils.constants import WIKI_PAGES_DIR, WIKI_CONFIG_PATH, \
+    WIKI_CONFIG_FILE_NAME
 
 from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
@@ -29,9 +31,6 @@ from seafobj.exceptions import GetObjectError
 
 logger = logging.getLogger('seafevents')
 
-WIKI_PAGES_DIR = '/wiki-pages'
-WIKI_CONFIG_PATH = '_Internal/Wiki'
-WIKI_CONFIG_FILE_NAME = 'index.json'
 WIKI_FILE_TMP_DIR = '/tmp'
 SYS_DIR_PATHS = ['images']
 
