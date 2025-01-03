@@ -104,7 +104,7 @@ class WikiIndexLocal(object):
                     self.incr_error()
 
         logger.info(
-            "%s worker updated at %s time" 
+            "%s worker updated at %s time"
             % (threading.currentThread().getName(),
                time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time())))
         )
@@ -177,8 +177,7 @@ def start_index_local():
 
 def delete_indices():
     section_name = 'SEASEARCH'
-    conf_path = os.environ.get('CONF_PATH') or os.environ.get('SEAFILE_CENTRAL_CONF_DIR')
-    seafevents_conf = os.path.join(conf_path, 'seafevents.conf')
+    seafevents_conf = os.environ.get('EVENTS_CONFIG_FILE')
     config = get_config(seafevents_conf)
     seasearch_url = get_opt_from_conf_or_env(
         config, section_name, 'seasearch_url'
