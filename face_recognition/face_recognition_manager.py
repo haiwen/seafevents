@@ -246,7 +246,7 @@ class FaceRecognitionManager(object):
         }
         msg_type = 'face_cluster'
         local_datetime_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        detail = json.dumps(detail)
+        detail = json.dumps(detail).replace('\\', '\\\\')
 
         values.append((username, msg_type, detail, local_datetime_str, 0))
         with self._db_session_class() as session:
