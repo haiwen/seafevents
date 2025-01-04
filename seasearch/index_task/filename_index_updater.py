@@ -11,6 +11,8 @@ from seafevents.seasearch.utils.constants import REPO_STATUS_FILENAME_INDEX_NAME
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.repo_data import repo_data
 from seafevents.utils import parse_bool, get_opt_from_conf_or_env, parse_interval
+from seafevents.events.metrics import seasearch_index_timing_decorator
+from seafevents.app.event_redis import RedisClient
 
 
 logger = logging.getLogger(__name__)
@@ -26,6 +28,7 @@ class RepoFilenameIndexUpdater(object):
         self._repo_filename_index = None
         self._index_manager = None
         self._parse_config(config)
+        self.redis_client = RedisClient(config)
 
     def _parse_config(self, config):
         """Parse filename index update related parts of events.conf"""
@@ -87,7 +90,8 @@ class RepoFilenameIndexUpdater(object):
             self._repo_filename_index,
             self._index_manager,
             self._repo_data,
-            self._interval
+            self._interval,
+            self.redis_client
         ).start()
 
 
@@ -105,8 +109,8 @@ def clear_deleted_repo(repo_status_filename_index, repo_filename_index, index_ma
         logger.info('Repo %s has been deleted from filename index.' % repo_id)
     logger.info("filename index deleted repo has been cleared")
 
-
-def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_index, index_manager, repo_data):
+@seasearch_index_timing_decorator
+def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_index, index_manager, repo_data, redis_client):
     start, count = 0, 1000
     all_repos = []
 
@@ -139,20 +143,21 @@ def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_inde
 
 
 class RepoFilenameIndexUpdaterTimer(Thread):
-    def __init__(self, repo_status_filename_index, repo_filename_index, index_manager, repo_data, interval):
+    def __init__(self, repo_status_filename_index, repo_filename_index, index_manager, repo_data, interval, redis_client):
         super(RepoFilenameIndexUpdaterTimer, self).__init__()
         self.repo_status_filename_index = repo_status_filename_index
         self.repo_filename_index = repo_filename_index
         self.index_manager = index_manager
         self.repo_data = repo_data
         self.interval = interval
+        self.redis_client = redis_client
 
     def run(self):
         sched = GeventScheduler()
         logging.info('Start to update filename index...')
         try:
             sched.add_job(update_repo_file_name_indexes, IntervalTrigger(seconds=self.interval),
-                          args=(self.repo_status_filename_index, self.repo_filename_index, self.index_manager, self.repo_data))
+                          args=(self.repo_status_filename_index, self.repo_filename_index, self.index_manager, self.repo_data, self.redis_client))
         except Exception as e:
             logging.exception('periodical update filename index error: %s', e)
 

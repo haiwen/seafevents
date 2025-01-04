@@ -8,7 +8,7 @@ from seafevents.utils import write_pidfile
 from seafevents.app.log import LogConfigurator
 from seafevents.app.app import App
 from seafevents.app.config import get_config, is_cluster_enabled, is_syslog_enabled
-
+from seafevents.app.event_redis import redis_cache
 
 def main(background_tasks_only=False):
     parser = argparse.ArgumentParser(description='seafevents main program')
@@ -36,6 +36,7 @@ def main(background_tasks_only=False):
 
     seafile_config = get_config(seafile_conf_path)
     config = get_config(args.config_file)
+    redis_cache.init_redis(config)
     try:
         create_db_tables(config)
         prepare_db_tables(seafile_config)
