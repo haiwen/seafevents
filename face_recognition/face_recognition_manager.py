@@ -9,7 +9,7 @@ from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.image_embedding_api import ImageEmbeddingAPI
-from seafevents.repo_metadata.utils import query_metadata_rows
+from seafevents.repo_metadata.utils import query_metadata_rows, get_metadata_by_row_ids
 from seafevents.repo_metadata.constants import METADATA_TABLE, FACES_TABLE
 from seafevents.face_recognition.constants import UNKNOWN_PEOPLE_NAME
 from seafevents.face_recognition.utils import get_faces_rows, get_cluster_by_center, b64encode_embeddings, \
@@ -187,8 +187,9 @@ class FaceRecognitionManager(object):
             if face_row:
                 face_row[FACES_TABLE.columns.id.name] = cluster_id
                 self.metadata_server_api.update_rows(repo_id, faces_table_id, [face_row])
+            exist_rows = get_metadata_by_row_ids(repo_id, related_row_ids, self.metadata_server_api)
             row_id_map = {
-                cluster_id: related_row_ids
+                cluster_id: [item[METADATA_TABLE.columns.id.name] for item in exist_rows]
             }
             self.metadata_server_api.update_link(repo_id, FACES_TABLE.face_link_id, faces_table_id, row_id_map)
 
@@ -196,8 +197,9 @@ class FaceRecognitionManager(object):
             face_row, related_row_ids, cluster_center = value
             result = self.metadata_server_api.insert_rows(repo_id, faces_table_id, [face_row])
             face_row_id = result.get('row_ids')[0]
+            exist_rows = get_metadata_by_row_ids(repo_id, related_row_ids, self.metadata_server_api)
             row_id_map = {
-                face_row_id: related_row_ids
+                face_row_id: [item[METADATA_TABLE.columns.id.name] for item in exist_rows]
             }
             self.metadata_server_api.insert_link(repo_id, FACES_TABLE.face_link_id, faces_table_id, row_id_map)
 
