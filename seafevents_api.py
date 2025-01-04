@@ -1,4 +1,4 @@
-from .db import init_db_session_class
+from .db import init_db_session_class, init_redis_cache
 from .statistics.db import *
 from .events.db import *
 from .events.handlers import get_delete_records
@@ -6,6 +6,7 @@ from .content_scanner.db import *
 from .virus_scanner.db_oper import *
 from .app.config import is_repo_auto_del_enabled, is_search_enabled, is_audit_enabled, \
     is_seasearch_enabled
+
 
 
 def is_pro():

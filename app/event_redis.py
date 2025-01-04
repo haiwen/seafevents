@@ -1,8 +1,16 @@
 # -*- coding: utf-8 -*-
+import copy
+import json
 import logging
 from seafevents.app.config import REDIS_SERVER, REDIS_PORT, REDIS_PASSWORD
+import uuid
+
+import redis
+import time
 
 logger = logging.getLogger(__name__)
+
+REDIS_METRIC_KEY = "metric"
 
 
 class RedisClient(object):
@@ -42,6 +50,29 @@ class RedisClient(object):
         if not self.connection:
             return
         return self.connection.delete(key)
+    
+    def get_subscriber(self, channel_name):
+        while True:
+            try:
+                subscriber = self.connection.pubsub(ignore_subscribe_messages=True)
+                subscriber.subscribe(channel_name)
+            except redis.AuthenticationError as e:
+                logger.critical('connect to redis auth error: %s', e)
+                raise e
+            except Exception as e:
+                logger.error('redis pubsub failed. {} retry after 10s'.format(e))
+                time.sleep(10)
+            else:
+                return subscriber
+
+    def setnx(self, key, value):
+        return self.connection.setnx(key, value)
+
+    def expire(self, name, timeout):
+        return self.connection.expire(name, timeout)
+
+    def publish(self, channel, message):
+        return self.connection.publish(channel, message)
 
 class RedisCache(object):
 
@@ -58,5 +89,22 @@ class RedisCache(object):
 
     def delete(self, key):
         return self._redis_client.delete(key)
+
+    def create_or_update(self, key, value):
+        try:
+            current_value = self._redis_client.get(key)
+            if current_value:
+                current_value_dict_copy = copy.deepcopy(json.loads(current_value))
+                current_value_dict_copy.update(value)
+                self._redis_client.set(key, json.dumps(current_value_dict_copy))
+            else:
+                self._redis_client.set(key, json.dumps(value))
+        except Exception as e:
+            logger.error(e)
+
+
+    def publish(self, channel, message):
+        self._redis_client.publish(channel, message)
+
     
 redis_cache = RedisCache()
