@@ -30,6 +30,7 @@ try:
     BAIDU_MAP_URL = getattr(seahub_settings, 'BAIDU_MAP_URL', '')
     GOOGLE_MAP_KEY = getattr(seahub_settings, 'GOOGLE_MAP_KEY', '')
     GOOGLE_MAP_URL = getattr(seahub_settings, 'GOOGLE_MAP_URL', '')
+    ENABLE_METRIC = getattr(seahub_settings, 'ENABLE_METRIC', False)
 
 except ImportError:
     logger.critical("Can not import seahub settings.")

@@ -1,17 +1,37 @@
 import jwt
 import logging
 import json
+import datetime
 
 from flask import Flask, request, make_response
-from seafevents.app.config import SEAHUB_SECRET_KEY
+from seafevents.app.config import SEAHUB_SECRET_KEY, ENABLE_METRIC
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
+from seafevents.app.event_redis import redis_cache
+from seafevents.events.metrics import NODE_NAME, METRIC_CHANNEL_NAME
+
+
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
+
+
+def publish_io_qsize_metric(qsize):
+    if not ENABLE_METRIC:
+        return
+    publish_metric = {
+        "metric_name": "io_task_qsize",
+        "instance_name": "seafevents",
+        "node_name": NODE_NAME,
+        "metric_value": qsize,
+        "details": {
+            "collected_at": datetime.datetime.now().isoformat()
+        }
+    }
+    redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))
 
 
 def check_auth_token(req):
@@ -72,6 +92,7 @@ def get_sys_logs_task():
     log_type = request.args.get('log_type')
     try:
         task_id = event_export_task_manager.add_export_logs_task(start_time, end_time, log_type)
+        publish_io_qsize_metric(event_export_task_manager.tasks_queue.qsize())
     except Exception as e:
         logger.error(e)
         return make_response((e, 500))
@@ -96,6 +117,7 @@ def get_org_logs_task():
     org_id = request.args.get('org_id')
     try:
         task_id = event_export_task_manager.add_org_export_logs_task(start_time, end_time, log_type, org_id)
+        publish_io_qsize_metric(event_export_task_manager.tasks_queue.qsize())
     except Exception as e:
         logger.error(e)
         return make_response((e, 500))
@@ -264,6 +286,7 @@ def add_convert_wiki_task():
 
     try:
         task_id = event_export_task_manager.add_convert_wiki_task(old_repo_id, new_repo_id, username)
+        publish_io_qsize_metric(event_export_task_manager.tasks_queue.qsize())
     except Exception as e:
         logger.error(e)
         return make_response((e, 500))
