@@ -20,13 +20,18 @@
 │   └── models.py 用于存储统计数据的数据库模型，收集、处理和分析统计数据
 ```
 
-## 03 batch_delete_files_notice 批量删除文件通知
+## 03 batch delete files notice 批量删除文件通知
 ```
 │   ├── db.py 保存/获取/清空已删除文件的数量
 │   ├── models.py 数据库对象：已删除文件的数量 DeletedFilesCount
 │   └── utils.py 计算删除文件数量，获取删除文件数量，每天保存删除文件信息到数据库
 ```
 
+## 04 events publisher 资料库更新事件发布到 redis
+```
+├── events_publisher 
+│   └── handlers.py 发布资料库更新事件到消息队列（Redis）
+```
 
 # 未整理
 
@@ -66,10 +71,14 @@
 │   └── models.py
 
 
-├── events_publisher
-│   └── handlers.py
-
-
+├── ldap_syncer
+│   ├── ldap_conn.py
+│   ├── ldap_group_sync.py
+│   ├── ldap_settings.py
+│   ├── ldap_sync.py
+│   ├── ldap_user_sync.py
+│   ├── run_ldap_sync.py
+│   └── utils.py
 
 
 
@@ -97,16 +106,6 @@
 │   ├── constants.py
 │   ├── face_cluster_updater.py
 │   ├── face_recognition_manager.py
-│   └── utils.py
-
-
-├── ldap_syncer
-│   ├── ldap_conn.py
-│   ├── ldap_group_sync.py
-│   ├── ldap_settings.py
-│   ├── ldap_sync.py
-│   ├── ldap_user_sync.py
-│   ├── run_ldap_sync.py
 │   └── utils.py
 
 
