@@ -14,7 +14,7 @@ NODE_NAME = os.environ.get('NODE_NAME', 'default')
 METRIC_CHANNEL_NAME = "metic-channel"
 
 ### metrics decorator
-def handle_metric_decorator(metric_name):
+def handle_metric_timing(metric_name):
     def decorator(func):
         def wrapper(*args, **kwargs):
             if not ENABLE_METRIC:
