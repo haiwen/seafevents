@@ -48,11 +48,10 @@ def format_metrics(cache):
             for label_name, label_value in metric_detail.items():
                 label = label_name + '="' + str(label_value) + '",'
             label = label[:-1]
-            metric_info += metric_name + '{' + label + '} ' + str(metric_value) +'\n'
+            metric_info += '%s{%s} %s\n' % (metric_name, label, str(metric_value))
         else:
-            metric_info += metric_name + str(metric_value) + '\n'
+            metric_info += '%s %s\n' % (metric_name, str(metric_value))
 
-    cache.delete("metrics")
     return metric_info.encode()
 
 
@@ -83,8 +82,11 @@ class MetricTask(Thread):
                 if message is not None:
                     metric_data = json.loads(message['data'])
                     try:
-                        key_name = metric_data.get('instance_name') + ':' + metric_data.get('node_name') + ':' + metric_data.get('metric_name')
-                        metric_details = metric_data.get('details', {})
+                        instance_name = metric_data.get('instance_name')
+                        node_name = metric_data.get('node_name', 'default')
+                        metric_name = metric_data.get('metric_name')
+                        key_name = '%s:%s:%s' % (instance_name, node_name, metric_name)
+                        metric_details = metric_data.get('details') or {}
                         metric_details['metric_value'] = metric_data.get('metric_value')
                         # global
                         local_metric['metrics'][key_name] = metric_details

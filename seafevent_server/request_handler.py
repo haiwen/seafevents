@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 def publish_io_qsize_metric(qsize):
+    if not ENABLE_METRIC:
+        return
     publish_metric = {
         "metric_name": "io_task_qsize",
         "instance_name": "seafevents",
@@ -29,8 +31,7 @@ def publish_io_qsize_metric(qsize):
             "collected_at": datetime.datetime.now().isoformat()
         }
     }
-    if ENABLE_METRIC:
-        redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))
+    redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))
 
 
 def check_auth_token(req):
