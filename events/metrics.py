@@ -14,25 +14,27 @@ NODE_NAME = os.environ.get('NODE_NAME', 'default')
 METRIC_CHANNEL_NAME = "metic-channel"
 
 ### metrics decorator
-def seasearch_index_timing_decorator(func):
-    def wrapper(*args, **kwargs):
-        redis_client = args[4]
-        publish_metric = {
-            "metric_name": "seasearch_index_timing",
-            "instance_name": "seafevents",
-            "node_name": NODE_NAME,
-            "details": {
-                "collected_at": datetime.datetime.now().isoformat()
+def handle_metric_decorator(metric_name):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            if not ENABLE_METRIC:
+                return func(*args, **kwargs)
+            publish_metric = {
+                "metric_name": metric_name,
+                "instance_name": "seafevents",
+                "node_name": NODE_NAME,
+                "details": {
+                    "collected_at": datetime.datetime.now().isoformat()
+                }
             }
-        }
-        start_time = time.time()
-        func(*args, **kwargs)
-        end_time = time.time()
-        duration_seconds = end_time - start_time
-        publish_metric['metric_value'] = round(duration_seconds, 3)
-        if ENABLE_METRIC:
-            redis_client.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))
-    return wrapper
+            start_time = time.time()
+            func(*args, **kwargs)
+            end_time = time.time()
+            duration_seconds = end_time - start_time
+            publish_metric['metric_value'] = round(duration_seconds, 3)
+            redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))
+        return wrapper
+    return decorator
 
 
 def format_metrics(cache):
