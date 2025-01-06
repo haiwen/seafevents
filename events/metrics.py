@@ -10,7 +10,7 @@ from seafevents.app.event_redis import redis_cache, RedisClient
 
 local_metric = {'metrics': {}}
 
-node_name = os.environ.get('NODE_NAME', 'default')
+NODE_NAME = os.environ.get('NODE_NAME', 'default')
 
 
 ### metrics decorator
@@ -20,18 +20,18 @@ def seasearch_index_timing_decorator(func):
         publish_metric = {
             "metric_name": "seasearch_index_timing",
             "instance_name": "seafevents",
-            "node_name": node_name,
+            "node_name": NODE_NAME,
             "details": {
-                "collected_at": datetime.datetime.utcnow().isoformat()
+                "collected_at": datetime.datetime.now().isoformat()
             }
         }
         start_time = time.time()
         func(*args, **kwargs)
         end_time = time.time()
         duration_seconds = end_time - start_time
-        publish_metric["details"]['metric_value'] = round(duration_seconds, 3)
+        publish_metric['metric_value'] = round(duration_seconds, 3)
         if ENABLE_METRIC:
-            redis_client.publisher("metric-channel", json.dumps(publish_metric))
+            redis_client.publish("metric-channel", json.dumps(publish_metric))
     return wrapper
 
 
@@ -48,9 +48,9 @@ def format_metrics(cache):
             for label_name, label_value in metric_detail.items():
                 label = label_name + '="' + str(label_value) + '",'
             label = label[:-1]
-            metric_info = metric_name + '{' + label + '} ' + str(metric_value) +'\n'
+            metric_info += metric_name + '{' + label + '} ' + str(metric_value) +'\n'
         else:
-            metric_info = metric_name + str(metric_value) + '\n'
+            metric_info += metric_name + str(metric_value) + '\n'
 
     cache.delete("metrics")
     return metric_info.encode()
@@ -84,9 +84,10 @@ class MetricTask(Thread):
                     metric_data = json.loads(message['data'])
                     try:
                         key_name = metric_data.get('instance_name') + ':' + metric_data.get('node_name') + ':' + metric_data.get('metric_name')
-                        metric_value = metric_data.get('details')
+                        metric_details = metric_data.get('details')
+                        metric_details['metric_value'] = metric_data.get('metric_value')
                         # global
-                        local_metric['metrics'][key_name] = metric_value
+                        local_metric['metrics'][key_name] = metric_details
                     except Exception as e:
                         logging.error('Handle metrics failed: %s' % e)
                 else:
@@ -96,7 +97,7 @@ class MetricTask(Thread):
                 subscriber = self._redis_client.get_subscriber('metric-channel')
 
 
-class MetricRedisRecord(object):
+class MetricRedisRecorder(object):
 
     def __init__(self):
         self._interval = 15

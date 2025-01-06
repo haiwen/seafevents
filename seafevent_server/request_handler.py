@@ -1,7 +1,7 @@
 import jwt
 import logging
 import json
-import time
+import datetime
 
 from flask import Flask, request, make_response
 from seafevents.app.config import SEAHUB_SECRET_KEY, ENABLE_METRIC
@@ -11,12 +11,26 @@ from seafevents.seasearch.index_task.index_task_manager import index_task_manage
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
 from seafevents.app.event_redis import redis_cache
-from seafevents.events.metrics import node_name
+from seafevents.events.metrics import NODE_NAME
 
 
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
+
+
+def publish_io_qsize_metric(qsize):
+    publish_metric = {
+        "metric_name": "io_task_qsize",
+        "instance_name": "seafevents",
+        "node_name": NODE_NAME,
+        "metric_value": qsize,
+        "details": {
+            "collected_at": datetime.datetime.now().isoformat()
+        }
+    }
+    if ENABLE_METRIC:
+        redis_cache.publish('metric-channel', json.dumps(publish_metric))
 
 
 def check_auth_token(req):
@@ -77,17 +91,7 @@ def get_sys_logs_task():
     log_type = request.args.get('log_type')
     try:
         task_id = event_export_task_manager.add_export_logs_task(start_time, end_time, log_type)
-        publish_metric = {
-            "metric_name": "io_task_qsize",
-            "instance_name": "seafevents",
-            "node_name": node_name,
-            "details": {
-                "metric_value": event_export_task_manager.tasks_queue.qsize(),
-                "collected_at": time.time()
-            }
-        }
-        if ENABLE_METRIC:
-            redis_cache.publisher('metric-channel', json.dumps(publish_metric))
+        publish_io_qsize_metric(event_export_task_manager.tasks_queue.qsize())
     except Exception as e:
         logger.error(e)
         return make_response((e, 500))
@@ -112,17 +116,7 @@ def get_org_logs_task():
     org_id = request.args.get('org_id')
     try:
         task_id = event_export_task_manager.add_org_export_logs_task(start_time, end_time, log_type, org_id)
-        publish_metric = {
-            "metric_name": "io_task_qsize",
-            "instance_name": "seafevents",
-            "node_name": node_name,
-            "details": {
-                "metric_value": event_export_task_manager.tasks_queue.qsize(),
-                "collected_at": time.time()
-            }
-        }
-        if ENABLE_METRIC:
-            redis_cache.publisher('metric-channel', json.dumps(publish_metric))
+        publish_io_qsize_metric(event_export_task_manager.tasks_queue.qsize())
     except Exception as e:
         logger.error(e)
         return make_response((e, 500))
@@ -291,17 +285,7 @@ def add_convert_wiki_task():
 
     try:
         task_id = event_export_task_manager.add_convert_wiki_task(old_repo_id, new_repo_id, username)
-        publish_metric = {
-            "metric_name": "io_task_qsize",
-            "instance_name": "seafevents",
-            "node_name": node_name,
-            "details": {
-                "metric_value": event_export_task_manager.tasks_queue.qsize(),
-                "collected_at": time.time()
-            }
-        }
-        if ENABLE_METRIC:
-            redis_cache.publisher('metric-channel', json.dumps(publish_metric))
+        publish_io_qsize_metric(event_export_task_manager.tasks_queue.qsize())
     except Exception as e:
         logger.error(e)
         return make_response((e, 500))

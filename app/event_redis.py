@@ -78,16 +78,7 @@ class RedisClient(object):
     def delete(self, key):
         return self.connection.delete(key)
 
-    def lrange(self, key, start, end):
-        return self.connection.lrange(key, start, end)
-
-    def lpush(self, key, value):
-        return self.connection.lpush(key, value)
-
-    def lrem(self, key, count):
-        return self.connection.lrem(key, count)
-
-    def publisher(self, channel, message):
+    def publish(self, channel, message):
         return self.connection.publish(channel, message)
 
 
@@ -110,15 +101,6 @@ class RedisCache(object):
 
     def delete(self, key):
         return self._redis_client.delete(key)
-
-    def lrange(self, key, start, end):
-        return self._redis_client.lrange(key, start, end)
-
-    def lpush(self, key, value):
-        return self._redis_client.lpush(key, value)
-
-    def lrem(self, key, count):
-        return self._redis_client.lrem(key, count)
 
     def acquire_lock(self):
         lock_value = str(uuid.uuid4())  # 创建一个唯一的锁标识
@@ -144,8 +126,8 @@ class RedisCache(object):
             finally:
                 self.release_lock()
 
-    def publisher(self, channel, message):
-        self._redis_client.publisher(channel, message)
+    def publish(self, channel, message):
+        self._redis_client.publish(channel, message)
 
 
 redis_cache = RedisCache()

@@ -11,7 +11,7 @@ from seafevents.seafevent_server.seafevent_server import SeafEventServer
 from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_METRIC
 from seafevents.seasearch.index_task.filename_index_updater import RepoFilenameIndexUpdater
 from seafevents.seasearch.index_task.wiki_index_updater import SeasearchWikiIndexUpdater
-from seafevents.events.metrics import MetricRedisRecord, MetricHandler
+from seafevents.events.metrics import MetricRedisRecorder, MetricHandler
 
 
 class App(object):
@@ -40,7 +40,7 @@ class App(object):
             self._repo_old_file_auto_del_scanner = RepoOldFileAutoDelScanner(config)
             self._deleted_files_count_cleaner = DeletedFilesCountCleaner(config)
             if ENABLE_METRIC:
-                self._metric_collect = MetricRedisRecord()
+                self._metric_redis_recorder = MetricRedisRecorder()
                 self._metric_handle = MetricHandler(self, config)
 
             if ENABLE_METADATA_MANAGEMENT:
@@ -76,7 +76,7 @@ class App(object):
                 self._slow_task_handler.start()
                 self._face_cluster.start()
             if ENABLE_METRIC:
-                self._metric_collect.start()
+                self._metric_redis_recorder.start()
                 self._metric_handle.start()
             self._repo_filename_index_updater.start()
             self._seasearch_wiki_index_updater.start()
