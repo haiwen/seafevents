@@ -6,12 +6,15 @@ from .content_scanner.db import *
 from .virus_scanner.db_oper import *
 from .app.config import is_repo_auto_del_enabled, is_search_enabled, is_audit_enabled, \
     is_seasearch_enabled
+from seafevents.metrics import registry, history_func_decorator,seafevents_history_func_num, seafevents_file_activity_func_num
+from prometheus_client import exposition
 
 
 def is_pro():
     return False
 
 
+@history_func_decorator('get_file_history_suffix')
 def get_file_history_suffix(config):
     fh_enabled = True
     if config.has_option('FILE HISTORY', 'enabled'):
@@ -24,3 +27,12 @@ def get_file_history_suffix(config):
         suffix = config.get('FILE HISTORY', 'suffix')
     fh_suffix_list = suffix.strip(',').split(',') if suffix else []
     return fh_suffix_list
+
+
+def get_metrics():
+    metric_info = exposition.generate_latest(registry)
+    for metric in seafevents_history_func_num._metrics.values():
+        metric.set(0)
+    for metric in seafevents_file_activity_func_num._metrics.values():
+        metric.set(0)
+    return metric_info
