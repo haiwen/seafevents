@@ -11,7 +11,7 @@ from seafevents.app.event_redis import redis_cache, RedisClient, REDIS_METRIC_KE
 local_metric = {'metrics': {}}
 
 NODE_NAME = os.environ.get('NODE_NAME', 'default')
-
+METRIC_CHANNEL_NAME = "metic-channel"
 
 ### metrics decorator
 def seasearch_index_timing_decorator(func):
@@ -31,7 +31,7 @@ def seasearch_index_timing_decorator(func):
         duration_seconds = end_time - start_time
         publish_metric['metric_value'] = round(duration_seconds, 3)
         if ENABLE_METRIC:
-            redis_client.publish("metric-channel", json.dumps(publish_metric))
+            redis_client.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))
     return wrapper
 
 
@@ -75,7 +75,7 @@ class MetricTask(Thread):
 
     def run(self):
         logging.info('Starting handle redis channel')
-        subscriber = self._redis_client.get_subscriber('metric-channel')
+        subscriber = self._redis_client.get_subscriber(METRIC_CHANNEL_NAME)
 
         while not self._finished.is_set():
             try:
@@ -94,7 +94,7 @@ class MetricTask(Thread):
                     time.sleep(0.5)
             except Exception as e:
                 logging.error('Failed handle metrics: %s' % e)
-                subscriber = self._redis_client.get_subscriber('metric-channel')
+                subscriber = self._redis_client.get_subscriber(METRIC_CHANNEL_NAME)
 
 
 class MetricRedisRecorder(object):

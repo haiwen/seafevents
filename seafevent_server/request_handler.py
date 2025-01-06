@@ -11,7 +11,7 @@ from seafevents.seasearch.index_task.index_task_manager import index_task_manage
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
 from seafevents.app.event_redis import redis_cache
-from seafevents.events.metrics import NODE_NAME
+from seafevents.events.metrics import NODE_NAME, METRIC_CHANNEL_NAME
 
 
 
@@ -30,7 +30,7 @@ def publish_io_qsize_metric(qsize):
         }
     }
     if ENABLE_METRIC:
-        redis_cache.publish('metric-channel', json.dumps(publish_metric))
+        redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))
 
 
 def check_auth_token(req):
