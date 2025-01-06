@@ -5,7 +5,7 @@ import datetime
 import logging
 from threading import Thread, Event
 from seafevents.app.config import ENABLE_METRIC
-from seafevents.app.event_redis import redis_cache, RedisClient
+from seafevents.app.event_redis import redis_cache, RedisClient, REDIS_METRIC_KEY
 
 
 local_metric = {'metrics': {}}
@@ -36,7 +36,7 @@ def seasearch_index_timing_decorator(func):
 
 
 def format_metrics(cache):
-    metrics = cache.get('metrics')
+    metrics = cache.get(REDIS_METRIC_KEY)
     if not metrics:
         return ''
     metrics = json.loads(metrics)
@@ -84,7 +84,7 @@ class MetricTask(Thread):
                     metric_data = json.loads(message['data'])
                     try:
                         key_name = metric_data.get('instance_name') + ':' + metric_data.get('node_name') + ':' + metric_data.get('metric_name')
-                        metric_details = metric_data.get('details')
+                        metric_details = metric_data.get('details', {})
                         metric_details['metric_value'] = metric_data.get('metric_value')
                         # global
                         local_metric['metrics'][key_name] = metric_details
@@ -121,7 +121,7 @@ class MetricRedisCollect(Thread):
             if not self.finished.is_set():
                 try:
                     if local_metric.get('metrics'):
-                        redis_cache.create_or_update('metrics', local_metric.get('metrics'))
+                        redis_cache.create_or_update(REDIS_METRIC_KEY, local_metric.get('metrics'))
                         local_metric['metrics'].clear()
                 except Exception as e:
                     logging.exception('metric collect error: %s', e)

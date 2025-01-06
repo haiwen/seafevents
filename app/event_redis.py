@@ -103,9 +103,9 @@ class RedisCache(object):
         return self._redis_client.delete(key)
 
     def acquire_lock(self):
-        lock_value = str(uuid.uuid4())  # 创建一个唯一的锁标识
-        if self._redis_client.setnx(LOCK_NAME, lock_value):  # 获取锁
-            self._redis_client.expire(LOCK_NAME, timeout=10)  # 设置锁的过期时间，避免死锁
+        lock_value = str(uuid.uuid4())  # create  lock id
+        if self._redis_client.setnx(LOCK_NAME, lock_value):  # get lock
+            self._redis_client.expire(LOCK_NAME, timeout=10)  # set lock
             return lock_value
         return None
 
