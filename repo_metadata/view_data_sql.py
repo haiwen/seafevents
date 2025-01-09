@@ -269,7 +269,7 @@ class SingleSelectOperator(Operator):
         for op in options:
             if op.get('id') == option_id:
                 return op.get('name')
-        raise SQLGeneratorOptionInvalidError('option is invalid.')
+        return ''
 
     def op_is(self):
         if not self.filter_term:
@@ -302,7 +302,7 @@ class SingleSelectOperator(Operator):
         if not isinstance(filter_term, list):
             filter_term = [filter_term, ]
         filter_term = [self._get_option_name_by_id(f) for f in filter_term]
-        option_names = ["'%s'" % (op_name) for op_name in filter_term]
+        option_names = ["'%s'" % (op_name) for op_name in filter_term if op_name]
         if not option_names:
             return ""
         return "`%(column_name)s` in (%(option_names)s)" % ({
@@ -317,7 +317,7 @@ class SingleSelectOperator(Operator):
         if not isinstance(filter_term, list):
             filter_term = [filter_term, ]
         filter_term = [self._get_option_name_by_id(f) for f in filter_term]
-        option_names = ["'%s'" % (op_name) for op_name in filter_term]
+        option_names = ["'%s'" % (op_name) for op_name in filter_term if op_name]
         if not option_names:
             return ""
         return "`%(column_name)s` not in (%(option_names)s)" % ({
@@ -346,13 +346,13 @@ class MultipleSelectOperator(Operator):
         for op in options:
             if op.get('id') == option_id:
                 return op.get('name')
-        raise SQLGeneratorOptionInvalidError('option is invalid')
+        return ''
 
     def op_has_any_of(self):
         if not self.filter_term:
             return ""
         filter_term = [self._get_option_name_by_id(f) for f in self.filter_term]
-        option_names = ["'%s'" % op_name for op_name in filter_term]
+        option_names = ["'%s'" % op_name for op_name in filter_term if op_name]
         option_names_str = ', '.join(option_names)
         return "`%(column_name)s` in (%(option_names_str)s)" % ({
             "column_name": self.column_name,
@@ -363,7 +363,7 @@ class MultipleSelectOperator(Operator):
         if not self.filter_term:
             return ""
         filter_term = [self._get_option_name_by_id(f) for f in self.filter_term]
-        option_names = ["'%s'" % op_name for op_name in filter_term]
+        option_names = ["'%s'" % op_name for op_name in filter_term if op_name]
         option_names_str = ', '.join(option_names)
         return "`%(column_name)s` has none of (%(option_names_str)s)" % ({
             "column_name": self.column_name,
@@ -374,7 +374,7 @@ class MultipleSelectOperator(Operator):
         if not self.filter_term:
             return ""
         filter_term = [self._get_option_name_by_id(f) for f in self.filter_term]
-        option_names = ["'%s'" % op_name for op_name in filter_term]
+        option_names = ["'%s'" % op_name for op_name in filter_term if op_name]
         option_names_str = ', '.join(option_names)
         return "`%(column_name)s` has all of (%(option_names_str)s)" % ({
             "column_name": self.column_name,
@@ -385,7 +385,7 @@ class MultipleSelectOperator(Operator):
         if not self.filter_term:
             return ""
         filter_term = [self._get_option_name_by_id(f) for f in self.filter_term]
-        option_names = ["'%s'" % op_name for op_name in filter_term]
+        option_names = ["'%s'" % op_name for op_name in filter_term if op_name]
         option_names_str = ', '.join(option_names)
         return "`%(column_name)s` is exactly (%(option_names_str)s)" % ({
             "column_name": self.column_name,
