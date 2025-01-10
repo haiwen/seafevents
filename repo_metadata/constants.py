@@ -137,6 +137,8 @@ class DurationFormatsType(object):
 class ViewType(object):
     TABLE = 'table'
     GALLERY = 'gallery'
+    MAP = 'map'
+    KANBAN = 'kanban'
 
 
 METADATA_OP_LIMIT = 1000
