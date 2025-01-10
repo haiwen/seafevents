@@ -8,7 +8,7 @@ logger = logging.getLogger('seafevents')
 
 
 def get_ccnet_db_name():
-    return os.environ.get('SEAFILE_MYSQL_DB_CCNET_DB_NAME', '') or 'ccnet_db'
+    return os.environ.get('SEAFILE_MYSQL_DB_CCNET_DB_NAME', '') or 'SYSDBA'
 
 
 class CcnetDB(object):
@@ -88,7 +88,7 @@ class CcnetDB(object):
         sql = f"""
             SELECT * 
             FROM
-                `{self.db_name}`.`Group`
+                {self.db_name}.Group
             WHERE
                 group_id IN ({group_ids_str})
         """
@@ -105,7 +105,7 @@ class CcnetDB(object):
 
     def get_org_user_count(self, org_id):
         sql = f"""
-        SELECT COUNT(1) FROM `{self.db_name}`.`OrgUser` WHERE org_id={org_id}
+        SELECT COUNT(1) FROM {self.db_name}.OrgUser WHERE org_id={org_id}
         """
         with self.ccnet_db_cursor as cursor:
             cursor.execute(sql)
@@ -114,7 +114,7 @@ class CcnetDB(object):
 
     def get_user_role(self, email):
         sql = f"""
-        SELECT role FROM `{self.db_name}`.`UserRole`
+        SELECT role FROM {self.db_name}.UserRole
         WHERE email="{email}"
         """
         with self.ccnet_db_cursor as cursor:
