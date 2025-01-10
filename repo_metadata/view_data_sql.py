@@ -1224,7 +1224,7 @@ class SQLGenerator(object):
                     continue
                 filters.append(filter_item)
             elif column_key == PrivatePropertyKeys.FILE_TYPE:
-                if view_type == ViewType.GALLERY:
+                if view_type == ViewType.GALLERY or view_type == ViewType.MAP:
                     filter_term = filter_item.get('filter_term', 'picture')
                     if filter_term == 'picture':
                         filter_item['filter_term'] = '_picture'
