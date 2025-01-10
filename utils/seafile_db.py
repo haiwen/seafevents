@@ -18,9 +18,11 @@ def get_seafile_db_name():
     config.read(seafile_conf_path)
 
     if config.has_section('database'):
-        db_name = config.get('database', 'db_name', fallback='seafile')
+        # 暂时的调整，
+        # db_name = config.get('database', 'db_name', fallback='seafile')
+        db_name = config.get('database', 'user', fallback='seafile')
     else:
-        db_name = 'seafile'
+        db_name = 'sysdba'
 
     if config.get('database', 'type') != 'mysql':
         error_msg = 'Failed to init seafile db, only mysql db supported.'
@@ -72,6 +74,7 @@ class SeafileDB(object):
         db_port = seafile_config.getint('database', 'port', fallback=3306)
         db_user = seafile_config.get('database', 'user')
         db_passwd = seafile_config.get('database', 'password')
+        # 也需要改掉，不能用pymysql，改成能适配达梦数据库的形式
 
         try:
             self.seafile_db_conn = pymysql.connect(host=db_host, port=db_port, user=db_user,
@@ -100,15 +103,15 @@ class SeafileDB(object):
         repo_ids_str = ','.join(["'%s'" % str(repo_id) for repo_id in repo_ids])
         sql1 = f"""
         SELECT r.repo_id, name, owner_id
-        FROM `{self.db_name}`.`RepoInfo` r
-        LEFT JOIN `{self.db_name}`.`RepoOwner` o 
+        FROM {self.db_name}.RepoInfo r
+        LEFT JOIN {self.db_name}.RepoOwner o 
         ON o.repo_id = r.repo_id
         WHERE r.repo_id IN ({repo_ids_str})
         """
         sql2 = f"""
         SELECT r.repo_id, name, user
-        FROM `{self.db_name}`.`RepoInfo` r
-        LEFT JOIN `{self.db_name}`.`OrgRepo` o 
+        FROM {self.db_name}.RepoInfo r
+        LEFT JOIN {self.db_name}.OrgRepo o 
         ON o.repo_id = r.repo_id
         WHERE r.repo_id IN ({repo_ids_str})
         """
@@ -129,10 +132,10 @@ class SeafileDB(object):
 
     def reset_download_rate_limit(self):
         sql1 = f"""
-                TRUNCATE TABLE `{self.db_name}`.`UserDownloadRateLimit`;
+                TRUNCATE TABLE {self.db_name}.UserDownloadRateLimit;
                 """
         sql2 = f"""
-                TRUNCATE TABLE `{self.db_name}`.`OrgDownloadRateLimit`
+                TRUNCATE TABLE {self.db_name}.OrgDownloadRateLimit
                 """
         with self.seafile_db_cursor as cursor:
             cursor.execute(sql1)
