@@ -36,6 +36,20 @@ def create_engine_from_conf(config_file):
         db_url = "mysql+pymysql://%s:%s@%s:%s/%s?charset=utf8" % \
                  (db_username, quote_plus(db_passwd),
                  db_server, db_port, db_name)
+
+    elif backend == 'dm':
+        db_server = 'localhost'
+        db_port = 5236
+
+        if seaf_conf.has_option('database', 'host'):
+            db_server = seaf_conf.get('database', 'host')
+        if seaf_conf.has_option('database', 'port'):
+            db_port = seaf_conf.getint('database', 'port')
+        db_username = seaf_conf.get('database', 'user')
+        db_passwd = seaf_conf.get('database', 'password')
+        db_name = seaf_conf.get('database', 'user')
+        db_url = "dm+dmPython://%s:%s@%s:%s?schema=%s" % (db_username, quote_plus(db_passwd),
+                                                   db_server, db_port, db_name)
     else:
         logger.critical("Unknown Database backend: %s" % backend)
         raise RuntimeError("Unknown Database backend: %s" % backend)
@@ -57,7 +71,7 @@ def init_db_session_class(config_file):
     except (configparser.NoOptionError, configparser.NoSectionError) as e:
         logger.error(e)
         raise RuntimeError("invalid config file %s", config_file)
-    
+
     Session = sessionmaker(bind=engine)
     return Session
 
@@ -74,6 +88,6 @@ def ping_connection(dbapi_connection, connection_record, connection_proxy): # py
     except:
         logger.info('fail to ping database server, disposing all cached connections')
         connection_proxy._pool.dispose() # pylint: disable=protected-access
-    
+
         # Raise DisconnectionError so the pool would create a new connection
         raise DisconnectionError()
