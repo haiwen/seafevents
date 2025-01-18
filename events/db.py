@@ -61,7 +61,7 @@ def _get_user_activities(session, username, start, limit):
     if limit <= 0:
         logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
-    
+
     sub_query = (
         select(UserActivity.activity_id)
         .where(UserActivity.username == username)
@@ -85,7 +85,7 @@ def _get_user_activities_by_op_user(session, username, op_user, start, limit):
     if limit <= 0:
         logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
-    
+
     sub_query = (
         select(UserActivity.activity_id)
         .where(UserActivity.username == username)
@@ -199,9 +199,10 @@ def get_file_history_by_day(session, repo_id, path, start, limit, to_tz, history
     repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
     current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
                                    order_by(desc(FileHistory.id)).limit(1)).first()
-    
+
     new_events = []
     if current_item:
+        # convert_tz 需要改，但是接口是sdoc的接口，需要配好sdoc后再测试
         query_stmt = select(
                 FileHistory.id, FileHistory.op_type, FileHistory.op_user, FileHistory.timestamp, FileHistory.repo_id, FileHistory.commit_id,
                 FileHistory.file_id, FileHistory.file_uuid, FileHistory.path, FileHistory.repo_id_path_md5, FileHistory.size, FileHistory.old_path,
@@ -244,8 +245,9 @@ def get_file_daily_history_detail(session, repo_id, path, start_time, end_time, 
     repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
     current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
                                    order_by(desc(FileHistory.id)).limit(1)).first()
-    
+
     details = list()
+    # convert_tz 需要改，但是接口是sdoc的接口，需要配好sdoc后再测试
     try:
         q = select(FileHistory.id, FileHistory.op_type, FileHistory.op_user, FileHistory.timestamp, FileHistory.repo_id, FileHistory.commit_id,
                 FileHistory.file_id, FileHistory.file_uuid, FileHistory.path, FileHistory.repo_id_path_md5, FileHistory.size, FileHistory.old_path,
@@ -271,8 +273,20 @@ def save_user_activity(session, record):
     session.commit()
 
 def save_repo_trash(session, record):
-    repo_trash = FileTrash(record)
-    session.add(repo_trash)
+    user = record['op_user']
+    obj_type = record['obj_type']
+    obj_id = record.get('obj_id', "")
+    obj_name = record['obj_name']
+    delete_time = record['timestamp']
+    repo_id = record['repo_id']
+    path = record['path']
+    commit_id = record.get('commit_id', None)
+    size = record.get('size', 0)
+
+    sql = f"""INSERT INTO FileTrash ("user", obj_type, obj_id, obj_name, delete_time, repo_id, commit_id, path, "size")
+     VALUES ('{user}', '{obj_type}', '{obj_id}', '{obj_name}', '{delete_time}', '{repo_id}', '{commit_id}', '{path}', {size})"""
+
+    session.execute(text(sql))
     session.commit()
 
 def restore_repo_trash(session, record):
@@ -291,7 +305,7 @@ def clean_up_repo_trash(session, repo_id, keep_days):
         stmt = delete(FileTrash).where(FileTrash.repo_id == repo_id, FileTrash.delete_time < _timestamp)
         session.execute(stmt)
         session.commit()
-        
+
 def clean_up_all_repo_trash(session, keep_days):
     if keep_days == 0:
         stmt = delete(FileTrash)
@@ -314,10 +328,12 @@ def update_user_activity_timestamp(session, activity_id, record):
     session.commit()
 
 def update_file_history_record(session, history_id, record):
-    stmt = update(FileHistory).where(FileHistory.id == history_id).\
-        values(timestamp=record["timestamp"], file_id=record["obj_id"],
-               commit_id=record["commit_id"], size=record["size"])
-    session.execute(stmt)
+    timestamp = record["timestamp"]
+    file_id = record["obj_id"]
+    commit_id = record["commit_id"]
+    size = record["size"]
+    sql = f"""UPDATE FileHistory SET timestamp='{timestamp}', file_id='{file_id}', commit_id='{commit_id}', "size"={size} WHERE id='{history_id}'"""
+    session.execute(text(sql))
     session.commit()
 
 def query_prev_record(session, record):
@@ -366,8 +382,22 @@ def save_filehistory(session, fh_threshold, record):
             file_uuid = uuid.uuid4().__str__()
         record['file_uuid'] = file_uuid
 
-    filehistory = FileHistory(record)
-    session.add(filehistory)
+    op_type = record['op_type']
+    op_user = record['op_user']
+    timestamp = record['timestamp']
+    repo_id = record['repo_id']
+    commit_id = record.get('commit_id', '')
+    file_id = record.get('obj_id')
+    file_uuid = record.get('file_uuid')
+    path = record['path']
+    repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
+    size = record.get('size')
+    old_path = record.get('old_path', '')
+
+    sql = f"""INSERT INTO FileHistory (op_type, op_user, timestamp, repo_id, commit_id, file_id, file_uuid, path, repo_id_path_md5, "size", old_path) VALUES 
+        ('{op_type}', '{op_user}', '{timestamp}', '{repo_id}', '{commit_id}', '{file_id}', '{file_uuid}', '{path}', '{repo_id_path_md5}', {size}, '{old_path}')"""
+
+    session.execute(text(sql))
     session.commit()
 
 
@@ -376,9 +406,11 @@ def save_file_update_event(session, timestamp, user, org_id, repo_id,
     if timestamp is None:
         timestamp = datetime.datetime.utcnow()
 
-    event = FileUpdate(timestamp, user, org_id, repo_id, commit_id, file_oper)
-    session.add(event)
+    sql = f"""INSERT INTO FileUpdate (timestamp, "user", org_id, repo_id, commit_id, file_oper) VALUES
+     ('{timestamp}', '{user}', {org_id}, '{repo_id}', '{commit_id}', '{file_oper}')"""
+    session.execute(text(sql))
     session.commit()
+
 
 def get_events(session, obj, username, org_id, repo_id, file_path, start, limit):
     if start < 0:
@@ -428,10 +460,10 @@ def save_file_audit_event(session, timestamp, etype, user, ip, device,
     if timestamp is None:
         timestamp = datetime.datetime.utcnow()
 
-    file_audit = FileAudit(timestamp, etype, user, ip, device, org_id,
-                           repo_id, file_path)
-
-    session.add(file_audit)
+    sql = f"""INSERT INTO FileAudit (timestamp, etype, "user", ip, device, org_id,
+                           repo_id, file_path) VALUES 
+        ('{timestamp}', '{etype}', '{user}', '{ip}', '{device}', {org_id}, '{repo_id}', '{file_path}')"""
+    session.execute(text(sql))
     session.commit()
 
 def save_perm_audit_event(session, timestamp, etype, from_user, to,
@@ -439,10 +471,10 @@ def save_perm_audit_event(session, timestamp, etype, from_user, to,
     if timestamp is None:
         timestamp = datetime.datetime.utcnow()
 
-    perm_audit = PermAudit(timestamp, etype, from_user, to, org_id,
-                           repo_id, file_path, perm)
-
-    session.add(perm_audit)
+    sql = f"""INSERT INTO PermAudit (timestamp, etype, from_user, "to", org_id, 
+                                   repo_id, file_path, permission) VALUES 
+                ('{timestamp}', '{etype}', '{from_user}', '{to}', {org_id}, '{repo_id}', '{file_path}', '{perm}')"""
+    session.execute(text(sql))
     session.commit()
 
 def get_perm_audit_events(session, from_user, org_id, repo_id, start, limit):
