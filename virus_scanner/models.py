@@ -5,7 +5,7 @@ from seafevents.db import Base
 
 
 class VirusScanRecord(Base):
-    __tablename__ = 'VirusScanRecord'
+    __tablename__ = 'VIRUSSCANRECORD'
 
     repo_id = mapped_column(String(length=36), nullable=False, primary_key=True)
     scan_commit_id = mapped_column(String(length=40), nullable=False)
@@ -18,7 +18,7 @@ class VirusScanRecord(Base):
 
 
 class VirusFile(Base):
-    __tablename__ = 'VirusFile'
+    __tablename__ = 'VIRUSFILE'
 
     vid = mapped_column(Integer, primary_key=True, autoincrement=True)
     repo_id = mapped_column(String(length=36), nullable=False, index=True)
