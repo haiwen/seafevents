@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
+os.environ['DJANGO_SETTINGS_MODULE'] = 'seahub.settings'  # set env for repo monitor cache
+from gevent import monkey; monkey.patch_all()
+
 import logging
 import argparse
 
@@ -32,7 +35,6 @@ def main(background_tasks_only=False):
 
     os.environ['EVENTS_CONFIG_FILE'] = os.path.expanduser(args.config_file)
     seafile_conf_path = os.path.join(seafile_conf_dir, 'seafile.conf')
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'seahub.settings'  # set env for repo monitor cache
 
     seafile_config = get_config(seafile_conf_path)
     config = get_config(args.config_file)
@@ -62,8 +64,6 @@ def main(background_tasks_only=False):
     elif is_cluster_enabled(seafile_config):
         foreground_tasks_enabled = True
         background_tasks_enabled = False
-
-    from gevent import monkey; monkey.patch_all()
 
     app = App(config, seafile_config, foreground_tasks_enabled=foreground_tasks_enabled,
               background_tasks_enabled=background_tasks_enabled)
