@@ -1,3 +1,4 @@
+import os
 import logging
 import logging.handlers
 import sys
@@ -50,9 +51,16 @@ class LogConfigurator(object):
 
     def add_face_recognition_logger(self, logfile):
         logger = logging.getLogger('face_recognition')
-        handler = logging.handlers.TimedRotatingFileHandler(logfile, when='W0', interval=1)
+        
+        seafile_log_to_stdout = os.getenv('SEAFILE_LOG_TO_STDOUT', 'false') == 'true'
+        if seafile_log_to_stdout:
+            handler = logging.StreamHandler(sys.stdout)
+            formatter = logging.Formatter('[face_recognition][%(asctime)s] [%(levelname)s] %(message)s')
+        else:
+            handler = logging.handlers.TimedRotatingFileHandler(logfile, when='W0', interval=1)
+            formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s')
+
         handler.setLevel(self._level)
-        formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s')
         handler.setFormatter(formatter)
 
         logger.setLevel(self._level)

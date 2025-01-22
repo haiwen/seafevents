@@ -87,8 +87,12 @@ class SendSeahubEmailTimer(Thread):
                         manage_py,
                         'send_notices',
                     ]
-                    with open(self._logfile, 'a') as fp:
-                        run(cmd, cwd=SEAHUB_DIR, output=fp)
+                    seafile_log_to_stdout = os.getenv('SEAFILE_LOG_TO_STDOUT', 'false') == 'true'
+                    if seafile_log_to_stdout:
+                        run(cmd, cwd=SEAHUB_DIR)
+                    else:
+                        with open(self._logfile, 'a') as fp:
+                            run(cmd, cwd=SEAHUB_DIR, output=fp)
                 except Exception as e:
                     logging.exception('error when send email: %s', e)
 
