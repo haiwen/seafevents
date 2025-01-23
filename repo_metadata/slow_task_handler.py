@@ -89,7 +89,7 @@ class SlowTaskHandler(object):
             self.extract_file_info(repo_id, data)
 
     def extract_file_info(self, repo_id, data):
-        logger.info('%s start extract file info repo %s' % (threading.currentThread().getName(), repo_id))
+        logger.info('%s start extract file info repo %s' % (threading.current_thread().name, repo_id))
 
         try:
             obj_ids = data.get('obj_ids')
@@ -97,4 +97,4 @@ class SlowTaskHandler(object):
         except Exception as e:
             logger.exception('repo: %s, update metadata file info error: %s', repo_id, e)
 
-        logger.info('%s finish extract file info repo %s' % (threading.currentThread().getName(), repo_id))
+        logger.info('%s finish extract file info repo %s' % (threading.current_thread().name, repo_id))

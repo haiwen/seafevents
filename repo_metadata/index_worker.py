@@ -109,7 +109,7 @@ class RepoMetadataIndexWorker(object):
             if mq.set(self._get_face_cluster_lock_key(repo_id), time.time(),
                       ex=self.LOCK_TIMEOUT, nx=True):
                 # get lock
-                face_recognition_logger.info('%s start face cluster repo %s' % (threading.currentThread().getName(), repo_id))
+                face_recognition_logger.info('%s start face cluster repo %s' % (threading.current_thread().name, repo_id))
                 lock_key = self._get_face_cluster_lock_key(repo_id)
                 self.locked_keys.add(lock_key)
                 self.update_face_cluster(repo_id, username)

@@ -88,7 +88,7 @@ class WikiIndexLocal(object):
                 if NO_TASKS:
                     logger.debug(
                         "Queue is empty, %s worker threads stop"
-                        % (threading.currentThread().getName())
+                        % (threading.current_thread().name)
                     )
                     break
                 else:
@@ -105,12 +105,12 @@ class WikiIndexLocal(object):
 
         logger.info(
             "%s worker updated at %s time"
-            % (threading.currentThread().getName(),
+            % (threading.current_thread().name,
                time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time())))
         )
         logger.info(
             "%s worker get %s error"
-            % (threading.currentThread().getName(),
+            % (threading.current_thread().name,
                 str(self.error_counter))
         )
 

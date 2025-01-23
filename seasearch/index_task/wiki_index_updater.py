@@ -1,8 +1,6 @@
 import logging
-from threading import Thread
+from threading import Thread, Event
 
-from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.schedulers.gevent import GeventScheduler
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.index_store.wiki_index import WikiIndex
 from seafevents.seasearch.index_store.wiki_status_index import WikiStatusIndex
@@ -124,7 +122,7 @@ def update_wiki_indexes(wiki_status_index, wiki_index, index_manager, repo_data)
 
             index_manager.update_wiki_index(repo_id, commit_id, wiki_index, wiki_status_index)
 
-    logger.info("Finish update wiki index")
+    logger.info("Finish updating wiki index")
 
     clear_deleted_wiki(wiki_status_index, wiki_index, index_manager, all_wikis)
 
@@ -137,14 +135,17 @@ class WikiIndexUpdaterTimer(Thread):
         self.index_manager = index_manager
         self.repo_data = repo_data
         self.interval = interval
+        self.finished = Event()
 
     def run(self):
-        sched = GeventScheduler()
-        logging.info('Start to update wiki index...')
-        try:
-            sched.add_job(update_wiki_indexes, IntervalTrigger(seconds=self.interval),
-                          args=(self.wiki_status_index, self.wiki_index, self.index_manager, self.repo_data))
-        except Exception as e:
-            logging.exception('periodical update wiki index error: %s', e)
+        while not self.finished.is_set():
+            self.finished.wait(self.interval)
+            if not self.finished.is_set():
+                logging.info('Start to update wiki index...')
+                try:
+                    update_wiki_indexes(self.wiki_status_index, self.wiki_index, self.index_manager, self.repo_data)
+                except Exception as e:
+                    logging.exception('periodical update wiki index error: %s', e)
 
-        sched.start()
+    def cancel(self):
+        self.finished.set()
