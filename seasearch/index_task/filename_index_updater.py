@@ -1,11 +1,6 @@
 import logging
 import time
 from threading import Thread, Event
-from multiprocessing import Process
-
-from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.schedulers.gevent import GeventScheduler
-from apscheduler.schedulers.background import BackgroundScheduler
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.index_store.repo_file_name_index import RepoFileNameIndex
 from seafevents.seasearch.index_store.repo_status_index import RepoStatusIndex
@@ -16,10 +11,6 @@ from seafevents.utils import parse_bool, get_opt_from_conf_or_env, parse_interva
 
 
 logger = logging.getLogger(__name__)
-
-# logger = logging
-
-# logger.Formatter('[%(asctime)s] [%(levelname)s] %(message)s')
 
 
 class RepoFilenameIndexUpdater(object):
@@ -143,10 +134,7 @@ def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_inde
 
     clear_deleted_repo(repo_status_filename_index, repo_filename_index, index_manager, all_repos)
 
-# from concurrent.futures import ProcessPoolExecutor
-from apscheduler.executors.pool import ProcessPoolExecutor
 
-# class RepoFilenameIndexUpdaterTimer(Process):
 class RepoFilenameIndexUpdaterTimer(Thread):
     def __init__(self, repo_status_filename_index, repo_filename_index, index_manager, repo_data, interval):
         super(RepoFilenameIndexUpdaterTimer, self).__init__()
