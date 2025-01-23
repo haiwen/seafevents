@@ -1,9 +1,6 @@
 import logging
 import time
-from threading import Thread
-
-from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.schedulers.gevent import GeventScheduler
+from threading import Thread, Event
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.index_store.repo_file_name_index import RepoFileNameIndex
 from seafevents.seasearch.index_store.repo_status_index import RepoStatusIndex
@@ -99,7 +96,7 @@ def clear_deleted_repo(repo_status_filename_index, repo_filename_index, index_ma
 
     repo_deleted = set(repo_all) - set(repos)
 
-    logger.info("filename index %d repos need to be deleted." % len(repo_deleted))
+    logger.info("%d repos of filename index need to be deleted." % len(repo_deleted))
     for repo_id in repo_deleted:
         index_manager.delete_repo_filename_index(repo_id, repo_filename_index, repo_status_filename_index)
         logger.info('Repo %s has been deleted from filename index.' % repo_id)
@@ -133,7 +130,7 @@ def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_inde
 
             index_manager.update_library_filename_index(repo_id, commit_id, repo_filename_index, repo_status_filename_index, metadata_query_time)
 
-    logger.info("Finish update filename index")
+    logger.info("Finish updating filename index")
 
     clear_deleted_repo(repo_status_filename_index, repo_filename_index, index_manager, all_repos)
 
@@ -146,14 +143,17 @@ class RepoFilenameIndexUpdaterTimer(Thread):
         self.index_manager = index_manager
         self.repo_data = repo_data
         self.interval = interval
+        self.finished = Event()
 
     def run(self):
-        sched = GeventScheduler()
-        logging.info('Start to update filename index...')
-        try:
-            sched.add_job(update_repo_file_name_indexes, IntervalTrigger(seconds=self.interval),
-                          args=(self.repo_status_filename_index, self.repo_filename_index, self.index_manager, self.repo_data))
-        except Exception as e:
-            logging.exception('periodical update filename index error: %s', e)
+        while not self.finished.is_set():
+            self.finished.wait(self.interval)
+            if not self.finished.is_set():
+                logging.info('starts to update filename index...')
+                try:
+                    update_repo_file_name_indexes(self.repo_status_filename_index, self.repo_filename_index, self.index_manager, self.repo_data)
+                except Exception as e:
+                    logging.exception('periodical update filename index error: %s', e)
 
-        sched.start()
+    def cancel(self):
+        self.finished.set()
