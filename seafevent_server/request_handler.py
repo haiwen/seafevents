@@ -9,6 +9,7 @@ from seafevents.seafevent_server.export_task_manager import event_export_task_ma
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
+from seafevents.face_recognition.face_recognition_manager import face_recognition_manager
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
@@ -269,3 +270,31 @@ def add_convert_wiki_task():
         return make_response((e, 500))
 
     return {'task_id': task_id}, 200
+
+
+@app.route('/update-key-face-photo', methods=['POST'])
+def update_key_photo():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+
+    try:
+        data = json.loads(request.data)
+    except Exception as e:
+        logger.exception(e)
+        return {'error_msg': 'Bad request.'}, 400
+
+    repo_id = data.get('repo_id')
+    people_id = data.get('people_id')
+    obj_id = data.get('obj_id')
+
+    if not repo_id:
+        return {'error_msg': 'repo_id invalid.'}, 400
+    if not people_id:
+        return {'error_msg': 'people_id invalid.'}, 400
+    if not obj_id:
+        return {'error_msg': 'obj_id invalid.'}, 400
+
+    face_recognition_manager.update_key_face_photo(repo_id, people_id, obj_id)
+
+    return {'msg': 'Key Photo updated successfully'}, 200
