@@ -4,7 +4,7 @@ from sqlalchemy.sql.sqltypes import Integer, String, DateTime, Text
 
 from seafevents.db import Base
 
-
+# 数据库模型：内容扫描记录（资料库ID，提交 commit, 扫描时间）
 class ContentScanRecord(Base):
     __tablename__ = 'ContentScanRecord'
 
@@ -20,6 +20,7 @@ class ContentScanRecord(Base):
         self.timestamp = timestamp
 
 
+# 数据库模型：内容扫描结果（资料库ID，路径，扫描平台，扫描结果）
 class ContentScanResult(Base):
     __tablename__ = 'ContentScanResult'
 

@@ -5,6 +5,7 @@ import queue
 import logging
 from .ali_scan import AliScanner
 
+# 工作线程
 class Worker(Thread):
     def __init__(self, platform, key, key_id, region, do_work, task_queue):
         Thread.__init__(self)
@@ -18,7 +19,9 @@ class Worker(Thread):
 
     def run(self):
         while True:
+            # 执行循环
             try:
+                # 从队列中获取任务并执行
                 task = self.task_queue.get()
                 if task is None:
                     break

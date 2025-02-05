@@ -5,6 +5,7 @@ from sqlalchemy import select
 from .models import ContentScanResult
 
 
+# 这个函数从数据库中检索内容扫描结果的列表，支持可选的分页。它接受一个数据库会话并返回一个字典列表，每个字典代表一个内容扫描结果。结果按 `repo_id` 排序。如果提供了 `start` 和 `limit` ，函数返回结果列表的子集。
 def get_content_scan_results(session, start=-1, limit=-1):
     ret = []
     try:

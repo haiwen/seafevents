@@ -33,6 +33,19 @@
 │   └── handlers.py 发布资料库更新事件到消息队列（Redis）
 ```
 
+## 05 content_scanner 内容扫描模块（2018年）
+```
+│   ├── ali_scan.py 调用阿里云提供的病毒扫描接口
+│   ├── content_scan.py 扫描内容（通过计算 repo 的 commit id，进行 diff 操作，判断文件增删改情况，然后调用 API 进行内容扫描）
+│   ├── db.py 从数据库中记录获取扫描信息
+│   ├── log.py 日志设置
+│   ├── main.py: AppArgParser 用于解析内容扫描程序的命令行参数，获取 seafile 配置并开启内容扫描
+│   ├── models.py 数据库模型：内容扫描记录和内容扫描结果
+│   └── thread_pool.py 线程池
+```
+
+
+
 # 未整理
 
 ├── run.sh.template
@@ -53,15 +66,6 @@
 │   ├── log.py
 │   ├── mq_handler.py
 │   └── signal_handler.py
-
-├── content_scanner
-│   ├── ali_scan.py
-│   ├── content_scan.py
-│   ├── db.py
-│   ├── log.py
-│   ├── main.py
-│   ├── models.py
-│   └── thread_pool.py
 
 
 ├── events

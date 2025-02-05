@@ -14,16 +14,23 @@ from seafevents.db import SeafBase, init_db_session_class
 
 ZERO_OBJ_ID = '0000000000000000000000000000000000000000'
 
+# 扫描任务，该任务扫描一个仓库（repo_id）从一个旧的提交（last_commit_id）到一个新的提交（new_commit_id）
+# 不需要扫描全部的 commit 只需要扫描两次提交的 diff
 class ScanTask(object):
     def __init__(self, repo_id, last_commit_id, new_commit_id):
         self.repo_id = repo_id
         self.last_commit_id = last_commit_id
         self.new_commit_id = new_commit_id
 
+# 用来扫描仓库中文件的内容并检测是否存在恶意或不想要的内容。
+# 使用一个第三方API来扫描文件，并将扫描结果存储在数据库中。
+# 获取仓库的 head_commit_id，与上次扫描的 commit_id 比较，如果不相等，进行 diff 和扫描操作。
 ## Get the head_commit_id list from seafile-db.
 ## Compare each head_commit_id with the last scanned commit_id,
 ## if they're not equal, do diff and content scan.
 class ContentScan(object):
+
+    # 使用配置设置和数据库会话初始化ContentScan对象。
     def __init__(self, config, seafile_config):
         self.suffix_list = []
         self.size_limit = 20 * 1024 * 1024
@@ -42,6 +49,7 @@ class ContentScan(object):
             self.platform, self.key, self.key_id, self.region, self.diff_and_scan_content, self.thread_num)
         self.thread_pool.start()
 
+    # 解析配置设置并提取相关信息（后缀、大小限制和平台设置）
     def _parse_config(self, config):
         if config.has_option('CONTENT SCAN', 'suffix'):
             suffix = config.get('CONTENT SCAN', 'suffix').strip(',')
@@ -64,12 +72,14 @@ class ContentScan(object):
         if config.has_option('CONTENT SCAN', 'thread_num'):
             self.thread_num = config.getint('CONTENT SCAN', 'thread_num')
 
+    # 通过调用 do_scan_task 方法开始扫描任务。
     def start(self):
         try:
             self.do_scan_task()
         except Exception as e:
             logging.warning('Error: %s', e)
 
+    # 通过检索仓库列表，对提交进行差异化，并扫描添加和修改的文件。
     def do_scan_task(self):
         logging.info("Start scan task..")
         time_start = time.time()
@@ -88,6 +98,7 @@ class ContentScan(object):
                       VirtualRepo, Branch.repo_id == VirtualRepo.repo_id).where(
                       VirtualRepo.repo_id == null())
         results = seafdb_session.scalars(stmt).all()
+        # 获取仓库列表，对提交进行差异化，并扫描添加和修改的文件
         for row in results:
             repo_id = row.repo_id
             new_commit_id = row.commit_id
@@ -113,6 +124,7 @@ class ContentScan(object):
 
         self.thread_pool.join(stop=True)
 
+    # 使用第三方API，对提交进行差异化，并扫描添加和修改的文件。
     def diff_and_scan_content(self, task, client):
         repo_id = task.repo_id
         last_commit_id = task.last_commit_id
@@ -132,6 +144,7 @@ class ContentScan(object):
         # diff
         version = 1
         new_commit = commit_mgr.load_commit(repo_id, version, new_commit_id)
+
         if new_commit is None:
             version = 0
             new_commit = commit_mgr.load_commit(repo_id, version, new_commit_id)
@@ -149,8 +162,10 @@ class ContentScan(object):
         new_root_id = new_commit.root_id
         last_root_id = last_commit.root_id if last_commit else ZERO_OBJ_ID
 
+        # 获取当前提交和上次提交的 diff
         differ = CommitDiffer(repo_id, version, last_root_id, new_root_id,
                               True, False)
+        # 获取具体的差异文件
         added_files, deleted_files, added_dirs, deleted_dirs, modified_files,\
         renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
 
@@ -258,10 +273,12 @@ class ContentScan(object):
         edb_session.commit()
         edb_session.close()
 
+    # 将扫描任务放入线程池中。此类使用线程池来并发执行扫描任务，这可以提高性能。
     def put_task(self, repo_id, last_commit_id, new_commit_id):
         task = ScanTask(repo_id, last_commit_id, new_commit_id)
         self.thread_pool.put_task(task)
 
+    # 根据文件的大小和后缀检查是否应该扫描文件。
     def should_scan_file(self, fpath, fsize):
         if fsize > self.size_limit:
             return False

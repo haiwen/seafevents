@@ -10,7 +10,10 @@ import logging
 
 MAX_SIZE=25000
 
+# 用于使用阿里云 API 扫描文本内容
 class AliScanner(object):
+
+    # 使用必要的 API 凭据和区域初始化 AliScanner 对象。
     def __init__(self, key, key_id, region,):
         domain = 'green.' + region + '.aliyuncs.com'
         self.clt = client.AcsClient(key_id, key, region)
@@ -18,6 +21,7 @@ class AliScanner(object):
         self.request = TextScanRequest.TextScanRequest()
         self.request.set_accept_format('JSON')
 
+    # 将提供的文本内容分块（每个块至多 MAX_SIZE 字节）进行扫描，并返回扫描结果的字典。
     def scan(self, content):
         try:
             content.decode('utf8')
@@ -51,6 +55,7 @@ class AliScanner(object):
 
         return ret
 
+    # 解析 API 响应并提取扫描结果，返回一个包含任务 ID 和相应标签和建议的字典。
     def parse_response(self, response):
         if response['code'] != 200:
             logging.warning('Error when calling ali API, code: %d', response['code'])
@@ -75,6 +80,7 @@ class AliScanner(object):
 
         return ret
 
+    # 从文本的开头删除无效的 UTF-8 字符，返回第一个有效 UTF-8 字符的偏移量。
     def strip_to_utf8(self, text):
         offset=0
         while text:
