@@ -15,7 +15,7 @@ from seafevents.db import init_db_session_class
 logger = logging.getLogger(__name__)
 
 
-class SlowTaskHandler(object):
+class SlowMetadataTaskHandler(object):
     """ The handler for redis message queue
     """
 
