@@ -6,7 +6,7 @@ from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
 
 from seafevents.repo_metadata.index_master import RepoMetadataIndexMaster
 from seafevents.repo_metadata.index_worker import RepoMetadataIndexWorker
-from seafevents.repo_metadata.slow_task_handler import SlowTaskHandler
+from seafevents.repo_metadata.slow_task_handler import SlowMetadataTaskHandler
 from seafevents.seafevent_server.seafevent_server import SeafEventServer
 from seafevents.app.config import ENABLE_METADATA_MANAGEMENT
 from seafevents.seasearch.index_task.filename_index_updater import RepoFilenameIndexUpdater
@@ -41,7 +41,7 @@ class App(object):
             if ENABLE_METADATA_MANAGEMENT:
                 self._index_master = RepoMetadataIndexMaster(config)
                 self._index_worker = RepoMetadataIndexWorker(config)
-                self._slow_task_handler = SlowTaskHandler(config)
+                self._slow_md_task_handler = SlowMetadataTaskHandler(config)
                 self._face_cluster = FaceCluster(config)
             self._repo_filename_index_updater = RepoFilenameIndexUpdater(config)
             self._es_wiki_index_updater = ESWikiIndexUpdater(config)
@@ -68,7 +68,7 @@ class App(object):
             if ENABLE_METADATA_MANAGEMENT:
                 self._index_master.start()
                 self._index_worker.start()
-                self._slow_task_handler.start()
+                self._slow_md_task_handler.start()
                 self._face_cluster.start()
             self._repo_filename_index_updater.start()
             self._seasearch_wiki_index_updater.start()
