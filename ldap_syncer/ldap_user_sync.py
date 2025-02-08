@@ -32,7 +32,7 @@ def gen_user_virtual_id():
 logger = logging.getLogger('ldap_sync')
 logger.setLevel(logging.DEBUG)
 
-
+# 用户
 class UserObj(object):
     def __init__(self, user_id, email, ctime, is_staff, is_active, role, is_manual_set):
         self.id = user_id
@@ -44,6 +44,7 @@ class UserObj(object):
         self.is_manual_set = is_manual_set
 
 
+# 用户
 class LdapUser(object):
     def __init__(self, user_id, name, dept, uid, cemail,
                  is_staff=0, is_active=1, role='', is_manual_set=False, role_list=None):
@@ -58,7 +59,10 @@ class LdapUser(object):
         self.role_list = role_list
         self.is_manual_set = is_manual_set
 
+# 自动化将 LDAP 服务器和本地数据库之间的用户数据同步的过程，而这种同步可能是针对 Seafile 部署（基于 seafile_api 导入）
 
+# 同步 LDAP 服务器上的用户数据与本地数据库。它继承自 LdapSync 类，负责连接 LDAP 服务器和数据库，获取数据，然后同步两者。
+# 包括添加、更新和删除用户、角色、配置文件和部门。
 class LdapUserSync(LdapSync):
     def __init__(self, settings):
         LdapSync.__init__(self, settings)
@@ -79,6 +83,7 @@ class LdapUserSync(LdapSync):
 
         self.login_attr_email_map = dict()
 
+    # 显示同步结果
     def show_sync_result(self):
         logger.info('''LDAP user sync result: add [%d]user, update [%d]user, deactive [%d]user, add [%d]role, update [%d]role''' %
                      (self.auser, self.uuser, self.duser, self.arole, self.urole))
@@ -89,6 +94,7 @@ class LdapUserSync(LdapSync):
             logger.info('LDAP dept sync result: add [%d]dept, update [%d]dept, '
                          'delete [%d]dept' % (self.adept, self.udept, self.ddept))
 
+    # 添加用户
     def add_profile(self, email, ldap_user):
         # list_in_address_book: django will not apply default value to mysql. it will be processed in ORM.
         field = 'user, nickname, intro, list_in_address_book'
@@ -113,6 +119,7 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to add profile %s to user %s: %s.' %
                             (val, email, e))
 
+    # 添加部门
     def add_dept(self, email, dept):
         try:
             self.cursor.execute('insert into profile_detailedprofile (user,department,telephone) '
@@ -125,6 +132,7 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to add dept %s to user %s: %s.' %
                             (dept, email, e))
 
+    # 更新用户
     def update_profile(self, email, db_user, ldap_user):
         try:
             self.cursor.execute('select is_manually_set_contact_email from profile_profile where user=%s', [email])
@@ -164,6 +172,7 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to update user %s profile: %s.' %
                             (email, e))
 
+    # 更新部门
     def update_dept(self, email, dept):
         try:
             self.cursor.execute('select 1 from profile_detailedprofile where user=%s', [email])
@@ -240,6 +249,14 @@ class LdapUserSync(LdapSync):
             logger.warning('Failed to delete repo_api_token from repo_api_tokens for user %s: %s.' %
                             ( email, e))
 
+    # 这个代码片段从数据库中检索用户数据，并构造一个`LdapUser`对象的字典。以下是简要的说明：
+    # 1. 它查询`social_auth_usersocialauth`表来检索用户名和UID的LDAP提供程序列表。
+    # 2. 它将UID映射到用户名，并检索电子邮件地址列表。
+    # 3. 它查询`EmailUser`表来检索电子邮件地址对应的用户数据（ID、电子邮件、创建时间、员工状态、激活状态、角色和手动设置状态）。
+    # 4. 如果配置了加载额外的用户信息，它会查询`profile_profile`和`profile_detailedprofile`表来检索额外的用户属性（姓名、部门、UID和联系电子邮件）。
+    # 5. 它构造一个字典（`email2attrs`）将电子邮件地址映射到其对应的属性。
+    # 6. 它创建一个字典（`user_data_db`）的`LdapUser`对象，其中每个对象代表一个用户及其属性（姓名、部门、UID、联系电子邮件、员工状态、激活状态、角色和手动设置状态）。
+    # 返回的`user_data_db`字典包含每个用户的`LdapUser`对象。
     def get_data_from_db(self):
         # user_id <-> LdapUser
         providers = list()
@@ -451,6 +468,7 @@ class LdapUserSync(LdapSync):
 
         return user_data_ldap
 
+    # 同步增加用户
     def sync_add_user(self, ldap_user, login_attr):
         virtual_id = gen_user_virtual_id()
         ret = ccnet_api.add_emailuser(virtual_id, '!', 0, 1 if self.settings.activate_user else 0)
@@ -485,6 +503,7 @@ class LdapUserSync(LdapSync):
             self.add_profile(virtual_id, ldap_user)
             self.add_dept(virtual_id, ldap_user.dept)
 
+    # 同步更新用户
     def sync_update_user(self, ldap_user, db_user, email):
         if ldap_user.role:
             if not USE_LDAP_ROLE_LIST_MAPPING:

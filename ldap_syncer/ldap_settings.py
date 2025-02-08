@@ -50,7 +50,9 @@ class LdapConfig(object):
         self.department_name_attr = None
 
 
+# 这个类定义是用于配置和管理LDAP（轻量级目录访问协议）设置的Settings类。
 class Settings(object):
+    # 初始化Settings对象，设置默认值，并从seahub_settings模块中读取常用配置。如果LDAP启用，则设置数据库会话。
     def __init__(self, config, is_test=False):
         # If any of ldap configs allows user-sync/group-sync, user-sync/group-sync task is allowed.
         self.enable_group_sync = False
@@ -95,6 +97,7 @@ class Settings(object):
             if ldap_config.cemail_attr != '':
                 self.load_cemail_attr = True
 
+    # 从seahub_settings模块中读取常用LDAP配置设置，如同步间隔、删除组和部门、用户激活等。
     def read_common_config(self):
         self.sync_interval = self.get_option('LDAP_SYNC_INTERVAL', 60)
         self.del_group_if_not_found = self.get_option('DEL_GROUP_IF_NOT_FOUND', False)
@@ -103,6 +106,7 @@ class Settings(object):
         self.activate_user = self.get_option('ACTIVATE_USER_WHEN_IMPORT', True)
         self.import_new_user = self.get_option('IMPORT_NEW_USER', True)
 
+    # 读取多个LDAP服务器的配置设置，并设置ldap_configs列表。
     def read_multi_server_configs(self, is_test):
         for i in range(2):
             enable_multi_ldap = False
@@ -128,6 +132,7 @@ class Settings(object):
 
             self.ldap_configs.append(ldap_config)
 
+    # 读取LDAP服务器的基本配置设置，如主机、基本DN、用户DN、密码等。
     def read_base_config(self, ldap_config, is_test, enable_multi_ldap=False):
         setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else 'LDAP'
         ldap_config.host = self.get_option('LDAP_SERVER_URL'.replace('LDAP', setting_prefix, 1), '')
@@ -162,6 +167,7 @@ class Settings(object):
         ldap_config.sync_department_from_ou = self.get_option(
             'LDAP_SYNC_DEPARTMENT_FROM_OU'.replace('LDAP', setting_prefix, 1), False)
 
+    # 读取从LDAP服务器同步组的配置设置
     def read_sync_group_config(self, ldap_config, enable_multi_ldap=False):
         setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else 'LDAP'
         ldap_config.group_object_class = self.get_option(
@@ -191,6 +197,7 @@ class Settings(object):
         ldap_config.department_name_attr = self.get_option(
             'LDAP_DEPT_NAME_ATTR'.replace('LDAP', setting_prefix, 1), '')
 
+    # 读取从LDAP服务器同步用户的配置设置
     def read_sync_user_config(self, ldap_config, enable_multi_ldap=False):
         setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else 'LDAP'
         ldap_config.user_object_class = self.get_option(
@@ -218,8 +225,10 @@ class Settings(object):
         ldap_config.auto_reactivate_users = self.get_option(
             'LDAP_AUTO_REACTIVATE_USERS'.replace('LDAP', setting_prefix, 1), False)
 
+    # 返回是否启用用户、组或部门的同步
     def enable_sync(self):
         return self.enable_user_sync or self.enable_group_sync or self.sync_department_from_ou
 
+    # 从seahub_settings模块中获取配置选项，如果没有设置，则返回默认值。
     def get_option(self, name, default):
         return getattr(seahub_settings, name, default)

@@ -37,6 +37,8 @@ class LdapGroupSync(LdapSync):
         logger.info('LDAP group sync result: add [%d]group, update [%d]group, delete [%d]group' %
                      (self.agroup, self.ugroup, self.dgroup))
 
+
+    # get department name
     def get_department_name(self, config, attrs, default_name):
         if config.department_name_attr != '' and config.department_name_attr in attrs and \
            attrs[config.department_name_attr] and \
@@ -46,6 +48,7 @@ class LdapGroupSync(LdapSync):
             department_name = default_name
         return department_name
 
+    # get group data from db
     def get_data_from_db(self):
         grp_data_db = None
         groups = get_ldap_groups(-1, -1)
@@ -122,6 +125,7 @@ class LdapGroupSync(LdapSync):
 
         return ret_data_ldap
 
+    # get posixGroup data
     def get_common_group_data(self, ldap_conn, config):
         grp_data_ldap = {}
 
@@ -423,6 +427,7 @@ class LdapGroupSync(LdapSync):
         return grp_data_ou
 
 
+    # 创建并添加组
     def create_and_add_group_to_db(self, group_uuid, group, grp_uuid_pairs, grp_data_ldap):
         if group.is_department and group_uuid in grp_uuid_pairs:
             return grp_uuid_pairs[group_uuid]
@@ -493,6 +498,7 @@ class LdapGroupSync(LdapSync):
 
         return group_id
 
+    # 同步数据
     def sync_data(self, data_db, data_ldap):
         session = self.settings.db_session()
         uuid_pairs = get_group_uuid_pairs(session)

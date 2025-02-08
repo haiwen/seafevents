@@ -12,6 +12,7 @@ from .ldap_user_sync import LdapUserSync
 
 from seafevents.app.config import  get_config
 
+# 打印搜索结果
 def print_search_result(records):
     if len(records) > 0:
         n = 0
@@ -24,6 +25,7 @@ def print_search_result(records):
     else:
         logging.debug('No record found.')
 
+# 搜索登录属性（打印搜索出的结果）
 def search_login_attr(config, ldap_conn):
     logging.debug('Try to search login attribute [%s].' % config.login_attr)
     if config.user_filter != '':
@@ -52,6 +54,7 @@ def search_login_attr(config, ldap_conn):
 
         print_search_result(users)
 
+# 搜索群组（测试调用这个函数）
 def search_group(config, ldap_conn):
     logging.debug('LDAP group sync is enabled, '
                   'try to search groups using group object class [%s].',
@@ -85,6 +88,7 @@ def search_group(config, ldap_conn):
 
         print_search_result(groups)
 
+# 测试 ldap（创建链接，搜索登录属性，搜索群组，断开连接）
 def test_ldap(settings):
     for config in settings.ldap_configs:
         logging.debug('Try to connect ldap server %s.', config.host)
@@ -103,6 +107,7 @@ def test_ldap(settings):
         ldap_conn.unbind_conn()
         logging.debug('')
 
+# 运行ldap同步（同步用户，同步群组）
 def run_ldap_sync(settings):
     if not settings.enable_sync():
         logging.debug('Both user and group sync are disabled, stop ldap sync.')
@@ -138,9 +143,11 @@ if __name__ == '__main__':
 
     config = get_config(config_file)
     settings = Settings(config, True if arg.test else False)
+
+    # 先获取配置
     if not settings.has_base_info:
         sys.exit()
-
+    # 如果是测试，运行测试脚本；否则运行同步脚本
     if arg.test:
         test_ldap(settings)
     else:

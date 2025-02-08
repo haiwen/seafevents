@@ -44,9 +44,37 @@
 │   └── thread_pool.py 线程池
 ```
 
-
+## 06 ldap_syncer: 实现 LDAP 同步器的功能，包括启动同步过程、处理同步结果、同步用户、同步群组等。
+```
+│   ├── ldap_sync.py：这是 LDAP 同步器的主程序，负责启动同步过程并处理同步结果。
+│   ├── ldap_conn.py：这是 LDAP 连接器，负责建立和管理 LDAP 服务器连接。
+│   ├── ldap_user_sync.py：这是用户同步器，负责同步 LDAP 服务器中的用户信息到 Seafile 中。
+│   ├── ldap_group_sync.py：这是群组同步器，负责同步 LDAP 服务器中的组信息到 Seafile 中。
+│   ├── utils.py：这是工具模块，包含了一些常用的函数和类，例如 bytes2str 函数和 get_group_uuid_pairs 函数。
+│   ├── run_ldap_sync.py：这是一个命令行工具，用于启动 LDAP 同步器。
+```
 
 # 未整理
+
+├── tasks
+│   ├── content_scanner.py
+│   ├── deleted_files_count_cleaner.py
+│   ├── es_wiki_index_updater.py
+│   ├── face_cluster.py
+│   ├── file_updates_sender.py
+│   ├── index_updater.py
+│   ├── ldap_syncer.py
+│   ├── repo_old_file_auto_del_scanner.py
+│   ├── seahub_email_sender.py
+│   ├── statistics.py
+│   ├── virus_scanner.py
+│   └── work_weixin_notice_sender.py
+
+├── events
+│   ├── change_file_path.py
+│   ├── db.py
+│   ├── handlers.py
+│   └── models.py
 
 ├── run.sh.template
 ├── seafevents_api.py
@@ -66,25 +94,6 @@
 │   ├── log.py
 │   ├── mq_handler.py
 │   └── signal_handler.py
-
-
-├── events
-│   ├── change_file_path.py
-│   ├── db.py
-│   ├── handlers.py
-│   └── models.py
-
-
-├── ldap_syncer
-│   ├── ldap_conn.py
-│   ├── ldap_group_sync.py
-│   ├── ldap_settings.py
-│   ├── ldap_sync.py
-│   ├── ldap_user_sync.py
-│   ├── run_ldap_sync.py
-│   └── utils.py
-
-
 
 
 ├── repo_data
@@ -146,19 +155,7 @@
 │       └── seasearch_api.py
 
 
-├── tasks
-│   ├── content_scanner.py
-│   ├── deleted_files_count_cleaner.py
-│   ├── es_wiki_index_updater.py
-│   ├── face_cluster.py
-│   ├── file_updates_sender.py
-│   ├── index_updater.py
-│   ├── ldap_syncer.py
-│   ├── repo_old_file_auto_del_scanner.py
-│   ├── seahub_email_sender.py
-│   ├── statistics.py
-│   ├── virus_scanner.py
-│   └── work_weixin_notice_sender.py
+
 
 
 ├── tests

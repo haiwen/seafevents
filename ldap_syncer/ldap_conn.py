@@ -8,6 +8,7 @@ class LdapConn(object):
 
     PAGE_SIZE = 100
 
+    # 初始化 LdapConn 对象，需要提供 LDAP 服务器主机、用户 DN、密码和是否跟随引用标志。
     def __init__(self, host, user_dn, passwd, follow_referrals):
         self.host = host
         self.user_dn = user_dn
@@ -15,6 +16,7 @@ class LdapConn(object):
         self.follow_referrals = follow_referrals
         self.conn = None
 
+    # 创建连接到 LDAP 服务器。它设置引用选项并执行简单绑定。
     def create_conn(self):
         self.conn = ldap.initialize(self.host)
         try:
@@ -33,6 +35,7 @@ class LdapConn(object):
             logging.warning('Connect ldap server %s failed, error: %s' %
                             (self.host, e))
 
+    # 在 LDAP 服务器上执行搜索。它需要提供基础 DN、范围、搜索过滤器和属性列表作为参数。它返回搜索结果。
     def search(self, base_dn, scope, search_filter, attr_list):
         if not self.conn:
             return None
@@ -50,6 +53,7 @@ class LdapConn(object):
 
         return result
 
+    # 在 LDAP 服务器上执行分页搜索。它需要提供基础 DN、范围、搜索过滤器和属性列表作为参数。它返回搜索结果。
     def paged_search(self, base_dn, scope, search_filter, attr_list):
         if not self.conn:
             return None
@@ -82,6 +86,7 @@ class LdapConn(object):
 
         return total_result
 
+    # 断开连接到 LDAP 服务器。
     def unbind_conn(self):
         if self.conn:
             self.conn.unbind()

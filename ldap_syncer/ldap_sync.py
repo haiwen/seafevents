@@ -15,22 +15,31 @@ from seafevents.app.config import get_config, seahub_settings
 logger = logging.getLogger(__name__)
 
 
+# 将数据库中的组 DN 对迁移到 LDAP 服务器
 def migrate_dn_pairs(settings):
+    # 从数据库中检索组 DN 对
     grp_dn_pairs = get_group_dn_pairs()
     if grp_dn_pairs is None:
         logger.warning('get group dn pairs from db failed when migrate dn pairs.')
         return
 
+    # 反转组 DN 对的顺序
     grp_dn_pairs.reverse()
+
+    # 对于每个组 DN 对，它连接到 LDAP 服务器（尝试 settings.ldap_configs 中的每个配置）
     for grp_dn_pair in grp_dn_pairs:
         for config in settings.ldap_configs:
+            # 在 LDAP 服务器上执行搜索以检索组 UUID
             search_filter = '(objectClass=*)'
             ldap_conn = LdapConn(config.host, config.user_dn, config.passwd, config.follow_referrals)
             ldap_conn.create_conn()
+
+            # 如果检索组 DN 对或连接到 LDAP 服务器失败，函数会记录警告消息。
             if not ldap_conn.conn:
                 logger.warning('connect ldap server [%s] failed.' % config.user_dn)
                 return
 
+            # 如果搜索成功，它将组 ID 和 UUID 对添加到数据库中。
             if config.use_page_result:
                 results = ldap_conn.paged_search(grp_dn_pair.dn, SCOPE_BASE,
                                                  search_filter,
@@ -50,7 +59,14 @@ def migrate_dn_pairs(settings):
                 add_group_uuid_pair(session, grp_dn_pair.group_id, uuid)
 
 
+# LdapSync 是一个用于同步LDAP（轻量级目录访问协议）数据的线程类。它继承自Python的Thread类，用于在后台运行LDAP同步任务。
+
+# 以下是LdapSync类中各个方法的简要说明：
+
+# 总的来说，LdapSync类负责连接LDAP服务器和数据库，获取数据，然后同步两者。具体的同步逻辑需要在`sync_data`方法中实现。
+
 class LdapSync(Thread):
+    # * `__init__`: 初始化LdapSync实例，设置LDAP同步的配置信息，连接SeaHub和CCNet数据库。
     def __init__(self, settings):
         Thread.__init__(self)
         self.settings = settings
@@ -66,6 +82,7 @@ class LdapSync(Thread):
         if self.ccnet_db_cursor is None:
             raise RuntimeError('Failed to init ccnet db.')
 
+    # * `init_seahub_db` 和 `init_ccnet_db`: 初始化SeaHub和CCNet数据库连接。
     def init_seahub_db(self):
         try:
             import pymysql
@@ -107,6 +124,7 @@ class LdapSync(Thread):
             logger.warning('Failed to init seahub db: %s.' % e)
             return
 
+    # * `close_seahub_db` 和 `close_ccnet_db`: 关闭SeaHub和CCNet数据库连接。
     def close_seahub_db(self):
         if self.cursor:
             self.cursor.close()
@@ -159,15 +177,18 @@ class LdapSync(Thread):
         if self.ccnet_db_conn:
             self.ccnet_db_conn.close()
 
+    # * `run`: 运行LDAP同步任务，包括迁移DN对、启动同步和显示同步结果。
     def run(self):
         if self.settings.enable_group_sync:
             migrate_dn_pairs(settings=self.settings)
         self.start_sync()
         self.show_sync_result()
 
+    # * `show_sync_result`: 显示LDAP同步结果（当前为空实现）。
     def show_sync_result(self):
         pass
 
+    # * `start_sync`: 启动LDAP同步，获取LDAP数据和数据库数据，然后同步两者。
     def start_sync(self):
         data_ldap = self.get_data_from_ldap()
         if data_ldap is None:
@@ -179,9 +200,11 @@ class LdapSync(Thread):
 
         self.sync_data(data_db, data_ldap)
 
+    # * `get_data_from_db`: 获取数据库数据（当前为空实现）。
     def get_data_from_db(self):
         return None
 
+    # * `get_data_from_ldap`: 获取LDAP数据，根据配置信息从多个LDAP服务器获取数据。
     def get_data_from_ldap(self):
         ret = {}
 
@@ -197,6 +220,8 @@ class LdapSync(Thread):
 
         return ret
 
+    # * `get_data_from_ldap_by_server`: 获取单个LDAP服务器的数据（当前为空实现）。
+    # * `sync_data`: 同步数据库数据和LDAP数据（当前为空实现）。
     def get_data_from_ldap_by_server(self, config):
         return None
 
