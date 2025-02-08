@@ -19,24 +19,17 @@ class FileUpdatesSender(object):
         self._logfile = None
         self._timer = None
 
-        self._prepare_logfile()
-
-    def _prepare_logfile(self):
-        log_dir = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''))
-        self._logfile = os.path.join(log_dir, 'file_updates_sender.log')
-
     def start(self):
         logging.info('Start file updates sender, interval = %s sec', self._interval)
 
-        FileUpdatesSenderTimer(self._interval, self._logfile).start()
+        FileUpdatesSenderTimer(self._interval).start()
 
 
 class FileUpdatesSenderTimer(Thread):
 
-    def __init__(self, interval, logfile):
+    def __init__(self, interval):
         Thread.__init__(self)
         self._interval = interval
-        self._logfile = logfile
         self.finished = Event()
 
     def run(self):
@@ -51,8 +44,7 @@ class FileUpdatesSenderTimer(Thread):
                         manage_py,
                         'send_file_updates',
                     ]
-                    with open(self._logfile, 'a') as fp:
-                        run_and_wait(cmd, cwd=SEAHUB_DIR, output=fp)
+                    run_and_wait(cmd, cwd=SEAHUB_DIR)
                 except Exception as e:
                     logging.exception('send file updates email error: %s', e)
 
