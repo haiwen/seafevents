@@ -18,11 +18,6 @@ class SeahubEmailSender(object):
         self._timer = None
 
         self._parse_config(config)
-        self._prepare_logdir()
-
-    def _prepare_logdir(self):
-        logdir = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''))
-        self._logfile = os.path.join(logdir, 'seahub_email_sender.log')
 
     def _parse_config(self, config):
         # Parse send email related options from events.conf
@@ -59,7 +54,7 @@ class SeahubEmailSender(object):
             return
 
         logging.info('seahub email sender is started, interval = %s sec', self._interval)
-        SendSeahubEmailTimer(self._interval, self._logfile).start()
+        SendSeahubEmailTimer(self._interval).start()
 
     def is_enabled(self):
         return self._enabled
@@ -67,10 +62,9 @@ class SeahubEmailSender(object):
 
 class SendSeahubEmailTimer(Thread):
 
-    def __init__(self, interval, logfile):
+    def __init__(self, interval):
         Thread.__init__(self)
         self._interval = interval
-        self._logfile = logfile
         self.finished = Event()
 
     def run(self):
@@ -87,12 +81,7 @@ class SendSeahubEmailTimer(Thread):
                         manage_py,
                         'send_notices',
                     ]
-                    seafile_log_to_stdout = os.getenv('SEAFILE_LOG_TO_STDOUT', 'false') == 'true'
-                    if seafile_log_to_stdout:
-                        run(cmd, cwd=SEAHUB_DIR)
-                    else:
-                        with open(self._logfile, 'a') as fp:
-                            run(cmd, cwd=SEAHUB_DIR, output=fp)
+                    run(cmd, cwd=SEAHUB_DIR)
                 except Exception as e:
                     logging.exception('error when send email: %s', e)
 
