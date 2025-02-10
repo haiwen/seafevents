@@ -272,7 +272,7 @@ def add_convert_wiki_task():
     return {'task_id': task_id}, 200
 
 
-@app.route('/update-key-face-photo', methods=['POST'])
+@app.route('/update-cover-face-photo', methods=['POST'])
 def update_key_photo():
     is_valid, error = check_auth_token(request)
     if not is_valid:
@@ -295,6 +295,10 @@ def update_key_photo():
     if not obj_id:
         return {'error_msg': 'obj_id invalid.'}, 400
 
-    face_recognition_manager.update_key_face_photo(repo_id, people_id, obj_id)
+    try:
+        face_recognition_manager.update_cover_face_photo(repo_id, people_id, obj_id)
+    except Exception as e:
+        logger.error(e)
+        return make_response((e, 500))
 
-    return {'msg': 'Key Photo updated successfully'}, 200
+    return {'success': True}, 200

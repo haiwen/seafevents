@@ -263,7 +263,7 @@ class FaceRecognitionManager(object):
             session.execute(text(sql))
             session.commit()
 
-    def update_key_face_photo(self, repo_id, people_id, obj_id):
+    def update_cover_face_photo(self, repo_id, people_id, obj_id):
         face_image = get_image_face(repo_id, obj_id, self.image_embedding_api, center=None)
         filename = f'{people_id}.jpg'
         save_face(repo_id, face_image, filename, replace=True)

@@ -88,9 +88,9 @@ def main():
 
     seafevents_conf = os.environ.get('EVENTS_CONFIG_FILE')
     config = get_config(seafevents_conf)
-    face_recog_manager = face_recognition_manager.init(config)
+    face_recognition_manager.init(config)
     session = init_db_session_class(config)
-    update_face_info(face_recog_manager, session)
+    update_face_info(face_recognition_manager, session)
 
 
 if __name__ == "__main__":

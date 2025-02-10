@@ -12,7 +12,8 @@ logger = logging.getLogger('face_recognition')
 
 class RepoFaceClusterUpdater(object):
     def __init__(self, config):
-        self._face_recognition_manager = face_recognition_manager.init(config)
+        face_recognition_manager.init(config)
+        self._face_recognition_manager = face_recognition_manager
         self._session = init_db_session_class(config)
         self.mq_server = '127.0.0.1'
         self.mq_port = 6379

@@ -44,7 +44,8 @@ class RepoMetadataIndexWorker(object):
         self._parse_config(config)
 
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
-        self.face_recognition_manager = face_recognition_manager.init(config)
+        face_recognition_manager.init(config)
+        self.face_recognition_manager = face_recognition_manager
         self.set_signal()
 
     def _parse_config(self, config):

@@ -21,7 +21,8 @@ class SlowTaskHandler(object):
 
     def __init__(self, config):
         self.metadata_server_api = MetadataServerAPI('seafevents')
-        self.face_recognition_manager = face_recognition_manager.init(config)
+        face_recognition_manager.init(config)
+        self.face_recognition_manager = face_recognition_manager
 
         self.should_stop = threading.Event()
         self.mq_server = '127.0.0.1'
