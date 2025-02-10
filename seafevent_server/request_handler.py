@@ -273,7 +273,7 @@ def add_convert_wiki_task():
 
 
 @app.route('/update-cover-face-photo', methods=['POST'])
-def update_key_photo():
+def update_cover_photo():
     is_valid, error = check_auth_token(request)
     if not is_valid:
         return make_response((error, 403))
