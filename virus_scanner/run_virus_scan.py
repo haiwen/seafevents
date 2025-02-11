@@ -11,6 +11,7 @@ from seafevents.virus_scanner.virus_scan import VirusScan
 
 from seafevents.app.config import get_config
 
+# 病毒扫描入口函数
 if __name__ == "__main__":
     kw = {
         'format': '[seafevents] [%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(funcName)s %(message)s',
@@ -20,9 +21,11 @@ if __name__ == "__main__":
     }
     logging.basicConfig(**kw)
 
+    # 先获取日志
     from seafevents.virus_scanner.scan_settings import logger
     logger.setLevel(logging.INFO)
 
+    # 处理参数和配置
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config-file',
                         default=os.path.join(os.path.abspath('..'), 'events.conf'),
@@ -35,6 +38,7 @@ if __name__ == "__main__":
     seafile_config = get_config(seafile_conf_path)
 
     setting = Settings(config, seafile_config)
+
     if setting.is_enabled():
         prepare_db_tables(seafile_config)
         VirusScan(setting).start()

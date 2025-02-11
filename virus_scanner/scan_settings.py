@@ -9,6 +9,7 @@ logger = logging.getLogger('virus_scan')
 logger.setLevel(logging.INFO)
 
 
+# 病毒扫描配置（本地配置覆盖默认的配置）
 class Settings(object):
     def __init__(self, config, seafile_config):
         self.enable_scan = False

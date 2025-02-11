@@ -4,6 +4,7 @@ from threading import Thread
 import queue
 from .scan_settings import logger
 
+# 类似文件扫描，使用线程池处理病毒扫描
 class Worker(Thread):
     def __init__(self, do_work, task_queue):
         Thread.__init__(self)

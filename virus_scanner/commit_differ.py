@@ -4,14 +4,21 @@ from seafobj import fs_mgr
 
 ZERO_OBJ_ID = '0000000000000000000000000000000000000000'
 
+# compute the differences between two commits to get scan files
 class CommitDiffer(object):
+
+    # para：repo_id, version, root1, root2
     def __init__(self, repo_id, version, root1, root2):
         self.repo_id = repo_id
         self.version = version
         self.root1 = root1
         self.root2 = root2
 
+    # Compares the directory structures of root1 and root2 and returns a list of files that have been added, modified, or deleted. 
+    # The method uses a breadth-first search approach to traverse the directory trees and identify changes.
+    # 该方法使用广度优先搜索方法遍历目录树并识别更改。
     def diff(self):
+        # scan_files 表示需要扫描的文件，就是 diff tree1 and tree2 中的文件
         scan_files = []
         new_dirs = [] # (path, dir_id)
         queued_dirs = [] # (path, dir_id1, dir_id2)
@@ -21,6 +28,7 @@ class CommitDiffer(object):
         if ZERO_OBJ_ID == self.root2:
             self.root2 = None
 
+        # 如果两个根节点相同，直接返回空扫描文件
         if self.root1 == self.root2:
             return scan_files
         elif not self.root1:
@@ -29,6 +37,7 @@ class CommitDiffer(object):
             queued_dirs.append(('/', self.root1, self.root2))
 
         while True:
+            # 初始化
             path = old_id = new_id = None
             try:
                 path, old_id, new_id = queued_dirs.pop(0)
@@ -76,6 +85,7 @@ class CommitDiffer(object):
 
         return scan_files
 
+# 拼接文件路径
 def make_path(dirname, filename):
     if dirname == '/':
         return dirname + filename

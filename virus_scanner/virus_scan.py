@@ -12,7 +12,7 @@ from .scan_settings import logger
 from seafevents.utils import get_python_executable
 from seafevents.app.config import SEAHUB_DIR
 
-
+# 扫描任务
 class ScanTask(object):
     def __init__(self, repo_id, head_commit_id, scan_commit_id):
         self.repo_id = repo_id
@@ -20,36 +20,45 @@ class ScanTask(object):
         self.scan_commit_id = scan_commit_id
 
 
+# 病毒扫描（主函数）
 class VirusScan(object):
     def __init__(self, settings):
         self.settings = settings
         self.db_oper = DBOper(settings)
 
     def start(self):
+        # 获取扫描的资料库文件列表
         repo_list = self.db_oper.get_repo_list()
         if repo_list is None:
             logger.debug("No repo, skip virus scan.")
             return
 
+        # 开启线程池（执行扫描函数）
         thread_pool = ThreadPool(self.scan_virus, self.settings.threads)
         thread_pool.start()
 
+        # 遍历资料库
         for row in repo_list:
+            # 获取每一个资料库的 commit id
             repo_id, head_commit_id, scan_commit_id = row
 
+            # 如果 commit 没有信息，不需要扫描
             if head_commit_id == scan_commit_id:
                 logger.debug('No change occur for repo %.8s, skip virus scan.', repo_id)
                 continue
 
+            # 放入任务
             thread_pool.put_task(ScanTask(repo_id, head_commit_id, scan_commit_id))
 
         thread_pool.join()
 
+    # 扫描病毒函数
     def scan_virus(self, scan_task):
         try:
             sroot_id = None
             hroot_id = None
 
+            # 获取扫描任务的 commit id
             if scan_task.scan_commit_id:
                 sroot_id = commit_mgr.get_commit_root_id(scan_task.repo_id, 1,
                                                          scan_task.scan_commit_id)
@@ -57,11 +66,14 @@ class VirusScan(object):
                 hroot_id = commit_mgr.get_commit_root_id(scan_task.repo_id, 1,
                                                          scan_task.head_commit_id)
 
+            # 计算 commit diff 获取新增的文件
             differ = CommitDiffer(scan_task.repo_id, 1, sroot_id, hroot_id)
+            # 获取需要扫描的文件
             scan_files = differ.diff()
 
             if len(scan_files) == 0:
                 logger.debug('No change occur for repo %.8s, skip virus scan.', scan_task.repo_id)
+                # 如果不需要扫描，更新扫描记录，并返回
                 self.db_oper.update_vscan_record(scan_task.repo_id, scan_task.head_commit_id)
                 return
             else:
@@ -72,11 +84,15 @@ class VirusScan(object):
             nfailed = 0
             vrecords = []
 
+            # 如果需要扫描文件，遍历文件列表
             for scan_file in scan_files:
                 fpath, fid, fsize = scan_file
+
+                # 如果不需要扫描文件，跳过（根据路径和文件大小）
                 if not self.should_scan_file(fpath, fsize):
                     continue
 
+                # 扫描文件，根据返回值确定扫描结果
                 ret = self.scan_file_virus(scan_task.repo_id, fid, fpath)
 
                 if ret == 0:
@@ -105,15 +121,20 @@ class VirusScan(object):
         except Exception as e:
             logger.warning('Failed to scan virus for repo %.8s: %s.', scan_task.repo_id, e)
 
+    # 扫描某个文件
     def scan_file_virus(self, repo_id, file_id, file_path):
         tfd, tpath = tempfile.mkstemp()
         try:
+            # 获取 seafile 文件 block 列表
             seafile = fs_mgr.load_seafile(repo_id, 1, file_id)
+
+            # 遍历文件列表
             for blk_id in seafile.blocks:
                 os.write(tfd, block_mgr.load_block(repo_id, 1, blk_id))
 
             log_dir = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''))
             logfile = os.path.join(log_dir, 'virus_scan.log')
+
             with open(logfile, 'a') as fp:
                 ret_code = subprocess.call([self.settings.scan_cmd, tpath], stdout=fp, stderr=fp)
 
@@ -127,6 +148,7 @@ class VirusScan(object):
                 os.close(tfd)
                 os.unlink(tpath)
 
+    # 发送邮件
     def send_email(self, vrecords):
         args = ["%s:%s" % (e[0], e[2]) for e in vrecords]
         cmd = [
@@ -136,6 +158,7 @@ class VirusScan(object):
         ] + args
         subprocess.Popen(cmd, cwd=SEAHUB_DIR)
 
+    # 解析扫描结果
     def parse_scan_result(self, ret_code):
         rcode_str = str(ret_code)
 
@@ -149,6 +172,7 @@ class VirusScan(object):
 
         return ret_code
 
+    # 判断是否需要扫描（文件大小和文件类型）
     def should_scan_file(self, fpath, fsize):
         if fsize >= self.settings.scan_size_limit << 20:
             logger.debug('File %s size exceed %sM, skip virus scan.' % (fpath, self.settings.scan_size_limit))

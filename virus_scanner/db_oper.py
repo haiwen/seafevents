@@ -7,10 +7,13 @@ from seafevents.db import SeafBase
 
 
 class DBOper(object):
+    # 使用 settings 对象中的 session_cls 和 seaf_session_cls 初始化 DBOper 对象
     def __init__(self, settings):
         self.edb_session = settings.session_cls
         self.seafdb_session = settings.seaf_session_cls
 
+    # 从数据库中检索存储库列表。
+    # 从 Repo 和 Branch 表中选择 repo_id 和 commit_id，其中 Branch 表的名称为 "master"，且 repo_id 不在 VirtualRepo 表中。
     def get_repo_list(self):
         session = self.seafdb_session()
         repo_list = []
@@ -39,18 +42,22 @@ class DBOper(object):
 
         return repo_list
 
+    # 根据 repo_id 从 VirusScanRecord 表中检索 scan_commit_id。
     def get_scan_commit_id(self, repo_id):
         session = self.edb_session()
         try:
             stmt = select(VirusScanRecord).where(VirusScanRecord.repo_id == repo_id).limit(1)
             r = session.scalars(stmt).first()
             scan_commit_id = r.scan_commit_id if r else None
+            # 三目运算
+            # scan_commit_id = r.scan_commit_id if r else None
             return scan_commit_id
         except Exception as e:
             logger.error(e)
         finally:
             session.close()
 
+    # 根据 repo_id 更新 VirusScanRecord 表中的 scan_commit_id。
     def update_vscan_record(self, repo_id, scan_commit_id):
         session = self.edb_session()
         try:
@@ -70,6 +77,7 @@ class DBOper(object):
         finally:
             session.close()
 
+    # 向 VirusFile 表中添加病毒记录。
     def add_virus_record(self, records):
         session = self.edb_session()
         try:

@@ -54,6 +54,17 @@
 │   ├── run_ldap_sync.py：这是一个命令行工具，用于启动 LDAP 同步器。
 ```
 
+## 07 virus_scanner 病毒扫描（基于资料库 commit 做 diff，用线程池进行扫描）
+```
+    ├── commit_differ.py：比较两个文档树提交之间的差异，返回哪些文件需要进行病毒扫描。
+    ├── db_oper.py：存储和检索病毒扫描结果
+    ├── models.py：存储病毒扫描记录和病毒文件的数据库模型
+    ├── run_virus_scan.py：病毒扫描程序的入口点
+    ├── scan_settings.py：病毒扫描的配置设置，例如扫描命令、扫描间隔等
+    ├── thread_pool.py：线程池，用于并行执行病毒扫描任务
+    └── virus_scan.py：病毒扫描的核心逻辑，负责执行病毒扫描和处理扫描结果
+```
+
 # 未整理
 
 ├── tasks
@@ -176,11 +187,3 @@
 │       ├── ldap_sync_test_helper.py
 │       └── utils.py
 
-└── virus_scanner
-    ├── commit_differ.py
-    ├── db_oper.py
-    ├── models.py
-    ├── run_virus_scan.py
-    ├── scan_settings.py
-    ├── thread_pool.py
-    └── virus_scan.py
