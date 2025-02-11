@@ -12,6 +12,7 @@ from seafevents.events.db import save_user_activity, get_user_activities
 from seafevents.events.models import Activity
 
 
+# 测试文件活动，用户活动情况（创建操作，查看数据库是否有值）
 @pytest.mark.usefixtures("test_db")
 class AcvitityTest(EventTest):
     def setUp(self):

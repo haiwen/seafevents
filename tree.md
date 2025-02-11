@@ -65,6 +65,26 @@
     └── virus_scan.py：病毒扫描的核心逻辑，负责执行病毒扫描和处理扫描结果
 ```
 
+## 08 单元测试 tests
+```
+│   ├── README.md 测试步骤
+│   ├── conftest.py 测试数据库准备和测试（多个数据库SQL语句生成等）
+│   ├── db.conf 测试数据库配置（seahub+seafevent+test DB）
+│   ├── generate_table_sql.py 生成表格的SQL函数（执行 raw_table_sql.sql）
+│   ├── raw_table_sql.sql 测试SQL
+│   ├── events——事件单元测试
+│   │   ├── test_activity.py
+│   │   ├── test_change_file_path.py
+│   │   └── test_filehistory.py
+│   ├── ldap_syncer——同步测试
+│   │   ├── test_ldap_group_syncer.py
+│   │   └── test_ldap_user_syncer.py
+│   └── utils——测试工具函数
+│       ├── events_test_helper.py
+│       ├── ldap_sync_test_helper.py
+│       └── utils.py 
+```
+
 # 未整理
 
 ├── tasks
@@ -164,26 +184,4 @@
 │       ├── commit_differ.py
 │       ├── constants.py
 │       └── seasearch_api.py
-
-
-
-
-
-├── tests
-│   ├── README.md
-│   ├── conftest.py
-│   ├── db.conf
-│   ├── events
-│   │   ├── test_activity.py
-│   │   ├── test_change_file_path.py
-│   │   └── test_filehistory.py
-│   ├── generate_table_sql.py
-│   ├── ldap_syncer
-│   │   ├── test_ldap_group_syncer.py
-│   │   └── test_ldap_user_syncer.py
-│   ├── raw_table_sql.sql
-│   └── utils
-│       ├── events_test_helper.py
-│       ├── ldap_sync_test_helper.py
-│       └── utils.py
 

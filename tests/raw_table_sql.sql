@@ -1,3 +1,6 @@
+-- raw_table_sql.sql文件似乎包含用于创建数据库表的sql语句。
+-- 这些表与代码库的各种功能相关，如ContentScanRecord、ContentScanResult、Event、FileAudit、FileHistory、MonthlySysTraffic和MonthlyUserTraffic。
+
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;

@@ -16,21 +16,27 @@ SEAFEVENTS_DBNAME = ''
 TEST_DBNAME = ''
 
 
+# @yield_fixture 是 Pytest 框架中的一个装饰器，用于定义测试 fixture。
+# scope="module" 的意思是这个 fixture 的作用域是整个测试模块（即整个测试文件）。也就是说，这个 fixture 只会被执行一次，整个测试模块中的所有测试都会共享同一个 fixture 实例。类似于 beforeAll 的语法
 @yield_fixture(scope="module")
 def test_db():
+    # 每个测试用例前，删除全部数据库，然后重新创建数据库
     delete_all_table_if_exists()
     # copy_db_from_seahub_with_no_data()
     # copy_db_from_seafevent_with_no_data()
     apply_tables()
+    # yield 是 Python 中的一个关键字，允许一个函数产生一系列结果，而不是一次性计算所有结果并返回一个列表。
     yield None
     # delete_all_table_if_exists()
 
 def generate_tables_sql():
+    # 获取数据库配置
     seahub_db = read_db_conf('SEAHUBDB')
     seafevents_db = read_db_conf('SEAFEVENTSDB')
     connection_data = [seahub_db[0]]
     connection_data.extend(seahub_db[2:])
     connection_data = tuple(connection_data)
+    # 执行 mysqldump 命令，生成 seahub.sql 和 seafevents.sql 文件
     cmd = "mysqldump -h%s -u%s -p%s --skip-add-locks --no-data --skip-add-drop-table --skip-comments %s > seahub.sql" % connection_data
     cwd = ["bash", "-c", cmd]
     subprocess.check_call(cwd, stdout=None, stderr=None)
@@ -40,6 +46,7 @@ def generate_tables_sql():
     cmd = "mysqldump -h%s -u%s -p%s --skip-add-locks --no-data --skip-add-drop-table --skip-comments %s > seafevents.sql" % connection_data
     cwd = ["bash", "-c", cmd]
     subprocess.check_call(cwd, stdout=None, stderr=None)
+    # 合并 seahub.sql 和 seafevents.sql 文件
     merge_sql_file('raw_table_sql.sql')
 
 def merge_sql_file(filename):
@@ -54,6 +61,7 @@ def apply_tables():
     full_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'raw_table_sql.sql')
     cmd = "mysql -h %s -u%s -p%s %s < %s" % (seafevents_db[0], seafevents_db[2], seafevents_db[3], seafevents_db[4], full_path)
     cwd = ["bash", "-c", cmd]
+    # 执行脚本创建测试 SQL
     try:
         subprocess.check_call(cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     except Exception as e:
@@ -82,6 +90,7 @@ def delete_all_table_if_exists():
         if session:
             session.close()
 
+# 从 seahub seafevents 拷贝数据库
 def copy_db_from_seahub_with_no_data():
     test_session = None
     seahub_session = None
@@ -122,6 +131,7 @@ def copy_db_from_seafevent_with_no_data():
         if test_session:
             test_session.close()
 
+# 获取数据库连接
 def get_db_session(section):
     config = configparser.ConfigParser()
     config.read('./db.conf')
