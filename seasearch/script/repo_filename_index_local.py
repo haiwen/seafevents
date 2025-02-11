@@ -59,7 +59,7 @@ class RepoFileNameIndexLocal(object):
             try:
                 repo_commits = self.repo_data.get_repo_id_commit_id(start, per_size)
             except Exception as e:
-                logger.error("Error: %s" % e)
+                logger.error("get repo id commit id failed, Error: %s" % e)
                 NO_TASKS = True
                 self.clear_worker()
                 return
@@ -70,7 +70,13 @@ class RepoFileNameIndexLocal(object):
 
                 metadata_query_time = time.time()
                 repo_ids = [repo[0] for repo in repo_commits if repo[2] != REPO_TYPE_WIKI]
-                virtual_repos = repo_data.get_virtual_repo_in_repos(repo_ids)
+                try:
+                    virtual_repos = repo_data.get_virtual_repo_in_repos(repo_ids)
+                except Exception as e:
+                    logger.error("get virtual repo failed, Error: %s" % e)
+                    NO_TASKS = True
+                    self.clear_worker()
+                    return
                 virtual_repo_set = {repo[0] for repo in virtual_repos}
 
                 for repo_id, commit_id, repo_type in repo_commits:
