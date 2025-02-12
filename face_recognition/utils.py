@@ -1,5 +1,6 @@
 import base64
 import os
+import json
 import posixpath
 
 from seaserv import seafile_api
@@ -80,7 +81,7 @@ def get_face_embeddings(repo_id, image_embedding_api, obj_ids):
     return embeddings
 
 
-def get_image_face(repo_id, obj_id, image_embedding_api, center):
+def get_image_face(repo_id, obj_id, image_embedding_api, center=None):
     result = image_embedding_api.face_embeddings(repo_id, [obj_id], True).get('data', [])
     if not result:
         return None
@@ -118,10 +119,12 @@ def get_min_cluster_size(faces_num):
     return max(faces_num // 100, 5)
 
 
-def save_face(repo_id, image, filename):
+def save_face(repo_id, image, filename, replace=False):
     tmp_content_path = posixpath.join(FACES_TMP_DIR, filename)
     with open(tmp_content_path, 'wb') as f:
         f.write(image)
 
+    if replace:
+        seafile_api.del_file(repo_id, FACES_SAVE_PATH, json.dumps([filename]), 'system')
     seafile_api.post_file(repo_id, tmp_content_path, FACES_SAVE_PATH, filename, 'system')
     os.remove(tmp_content_path)

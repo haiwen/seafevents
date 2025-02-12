@@ -14,9 +14,9 @@ from seafevents.repo_metadata.constants import METADATA_TABLE, FACES_TABLE
 from seafevents.face_recognition.constants import UNKNOWN_PEOPLE_NAME
 from seafevents.face_recognition.utils import get_faces_rows, get_cluster_by_center, b64encode_embeddings, \
     b64decode_embeddings, VECTOR_DEFAULT_FLAG, get_min_cluster_size, SUPPORTED_IMAGE_FORMATS, EMBEDDING_UPDATE_LIMIT, \
-    save_cluster_face
+    save_cluster_face, get_image_face, save_face
 
-from seaserv import seafile_api, get_org_id_by_repo_id
+from seaserv import seafile_api
 
 logger = logging.getLogger('face_recognition')
 
@@ -257,3 +257,8 @@ class FaceRecognitionManager(object):
                 ["('%s', '%s', '%s', '%s', %s)" % value for value in values])
             session.execute(text(sql))
             session.commit()
+
+    def update_people_cover_photo(self, repo_id, people_id, obj_id):
+        face_image = get_image_face(repo_id, obj_id, self.image_embedding_api, center=None)
+        filename = f'{people_id}.jpg'
+        save_face(repo_id, face_image, filename, replace=True)

@@ -269,3 +269,35 @@ def add_convert_wiki_task():
         return make_response((e, 500))
 
     return {'task_id': task_id}, 200
+
+
+@app.route('/update-people-cover-photo', methods=['POST'])
+def update_cover_photo():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+
+    try:
+        data = json.loads(request.data)
+    except Exception as e:
+        logger.exception(e)
+        return {'error_msg': 'Bad request.'}, 400
+
+    repo_id = data.get('repo_id')
+    people_id = data.get('people_id')
+    obj_id = data.get('obj_id')
+
+    if not repo_id:
+        return {'error_msg': 'repo_id invalid.'}, 400
+    if not people_id:
+        return {'error_msg': 'people_id invalid.'}, 400
+    if not obj_id:
+        return {'error_msg': 'obj_id invalid.'}, 400
+
+    try:
+        app.face_recognition_manager.update_people_cover_photo(repo_id, people_id, obj_id)
+    except Exception as e:
+        logger.error(e)
+        return make_response((e, 500))
+
+    return {'success': True}, 200

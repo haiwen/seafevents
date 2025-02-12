@@ -4,7 +4,7 @@ import os
 import sys
 
 from seafevents.db import init_db_session_class
-from seafevents.repo_metadata.face_recognition_manager import FaceRecognitionManager
+from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 from seafevents.repo_metadata.utils import get_face_recognition_enabled_repo_list, get_faces_rows
 from seafevents.repo_metadata.constants import FACES_TABLE
 from seafevents.app.config import get_config
