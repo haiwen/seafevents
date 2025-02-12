@@ -23,19 +23,14 @@ logger = logging.getLogger('face_recognition')
 
 class FaceRecognitionManager(object):
 
-    def __init__(self):
-        self._db_session_class = None
-        self.metadata_server_api = None
-        self.image_embedding_api = None
-
-    def init(self, config):
-        self._parse_config(config)
-
-    def _parse_config(self, config):
+    def __init__(self, config):
         self._db_session_class = init_db_session_class(config)
         self.metadata_server_api = MetadataServerAPI('seafevents')
         self.image_embedding_api = None
 
+        self._parse_config(config)
+
+    def _parse_config(self, config):
         ai_section_name = 'AI'
         if config.has_section(ai_section_name):
             image_embedding_service_url = get_opt_from_conf_or_env(config, ai_section_name, 'image_embedding_service_url')
@@ -263,9 +258,7 @@ class FaceRecognitionManager(object):
             session.execute(text(sql))
             session.commit()
 
-    def update_cover_face_photo(self, repo_id, people_id, obj_id):
+    def update_people_cover_photo(self, repo_id, people_id, obj_id):
         face_image = get_image_face(repo_id, obj_id, self.image_embedding_api, center=None)
         filename = f'{people_id}.jpg'
         save_face(repo_id, face_image, filename, replace=True)
-
-face_recognition_manager = FaceRecognitionManager()

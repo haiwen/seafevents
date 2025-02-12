@@ -9,7 +9,6 @@ from seafevents.seafevent_server.export_task_manager import event_export_task_ma
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
-from seafevents.face_recognition.face_recognition_manager import face_recognition_manager
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
@@ -272,7 +271,7 @@ def add_convert_wiki_task():
     return {'task_id': task_id}, 200
 
 
-@app.route('/update-cover-face-photo', methods=['POST'])
+@app.route('/update-people-cover-photo', methods=['POST'])
 def update_cover_photo():
     is_valid, error = check_auth_token(request)
     if not is_valid:
@@ -296,7 +295,7 @@ def update_cover_photo():
         return {'error_msg': 'obj_id invalid.'}, 400
 
     try:
-        face_recognition_manager.update_cover_face_photo(repo_id, people_id, obj_id)
+        app.face_recognition_manager.update_people_cover_photo(repo_id, people_id, obj_id)
     except Exception as e:
         logger.error(e)
         return make_response((e, 500))

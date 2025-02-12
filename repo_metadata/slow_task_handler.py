@@ -8,7 +8,7 @@ from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, Ti
 from seafevents.mq import get_mq
 from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
-from seafevents.face_recognition.face_recognition_manager import face_recognition_manager
+from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 from seafevents.repo_metadata.utils import add_file_details
 from seafevents.db import init_db_session_class
 
@@ -21,8 +21,7 @@ class SlowTaskHandler(object):
 
     def __init__(self, config):
         self.metadata_server_api = MetadataServerAPI('seafevents')
-        face_recognition_manager.init(config)
-        self.face_recognition_manager = face_recognition_manager
+        self.face_recognition_manager = FaceRecognitionManager(config)
 
         self.should_stop = threading.Event()
         self.mq_server = '127.0.0.1'

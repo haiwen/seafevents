@@ -2,7 +2,7 @@ import logging
 import json
 
 from seafevents.db import init_db_session_class
-from seafevents.face_recognition.face_recognition_manager import face_recognition_manager
+from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 from seafevents.repo_data import repo_data
 from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.mq import get_mq
@@ -12,8 +12,7 @@ logger = logging.getLogger('face_recognition')
 
 class RepoFaceClusterUpdater(object):
     def __init__(self, config):
-        face_recognition_manager.init(config)
-        self._face_recognition_manager = face_recognition_manager
+        self._face_recognition_manager = FaceRecognitionManager(config)
         self._session = init_db_session_class(config)
         self.mq_server = '127.0.0.1'
         self.mq_port = 6379

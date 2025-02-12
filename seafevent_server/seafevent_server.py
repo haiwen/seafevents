@@ -5,6 +5,7 @@ from seafevents.seafevent_server.request_handler import app as application
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
+from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 
 
 class SeafEventServer(Thread):
@@ -18,6 +19,7 @@ class SeafEventServer(Thread):
 
         task_manager.run()
         event_export_task_manager.run()
+        application.face_recognition_manager = FaceRecognitionManager(config)
         self._server = WSGIServer((self._host, int(self._port)), application)
 
         index_task_manager.init(config)

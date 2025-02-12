@@ -4,7 +4,7 @@ import os
 import sys
 
 from seafevents.db import init_db_session_class
-from seafevents.face_recognition.face_recognition_manager import face_recognition_manager
+from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 from seafevents.repo_metadata.utils import get_face_recognition_enabled_repo_list, get_faces_rows
 from seafevents.repo_metadata.constants import FACES_TABLE
 from seafevents.app.config import get_config
@@ -88,7 +88,7 @@ def main():
 
     seafevents_conf = os.environ.get('EVENTS_CONFIG_FILE')
     config = get_config(seafevents_conf)
-    face_recognition_manager.init(config)
+    face_recognition_manager = FaceRecognitionManager(config)
     session = init_db_session_class(config)
     update_face_info(face_recognition_manager, session)
 
