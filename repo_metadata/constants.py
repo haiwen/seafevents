@@ -65,6 +65,7 @@ class PrivatePropertyKeys:
     INCLUDED_FACE_LINKS = '_included_face_links'
     TAGS = '_tags'
     OCR = '_ocr'
+    LOCATION_INFO = '_location_info'
 
 
 class FilterPredicateTypes(object):
@@ -198,6 +199,9 @@ class MetadataColumns(object):
         # ocr
         self.ocr = MetadataColumn(PrivatePropertyKeys.OCR, '_ocr', PropertyTypes.TEXT)
 
+        # location info
+        self.location_info = MetadataColumn(PrivatePropertyKeys.LOCATION_INFO, '_location_info', PropertyTypes.GEOLOCATION)
+
 
 class MetadataColumn(object):
     def __init__(self, key, name, type, data=None):
@@ -282,6 +286,7 @@ METADATA_TABLE_SYS_COLUMNS = [
     METADATA_TABLE.columns.suffix.to_dict(),
     METADATA_TABLE.columns.file_details.to_dict(),
     METADATA_TABLE.columns.description.to_dict(),
+    METADATA_TABLE.columns.location_info.to_dict(),
 ]
 
 
