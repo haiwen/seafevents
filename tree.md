@@ -56,13 +56,13 @@
 
 ## 07 virus_scanner 病毒扫描（基于资料库 commit 做 diff，用线程池进行扫描）
 ```
-    ├── commit_differ.py：比较两个文档树提交之间的差异，返回哪些文件需要进行病毒扫描。
-    ├── db_oper.py：存储和检索病毒扫描结果
-    ├── models.py：存储病毒扫描记录和病毒文件的数据库模型
-    ├── run_virus_scan.py：病毒扫描程序的入口点
-    ├── scan_settings.py：病毒扫描的配置设置，例如扫描命令、扫描间隔等
-    ├── thread_pool.py：线程池，用于并行执行病毒扫描任务
-    └── virus_scan.py：病毒扫描的核心逻辑，负责执行病毒扫描和处理扫描结果
+├── commit_differ.py：比较两个文档树提交之间的差异，返回哪些文件需要进行病毒扫描。
+├── db_oper.py：存储和检索病毒扫描结果
+├── models.py：存储病毒扫描记录和病毒文件的数据库模型
+├── run_virus_scan.py：病毒扫描程序的入口点
+├── scan_settings.py：病毒扫描的配置设置，例如扫描命令、扫描间隔等
+├── thread_pool.py：线程池，用于并行执行病毒扫描任务
+└── virus_scan.py：病毒扫描的核心逻辑，负责执行病毒扫描和处理扫描结果
 ```
 
 ## 08 单元测试 tests
@@ -85,7 +85,46 @@
 │       └── utils.py 
 ```
 
+## 09 seasearch
+
+```
+├── index_store 创建、更新和查询搜索索引的代码，以及处理文档存储和检索（资料库文件名，资料库状态，wiki 状态索引的存储）
+│   ├── index_manager.py 索引管理入口文件：处理文件和维基的索引增加删除入口
+│   ├── repo_file_name_index.py 核心函数：资料库文件和名称索引（文件增删后，索引也需要增删）
+│   ├── repo_status_index.py：管理资料库状态索引
+│   ├── wiki_index.py 维基索引：文件增删改后重新计算索引，同时搜索维基基于索引进行搜索
+│   └── wiki_status_index.py：维基状态索引
+├── index_task 索引任务的更新管理
+│   ├── filename_index_updater.py 资料库索引更新
+│   ├── index_task_manager.py 索引任务管理（转换配置，关键词搜索，维基搜索）
+│   └── wiki_index_updater.py 维基索引更新（类似资料库索引更新）
+├── script
+│   ├── filename_index.sh.template 设置环境变量，根据命令行参数执行不同的操作（bash脚本）。
+│   ├── portalocker 一个模块，实现跨平台的文件锁定
+│   │   ├── portalocker.py
+│   │   └── utils.py
+│   ├── repo_filename_index_local.py 开始本地创建资料库文件名索引
+│   ├── wiki_index.sh.template  设置环境变量，根据命令行参数执行不同的操作（bash脚本）。
+│   └── wiki_index_local.py 开始本地创建维基索引
+└── utils
+    ├── commit_differ.py 工具函数，从两个 root commit 树中找到差异
+    ├── constants.py 常量
+    └── seasearch_api.py 文档和索引相关的 API
+    └── __init__.py 其他工具函数（提取sdoc文本，处理md5）
+```
+
 # 未整理
+
+
+
+
+
+├── face_recognition
+│   ├── constants.py
+│   ├── face_cluster_updater.py
+│   ├── face_recognition_manager.py
+│   └── utils.py
+
 
 ├── tasks
 │   ├── content_scanner.py
@@ -146,12 +185,6 @@
 │   ├── utils.py
 │   └── view_data_sql.py
 
-├── face_recognition
-│   ├── constants.py
-│   ├── face_cluster_updater.py
-│   ├── face_recognition_manager.py
-│   └── utils.py
-
 
 ├── seafevent_server
 │   ├── export_task_manager.py
@@ -159,29 +192,3 @@
 │   ├── seafevent_server.py
 │   ├── task_manager.py
 │   └── utils.py
-
-
-├── seasearch
-│   ├── index_store
-│   │   ├── index_manager.py
-│   │   ├── repo_file_name_index.py
-│   │   ├── repo_status_index.py
-│   │   ├── wiki_index.py
-│   │   └── wiki_status_index.py
-│   ├── index_task
-│   │   ├── filename_index_updater.py
-│   │   ├── index_task_manager.py
-│   │   └── wiki_index_updater.py
-│   ├── script
-│   │   ├── filename_index.sh.template
-│   │   ├── portalocker
-│   │   │   ├── portalocker.py
-│   │   │   └── utils.py
-│   │   ├── repo_filename_index_local.py
-│   │   ├── wiki_index.sh.template
-│   │   └── wiki_index_local.py
-│   └── utils
-│       ├── commit_differ.py
-│       ├── constants.py
-│       └── seasearch_api.py
-

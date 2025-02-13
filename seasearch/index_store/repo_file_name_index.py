@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 SEASEARCH_BULK_OPETATE_LIMIT = 2000
 
 
+# 管理仓库文件索引和搜索的 RepoFileNameIndex 对象
 class RepoFileNameIndex(object):
     mapping = {
         'properties': {
@@ -69,11 +70,13 @@ class RepoFileNameIndex(object):
         }
     }
 
+    # 初始化对象，需要 seasearch_api、repo_data 和 shard_num。
     def __init__(self, seasearch_api, repo_data, shard_num):
         self.seasearch_api = seasearch_api
         self.repo_data = repo_data
         self.shard_num = shard_num
 
+    # 如果索引不存在，则创建一个新的索引。
     def create_index_if_missing(self, index_name):
         if not self.seasearch_api.check_index_mapping(index_name).get('is_exist'):
             data = {
@@ -83,9 +86,11 @@ class RepoFileNameIndex(object):
             }
             self.seasearch_api.create_index(index_name, data)
 
+    # 检查指定名称的索引是否存在。
     def check_index(self, index_name):
         return self.seasearch_api.check_index_mapping(index_name).get('is_exist')
 
+    # 为给定的关键字创建一个搜索查询列表。
     def _make_query_searches(self, keyword):
         match_query_kwargs = {'minimum_should_match': '-25%'}
 
@@ -107,6 +112,7 @@ class RepoFileNameIndex(object):
         searches.append(_make_match_query('description', keyword, **match_query_kwargs))
         return searches
 
+    # 为搜索查询添加过滤器的辅助方法。
     def _ensure_filter_exists(self, query_map):
         if 'filter' not in query_map['bool']:
             query_map['bool']['filter'] = []
@@ -142,9 +148,15 @@ class RepoFileNameIndex(object):
         query_map['bool']['filter'].append({'term': {'is_dir': obj_type == 'dir'}})
         return query_map
 
+    # 核心函数：根据关键字、路径、后缀和对象类型搜索仓库中的文件。
+    # 这个代码片段定义了一个名为 `search_files` 的方法，用于根据给定的关键词、路径、后缀、对象类型、起始索引和大小在仓库中搜索文件。
     def search_files(self, repos, keyword, start=0, size=10, suffixes=None, search_path=None, obj_type=None):
+        # 该方法接受一个仓库列表 (`repos`）、一个要搜索的关键词以及可选的起始索引、大小、后缀、搜索路径和对象类型参数。
+        # 它创建一个名为 `bulk_search_params` 的列表来存储每个仓库的搜索参数。
         bulk_search_params = []
         for repo in repos:
+            # 对于每个仓库，它提取仓库 ID、原始仓库 ID 和原始路径。
+            # 然后，它创建一个带有布尔查询的查询映射，该布尔查询包含一个由 `_make_query_searches` 方法生成的搜索查询列表。
             repo_id = repo[0]
             origin_repo_id = repo[1]
             origin_path = repo[2]
@@ -152,6 +164,7 @@ class RepoFileNameIndex(object):
             searches = self._make_query_searches(keyword)
             query_map['bool']['should'] = searches
 
+            # 如果仓库有原始仓库 ID，它会更新仓库 ID 和路径。然后，它使用帮助方法向查询映射中添加后缀、路径和对象类型过滤器。
             if origin_repo_id:
                 repo_id = origin_repo_id
                 if search_path:
@@ -159,6 +172,7 @@ class RepoFileNameIndex(object):
                 else:
                     search_path = origin_path
 
+            # 它创建一个包含查询映射、起始索引、大小和要返回的源字段的数据字典。
             query_map = self._add_suffix_filter(query_map, suffixes)
             query_map = self._add_path_filter(query_map, search_path)
             query_map = self._add_obj_type_filter(query_map, obj_type)
@@ -177,15 +191,21 @@ class RepoFileNameIndex(object):
             bulk_search_params.append(repo_query_info)
 
             search_path = None
+
+        # 它根据仓库 ID 构造索引名称，并将索引和数据字典添加到 `bulk_search_params` 列表中。
+        # 在迭代所有仓库之后，它使用 `bulk_search_params` 列表调用 `seasearch_api` 对象的 `m_search` 方法来执行搜索。
         query_body = json.dumps({
             'index_queries': bulk_search_params
         })
+        # 新版采用联合搜索
         results = self.seasearch_api.unified_search(query_body)
         files = []
 
+        # 它处理搜索结果，并创建一个包含文件的仓库 ID、全路径、名称、是否为目录、分数和 ID 的列表。
         hits = results.get('hits', []).get('hits', [])
         total = results.get('hits', {}).get('total', {}).get('value', 0)
 
+        
         if not hits:
             return files
 
@@ -203,11 +223,15 @@ class RepoFileNameIndex(object):
             }
             files.append(r)
 
+        # 它按分数降序对文件进行排序，并返回前 `size` 个文件。
+        # 最后，它记录搜索关键词、搜索路径和仓库，以及搜索结果。
+        # 总的来说，这个代码片段实现了基于各种搜索参数在仓库中搜索文件的功能。
         logger.debug('search keyword: %s, search path: %s, in repos: %s , \nsearch result: %s', keyword, search_path,
                     repos, files)
 
         return files
 
+    # 返回给定路径的文件后缀。
     @staticmethod
     def get_file_suffix(path):
         try:
@@ -219,11 +243,14 @@ class RepoFileNameIndex(object):
         except:
             return None
 
+    # 将文件和目录添加到索引中：它批量将文件添加到索引中。
     def add_files(self, index_name, repo_id, files, path_to_metadata_row):
         bulk_add_params = []
+        # 它遍历文件列表
         for file_info in files:
             path = file_info[0]
 
+            # 跳过系统目录和文件
             if is_sys_dir_or_file(path):
                 continue
 
@@ -232,8 +259,11 @@ class RepoFileNameIndex(object):
             if suffix:
                 filename = filename[:-len(suffix)-1]
 
+            # 对于每个文件，它提取文件后缀、文件名和元数据（如果可用）。
             index_info = {'index': {'_index': index_name, '_id': md5(path)}}
             metadata_row = path_to_metadata_row.get(path, {})
+
+            # 它创建一个文档信息字典，包含文件的元数据，并将其添加到批量添加参数列表中。
             doc_info = {
                 'repo_id': repo_id,
                 'path': path,
@@ -246,10 +276,13 @@ class RepoFileNameIndex(object):
             bulk_add_params.append(index_info)
             bulk_add_params.append(doc_info)
 
+
+            # 当列表达到一定限制（2000）时，它使用 seasearch_api 批量将文件添加到索引中
             # bulk add every 2000 params
             if len(bulk_add_params) >= SEASEARCH_BULK_OPETATE_LIMIT:
                 self.seasearch_api.bulk(index_name, bulk_add_params)
                 bulk_add_params = []
+        # 最后，它将剩余的文件添加到索引中。
         if bulk_add_params:
             self.seasearch_api.bulk(index_name, bulk_add_params)
 
@@ -288,6 +321,7 @@ class RepoFileNameIndex(object):
         if bulk_add_params:
             self.seasearch_api.bulk(index_name, bulk_add_params)
 
+    # 从索引中删除文件和目录。
     def delete_files(self, index_name, files):
         delete_params = []
         for file in files:
@@ -318,6 +352,7 @@ class RepoFileNameIndex(object):
         if delete_params:
             self.seasearch_api.bulk(index_name, delete_params)
 
+    # 根据目录或路径查询数据。
     def query_data_by_dir(self, index_name, directory, start, size):
         dsl = {
             "query": {
@@ -358,12 +393,14 @@ class RepoFileNameIndex(object):
         hits, total = self.normal_search(index_name, dsl)
         return hits, total
 
+    # 在索引上执行正常搜索。
     def normal_search(self, index_name, dsl):
         doc_item = self.seasearch_api.normal_search(index_name, dsl)
         total = doc_item['hits']['total']['value']
 
         return doc_item['hits']['hits'], total
 
+    # 删除已删除目录中的文件。
     def delete_files_by_deleted_dirs(self, index_name, dirs):
         for directory in dirs:
             if is_sys_dir_or_file(directory):
@@ -382,6 +419,7 @@ class RepoFileNameIndex(object):
                 if len(hits) < per_size:
                     break
 
+    # 从路径列表中过滤出已存在的路径。
     def filter_exist_paths(self, index_name, paths):
         exist_paths = []
         per_size = SEASEARCH_BULK_OPETATE_LIMIT
@@ -394,6 +432,7 @@ class RepoFileNameIndex(object):
 
         return exist_paths
 
+    # 更新索引中的数据。
     def update(self, index_name, repo_id, old_commit_id, new_commit_id, metadata_rows, metadata_server_api, need_index_metadata):
         added_files, deleted_files, modified_files, added_dirs, deleted_dirs = \
             get_library_diff_files(repo_id, old_commit_id, new_commit_id)
@@ -414,6 +453,7 @@ class RepoFileNameIndex(object):
         self.add_files(index_name, repo_id, need_added_files + need_update_metadata_files, path_to_metadata_row)
         self.add_dirs(index_name, repo_id, added_dirs)
 
+    # 更新资料库名称
     def update_repo_name(self, index_name, repo_id):
         repo = self.repo_data.get_repo_name_mtime_size(repo_id)
         if not repo:
@@ -433,9 +473,11 @@ class RepoFileNameIndex(object):
 
         self.seasearch_api.bulk(index_name, bulk_add_params)
 
+    # 根据名称删除索引。
     def delete_index_by_index_name(self, index_name):
         self.seasearch_api.delete_index_by_name(index_name)
 
+    # 计算仓库和元数据行的元数据文件。
     def cal_metadata_files(self, index_name, repo_id, metadata_rows, need_added_files, metadata_server_api):
         metadata_files = []
         path_to_metadata_row = {}

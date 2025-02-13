@@ -14,6 +14,7 @@ __all__ = [
 class AlreadyLocked(Exception):
     pass
 
+# 锁定工具函数
 class Lock(object):
     def __init__(
             self,

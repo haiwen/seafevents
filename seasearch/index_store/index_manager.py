@@ -15,12 +15,15 @@ from seafevents.repo_metadata.utils import query_metadata_rows
 logger = logging.getLogger(__name__)
 
 
+# 负责管理仓库和维基的索引。它提供了更新、删除和搜索索引的方法。
 class IndexManager(object):
 
+    # 初始化 IndexManager 实例，使用配置对象设置数据库会话和元数据服务器 API。
     def __init__(self, config):
         self.session = init_db_session_class(config)
         self.metadata_server_api = MetadataServerAPI('seafevents')
 
+    # 更新仓库的文件名索引，处理元数据查询和错误恢复。
     def update_library_filename_index(self, repo_id, commit_id, repo_filename_index, repo_status_filename_index, metadata_query_time):
         try:
             new_commit_id = commit_id
@@ -72,24 +75,29 @@ class IndexManager(object):
         except Exception as e:
             logger.exception('repo_id: %s, update repo filename index error: %s.', repo_id, e)
 
+    # 删除仓库的文件名索引。
     def delete_repo_filename_index(self, repo_id, repo_filename_index, repo_status_filename_index):
         # first delete repo_file_index
         repo_filename_index_name = REPO_FILENAME_INDEX_PREFIX + repo_id
         repo_filename_index.delete_index_by_index_name(repo_filename_index_name)
         repo_status_filename_index.delete_documents_by_repo(repo_id)
 
+    # 在仓库的文件名索引中执行关键字搜索。
     def file_search(self, query, repos, repo_filename_index, count, suffixes=None, search_path=None, obj_type=None):
         return repo_filename_index.search_files(repos, query, 0, count, suffixes, search_path, obj_type)
 
+    # 删除维基的索引。
     def delete_wiki_index(self, wiki_id, wiki_index, wiki_status_index):
         # first delete wiki_index
         wiki_index_name = WIKI_INDEX_PREFIX + wiki_id
         wiki_index.delete_index_by_index_name(wiki_index_name)
         wiki_status_index.delete_documents_by_repo(wiki_id)
 
+    # 在维基的索引中执行搜索。
     def wiki_search(self, query, wiki, wiki_index, count):
         return wiki_index.search_wiki(wiki, query, 0, count)
 
+    # 更新维基的索引，处理错误恢复。
     def update_wiki_index(self, wiki_id, commit_id, wiki_index, wiki_status_index):
         try:
             new_commit_id = commit_id

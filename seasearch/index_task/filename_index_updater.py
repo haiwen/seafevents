@@ -13,7 +13,7 @@ from seafevents.events.metrics import handle_metric_timing
 
 logger = logging.getLogger(__name__)
 
-
+# 资料库文件名索引更新
 class RepoFilenameIndexUpdater(object):
     def __init__(self, config):
         self._enabled = False
@@ -80,6 +80,7 @@ class RepoFilenameIndexUpdater(object):
     def is_enabled(self):
         return self._enabled
 
+    # 开始更新
     def start(self):
         if not self.is_enabled():
             logging.warning('Can not start seasearch filename index updater: it is not enabled!')
@@ -95,6 +96,7 @@ class RepoFilenameIndexUpdater(object):
         ).start()
 
 
+# 清空已删除资料库和索引
 def clear_deleted_repo(repo_status_filename_index, repo_filename_index, index_manager, repos):
     logger.info("start to clear filename index deleted repo")
 
@@ -110,8 +112,10 @@ def clear_deleted_repo(repo_status_filename_index, repo_filename_index, index_ma
     logger.info("filename index deleted repo has been cleared")
 
 
+# 装饰器，装饰器可能用于跟踪被装饰函数执行所需的时间
 @handle_metric_timing('seasearch_index_duration_seconds')
 def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_index, index_manager, repo_data):
+    # 更新资料库文件名索引
     start, count = 0, 1000
     all_repos = []
 
@@ -136,6 +140,7 @@ def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_inde
                 continue
             all_repos.append(repo_id)
 
+            # 更新索引 update_library_filename_index
             index_manager.update_library_filename_index(repo_id, commit_id, repo_filename_index, repo_status_filename_index, metadata_query_time)
 
     logger.info("Finish updating filename index")
@@ -153,6 +158,7 @@ class RepoFilenameIndexUpdaterTimer(Thread):
         self.interval = interval
         self.finished = Event()
 
+    # 开始运行
     def run(self):
         while not self.finished.is_set():
             self.finished.wait(self.interval)

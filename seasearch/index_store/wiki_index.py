@@ -16,7 +16,9 @@ SEASEARCH_WIKI_BULK_ADD_LIMIT = 10
 SEASEARCH_WIKI_BULK_DELETE_LIMIT = 50
 
 
+# 维基索引和文件索引原理类似：都是当文件变化时，重新更新索引，然后搜索维基时搜索引即可
 class WikiIndex(object):
+    # 维基的数据结构
     mapping = {
         'properties': {
             'wiki_id': {
@@ -50,6 +52,7 @@ class WikiIndex(object):
         }
     }
 
+    # 索引设置
     index_settings = {
         'analysis': {
             'analyzer': {
@@ -111,6 +114,7 @@ class WikiIndex(object):
         })
         return searches
 
+    # 创建索引
     def create_index_if_missing(self, index_name):
         if not self.seasearch_api.check_index_mapping(index_name).get('is_exist'):
             data = {
@@ -123,6 +127,7 @@ class WikiIndex(object):
     def check_index(self, index_name):
         return self.seasearch_api.check_index_mapping(index_name).get('is_exist')
 
+    # 获取维基内容（通过 seafile 获取文件内容）
     def get_wiki_content(self, wiki_id, obj_id):
         if obj_id == ZERO_OBJ_ID:
             return None
@@ -134,6 +139,7 @@ class WikiIndex(object):
 
         return content.strip()
 
+    # 获取维基配置
     def get_wiki_conf(self, wiki_id, commit_id=None):
         # Get wiki config dict
         conf_path = posixpath.join(WIKI_CONFIG_PATH, WIKI_CONFIG_FILE_NAME)
@@ -192,6 +198,7 @@ class WikiIndex(object):
 
         return uuid_to_path, rm_uuid_to_path
 
+    # 增加维基文件，更新索引
     def add_files(
         self,
         index_name,
@@ -214,11 +221,13 @@ class WikiIndex(object):
 
         bulk_add_params = []
 
+        # 批量增加（批量调用 api.bulk 函数，增加索引）
         def bulk_add():
             if bulk_add_params:
                 self.seasearch_api.bulk(index_name, bulk_add_params)
                 bulk_add_params.clear()
 
+        # 处理文件（把文件内容和属性获取到）
         def process_file(doc_uuid, content, title):
             index_info = {'index': {'_index': index_name, '_id': doc_uuid}}
             doc_info = {
@@ -264,6 +273,7 @@ class WikiIndex(object):
             process_file(doc_uuid, content,title)
         bulk_add()
 
+    # 删除文件后，更新索引
     def delete_files(self, index_name, dirs, doc_uuids):
         delete_params = []
 
@@ -286,6 +296,7 @@ class WikiIndex(object):
                 bulk_delete()
         bulk_delete()
 
+    # 更新文件后，处理索引
     def update(self, index_name, wiki_id, old_commit_id, new_commit_id):
         # Clean trash equivalent to remove corresponding dirs
         added_files, _, modified_files, _, deleted_dirs = \
@@ -341,8 +352,10 @@ class WikiIndex(object):
             title_info
         )
 
+    # 核心函数：搜索维基，这是一个名为 search_wiki 的方法，它使用 SeaSearch API 在维基索引上执行搜索。
     def search_wiki(self, wiki, keyword, start=0, size=10):
         bulk_search_params = []
+        # 它接受一个 wiki ID、一个要搜索的 keyword，以及可选的 start 和 size 参数来控制分页。
 
         query_map = {'bool': {'should': [], 'minimum_should_match': 1}}
         searches = self._make_query_searches(keyword)
@@ -360,6 +373,7 @@ class WikiIndex(object):
                 "fields": {"content": {}, "title": {}},
             },
         }
+        # 该方法使用一个布尔查询构造搜索查询，要求最少匹配 1 次，
         index_name = WIKI_INDEX_PREFIX + wiki
         bulk_search_params.append({'index': index_name, 'query': data})
 

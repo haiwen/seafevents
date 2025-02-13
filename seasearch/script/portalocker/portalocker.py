@@ -2,6 +2,8 @@
 #                  Requires python 1.5.2 or better.
 '''Cross-platform (posix/nt) API for flock-style file locking.
 
+模块提供了一个简单易用的 API 用于实现文件锁定，适用于跨平台的应用开发。
+
 Synopsis:
 
    import portalocker

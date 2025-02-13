@@ -24,6 +24,7 @@ lockfile = None
 NO_TASKS = False
 
 
+# 类似资料库本地索引
 class WikiIndexLocal(object):
     """ Independent update wiki page index.
     """
@@ -290,5 +291,8 @@ def check_concurrent_update():
     return True
 
 
+# 如果当前脚本作为主程序运行，则执行 main() 函数。
+# 如果当前脚本被导入为模块，则不执行 main() 函数。
+# 这种写法可以避免在导入模块时执行不必要的代码，确保 main() 函数只有在需要时才被执行。
 if __name__ == "__main__":
     main()

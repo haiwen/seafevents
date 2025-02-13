@@ -8,6 +8,7 @@ class WikiStatus(object):
         return self.to_commit is not None
 
 
+# 维基状态索引（和 repo 状态索引类似的，下面应该是抄了一次代码实现)
 class WikiStatusIndex(object):
     """The repo-head index is used to store the status for each repo.
 

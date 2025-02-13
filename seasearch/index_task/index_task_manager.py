@@ -11,7 +11,7 @@ from seafevents.utils import parse_bool, get_opt_from_conf_or_env
 
 logger = logging.getLogger(__name__)
 
-
+# 索引任务管理（转换配置，关键词搜索，维基搜索）
 class IndexTaskManager:
     def __init__(self):
         self.enabled = False
@@ -53,6 +53,7 @@ class IndexTaskManager:
             seasearch_url,
             seasearch_token,
         )
+        # 将具体搜索方法挂载到类中
         self._repo_data = repo_data
         self.index_manager = IndexManager(config)
         self._repo_filename_index = RepoFileNameIndex(

@@ -3,7 +3,8 @@ from seafevents.seasearch.utils.constants import ZERO_OBJ_ID
 
 from seafobj import fs_mgr
 
-
+# compute the differences between two commits to get scan files
+# 这个和病毒扫描的 diff-tree 类似，这里是单独抄写了一次
 class CommitDiffer(object):
     def __init__(self, repo_id, version, root1, root2):
         self.repo_id = repo_id
@@ -26,6 +27,10 @@ class CommitDiffer(object):
         if ZERO_OBJ_ID == self.root2:
             self.root2 = None
 
+        # 该方法接受一个 root2_time 参数，并返回一个包含五个列表的元组：added_files、deleted_files、added_dirs、deleted_dirs 和 modified_files。这些列表表示两个提交之间添加、删除或修改的文件和目录。
+
+        # 该方法通过递归遍历两个提交的目录结构，比较每个级别的文件和目录，并相应地更新列表。它使用基于队列的方法来处理目录及其子目录。
+
         if self.root1 == self.root2:
             return (added_files, deleted_files, added_dirs, deleted_dirs,
                     modified_files)
@@ -36,6 +41,7 @@ class CommitDiffer(object):
         else:
             queued_dirs.append(('/', self.root1, self.root2))
 
+        # 该代码还处理目录或文件被重命名或移动的情况，并相应地更新列表。
         while True:
             path = old_id = new_id = None
             try:

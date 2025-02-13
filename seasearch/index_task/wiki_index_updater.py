@@ -13,6 +13,7 @@ from seafevents.utils import parse_bool, get_opt_from_conf_or_env, parse_interva
 logger = logging.getLogger(__name__)
 
 
+# 维基索引更新（类似资料库索引更新）
 class SeasearchWikiIndexUpdater(object):
     def __init__(self, config):
         self._enabled = False

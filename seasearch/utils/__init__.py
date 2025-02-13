@@ -115,6 +115,7 @@ def is_wiki_page(path):
     return False
 
 
+# 提取文本（把sdoc对象转换成文本）
 def extract_sdoc_text(content):
     data = json.loads(content)
     texts = []
