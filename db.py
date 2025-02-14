@@ -177,7 +177,7 @@ class GroupIdLDAPUuidPair(Base):
     """
     for ldap group sync
     """
-    __tablename__ = 'GroupIdLDAPUuidPair'
+    __tablename__ = 'GROUPIDLDAPUUIDPAIR'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
     group_id = mapped_column(Integer, unique=True, nullable=False)
