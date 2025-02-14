@@ -3,7 +3,7 @@ import signal
 
 from seafevents.utils import do_exit, run
 
-
+# 信号处理——全局未使用
 def sigint_handler(*args):
     dummy = args
     do_exit(0)

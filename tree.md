@@ -113,10 +113,29 @@
     └── __init__.py 其他工具函数（提取sdoc文本，处理md5）
 ```
 
+## 10 app 功能入口、配置、日志、连接 redis 数据库 等
+```
+├── app
+│   ├── app.py 入口函数：启动全部服务（前台服务和后台服务）
+│   ├── config.py 获取设置，工具函数判断某个功能是否支持
+│   ├── event_redis.py 连接redis数据库
+│   ├── log.py 设置日志（不同功能不同日志）
+│   ├── mq_handler.py 消息处理器，事件处理器
+│   └── signal_handler.py 信号处理函数（未使用）
+```
+
 # 未整理
 
 
 
+├── run.sh.template
+├── seafevents_api.py
+├── background_tasks.py
+├── db.py
+├── events.conf.template
+├── main.py
+├── mq.py
+├── mysql.sql
 
 
 ├── face_recognition
@@ -145,25 +164,6 @@
 │   ├── db.py
 │   ├── handlers.py
 │   └── models.py
-
-├── run.sh.template
-├── seafevents_api.py
-├── background_tasks.py
-├── db.py
-├── events.conf.template
-├── main.py
-├── mq.py
-├── mysql.sql
-
-
-
-├── app
-│   ├── app.py
-│   ├── config.py
-│   ├── event_redis.py
-│   ├── log.py
-│   ├── mq_handler.py
-│   └── signal_handler.py
 
 
 ├── repo_data

@@ -3,6 +3,7 @@ import logging
 import logging.handlers
 import sys
 
+# 日志配置
 class LogConfigurator(object):
     def __init__(self, level, logfile=None):
         self._level = self._get_log_level(level)
@@ -13,10 +14,16 @@ class LogConfigurator(object):
         else:
             self._rotating_config()
 
+    # 轮转日志文件的配置。它创建了一个 TimedRotatingFileHandler，：
     def _rotating_config(self):
         '''Rotating log'''
+        # 将日志写入由 self._logfile 指定的文件中
+        # 每周轮转一次日志文件（when='W0'），每周间隔为 1 周（interval=1）
         handler = logging.handlers.TimedRotatingFileHandler(self._logfile, when='W0', interval=1)
+        # 将日志级别设置为 self._level
         handler.setLevel(self._level)
+        # 使用特定的格式格式化日志消息，包括时间戳、日志级别、日志器名称、行号和日志消息。
+        # 配置的处理程序然后被添加到根日志器中。
         formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         handler.setFormatter(formatter)
 

@@ -15,6 +15,7 @@ REDIS_METRIC_KEY = "metric"
 
 class RedisClient(object):
 
+    # 连接redis的基础配置
     def __init__(self, socket_connect_timeout=30, socket_timeout=None):
         self._host = REDIS_HOST
         self._port = REDIS_PORT

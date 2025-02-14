@@ -13,10 +13,13 @@ from seafevents.seasearch.index_task.wiki_index_updater import SeasearchWikiInde
 from seafevents.events.metrics import MetricsManager
 
 
+# 用于初始化和管理各种任务和服务的 App 类，基于配置设置
 class App(object):
+    # 使用配置设置初始化 App 实例，并根据提供的标志启用或禁用前台和后台任务。它设置各种任务处理程序和服务，例如事件处理程序、流量计数器和电子邮件发送器。
     def __init__(self, config, seafile_config,
                  foreground_tasks_enabled=True,
                  background_tasks_enabled=True):
+        # 任务和服务被分为前台任务和后台任务，它们的初始化和启动由 foreground_tasks_enabled 和 background_tasks_enabled 标志分别控制。
         self._fg_tasks_enabled = foreground_tasks_enabled
         self._bg_tasks_enabled = background_tasks_enabled
 
@@ -49,6 +52,7 @@ class App(object):
             self._es_wiki_index_updater = ESWikiIndexUpdater(config)
             self._seasearch_wiki_index_updater = SeasearchWikiIndexUpdater(config)
 
+    # 启动所有启用的任务和服务，包括事件处理程序、任务运行器和服务发送器。这个方法用于使应用程序持续运行。
     def serve_forever(self):
         if self._fg_tasks_enabled:
             self._events_handler.start()

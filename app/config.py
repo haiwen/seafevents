@@ -48,6 +48,7 @@ CACHE_PROVIDER = os.environ.get('CACHE_PROVIDER', 'memcached')
 IS_PRO_VERSION = os.environ.get('IS_PRO_VERSION', 'false') == 'true'
 
 
+# 获取设置，以及工具函数判断某个功能是否支持
 def get_config(config_file):
     config = configparser.ConfigParser()
     try:
