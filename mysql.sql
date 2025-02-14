@@ -1,3 +1,6 @@
+-- mysql
+
+-- Table to record content scan activities
 CREATE TABLE IF NOT EXISTS `ContentScanRecord` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `repo_id` varchar(36) NOT NULL,
@@ -7,6 +10,7 @@ CREATE TABLE IF NOT EXISTS `ContentScanRecord` (
   KEY `ix_ContentScanRecord_repo_id` (`repo_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table to store results of content scans
 CREATE TABLE IF NOT EXISTS `ContentScanResult` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `repo_id` varchar(36) NOT NULL,
@@ -17,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `ContentScanResult` (
   KEY `ix_ContentScanResult_repo_id` (`repo_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table to log various user activities
 CREATE TABLE IF NOT EXISTS `Activity` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `op_type` varchar(128) NOT NULL,
@@ -31,6 +36,7 @@ CREATE TABLE IF NOT EXISTS `Activity` (
   KEY `ix_Activity_timestamp` (`timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table to track user activities
 CREATE TABLE IF NOT EXISTS `UserActivity` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `username` varchar(255) NOT NULL,
@@ -42,6 +48,7 @@ CREATE TABLE IF NOT EXISTS `UserActivity` (
   KEY `idx_username_timestamp` (`username`,`timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table to maintain history of file operations
 CREATE TABLE IF NOT EXISTS `FileHistory` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `op_type` varchar(128) NOT NULL,
@@ -60,6 +67,7 @@ CREATE TABLE IF NOT EXISTS `FileHistory` (
   KEY `ix_FileHistory_timestamp` (`timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table to audit file operations
 CREATE TABLE IF NOT EXISTS `FileAudit` (
   `eid` bigint(20) NOT NULL AUTO_INCREMENT,
   `timestamp` datetime NOT NULL,
@@ -78,6 +86,7 @@ CREATE TABLE IF NOT EXISTS `FileAudit` (
   KEY `ix_FileAudit_repo_id` (`repo_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table to update file operations
 CREATE TABLE IF NOT EXISTS `FileUpdate` (
   `eid` bigint(20) NOT NULL AUTO_INCREMENT,
   `timestamp` datetime NOT NULL,
@@ -92,6 +101,7 @@ CREATE TABLE IF NOT EXISTS `FileUpdate` (
   KEY `idx_file_update_repo_org_eid` (`repo_id`,`org_id`,`eid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table to audit permission changes
 CREATE TABLE IF NOT EXISTS `PermAudit` (
   `eid` bigint(20) NOT NULL AUTO_INCREMENT,
   `timestamp` datetime NOT NULL,
@@ -107,6 +117,7 @@ CREATE TABLE IF NOT EXISTS `PermAudit` (
   KEY `idx_perm_audit_user_orgid_eid` (`from_user`,`org_id`,`eid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table for total storage statistics
 CREATE TABLE IF NOT EXISTS `TotalStorageStat` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `timestamp` datetime NOT NULL,
@@ -116,6 +127,7 @@ CREATE TABLE IF NOT EXISTS `TotalStorageStat` (
   KEY `idx_storage_time_org` (`timestamp`,`org_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table for file operations statistics
 CREATE TABLE IF NOT EXISTS `FileOpsStat` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `timestamp` datetime NOT NULL,
@@ -126,6 +138,7 @@ CREATE TABLE IF NOT EXISTS `FileOpsStat` (
   KEY `idx_file_ops_time_org` (`timestamp`,`org_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table for user activity statistics
 CREATE TABLE IF NOT EXISTS `UserActivityStat` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name_time_md5` varchar(32) DEFAULT NULL,
@@ -138,6 +151,7 @@ CREATE TABLE IF NOT EXISTS `UserActivityStat` (
   KEY `ix_UserActivityStat_timestamp` (`timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table for tracking user traffic
 CREATE TABLE IF NOT EXISTS `UserTraffic` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `user` varchar(255) NOT NULL,
@@ -150,6 +164,7 @@ CREATE TABLE IF NOT EXISTS `UserTraffic` (
   KEY `idx_traffic_time_user` (`timestamp`,`user`,`org_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table for tracking system traffic
 CREATE TABLE IF NOT EXISTS `SysTraffic` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `org_id` int(11) DEFAULT NULL,
@@ -161,17 +176,7 @@ CREATE TABLE IF NOT EXISTS `SysTraffic` (
   KEY `ix_SysTraffic_org_id` (`org_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-CREATE TABLE IF NOT EXISTS `SysTraffic` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `org_id` int(11) DEFAULT NULL,
-  `timestamp` datetime NOT NULL,
-  `op_type` varchar(48) NOT NULL,
-  `size` bigint(20) NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_systraffic_time_org` (`timestamp`,`org_id`),
-  KEY `ix_SysTraffic_org_id` (`org_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
+-- Table for monthly system traffic statistics
 CREATE TABLE IF NOT EXISTS `MonthlySysTraffic` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `org_id` int(11) DEFAULT NULL,
@@ -186,12 +191,14 @@ CREATE TABLE IF NOT EXISTS `MonthlySysTraffic` (
   KEY `idx_monthlysystraffic_time_org` (`timestamp`,`org_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table to record virus scan activities
 CREATE TABLE IF NOT EXISTS `VirusScanRecord` (
   `repo_id` varchar(36) NOT NULL,
   `scan_commit_id` varchar(40) NOT NULL,
   PRIMARY KEY (`repo_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table to store information about files identified with viruses
 CREATE TABLE IF NOT EXISTS `VirusFile` (
   `vid` int(11) NOT NULL AUTO_INCREMENT,
   `repo_id` varchar(36) NOT NULL,
@@ -204,6 +211,7 @@ CREATE TABLE IF NOT EXISTS `VirusFile` (
   KEY `ix_VirusFile_has_deleted` (`has_deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- Table to map group IDs to LDAP UUIDs
 CREATE TABLE IF NOT EXISTS `GroupIdLDAPUuidPair` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `group_id` int(11) NOT NULL,

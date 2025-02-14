@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# 设置环境变量，杀掉旧进程，开启新进程
+
 # Your ccnet conf dir
 export CCNET_CONF_DIR=
 

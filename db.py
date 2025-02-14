@@ -26,6 +26,17 @@ SeafBase = automap_base()
 
 
 def create_engine_from_conf(config, db='seafevent'):
+    """
+    通过配置文件 config 创建 sqlalchemy 的 engine 对象。
+
+    该函数将根据 config 中的配置信息，生成一个 sqlalchemy 的 engine 对象。
+    该对象可以用于创建数据库连接池，并执行 SQL 语句。
+
+    :param config: 一个 configparser.ConfigParser 对象
+    :param db:  str, 可以是 'seafevent' 或者 'seafile'，表示要使用哪个数据库的配置
+    :return: 一个 sqlalchemy 的 engine 对象
+
+    """
     need_connection_pool_fix = True
 
     db_sec = 'DATABASE'

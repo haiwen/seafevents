@@ -13,6 +13,11 @@ from seafevents.app.signal_handler import set_signal
 
 
 def main(background_tasks_only=False):
+    """
+    The main entry point of the seafevents server.
+    :param background_tasks_only: If set to True, only background tasks will be enabled.
+    :type background_tasks_only: bool
+    """
     parser = argparse.ArgumentParser(description='seafevents main program')
     parser.add_argument('--config-file', default=os.path.join(os.getcwd(), 'events.conf'), help='config file')
     parser.add_argument('--logfile', help='log file')
@@ -20,6 +25,7 @@ def main(background_tasks_only=False):
     parser.add_argument('-P', '--pidfile', help='the location of the pidfile')
     args = parser.parse_args()
 
+    # 它解析命令行参数，设置日志和配置，创建数据库表，并启动服务器。
     if args.logfile:
         logdir = os.path.dirname(os.path.realpath(args.logfile))
         os.environ['SEAFEVENTS_LOG_DIR'] = logdir
@@ -64,6 +70,7 @@ def main(background_tasks_only=False):
 
     set_signal()
 
+    # 服务器可以在两种模式下运行：前台任务、后台任务或两者兼有，具体取决于background_tasks_only参数和集群配置。
     app = App(config, seafile_config, foreground_tasks_enabled=foreground_tasks_enabled,
               background_tasks_enabled=background_tasks_enabled)
 

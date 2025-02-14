@@ -7,9 +7,7 @@ from .virus_scanner.db_oper import *
 from .app.config import is_repo_auto_del_enabled, is_search_enabled, is_audit_enabled, \
     is_seasearch_enabled
 
-
-
-
+# 文件历史后缀： Get the file history suffixes from config.
 def get_file_history_suffix(config):
     fh_enabled = True
     if config.has_option('FILE HISTORY', 'enabled'):

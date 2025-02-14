@@ -2,6 +2,8 @@
 
 已整理
 
+一共 120 个 python 文件
+
 ## 01 utils 工具函数
 
 ```
@@ -124,18 +126,20 @@
 │   └── signal_handler.py 信号处理函数（未使用）
 ```
 
+## 11 根目录：设置项，数据库，入口文件
+```
+├── run.sh.template: 一键启动脚本，设置环境变量，执行 main.py 开启服务
+├── seafevents_api.py 处理文件后缀
+├── background_tasks.py 运行后台任务的入口
+├── db.py 数据库连接和配置
+├── events.conf.template 配置文件模板
+├── main.py 入口函数，启动 seafevents/app/app.py 文件的全部服务，设置后台任务或者前台任务
+├── mq.py 连接 redis 数据库
+├── mysql.sql 数据库语句
+```
+
+
 # 未整理
-
-
-
-├── run.sh.template
-├── seafevents_api.py
-├── background_tasks.py
-├── db.py
-├── events.conf.template
-├── main.py
-├── mq.py
-├── mysql.sql
 
 
 ├── face_recognition
