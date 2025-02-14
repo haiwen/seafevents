@@ -124,6 +124,7 @@ def create_db_tables(config):
     except Exception as e:
         logger.error("Failed to create database tables: %s" % e)
         raise RuntimeError("Failed to create database tables")
+    engine.dispose()
 
 
 def prepare_db_tables(seafile_config):
@@ -135,6 +136,7 @@ def prepare_db_tables(seafile_config):
         raise RuntimeError("create db engine error: %s" % e)
 
     SeafBase.prepare(autoload_with=engine)
+    engine.dispose()
 
 
 # This is used to fix the problem of "MySQL has gone away" that happens when
