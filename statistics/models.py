@@ -6,7 +6,7 @@ from seafevents.db import Base
 
 
 class TotalStorageStat(Base):
-    __tablename__ = 'TotalStorageStat'
+    __tablename__ = 'TOTALSTORAGESTAT'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
     timestamp = mapped_column(DateTime, nullable=False)
@@ -23,14 +23,14 @@ class TotalStorageStat(Base):
 
 
 class FileOpsStat(Base):
-    __tablename__ = 'FileOpsStat'
+    __tablename__ = 'FILEOPSSTAT'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
     timestamp = mapped_column(DateTime, nullable=False)
     op_type = mapped_column(String(length=16), nullable=False)
     number = mapped_column(Integer, nullable=False)
     org_id = mapped_column(Integer, nullable=False)
-    
+
     __table_args__ = (Index('idx_file_ops_time_org', 'timestamp', 'org_id'), )
 
     def __init__(self, org_id, timestamp, op_type, number):
@@ -42,7 +42,7 @@ class FileOpsStat(Base):
 
 
 class UserActivityStat(Base):
-    __tablename__ = 'UserActivityStat'
+    __tablename__ = 'USERACTIVITYSTAT'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
     name_time_md5 = mapped_column(String(length=32), unique=True)
@@ -61,7 +61,7 @@ class UserActivityStat(Base):
 
 
 class UserTraffic(Base):
-    __tablename__ = 'UserTraffic'
+    __tablename__ = 'USERTRAFFIC'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
     user = mapped_column(String(length=255), nullable=False)
@@ -82,7 +82,7 @@ class UserTraffic(Base):
 
 
 class SysTraffic(Base):
-    __tablename__ = 'SysTraffic'
+    __tablename__ = 'SYSTRAFFIC'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
     org_id = mapped_column(Integer, index=True)
@@ -101,7 +101,7 @@ class SysTraffic(Base):
 
 
 class MonthlyUserTraffic(Base):
-    __tablename__ = 'MonthlyUserTraffic'
+    __tablename__ = 'MONTHLYUSERTRAFFIC'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
     user = mapped_column(String(length=255), nullable=False)
@@ -130,7 +130,7 @@ class MonthlyUserTraffic(Base):
 
 
 class MonthlySysTraffic(Base):
-    __tablename__ = 'MonthlySysTraffic'
+    __tablename__ = 'MONTHLYSYSTRAFFIC'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
     org_id = mapped_column(Integer)
