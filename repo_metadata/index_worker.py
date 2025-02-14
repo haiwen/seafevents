@@ -46,6 +46,7 @@ class RepoMetadataIndexWorker(object):
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
         self.face_recognition_manager = FaceRecognitionManager(config)
         self.set_signal()
+        self.worker_list = []
 
     def _parse_config(self, config):
         redis_section_name = 'REDIS'
@@ -75,10 +76,21 @@ class RepoMetadataIndexWorker(object):
     def tname(self):
         return threading.current_thread().name
 
+    def clear_worker(self):
+        for th in self.worker_list:
+            th.join()
+        logger.info("All worker threads has stopped.")
+
     def start(self):
         for i in range(int(self.worker_num)):
-            threading.Thread(target=self.face_cluster_handler, name='face_cluster_' + str(i), daemon=True).start()
-        threading.Thread(target=self.refresh_lock, name='refresh_thread', daemon=True).start()
+            t = threading.Thread(target=self.face_cluster_handler, name='face_cluster_' + str(i), daemon=True)
+            t.start()
+            self.worker_list.append(t)
+
+        t = threading.Thread(target=self.refresh_lock, name='refresh_thread', daemon=True)
+        t.start()
+        self.worker_list.append(t)
+        self.clear_worker()
 
     def face_cluster_handler(self):
         face_recognition_logger.info('%s starting face cluster' % self.tname)
