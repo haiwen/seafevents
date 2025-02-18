@@ -23,13 +23,16 @@ from seaserv import seafile_api
 logger = logging.getLogger('face_recognition')
 
 
+# 负责管理人脸识别任务，包括人脸嵌入、聚类和更新人脸聚类。
 class FaceRecognitionManager(object):
 
+    # 初始化类，使用配置对象设置数据库会话和元数据服务器 API。
     def __init__(self, config):
         self._db_session_class = init_db_session_class(config)
         self.metadata_server_api = MetadataServerAPI('seafevents')
         self.seafile_ai_api = SeafileAIAPI(SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY)
 
+    # 检查指定资料库 ID 的人脸识别状态(数据库查询)
     def check_face_recognition_status(self, repo_id):
         if not self.seafile_ai_api:
             return None
@@ -39,16 +42,24 @@ class FaceRecognitionManager(object):
 
         return record[0] if record else None
 
+    # 检查指定图像后缀是否支持。
     def is_support_format(self, suffix):
         if suffix in SUPPORTED_IMAGE_FORMATS:
             return True
 
         return False
 
+    # 为资料库中的一组图像行生成人脸嵌入。
+    # “embeddings”（嵌入）
+    # 图像嵌入（Image Embeddings）旨在把图像转化为向量形式来表征其特征。
+    # 例如通过卷积神经网络（CNN）提取人脸图像特征，将一幅图像最终表示成一个特定维度的向量。这个向量可以捕捉图像的颜色、纹理、物体形状等诸多关键特征信息。
+    # 基于图像嵌入向量，分类模型可以判断图像中包含的物体类别，比如区分是猫、狗还是其他动物等。
+    # 这里后续重构过
     def face_embeddings(self, repo_id, rows):
         logger.info('repo %s need update face_vectors rows count: %d', repo_id, len(rows))
         updated_rows = []
         start_time = time.time()
+        
         for row in rows:
             obj_id = row[METADATA_TABLE.columns.obj_id.name]
             parent_dir = row.get(METADATA_TABLE.columns.parent_dir.name)
@@ -76,6 +87,7 @@ class FaceRecognitionManager(object):
             logger.info('repo %s updated face_vectors rows count: %d, cost time: %.2f', repo_id, len(updated_rows), time.time() - start_time)
             self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
 
+    # 确保资料库中所有图像的人脸嵌入都已生成。
     def ensure_face_vectors(self, repo_id):
         sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.suffix.name}` in {SUPPORTED_IMAGE_FORMATS} AND `{METADATA_TABLE.columns.face_vectors.name}` IS NULL'
 
@@ -86,27 +98,38 @@ class FaceRecognitionManager(object):
         self.face_embeddings(repo_id, query_result)
         logger.info('repo %s face vectors is completed', repo_id)
 
+    # 对资料库的人脸嵌入进行聚类。
     def face_cluster(self, repo_id):
         try:
+            # https://hdbscan.readthedocs.io/en/latest/index.html
+            # HDBSCAN（Hierarchical Density-Based Spatial Clustering of Applications with Noise）是一种基于密度的空间聚类算法
+            # 用于发现数据中的聚类结构。它是DBSCAN（Density-Based Spatial Clustering of Applications with Noise）算法的扩展和改进版本。
             from sklearn.cluster import HDBSCAN
             import numpy as np
         except ImportError:
             logger.warning('Package scikit-learn is not installed. ')
             return
         sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.face_vectors.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.face_vectors.name}` IS NOT NULL AND `{METADATA_TABLE.columns.face_vectors.name}` <> "{VECTOR_DEFAULT_FLAG}"'
+
+        # 查询元数据表中的行
         query_result = query_metadata_rows(repo_id, self.metadata_server_api, sql)
         if not query_result:
             return
 
+        # 获取元数据
         metadata = self.metadata_server_api.get_metadata(repo_id)
         tables = metadata.get('tables', [])
         if not tables:
             return
+        
+        # 获取人脸识别的表格
         faces_table_id = [table['id'] for table in tables if table['name'] == FACES_TABLE.name][0]
 
         vectors = []
         row_ids = []
         id_to_record = dict()
+
+        # 循环查询结果
         for item in query_result:
             row_id = item[METADATA_TABLE.columns.id.name]
             id_to_record[row_id] = item
@@ -129,6 +152,7 @@ class FaceRecognitionManager(object):
         label_id_to_updated_cluster = {}
         cluster_id_to_label = {}
         label_ids = np.unique(clt_labels)
+
         for label_id in label_ids:
             idxs = np.where(clt_labels == label_id)[0]
             related_row_ids = [row_ids[i] for i in idxs]
@@ -195,9 +219,11 @@ class FaceRecognitionManager(object):
             # save a cover for new face cluster.
             save_cluster_face(repo_id, related_row_ids, row_ids, id_to_record, cluster_center, face_row_id, self.seafile_ai_api)
 
+    # 更新资料库的人脸聚类，包括生成人脸嵌入和聚类。
     def update_face_cluster(self, repo_id, username=None):
         logger.info('Updating face cluster repo %s' % repo_id)
         start_update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        # 更新人脸聚类
         self.ensure_face_vectors(repo_id)
         self.face_cluster(repo_id)
         self.finish_face_cluster(repo_id, start_update_time)
@@ -206,6 +232,7 @@ class FaceRecognitionManager(object):
             self.save_face_cluster_message_to_user_notification(repo_id, username)
         logger.info('Finish face cluster repo %s' % repo_id)
 
+    # 获取需要人脸聚类的资料库列表。
     def get_pending_face_cluster_repo_list(self, start, count):
         per_day_check_time = datetime.now() - timedelta(hours=23)
         with self._db_session_class() as session:
@@ -216,12 +243,14 @@ class FaceRecognitionManager(object):
 
         return res
 
+    # 更新资料库的人脸聚类时间。
     def finish_face_cluster(self, repo_id, start_update_time):
         with self._db_session_class() as session:
             cmd = """UPDATE repo_metadata SET last_face_cluster_time = :update_time WHERE repo_id = :repo_id"""
             session.execute(text(cmd), {'update_time': start_update_time, 'repo_id': repo_id})
             session.commit()
 
+    # 保存用户通知消息，当人脸聚类更新时。
     def save_face_cluster_message_to_user_notification(self, repo_id, username):
         values = []
         repo = seafile_api.get_repo(repo_id)
