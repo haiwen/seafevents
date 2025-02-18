@@ -12,8 +12,8 @@ class RepoStatus(object):
 class RepoStatusIndex(object):
     """The repo-head index is used to store the status for each repo.
     用于管理资料库状态索引
-    具体来说，它负责存储和管理每个仓库的状态，包括：
-        仓库 ID (repo_id)
+    具体来说，它负责存储和管理每个资料库的状态，包括：
+        资料库 ID (repo_id)
         提交 ID (commit_id)
         更新目标 (updatingto)
         元数据更新时间 (metadata_updated_time)
@@ -29,12 +29,12 @@ class RepoStatusIndex(object):
     The elasticsearch document id for each repo in repo_head index is its repo
     id.
     
-    对于每个仓库：
+    对于每个资料库：
     （1）更新前：commit = <之前索引的提交>，updatingto=None`
     （2）更新过程中：commit = <之前索引的提交>，updatingto=<当前最新的提交>`
     （3）更新后：commit = <新索引的提交>，updatingto=None`
-    当更新过程中出现错误时，状态会停留在（2）中。这样下次更新该仓库时，可以恢复之前失败的更新过程。
-    在 repo_head 索引中，每个仓库的 Elasticsearch 文档 ID 是其仓库 ID。
+    当更新过程中出现错误时，状态会停留在（2）中。这样下次更新该资料库时，可以恢复之前失败的更新过程。
+    在 repo_head 索引中，每个资料库的 Elasticsearch 文档 ID 是其资料库 ID。
     """
 
     mapping = {
@@ -70,7 +70,7 @@ class RepoStatusIndex(object):
     def check_repo_status(self, repo_id):
         return self.seasearch_api.check_document_by_id(self.index_name, repo_id).get('is_exist')
 
-    # 添加仓库状态
+    # 添加资料库状态
     def add_repo_status(self, repo_id, commit_id, updatingto,  metadata_updated_time):
         data = {
             'repo_id': repo_id,
@@ -91,7 +91,7 @@ class RepoStatusIndex(object):
     def delete_documents_by_repo(self, repo_id):
         return self.seasearch_api.delete_document_by_id(self.index_name, repo_id)
 
-    # 根据仓库 ID 获取仓库状态
+    # 根据资料库 ID 获取资料库状态
     def get_repo_status_by_id(self, repo_id):
         doc = self.seasearch_api.get_document_by_id(self.index_name, repo_id)
         if doc.get('error'):

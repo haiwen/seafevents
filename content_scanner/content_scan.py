@@ -14,7 +14,7 @@ from seafevents.db import SeafBase, init_db_session_class
 
 ZERO_OBJ_ID = '0000000000000000000000000000000000000000'
 
-# 扫描任务，该任务扫描一个仓库（repo_id）从一个旧的提交（last_commit_id）到一个新的提交（new_commit_id）
+# 扫描任务，该任务扫描一个资料库（repo_id）从一个旧的提交（last_commit_id）到一个新的提交（new_commit_id）
 # 不需要扫描全部的 commit 只需要扫描两次提交的 diff
 class ScanTask(object):
     def __init__(self, repo_id, last_commit_id, new_commit_id):
@@ -22,9 +22,9 @@ class ScanTask(object):
         self.last_commit_id = last_commit_id
         self.new_commit_id = new_commit_id
 
-# 用来扫描仓库中文件的内容并检测是否存在恶意或不想要的内容。
+# 用来扫描资料库中文件的内容并检测是否存在恶意或不想要的内容。
 # 使用一个第三方API来扫描文件，并将扫描结果存储在数据库中。
-# 获取仓库的 head_commit_id，与上次扫描的 commit_id 比较，如果不相等，进行 diff 和扫描操作。
+# 获取资料库的 head_commit_id，与上次扫描的 commit_id 比较，如果不相等，进行 diff 和扫描操作。
 ## Get the head_commit_id list from seafile-db.
 ## Compare each head_commit_id with the last scanned commit_id,
 ## if they're not equal, do diff and content scan.
@@ -79,7 +79,7 @@ class ContentScan(object):
         except Exception as e:
             logging.warning('Error: %s', e)
 
-    # 通过检索仓库列表，对提交进行差异化，并扫描添加和修改的文件。
+    # 通过检索资料库列表，对提交进行差异化，并扫描添加和修改的文件。
     def do_scan_task(self):
         logging.info("Start scan task..")
         time_start = time.time()
@@ -98,7 +98,7 @@ class ContentScan(object):
                       VirtualRepo, Branch.repo_id == VirtualRepo.repo_id).where(
                       VirtualRepo.repo_id == null())
         results = seafdb_session.scalars(stmt).all()
-        # 获取仓库列表，对提交进行差异化，并扫描添加和修改的文件
+        # 获取资料库列表，对提交进行差异化，并扫描添加和修改的文件
         for row in results:
             repo_id = row.repo_id
             new_commit_id = row.commit_id

@@ -42,13 +42,13 @@ class RepoFileNameIndexLocal(object):
             th.join()
         logger.info("All worker threads has stopped.")
 
-    # 定义了一个名为 `run` 的方法，该方法似乎负责在多线程环境中更新仓库文件名索引。
-    # 1. 它启动指定数量的工作线程（`self.workers`）来处理仓库数据。
-    # 2. 它批量获取仓库提交数据（每批 1000 个，`per_size`），并处理每个批次。
-    # 3. 对于每个仓库，它检查是否是虚拟仓库或 wiki 仓库，如果不是，则将其添加到处理队列中。
-    # 4. 一旦处理完所有批次，它停止工作线程并更新仓库文件名索引。
-    # 5. 最后，它尝试清除已删除的仓库，并记录在此过程中发生的任何错误。
-    # 该代码似乎旨在通过将工作负载分配到多个线程来高效地更新大型仓库索引。
+    # 定义了一个名为 `run` 的方法，该方法似乎负责在多线程环境中更新资料库文件名索引。
+    # 1. 它启动指定数量的工作线程（`self.workers`）来处理资料库数据。
+    # 2. 它批量获取资料库提交数据（每批 1000 个，`per_size`），并处理每个批次。
+    # 3. 对于每个资料库，它检查是否是虚拟资料库或 wiki 资料库，如果不是，则将其添加到处理队列中。
+    # 4. 一旦处理完所有批次，它停止工作线程并更新资料库文件名索引。
+    # 5. 最后，它尝试清除已删除的资料库，并记录在此过程中发生的任何错误。
+    # 该代码似乎旨在通过将工作负载分配到多个线程来高效地更新大型资料库索引。
     def run(self):
         time_start = time.time()
         repos_queue = queue.Queue(0)
@@ -104,7 +104,7 @@ class RepoFileNameIndexLocal(object):
 
     # 这个代码片段定义了一个方法 thread_task，它在一个工作线程中运行。
     # 它不断地检查一个队列 (repos_queue) 中是否有任务需要处理。
-    # 每个任务都是一个包含仓库 ID、提交 ID 和元数据查询时间的元组。
+    # 每个任务都是一个包含资料库 ID、提交 ID 和元数据查询时间的元组。
     # 如果找到一个任务，它会尝试使用 index_manager 更新库文件名索引。
     # 如果队列为空且不再有任务需要处理 (NO_TASKS 为 True)，线程就会停止。
     # 如果在处理过程中发生错误，它会记录错误并增加错误计数器。
@@ -164,7 +164,7 @@ class RepoFileNameIndexLocal(object):
         self.index_manager.delete_repo_filename_index(repo_id, self.repo_filename_index, self.repo_status_filename_index)
 
 
-# 初始化并运行一个本地的仓库文件名索引过程。它：
+# 初始化并运行一个本地的资料库文件名索引过程。它：
 
 # 1. 检查是否已经有另一个更新正在运行 (`check_concurrent_update`)。
 # 2. 从环境变量和配置文件中获取配置设置。
@@ -172,7 +172,7 @@ class RepoFileNameIndexLocal(object):
 # 4. 用这些实例初始化一个 `RepoFileNameIndexLocal` 对象。
 # 5. 运行索引过程 (`index_local.run()`)。
 # 6. 记录更新过程的统计信息。
-# 其目的是更新仓库文件名的搜索索引，以便高效地搜索仓库中的文件。
+# 其目的是更新资料库文件名的搜索索引，以便高效地搜索资料库中的文件。
 def start_index_local():
     if not check_concurrent_update():
         return
@@ -207,7 +207,7 @@ def start_index_local():
     logger.info('[block read]  %s', block_mgr.read_count())
 
 
-# 这个代码片段从搜索API中删除非wiki和非虚拟仓库的索引。它批量迭代仓库的提交，过滤掉wiki和虚拟仓库，并删除相应的文件名索引。最后，它删除状态文件名索引。
+# 这个代码片段从搜索API中删除非wiki和非虚拟资料库的索引。它批量迭代资料库的提交，过滤掉wiki和虚拟资料库，并删除相应的文件名索引。最后，它删除状态文件名索引。
 def delete_indices():
     section_name = 'SEASEARCH'
     seafevents_conf = os.environ.get('EVENTS_CONFIG_FILE')

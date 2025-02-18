@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 SEASEARCH_BULK_OPETATE_LIMIT = 2000
 
 
-# 管理仓库文件索引和搜索的 RepoFileNameIndex 对象
+# 管理资料库文件索引和搜索的 RepoFileNameIndex 对象
 class RepoFileNameIndex(object):
     mapping = {
         'properties': {
@@ -148,14 +148,14 @@ class RepoFileNameIndex(object):
         query_map['bool']['filter'].append({'term': {'is_dir': obj_type == 'dir'}})
         return query_map
 
-    # 核心函数：根据关键字、路径、后缀和对象类型搜索仓库中的文件。
-    # 这个代码片段定义了一个名为 `search_files` 的方法，用于根据给定的关键词、路径、后缀、对象类型、起始索引和大小在仓库中搜索文件。
+    # 核心函数：根据关键字、路径、后缀和对象类型搜索资料库中的文件。
+    # 这个代码片段定义了一个名为 `search_files` 的方法，用于根据给定的关键词、路径、后缀、对象类型、起始索引和大小在资料库中搜索文件。
     def search_files(self, repos, keyword, start=0, size=10, suffixes=None, search_path=None, obj_type=None):
-        # 该方法接受一个仓库列表 (`repos`）、一个要搜索的关键词以及可选的起始索引、大小、后缀、搜索路径和对象类型参数。
-        # 它创建一个名为 `bulk_search_params` 的列表来存储每个仓库的搜索参数。
+        # 该方法接受一个资料库列表 (`repos`）、一个要搜索的关键词以及可选的起始索引、大小、后缀、搜索路径和对象类型参数。
+        # 它创建一个名为 `bulk_search_params` 的列表来存储每个资料库的搜索参数。
         bulk_search_params = []
         for repo in repos:
-            # 对于每个仓库，它提取仓库 ID、原始仓库 ID 和原始路径。
+            # 对于每个资料库，它提取资料库 ID、原始资料库 ID 和原始路径。
             # 然后，它创建一个带有布尔查询的查询映射，该布尔查询包含一个由 `_make_query_searches` 方法生成的搜索查询列表。
             repo_id = repo[0]
             origin_repo_id = repo[1]
@@ -164,7 +164,7 @@ class RepoFileNameIndex(object):
             searches = self._make_query_searches(keyword)
             query_map['bool']['should'] = searches
 
-            # 如果仓库有原始仓库 ID，它会更新仓库 ID 和路径。然后，它使用帮助方法向查询映射中添加后缀、路径和对象类型过滤器。
+            # 如果资料库有原始资料库 ID，它会更新资料库 ID 和路径。然后，它使用帮助方法向查询映射中添加后缀、路径和对象类型过滤器。
             if origin_repo_id:
                 repo_id = origin_repo_id
                 if search_path:
@@ -477,7 +477,7 @@ class RepoFileNameIndex(object):
     def delete_index_by_index_name(self, index_name):
         self.seasearch_api.delete_index_by_name(index_name)
 
-    # 计算仓库和元数据行的元数据文件。
+    # 计算资料库和元数据行的元数据文件。
     def cal_metadata_files(self, index_name, repo_id, metadata_rows, need_added_files, metadata_server_api):
         metadata_files = []
         path_to_metadata_row = {}

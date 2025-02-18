@@ -8,7 +8,10 @@ from seafevents.seasearch.utils.constants import REPO_TYPE_WIKI
 logger = logging.getLogger(__name__)
 
 
+# 从数据库中检索各种类型的资料库数据。
 class RepoData(object):
+
+    # 初始化类，使用seafile.conf文件设置数据库会话。
     def __init__(self):
         if 'SEAFILE_CENTRAL_CONF_DIR' in os.environ:
             confdir = os.environ['SEAFILE_CENTRAL_CONF_DIR']
@@ -17,12 +20,14 @@ class RepoData(object):
         self.seafile_conf = os.path.join(confdir, 'seafile.conf')
         self.db_session = init_db_session_class(self.seafile_conf)
 
+    # 将数据库结果代理转换为字典列表。
     def to_dict(self, result_proxy):
         res = []
         for i in result_proxy.mappings():
             res.append(i)
         return res
 
+    # 从数据库中检索资料库ID和提交ID列表，根据master分支和指定的start和count参数进行过滤。
     def _get_repo_id_commit_id(self, start, count):
         session = self.db_session()
         try:
@@ -40,6 +45,7 @@ class RepoData(object):
         finally:
             session.close()
 
+    # 从数据库中检索资料库ID和提交ID列表，根据master分支、wiki类型和指定的start和count参数进行过滤。
     def _get_wiki_repo_id_commit_id(self, start, count):
         session = self.db_session()
         try:
@@ -59,6 +65,7 @@ class RepoData(object):
         finally:
             session.close()
 
+    # 从数据库中检索所有资料库ID列表（来自RepoTrash表）。
     def _get_all_trash_repo_list(self):
         session = self.db_session()
         try:
@@ -70,6 +77,7 @@ class RepoData(object):
         finally:
             session.close()
 
+    # 从数据库中检索所有资料库ID列表（来自Repo表）。
     def _get_all_repo_list(self):
         session = self.db_session()
         try:
@@ -81,6 +89,7 @@ class RepoData(object):
         finally:
             session.close()
 
+    # 检索指定资料库ID的头提交ID。
     def _get_repo_head_commit(self, repo_id):
         session = self.db_session()
         try:
@@ -94,6 +103,7 @@ class RepoData(object):
         finally:
             session.close()
 
+    # 检索指定资料库ID的名称、最后修改时间和大小。
     def _get_repo_name_mtime_size(self, repo_id):
         session = self.db_session()
         try:
@@ -107,6 +117,7 @@ class RepoData(object):
         finally:
             session.close()
 
+    # 检索指定资料库ID列表中存在的虚拟资料库ID列表。
     def _get_virtual_repo_in_repos(self, repo_ids):
         session = self.db_session()
         if not repo_ids:
@@ -121,6 +132,7 @@ class RepoData(object):
         finally:
             session.close()
 
+    # 检索指定资料库ID列表的最后修改时间。
     def _get_mtime_by_repo_ids(self, repo_ids):
         session = self.db_session()
         if not repo_ids:
@@ -137,6 +149,8 @@ class RepoData(object):
         finally:
             session.close()
 
+
+    # 这些方法是对应私有方法的包装器，捕获并记录在执行过程中发生的任何异常（例如获取全部的资料库）。
     def get_repo_name_mtime_size(self, repo_id):
         try:
             return self._get_repo_name_mtime_size(repo_id)

@@ -19,6 +19,10 @@ class Base(DeclarativeBase):
 
 logger = logging.getLogger('seafes')
 
+# 该函数从配置文件创建一个 SQLAlchemy 引擎。
+# 它从配置文件中读取数据库类型、主机、端口、用户名、密码和数据库名称，构造一个数据库 URL
+# 然后使用该 URL 创建一个 SQLAlchemy 引擎。
+# 如果数据库类型不是 'mysql'，则会引发一个错误。引擎配置了连接池和一个 ping 函数来处理连接超时。
 def create_engine_from_conf(config_file):
     seaf_conf = configparser.ConfigParser()
     seaf_conf.read(config_file)
@@ -58,6 +62,8 @@ def create_engine_from_conf(config_file):
 
     return engine
 
+# 该函数使用配置文件初始化 MySQL 数据库会话类。
+# 它从配置文件创建数据库引擎，处理潜在的配置错误，并返回绑定到引擎的会话类。
 def init_db_session_class(config_file):
     """Configure Session class for mysql according to the config file."""
     try:

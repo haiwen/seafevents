@@ -138,15 +138,27 @@
 ├── mysql.sql 数据库语句
 ```
 
+## 12 人脸识别 face recognition
+
+具体调用其他的 AI API，这里只是接口，负责把资料库中的图片获取到，调用API识别结果，然后写入元数据表中
+
+```
+│   ├── face_cluster_updater.py 负责更新资料库中的面部聚类
+│   ├── face_recognition_manager.py 负责管理人脸识别任务，包括人脸嵌入、聚类和更新人脸聚类。
+│   └── utils.py 人脸图像识别相关工具函数
+```
+
+## 13 资料库信息 repo data 
+
+```
+├── repo_data 这部分代码应该比较早，都是原生实现 SQL 查询
+│   ├── __init__.py 获取数据库中检索各种类型的资料库数据
+│   └── db.py 链接数据库（判断配置是否正确，测试链接正常）
+```
+
 
 # 未整理
 
-
-├── face_recognition
-│   ├── constants.py
-│   ├── face_cluster_updater.py
-│   ├── face_recognition_manager.py
-│   └── utils.py
 
 
 ├── tasks
@@ -168,10 +180,6 @@
 │   ├── db.py
 │   ├── handlers.py
 │   └── models.py
-
-
-├── repo_data
-│   └── db.py
 
 
 ├── repo_metadata
