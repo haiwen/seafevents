@@ -40,7 +40,7 @@ def get_location_from_map_service(point_key):
             'ak': BAIDU_MAP_KEY,
             'output': 'json',
             'location': point_key,
-            "coordtype": "bd09ll",
+            "coordtype": "wgs84ll",
             'extensions_poi': '0'
         }
         try:
