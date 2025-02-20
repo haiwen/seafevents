@@ -59,9 +59,9 @@ def get_location_from_map_service(point_key):
                         'city': data['result']['addressComponent']['city'],
                         'district': data['result']['addressComponent']['district']
                     }
-            else:
-              logger.error(f"Baidu Map Service Request Failed: {str(response.status_code)}")
-              return {}
+                else:
+                    logger.error(f"Baidu Map Service Request Failed: {str(data['message'])}")
+                    return {}
         except Exception as e:
             logger.error('Get location from baidu map service error: %s', e)
             return {}
@@ -103,9 +103,9 @@ def get_location_from_map_service(point_key):
                         'city': address_components['city'],
                         'district': address_components['district'],
                     }
-            else:
-              logger.error(f"Google Map Service Request Failed: {str(response.status_code)}")
-              return {}
+                else:
+                    logger.error(f"Google Map Service Request Failed: {str(data['error_message'])}")
+                    return {}
         except Exception as e:
             logger.error('Get location from google map service error: %s', e)
             return {}
