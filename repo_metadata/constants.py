@@ -1,6 +1,7 @@
 from seafevents.app.config import METADATA_FILE_TYPES
 
 
+# 定义元数据表列类型（公开属性）
 class PropertyTypes:
     FILE_NAME = 'file-name'
     TEXT = 'text'
@@ -31,6 +32,7 @@ class PropertyTypes:
     TAGS = 'tags'
 
 
+# 元数据表列私有属性
 class PrivatePropertyKeys:
     ID = '_id'
     CTIME = '_ctime'
@@ -68,6 +70,7 @@ class PrivatePropertyKeys:
     LOCATION_TRANSLATED = '_location_translated'
 
 
+# 过滤字段
 class FilterPredicateTypes(object):
     CONTAINS = 'contains'
     NOT_CONTAIN = 'does_not_contain'
@@ -96,6 +99,7 @@ class FilterPredicateTypes(object):
     IS_CURRENT_USER_ID = 'is_current_user_ID'
 
 
+# 过滤字段
 class FilterTermModifier(object):
     TODAY = 'today'
     TOMORROW = 'tomorrow'
@@ -120,6 +124,7 @@ class FilterTermModifier(object):
     THIS_YEAR = 'this_year'
 
 
+# 公式结果类型
 class FormulaResultType(object):
     NUMBER = 'number'
     STRING = 'string'
@@ -128,6 +133,7 @@ class FormulaResultType(object):
     ARRAY = 'array'
 
 
+# 时长格式
 class DurationFormatsType(object):
     H_MM = 'h:mm'
     H_MM_SS = 'h:mm:ss'
@@ -136,6 +142,7 @@ class DurationFormatsType(object):
     H_MM_SS_SSS = 'h:mm:ss.sss'
 
 
+# 视图类型
 class ViewType(object):
     TABLE = 'table'
     GALLERY = 'gallery'
@@ -143,9 +150,11 @@ class ViewType(object):
     KANBAN = 'kanban'
 
 
+# 元数据操作限制为 1000
 METADATA_OP_LIMIT = 1000
 
 
+# 元数据表（id, name, columns）
 # metadata table
 class MetadataTable(object):
     def __init__(self, table_id, name):
@@ -157,6 +166,7 @@ class MetadataTable(object):
         return MetadataColumns()
 
 
+# 从选项列表转换成 id + name 列表，但是 name: option_id 不合适
 def gen_file_type_options(option_ids):
     options = []
 
@@ -165,6 +175,7 @@ def gen_file_type_options(option_ids):
     return options
 
 
+# 元数据列
 class MetadataColumns(object):
     def __init__(self):
         self.id = MetadataColumn(PrivatePropertyKeys.ID, '_id', PropertyTypes.TEXT)
@@ -177,6 +188,7 @@ class MetadataColumns(object):
         self.is_dir = MetadataColumn(PrivatePropertyKeys.IS_DIR, '_is_dir', PropertyTypes.CHECKBOX)
         self.file_type = MetadataColumn(PrivatePropertyKeys.FILE_TYPE, '_file_type', PropertyTypes.SINGLE_SELECT,
                                         {'options': gen_file_type_options(list(METADATA_FILE_TYPES.keys()))})
+        # 地址咧
         self.location = MetadataColumn(PrivatePropertyKeys.LOCATION, '_location', PropertyTypes.GEOLOCATION, {'geo_format': 'lng_lat'})
         self.obj_id = MetadataColumn(PrivatePropertyKeys.OBJ_ID, '_obj_id', PropertyTypes.TEXT)
         self.size = MetadataColumn(PrivatePropertyKeys.SIZE, '_size', PropertyTypes.NUMBER)
@@ -187,6 +199,7 @@ class MetadataColumns(object):
         self.collaborator = MetadataColumn(PrivatePropertyKeys.FILE_COLLABORATORS, '_collaborators', PropertyTypes.COLLABORATOR)
         self.owner = MetadataColumn(PrivatePropertyKeys.OWNER, '_owner', PropertyTypes.COLLABORATOR)
 
+        # 人脸识别结果（face_vectors 向量，包含的链接，排除的链接，脸部链接）
         # face
         self.face_vectors = MetadataColumn(PrivatePropertyKeys.FACE_VECTORS, '_face_vectors', PropertyTypes.LONG_TEXT)
         self.face_links = MetadataColumn(PrivatePropertyKeys.FACE_LINKS, '_face_links', PropertyTypes.LINK)
@@ -216,6 +229,7 @@ class MetadataColumn(object):
             'name': self.name,
             'type': self.type,
         }
+        # （默认使用 self.data， 之后使用 data 自定义覆盖默认值）
         if self.data:
             column_data['data'] = self.data
 
@@ -225,6 +239,7 @@ class MetadataColumn(object):
         return column_data
 
 
+# 人脸表格，在文件表格的基础上，添加了人脸识别结果
 # faces table
 class FacesTable(object):
     def __init__(self, name, face_link_id, excluded_face_link_id, included_face_link_id):
@@ -238,16 +253,20 @@ class FacesTable(object):
         return FacesColumns()
 
 
+# 人脸识别列
 class FacesColumns(object):
     def __init__(self):
         self.id = MetadataColumn('_id', '_id', PropertyTypes.TEXT)
         self.name = MetadataColumn('_name', '_name', PropertyTypes.TEXT)
+        # 增加了这些结果
         self.photo_links = MetadataColumn('_photo_links', '_photo_links', PropertyTypes.LINK)
         self.excluded_photo_links = MetadataColumn('_excluded_photo_links', '_excluded_photo_links', PropertyTypes.LINK)
         self.included_photo_links = MetadataColumn('_included_photo_links', '_included_photo_links', PropertyTypes.LINK)
+        # 向量是长文本属性
         self.vector = MetadataColumn('_vector', '_vector', PropertyTypes.LONG_TEXT)
 
 
+# 标签表格
 # tags table
 class TagsTable(object):
     def __init__(self, name, file_link_id, self_link_id):
@@ -260,6 +279,7 @@ class TagsTable(object):
         return TagsColumns()
 
 
+# 标签列
 class TagsColumns(object):
     def __init__(self):
         self.id = MetadataColumn('_id', '_id', PropertyTypes.TEXT)
@@ -270,7 +290,10 @@ class TagsColumns(object):
         self.sub_links = MetadataColumn('_tag_sub_links', '_tag_sub_links', PropertyTypes.LINK)
 
 
+# 初始化的元数据表，id = '0001', Name = 'Table1'
 METADATA_TABLE = MetadataTable('0001', 'Table1')
+
+
 METADATA_TABLE_SYS_COLUMNS = [
     METADATA_TABLE.columns.file_creator.to_dict(),
     METADATA_TABLE.columns.file_ctime.to_dict(),
@@ -289,7 +312,7 @@ METADATA_TABLE_SYS_COLUMNS = [
     METADATA_TABLE.columns.location_translated.to_dict(),
 ]
 
-
+# 初始化的其他表格的元数据
 FACES_TABLE = FacesTable('faces', '0001', '0004', '0005')
 
 TAGS_TABLE = TagsTable('tags', '0002', '0003')

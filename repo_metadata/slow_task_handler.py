@@ -15,14 +15,17 @@ from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 logger = logging.getLogger(__name__)
 
 
+# 是 Redis 消息队列的处理器，负责处理慢速元数据任务。
 class SlowMetadataTaskHandler(object):
     """ The handler for redis message queue
     """
 
     def __init__(self, config):
+        # 使用配置对象初始化处理器。
         self.metadata_server_api = MetadataServerAPI('seafevents')
         self.face_recognition_manager = FaceRecognitionManager(config)
 
+        # 设置元数据服务器 API、人脸识别管理器和 Redis 连接。
         self.should_stop = threading.Event()
         self.mq_server = REDIS_HOST
         self.mq_port = REDIS_PORT
@@ -41,6 +44,7 @@ class SlowMetadataTaskHandler(object):
 
     @property
     def tname(self):
+        # 返回当前线程的名称。
         return threading.current_thread().name
 
     def start(self):
@@ -50,6 +54,8 @@ class SlowMetadataTaskHandler(object):
             threading.Thread(target=self.worker_handler, name='slow_task_handler_thread_' + str(i), daemon=True).start()
 
     def worker_handler(self):
+        # 在每个工作线程中运行，处理 Redis 队列中的慢速元数据任务。
+        # 处理任务执行、错误日志和 Redis 连接问题。
         logger.info('%s starting update metadata work' % self.tname)
         try:
             while not self.should_stop.isSet():
@@ -76,6 +82,7 @@ class SlowMetadataTaskHandler(object):
             time.sleep(0.3)
 
     def slow_task_handler(self, repo_id, data):
+        # 根据任务类型（例如文件信息提取）处理特定的慢速元数据任务。
         task_type = data.get('task_type')
         if task_type == 'file_info_extract':
             self.extract_file_info(repo_id, data)
@@ -84,7 +91,9 @@ class SlowMetadataTaskHandler(object):
         logger.info('%s start extract file info repo %s' % (threading.current_thread().name, repo_id))
 
         try:
+            # 为给定的存储库和对象 ID 提取文件信息。
             obj_ids = data.get('obj_ids')
+            # 使用元数据服务器 API 和人脸识别管理器，更新元数据（增加细节信息）。
             add_file_details(repo_id, obj_ids, self.metadata_server_api, self.face_recognition_manager)
         except Exception as e:
             logger.exception('repo: %s, update metadata file info error: %s', repo_id, e)

@@ -1,6 +1,7 @@
 import requests, jwt, time
 
 
+# 处理返回值
 def parse_response(response):
     if response.status_code >= 400 or response.status_code < 200:
         raise ConnectionError(response.status_code, response.text)
@@ -17,6 +18,7 @@ class SeafileAIAPI:
         self.secret_key = secret_key
         self.server_url = server_url
 
+    # 获取请求头
     def gen_headers(self):
         payload = {'exp': int(time.time()) + 300, }
         token = jwt.encode(payload, self.secret_key, algorithm='HS256')

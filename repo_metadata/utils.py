@@ -152,12 +152,14 @@ def get_location_from_map_service(point_key):
     logger.warning("Baidu map key or Google map key not configured.")
     return {}
 
+# 根据文件名获取文件扩展名
 def get_file_type_ext_by_name(filename):
     file_ext = os.path.splitext(filename)[1][1:].lower()
     file_type = FILEEXT_TYPE_MAP.get(file_ext)
     return file_type, file_ext
 
 
+# 判断时间字符串是否合法
 def is_valid_datetime(date_string, format):
     try:
         datetime.strptime(date_string, format)
@@ -166,21 +168,30 @@ def is_valid_datetime(date_string, format):
         return False
 
 
+# 获取文件内容（fs_mgr 获取文件内容）
 def get_file_content(repo_id, obj_id, limit=-1):
     f = fs_mgr.load_seafile(repo_id, 1, obj_id)
     content = f.get_content(limit)
     return content
 
 
+# 获取图片详情
+# 从图像文件中提取元数据。它使用 exiftool 库来获取元数据，如拍摄时间、相机设置和位置信息，并返回一个包含提取详细信息和位置坐标的字典。
 def get_image_details(content):
+    # NamedTemporaryFile()函数创建一个临时文件，并返回一个文件对象。
+    # with 语句确保在使用完临时文件后自动关闭并删除它，即使发生异常也会被删除。临时文件会在with块结束后自动被删除，不会占用磁盘空间。
     with tempfile.NamedTemporaryFile() as temp_file:
+        # 将图像内容写入一个临时文件中，以便使用exiftool库来读取图像的元数据。
         temp_file.write(content)
         temp_file.flush()
         temp_file_path = temp_file.name
+        # 创建一个 ExifTool 对象，该对象用于读取和写入图像文件的元数据。
         with exiftool.ExifTool() as et:
+            # 获取元数据
             metadata = et.get_metadata(temp_file_path)
             time_zone_str = metadata.get('EXIF:OffsetTimeOriginal', '')
             capture_time = metadata.get('EXIF:DateTimeOriginal', '')
+            # 获取时区信息和拍摄事件，并转换成合适的格式
             if is_valid_datetime(capture_time, '%Y:%m:%d %H:%M:%S'):
                 capture_time = datetime.strptime(capture_time, '%Y:%m:%d %H:%M:%S')
                 if time_zone_str:
@@ -193,6 +204,7 @@ def get_image_details(content):
                     capture_time = timestamp_to_isoformat_timestr(capture_time.timestamp())
             else:
                 capture_time = ''
+            # 其他的拍摄属性
             focal_length = str(metadata['EXIF:FocalLength']) + 'mm' if metadata.get('EXIF:FocalLength') else ''
             f_number = 'f/' + str(metadata['EXIF:FNumber']) if metadata.get('EXIF:FNumber') else ''
             width = metadata.get('File:ImageWidth') or metadata.get('EXIF:ImageWidth') or metadata.get('EXIF:ExifImageWidth')
@@ -231,9 +243,11 @@ def get_image_details(content):
                 'lat': lat,
                 'lng': lng,
             } if lat is not None and lng is not None else {}
+            # 将图片细节和经纬度返回
             return details, location
 
 
+# 获取视频详情-类似图片详情
 def get_video_details(content):
     with tempfile.NamedTemporaryFile() as temp_file:
         temp_file.write(content)
@@ -282,12 +296,15 @@ def get_video_details(content):
             return details, location
 
 
+# 增加文件详情
 def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_manager=None):
     all_updated_rows = []
+    # 根据obj_id获取元数据
     query_result = get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api)
     if not query_result:
         return []
 
+    # face_embeddings
     if face_recognition_manager and face_recognition_manager.check_face_recognition_status(repo_id):
         rows = [row for row in query_result if not row.get(METADATA_TABLE.columns.face_vectors.name) and face_recognition_manager.is_support_format(row.get(METADATA_TABLE.columns.suffix.name))]
         if rows:
@@ -299,9 +316,14 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_man
     # extract file info
     updated_rows = []
     columns = metadata_server_api.list_columns(repo_id, METADATA_TABLE.id).get('columns', [])
+    # 获取拍摄事件列
     capture_time_column = [column for column in columns if column.get('key') == PrivatePropertyKeys.CAPTURE_TIME]
+    # 判断是否有拍摄时间列
     has_capture_time_column = True if capture_time_column else False
+
+    # 遍历查询结果
     for row in query_result:
+        # 获取文件类型和后缀
         file_type = row.get(METADATA_TABLE.columns.file_type.name)
         suffix = row.get(METADATA_TABLE.columns.suffix.name)
         need_update_file_type = False
@@ -309,34 +331,43 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_man
             file_name = row.get(METADATA_TABLE.columns.file_name.name)
             file_type, suffix = get_file_type_ext_by_name(file_name)
             need_update_file_type = True
+        
         row_id = row[METADATA_TABLE.columns.id.name]
         obj_id = row[METADATA_TABLE.columns.obj_id.name]
 
         limit = 1000000
         content = get_file_content(repo_id, obj_id, limit)
+
+        # 如果是图片或者文件，获取详细信息（拍摄信息）
         if file_type == '_picture':
             update_row = add_image_detail_row(row_id, content, has_capture_time_column)
         elif file_type == '_video':
             update_row = add_video_detail_row(row_id, content, has_capture_time_column)
         else:
             continue
+        
+        # 是否更新文件类型
         if need_update_file_type:
             update_row[METADATA_TABLE.columns.file_type.name] = file_type
             update_row[METADATA_TABLE.columns.suffix.name] = suffix
         updated_rows.append(update_row)
 
+        # 更新元数据（批量更新）
         if len(updated_rows) >= METADATA_OP_LIMIT:
             metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
             all_updated_rows.extend(updated_rows)
             updated_rows = []
 
+    # 更新剩余部分的元数据
     if updated_rows:
         metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
         all_updated_rows.extend(updated_rows)
 
+    # 返回全部更新后的行
     return all_updated_rows
 
 
+# 增加图片细节行（获取图片信息）
 def add_image_detail_row(row_id, content, has_capture_time_column):
     image_details, location = get_image_details(content)
     lng = location.get('lng', '')
@@ -360,6 +391,7 @@ def add_image_detail_row(row_id, content, has_capture_time_column):
     return update_row
 
 
+# 类似 video
 def add_video_detail_row(row_id, content, has_capture_time_column):
     video_details, location = get_video_details(content)
     lng = location.get('lng', '')
@@ -383,6 +415,7 @@ def add_video_detail_row(row_id, content, has_capture_time_column):
     return update_row
 
 
+# names 生成选项 options
 def gen_select_options(option_names):
     options = []
 
@@ -394,6 +427,7 @@ def gen_select_options(option_names):
     return options
 
 
+# 生成选项ID
 def gen_option_id(id_set):
     _id = str(math.floor(random.uniform(0.1, 1) * (10 ** 6)))
 
@@ -403,6 +437,7 @@ def gen_option_id(id_set):
         _id = str(math.floor(random.uniform(0.1, 1) * (10 ** 6)))
 
 
+# 获取元数据
 def get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api):
     sql = f'SELECT * FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.obj_id.name}` IN ('
     parameters = []
@@ -422,6 +457,7 @@ def get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api):
     return query_result
 
 
+# 通过行 ids 获取元数据
 def get_metadata_by_row_ids(repo_id, row_ids, metadata_server_api):
     sql = f'SELECT * FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.id.name}` IN ('
     parameters = []
@@ -441,6 +477,7 @@ def get_metadata_by_row_ids(repo_id, row_ids, metadata_server_api):
     return query_result
 
 
+# SQL 查询元数据行 metadata_server_api.query_rows
 def query_metadata_rows(repo_id, metadata_server_api, sql):
     rows = []
     offset = 10000
@@ -458,7 +495,7 @@ def query_metadata_rows(repo_id, metadata_server_api, sql):
 
     return rows
 
-
+# 生成 SQL 语句
 def gen_view_data_sql(table, columns, view, start, limit, params):
     """ generate view data sql """
     return view_data_2_sql(table, columns, view, start, limit, params)

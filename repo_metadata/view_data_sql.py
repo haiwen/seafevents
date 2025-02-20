@@ -9,15 +9,21 @@ from seafevents.repo_metadata.constants import FilterPredicateTypes, FilterTermM
 
 logger = logging.getLogger(__name__)
 
+# 生成元数据视图的 SQL 查询语句
+# 根据输入的视图数据、排序数据和其他选项，生成相应的 SQL 查询语句。
+
+# 负责生成 SQL 查询语句（空函数）
 class SQLGeneratorOptionInvalidError(Exception):
     pass
 
 
+# 处理时间错误函数
 class DateTimeQueryInvalidError(Exception):
     def __init__(self, column_name):
         self.column_name = column_name
 
 
+# 处理过滤错误函数
 class ColumnFilterInvalidError(Exception):
     def __init__(self, column_name, column_type, filter_predicate, support_filter_predicates, msg):
         self.column_name = column_name
@@ -27,6 +33,7 @@ class ColumnFilterInvalidError(Exception):
         self.msg = msg
 
 
+# 处理操作符拼接 SQL 语句（是，不是，等于，不等于）
 class Operator(object):
 
     def __init__(self, column, filter_item):
@@ -159,6 +166,7 @@ class Operator(object):
         )
 
 
+# 文本操作
 class TextOperator(Operator):
     SUPPORT_FILTER_PREDICATE = [
         FilterPredicateTypes.CONTAINS,
@@ -174,6 +182,7 @@ class TextOperator(Operator):
         super(TextOperator, self).__init__(column, filter_item)
 
 
+# 数值操作
 class NumberOperator(Operator):
     SUPPORT_FILTER_PREDICATE = [
         FilterPredicateTypes.EQUAL,
@@ -191,6 +200,7 @@ class NumberOperator(Operator):
         if self.column_type == PropertyTypes.DURATION:
             self.filter_term = self._duration2number()
 
+    # 转换时长到数字
     def _duration2number(self):
         filter_term = self.filter_term
         column_data = self.column.get('data', {})
@@ -251,6 +261,7 @@ class NumberOperator(Operator):
         return -total_time if is_negtive else total_time
 
 
+# 单选选项操作
 class SingleSelectOperator(Operator):
     SUPPORT_FILTER_PREDICATE = [
         FilterPredicateTypes.IS_ANY_OF,
@@ -264,6 +275,7 @@ class SingleSelectOperator(Operator):
     def __init__(self, column, filter_item):
         super(SingleSelectOperator, self).__init__(column, filter_item)
 
+    # 选项和ID转换
     def _get_option_name_by_id(self, option_id):
         options = self.column.get('data', {}).get('options', [])
         for op in options:
@@ -326,6 +338,7 @@ class SingleSelectOperator(Operator):
         })
 
 
+# 多选选项操作
 class MultipleSelectOperator(Operator):
     SUPPORT_FILTER_PREDICATE = [
         FilterPredicateTypes.HAS_ANY_OF,
@@ -839,6 +852,7 @@ class FileOperator(Operator):
         super(FileOperator, self).__init__(column, filter_item)
 
 
+# 标签列生成 SQL 查询语句
 class TagsOperator(Operator):
     SUPPORT_FILTER_PREDICATE = [
         FilterPredicateTypes.HAS_ANY_OF,
@@ -1008,6 +1022,7 @@ def _filter2sql(operator):
     return ''
 
 
+# 不同列类型和操作符的映射
 def _get_operator_by_type(column_type):
 
     if column_type in [
@@ -1067,9 +1082,10 @@ def _get_operator_by_type(column_type):
 
     return None
 
-
+# 负责生成 SQL 查询语句。
 class SQLGenerator(object):
 
+    # 初始化生成器
     def __init__(self, table, columns, view, start=0, limit=0, other_params={'username': '', 'id_in_org': '', 'tags_data': {}}):
         self.table = table
         self.table_name = table.name
@@ -1081,6 +1097,7 @@ class SQLGenerator(object):
         self.id_in_org = other_params.get('id_in_org', '')
         self.tags_data = other_params.get('tags_data', {})
 
+    # 列相关工具函数
     def _get_column_by_key(self, col_key):
         for col in self.columns:
             if col.get('key') == col_key:
@@ -1291,12 +1308,13 @@ class SQLGenerator(object):
             sql = "%s %s" % (sql, limit_clause)
         return sql
 
-
+# 将视图数据转换为 SQL 查询语句。
 def view_data_2_sql(table, columns, view, start, limit, params):
     """ view to sql """
     sql_generator = SQLGenerator(table, columns, view, start, limit, params)
     return sql_generator.to_sql()
 
+# 将排序数据转换为 SQL 查询语句。
 def sort_data_2_sql(table, columns, sorts):
     """ sorts to sql """
     sql_generator = SQLGenerator(table, columns, {'sorts': sorts})

@@ -156,9 +156,23 @@
 │   └── db.py 链接数据库（判断配置是否正确，测试链接正常）
 ```
 
+## 14 repo_metadata 资料库元数据处理
+
+```
+├── constants.py 不同类型元数据表格的常量（列类型，普通表格，人脸识别表格，图像 OCR 表格等）
+├── handlers.py 元数据通过 redis 发布消息
+├── image_embedding_api.py 图片服务器嵌入API（人脸识别功能）
+├── metadata_server_api.py 元数据服务器 API-表格行列增删改查
+├── script
+│   └── update_face_recognition.py 更新人脸识别信息（清除旧表格的行，初始化配置，更新信息）
+├── index_master.py 元数据的消息处理队列（监听 Redis 消息队列中的元数据更新，处理传入的消息，并根据需要更新待处理任务，例如人脸识别）
+├── utils.py 图片视频信息获取，选项标签获取，生成 SQL 信息等
+├── index_worker.py redis获取元数据信息，处理快速元数据任务，人脸识别信息提取。
+├── slow_task_handler.py Redis 消息队列的处理器，处理慢速元数据任务。
+└── view_data_sql.py ——内容很多，处理元数据支持SQL查询（排序过滤转换成sql语句等）不同列类型对应的 SQL 语句构建和查询，应该类似其他已有项目的逻辑，生成元数据视图的 SQL 查询语句。
+```
 
 # 未整理
-
 
 
 ├── tasks
@@ -180,23 +194,6 @@
 │   ├── db.py
 │   ├── handlers.py
 │   └── models.py
-
-
-├── repo_metadata
-│   ├── constants.py
-│   ├── handlers.py
-│   ├── image_embedding_api.py
-│   ├── index_master.py
-│   ├── index_worker.py
-│   ├── metadata_manager.py
-│   ├── metadata_server_api.py
-│   ├── repo_metadata.py
-│   ├── script
-│   │   └── update_face_recognition.py
-│   ├── slow_task_handler.py
-│   ├── utils.py
-│   └── view_data_sql.py
-
 
 ├── seafevent_server
 │   ├── export_task_manager.py

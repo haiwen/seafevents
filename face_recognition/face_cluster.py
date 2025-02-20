@@ -18,10 +18,12 @@ from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 logger = logging.getLogger('face_recognition')
 
 
+# 这个代码定义了一个函数 patch_greenlet，它接受另一个函数 f 作为参数。
+# patch_greenlet 函数返回一个新的函数 inner，当 inner 被调用时，它会在一个新的 greenlet（gevent 库中的轻量级线程）中执行 f。
+# inner 函数接受任意数量的位置参数和关键字参数，并将它们传递给 f。
 class FaceCluster(object):
-    """ The handler for redis message queue
-    """
 
+    # 使用配置初始化，设置数据库和元数据服务器 API 连接，并解析配置。
     def __init__(self, config):
         self._db_session_class = init_db_session_class(config)
         self.metadata_server_api = MetadataServerAPI('seafevents')
@@ -41,6 +43,7 @@ class FaceCluster(object):
         self.set_signal()
         self.worker_list = []
 
+    # 解析配置以提取 Redis 和元数据设置。
     def _parse_config(self, config):
         metadata_section_name = 'METADATA'
         key_index_workers = 'index_workers'
@@ -50,6 +53,7 @@ class FaceCluster(object):
     def _get_face_cluster_lock_key(self, repo_id):
         return 'face_cluster_' + repo_id
 
+    # 返回当前线程的名称。
     @property
     def tname(self):
         return threading.current_thread().name
@@ -59,6 +63,7 @@ class FaceCluster(object):
             th.join()
         logger.info("All face cluster worker threads has stopped.")
 
+    # 启动多个面部聚类处理器线程和一个刷新锁线程。
     def start(self):
         if not self.mq:
             return
@@ -72,6 +77,7 @@ class FaceCluster(object):
         self.worker_list.append(t)
         self.clear_worker()
 
+    # 在循环中，从 Redis 队列中弹出面部聚类任务，并处理它们。
     def face_cluster_handler(self):
         logger.info('%s starting face cluster', self.tname)
         try:
@@ -94,6 +100,7 @@ class FaceCluster(object):
             # prevent case that redis break at program running.
             time.sleep(0.3)
 
+    # 处理面部聚类任务，获取锁，更新面部聚类，并释放锁。
     def face_cluster_task_handler(self, mq, repo_id, should_stop, op_type, username=None):
         # Python cannot kill threads, so stop it generate more locked key.
         if not should_stop.is_set():
@@ -115,12 +122,14 @@ class FaceCluster(object):
                 # the repo is clustering by other thread, skip it
                 logger.info('repo: %s face cluster is running, skip this clustering', repo_id)
 
+    # 使用 FaceRecognitionManager 更新仓库的面部聚类。
     def update_face_cluster(self, repo_id, username):
         try:
             self.face_recognition_manager.update_face_cluster(repo_id, username=username)
         except Exception as e:
             logger.exception('update face cluster repo: %s, error: %s', repo_id, e)
 
+    # 定期刷新 Redis 中的锁，以防止它们过期。
     def refresh_lock(self):
         logger.info('%s Starting refresh locks', self.tname)
         while not self.should_stop.is_set():
@@ -139,6 +148,7 @@ class FaceCluster(object):
                 logger.exception(e)
                 time.sleep(1)
 
+    # 清除 Redis 中的锁，并退出进程。
     def clear(self):
         if not self.mq:
             return
@@ -153,9 +163,11 @@ class FaceCluster(object):
         logger.info("Exit face cluster process")
         os._exit(0)
 
+    # 处理 SIGTERM 信号，调用 clear 方法。
     def signal_term_handler(self, signal, frame):
         self.clear()
 
+    # 设置 SIGTERM 信号的处理器。
     def set_signal(self):
         # TODO: look like python will add signal to queue when cpu exec c extension code,
         # and will call signal callback method after cpu exec python code

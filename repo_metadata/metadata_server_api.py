@@ -4,7 +4,7 @@ import requests, jwt, time
 
 from seafevents.app.config import METADATA_SERVER_SECRET_KEY, METADATA_SERVER_URL
 
-
+# 处理响应
 def parse_response(response):
     if response.status_code >= 400 or response.status_code < 200:
         raise ConnectionError(response.status_code, response.text)
@@ -15,6 +15,7 @@ def parse_response(response):
             pass
 
 
+# 元数据服务 API
 class MetadataServerAPI:
     def __init__(self, user, timeout=30):
         self.user = user
@@ -31,12 +32,14 @@ class MetadataServerAPI:
         token = jwt.encode(payload, self.secret_key, algorithm='HS256')
         return {"Authorization": "Bearer %s" % token}
 
+    # 创建表格
     def create_base(self, base_id):
         headers = self.gen_headers(base_id)
         url = f'{self.server_url}/api/v1/base/{base_id}'
         response = requests.post(url, headers=headers, timeout=self.timeout)
         return parse_response(response)
 
+    # 删除表格
     def delete_base(self, base_id):
         headers = self.gen_headers(base_id)
         url = f'{self.server_url}/api/v1/base/{base_id}'
@@ -46,6 +49,7 @@ class MetadataServerAPI:
             return {'success': True}
         return parse_response(response)
     
+    # 创建子表
     def create_table(self, base_id, table_name):
         headers = self.gen_headers(base_id)
         url = f'{METADATA_SERVER_URL}/api/v1/base/{base_id}/tables'
@@ -95,6 +99,7 @@ class MetadataServerAPI:
         response = requests.delete(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response)
 
+    # SQL 查询行
     def query_rows(self, base_id, sql, params=[]):
         headers = self.gen_headers(base_id)
         post_data = {
@@ -126,6 +131,7 @@ class MetadataServerAPI:
         response = requests.get(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response)
 
+    # 获取元数据
     def get_metadata(self, base_id):
         headers = self.gen_headers(base_id)
         url = f'{METADATA_SERVER_URL}/api/v1/base/{base_id}/metadata'
