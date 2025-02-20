@@ -65,7 +65,7 @@ class PrivatePropertyKeys:
     INCLUDED_FACE_LINKS = '_included_face_links'
     TAGS = '_tags'
     OCR = '_ocr'
-    LOCATION_INFO = '_location_info'
+    LOCATION_TRANSLATED = '_location_translated'
 
 
 class FilterPredicateTypes(object):
@@ -199,8 +199,8 @@ class MetadataColumns(object):
         # ocr
         self.ocr = MetadataColumn(PrivatePropertyKeys.OCR, '_ocr', PropertyTypes.TEXT)
 
-        # location info
-        self.location_info = MetadataColumn(PrivatePropertyKeys.LOCATION_INFO, '_location_info', PropertyTypes.GEOLOCATION)
+        # location translated 
+        self.location_translated = MetadataColumn(PrivatePropertyKeys.LOCATION_TRANSLATED, '_location_translated', PropertyTypes.GEOLOCATION)
 
 
 class MetadataColumn(object):
@@ -286,7 +286,7 @@ METADATA_TABLE_SYS_COLUMNS = [
     METADATA_TABLE.columns.suffix.to_dict(),
     METADATA_TABLE.columns.file_details.to_dict(),
     METADATA_TABLE.columns.description.to_dict(),
-    METADATA_TABLE.columns.location_info.to_dict(),
+    METADATA_TABLE.columns.location_translated.to_dict(),
 ]
 
 
