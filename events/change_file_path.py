@@ -10,11 +10,14 @@ from sqlalchemy.sql import text
 logger = logging.getLogger(__name__)
 
 
+# ChangeFilePathHandler 类是用于处理文件路径在数据库中的变化。它提供了更新数据库记录、改变文件 UUID 映射和更新共享文件路径的方法。
 class ChangeFilePathHandler(object):
     def __init__(self, session):
+        # 初始化类，使用数据库会话对象。
         self.session = session
 
     def update_db_records(self, dst_repo_id, path, new_path, is_dir, src_repo_id=None):
+        #  更新数据库记录，通过调用 change_file_uuid_map、change_share_file_path 和 change_upload_share_file_path 方法。
         if not dst_repo_id or not path or not new_path:
             logger.warning('Failed to change file uuid map, bad args')
             return
@@ -24,12 +27,14 @@ class ChangeFilePathHandler(object):
         self.change_upload_share_file_path(dst_repo_id, path, new_path, is_dir, src_repo_id)
 
     def change_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
+        # 更新共享文件路径，通过调用 _change_share_file_path 方法。
         try:
             self._change_share_file_path(repo_id, path, new_path, is_dir, src_repo_id)
         except Exception as e:
             logger.warning('Failed to change share file path for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
 
     def _change_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
+        # 更新共享文件路径，通过查询和更新匹配旧路径的记录。
         result = self.session.execute(text('select path from share_fileshare where repo_id=:repo_id and path like :path')
                                  , {'repo_id': src_repo_id if src_repo_id else repo_id, 'path': path + '%'})
         if result.rowcount == 0:
@@ -62,12 +67,14 @@ class ChangeFilePathHandler(object):
                 self.session.commit()
 
     def change_file_uuid_map(self, repo_id, path, new_path, is_dir, src_repo_id=None):
+        # 更新文件 UUID 映射，通过调用 _change_file_uuid_map 方法。
         try:
             self._change_file_uuid_map(repo_id, path, new_path, is_dir, src_repo_id)
         except Exception as e:
             logger.warning('Failed to change file uuid map for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
 
     def _change_file_uuid_map(self, repo_id, path, new_path, is_dir, src_repo_id = None):
+        # 更新文件 UUID 映射，通过查询和更新匹配旧路径的记录。
         old_dir = os.path.split(path)[0]
         old_file = os.path.split(path)[1]
         result = self.session.execute(text('select 1 from tags_fileuuidmap where repo_id=:repo_id and parent_path=:parent_path and filename=:filename and is_dir=:is_dir'),
@@ -120,16 +127,19 @@ class ChangeFilePathHandler(object):
                     self.session.commit()
 
     def md5_repo_id_parent_path(self, repo_id, parent_path):
+        # 生成存储库 ID 和父路径的 MD5 哈希值。
         parent_path = parent_path.rstrip('/') if parent_path != '/' else '/'
         return hashlib.md5((repo_id + parent_path).encode('utf-8')).hexdigest()
 
     def change_upload_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
+        # 更新上传共享文件路径，通过调用 _change_upload_share_file_path 方法。
         try:
             self._change_upload_share_file_path(repo_id, path, new_path, is_dir, src_repo_id)
         except Exception as e:
             logger.warning('Failed to change upload share file path for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
 
     def _change_upload_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id):
+        # 更新上传共享文件路径，通过查询和更新匹配旧路径的记录。
         result = self.session.execute(text('select path from share_uploadlinkshare where repo_id=:repo_id and path like :dir'),
                                 {'repo_id': src_repo_id if src_repo_id else repo_id, 'dir': path + '%'})
 

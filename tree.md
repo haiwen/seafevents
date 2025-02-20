@@ -172,8 +172,16 @@
 └── view_data_sql.py ——内容很多，处理元数据支持SQL查询（排序过滤转换成sql语句等）不同列类型对应的 SQL 语句构建和查询，应该类似其他已有项目的逻辑，生成元数据视图的 SQL 查询语句。
 ```
 
-# 未整理
+## 15 events 事件处理回调函数（早期代码）
 
+```
+│   ├── change_file_path.py 用于处理文件路径在数据库中的变化
+│   ├── db.py 事件处理相关数据库操作（获取用户事件，文件事件，查询数据库）
+│   ├── handlers.py 核心函数：不同文件事件的处理函数（文件上传下载更新后，把文件活动和用户活动记录到数据库中）
+│   └── models.py 数据库建表语句：用于存储和管理用户活动事件、用户事件和用户活动事件统计信息。
+```
+
+# 未整理
 
 ├── tasks
 │   ├── content_scanner.py
@@ -188,12 +196,6 @@
 │   ├── statistics.py
 │   ├── virus_scanner.py
 │   └── work_weixin_notice_sender.py
-
-├── events
-│   ├── change_file_path.py
-│   ├── db.py
-│   ├── handlers.py
-│   └── models.py
 
 ├── seafevent_server
 │   ├── export_task_manager.py

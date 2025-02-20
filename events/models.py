@@ -8,9 +8,20 @@ from sqlalchemy.sql.schema import Index, ForeignKey
 
 from seafevents.db import Base
 
+# 用于存储和管理用户活动事件、用户事件和用户活动事件统计信息。
 
 class Activity(Base):
     """
+    Activity 类： 该类定义了一个活动事件的模型，包含以下字段：
+    id: 活动事件的唯一标识符
+    op_type: 活动事件的类型（例如，创建、修改、删除等）
+    op_user: 活动事件的操作用户
+    obj_type: 活动事件的对象类型（例如，文件、文件夹等）
+    timestamp: 活动事件的时间戳
+    repo_id: 活动事件所发生的仓库 ID
+    commit_id: 活动事件所发生的提交 ID
+    path: 活动事件所发生的路径
+    detail: 活动事件的详细信息（以 JSON 格式存储）
     """
     __tablename__ = 'Activity'
 
@@ -50,6 +61,12 @@ class Activity(Base):
 
 class UserActivity(Base):
     """
+    UserActivity 类： 该类定义了一个用户活动事件的模型，包含以下字段：
+    id: 用户活动事件的唯一标识符
+    username: 用户活动事件的用户名
+    activity_id: 用户活动事件的活动事件 ID
+    timestamp: 用户活动事件的时间戳
+    该类还定义了一个 init 方法，用于初始化用户活动事件对象。
     """
     __tablename__ = 'UserActivity'
 
@@ -73,6 +90,9 @@ class UserActivity(Base):
 
 
 class FileHistory(Base):
+    """
+    文件历史
+    """
     __tablename__ = 'FileHistory'
 
     id = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -105,6 +125,9 @@ class FileHistory(Base):
 
 
 class FileAudit(Base):
+    """
+    文件审计
+    """
     __tablename__ = 'FileAudit'
 
     eid = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -149,6 +172,7 @@ class FileAudit(Base):
 
 
 class FileUpdate(Base):
+    # 文件更新
     __tablename__ = 'FileUpdate'
 
     eid = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -186,6 +210,7 @@ class FileUpdate(Base):
 
 
 class PermAudit(Base):
+    # 权限审计
     __tablename__ = 'PermAudit'
 
     eid = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -230,6 +255,7 @@ class PermAudit(Base):
 
 
 class UserLogin(Base):
+    # 用户登录
     __tablename__ = 'sysadmin_extra_userloginlog'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -246,6 +272,7 @@ class UserLogin(Base):
         self.login_success = login_success
 
 class FileTrash(Base):
+    # 文件回收站
     __tablename__ = 'FileTrash'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)

@@ -17,8 +17,13 @@ logger = logging.getLogger('seafevents')
 USER_ACTIVITIES_GENERATE_LIMIT = 50
 
 
+# 模块主要负责处理事件相关的数据库操作。
+
 class UserEventDetail(object):
     """Regular objects which can be used by seahub without worrying about ORM"""
+    """
+    UserEventDetail 这个类用于封装事件数据，使其可以被 Seahub 无需关心 ORM（对象关系映射）直接使用。它包含事件的详细信息，例如事件类型、时间戳、用户信息等。
+    """
     def __init__(self, org_id, user_name, event):
         self.org_id = org_id
         self.username = user_name
@@ -31,6 +36,7 @@ class UserEventDetail(object):
         for key in dt:
             self.__dict__[key] = dt[key]
 
+# 这个类用于封装用户活动事件数据，使其可以被 Seahub 无需关心 ORM 直接使用。它包含用户活动事件的详细信息，例如事件类型、时间戳、用户信息等。
 class UserActivityDetail(object):
     """Regular objects which can be used by seahub without worrying about ORM"""
     def __init__(self, event, username=None):
@@ -53,6 +59,7 @@ class UserActivityDetail(object):
         return self.__dict__[key]
 
 
+# 这个函数用于获取指定用户的活动事件列表。它接受会话对象、用户名、开始索引和限制数量作为参数，返回一个包含用户活动事件详细信息的列表。
 def _get_user_activities(session, username, start, limit):
     if start < 0:
         logger.error('start must be non-negative')
@@ -62,6 +69,7 @@ def _get_user_activities(session, username, start, limit):
         logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
     
+    # 获取用户活动（拼接SQL）
     sub_query = (
         select(UserActivity.activity_id)
         .where(UserActivity.username == username)
@@ -77,6 +85,8 @@ def _get_user_activities(session, username, start, limit):
 
     return [ UserActivityDetail(ev, username=username) for ev in events ]
 
+# 这个函数用于获取指定用户的活动事件列表，根据操作用户进行过滤。
+# 它接受会话对象、用户名、操作用户、开始索引和限制数量作为参数，返回一个包含用户活动事件详细信息的列表。
 def _get_user_activities_by_op_user(session, username, op_user, start, limit):
     if start < 0:
         logger.error('start must be non-negative')
@@ -102,12 +112,16 @@ def _get_user_activities_by_op_user(session, username, op_user, start, limit):
     return [ UserActivityDetail(ev, username=username) for ev in events ]
 
 
+# 这个函数用于获取指定用户的活动事件列表。它接受会话对象、用户名、开始索引和限制数量作为参数，返回一个包含用户活动事件详细信息的列表。
 def get_user_activities(session, username, start, limit):
     return _get_user_activities(session, username, start, limit)
 
+# 这个函数用于获取指定用户的活动事件列表，根据操作用户进行过滤。它接受会话对象、用户名、操作用户、开始索引和限制数量作为参数，返回一个包含用户活动事件详细信息的列表。
 def get_user_activities_by_op_user(session, username, op_user, start, limit):
     return _get_user_activities_by_op_user(session, username, op_user, start, limit)
 
+# 这个函数用于获取指定用户的活动事件列表，根据时间戳进行过滤。
+# 它接受会话对象、用户名、开始时间戳和结束时间戳作为参数，返回一个包含用户活动事件详细信息的列表。
 def _get_user_activities_by_timestamp(session, username, start, end):
     events = []
     try:
@@ -138,9 +152,11 @@ def _get_user_activities_by_timestamp(session, username, start, end):
 
     return [ UserActivityDetail(ev, username=username) for ev in events ]
 
+# 这个函数用于获取指定用户的活动事件列表，根据时间戳进行过滤。它接受会话对象、用户名、开始时间戳和结束时间戳作为参数，返回一个包含用户活动事件详细信息的列表。
 def get_user_activities_by_timestamp(session, username, start, end):
     return _get_user_activities_by_timestamp(session, username, start, end)
 
+# 获取指定仓库和路径的文件历史记录。该函数接受会话对象、仓库 ID、路径、开始索引、限制数量和历史记录限制（默认为 -1）作为参数，返回文件历史记录列表和总数。
 def get_file_history(session, repo_id, path, start, limit, history_limit=-1):
     repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
     current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
@@ -173,6 +189,7 @@ def get_file_history(session, repo_id, path, start, limit, history_limit=-1):
 
     return events, total_count
 
+# 将文件历史记录对象转换为字典。该函数接受文件历史记录对象作为参数，返回包含文件历史记录详细信息的字典。
 def convert_file_history_to_dict(file_history):
     new_file_history = {}
     new_file_history['id'] = file_history.id
@@ -195,6 +212,7 @@ def convert_file_history_to_dict(file_history):
         pass
     return new_file_history
 
+# 按天获取文件历史
 def get_file_history_by_day(session, repo_id, path, start, limit, to_tz, history_limit=-1):
     repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
     current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
@@ -240,8 +258,10 @@ def get_file_history_by_day(session, repo_id, path, start, limit, to_tz, history
 
     return new_events
 
+# 获取文件日常历史细节
 def get_file_daily_history_detail(session, repo_id, path, start_time, end_time, to_tz):
     repo_id_path_md5 = hashlib.md5((repo_id + path).encode('utf8')).hexdigest()
+    # 获取记录
     current_item = session.scalars(select(FileHistory).where(FileHistory.repo_id_path_md5 == repo_id_path_md5).
                                    order_by(desc(FileHistory.id)).limit(1)).first()
     
@@ -261,6 +281,7 @@ def get_file_daily_history_detail(session, repo_id, path, start_time, end_time, 
 def not_include_all_keys(record, keys):
     return any(record.get(k, None) is None for k in keys)
 
+# 保存用户活动
 def save_user_activity(session, record):
     activity = Activity(record)
     session.add(activity)
@@ -275,6 +296,7 @@ def save_repo_trash(session, record):
     session.add(repo_trash)
     session.commit()
 
+# 恢复资料库回收站
 def restore_repo_trash(session, record):
     stmt = delete(FileTrash).where(FileTrash.repo_id == record['repo_id'], FileTrash.obj_name == record['obj_name'],
                                     FileTrash.path == record['path'])
@@ -304,6 +326,7 @@ def clean_up_all_repo_trash(session, keep_days):
         session.commit()
 
 
+# 更新用户活动时间戳
 def update_user_activity_timestamp(session, activity_id, record):
     activity_stmt = update(Activity).where(Activity.id == activity_id).\
         values(timestamp=record["timestamp"])
@@ -320,6 +343,7 @@ def update_file_history_record(session, history_id, record):
     session.execute(stmt)
     session.commit()
 
+# 查询之前的记录
 def query_prev_record(session, record):
     if record['op_type'] == 'create':
         return None
@@ -341,6 +365,7 @@ def query_prev_record(session, record):
 
     return prev_item
 
+# 保存文件历史
 def save_filehistory(session, fh_threshold, record):
     # use same file_uuid if prev item already exists, otherwise new one
     prev_item = query_prev_record(session, record)
@@ -380,6 +405,7 @@ def save_file_update_event(session, timestamp, user, org_id, repo_id,
     session.add(event)
     session.commit()
 
+# 获取事件
 def get_events(session, obj, username, org_id, repo_id, file_path, start, limit):
     if start < 0:
         logger.error('start must be non-negative')
@@ -408,6 +434,7 @@ def get_events(session, obj, username, org_id, repo_id, file_path, start, limit)
     elif org_id < 0:
         stmt = stmt.where(obj.org_id == -1)
 
+    # 根据不同参数，增加 sql 语句并过滤即可
     stmt = stmt.order_by(desc(obj.eid)).slice(start, start + limit)
 
     events = session.scalars(stmt).all()
@@ -417,6 +444,7 @@ def get_events(session, obj, username, org_id, repo_id, file_path, start, limit)
 def get_file_update_events(session, user, org_id, repo_id, start, limit):
     return get_events(session, FileUpdate, user, org_id, repo_id, None, start, limit)
 
+# 文件审计
 def get_file_audit_events(session, user, org_id, repo_id, start, limit):
     return get_events(session, FileAudit, user, org_id, repo_id, None, start, limit)
 
@@ -448,6 +476,7 @@ def save_perm_audit_event(session, timestamp, etype, from_user, to,
 def get_perm_audit_events(session, from_user, org_id, repo_id, start, limit):
     return get_events(session, PermAudit, from_user, org_id, repo_id, None, start, limit)
 
+# 获取事件日志
 def get_event_log_by_time(session, log_type, tstart, tend):
     if log_type not in ('file_update', 'file_audit', 'perm_audit'):
         logger.error('Invalid log_type parameter')

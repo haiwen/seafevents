@@ -31,6 +31,9 @@ from seafevents.batch_delete_files_notice.db import get_deleted_files_total_coun
 recent_added_events = {'recent_added_events': []}
 EXCLUDED_PATHS = ['/_Internal', '/images/sdoc', '/images/auto-upload']
 
+# events/handlers.py 文件是 Seafile 事件处理器的实现文件。
+# 它定义了各种事件处理函数，用于处理 Seafile 中发生的事件，例如文件更新、共享文件、上传文件等。
+
 def _check_ignored_path(path):
     for p in EXCLUDED_PATHS:
         if path.startswith(p):
@@ -38,6 +41,7 @@ def _check_ignored_path(path):
     return False
 
 
+# 当仓库更新时，调用该处理器。
 def RepoUpdateEventHandler(config, session, msg):
     try:
         elements = json.loads(msg['content'])
@@ -190,9 +194,11 @@ def RepoUpdateEventHandler(config, session, msg):
                         save_deleted_files_msg(session, owner, repo_id, timestamp)
 
 
+# 给协同服务器发送信息
 def send_message_to_collab_server(config, repo_id):
     collab_server = config.get('COLLAB_SERVER', 'server_url')
     collab_key = config.get('COLLAB_SERVER', 'key')
+    # 直接使用 API 发送
     url = '%s/api/repo-update' % collab_server
     form_data = 'repo_id=%s&key=%s' % (repo_id, collab_key)
     req = request.Request(url, form_data.encode('utf-8'))
@@ -202,6 +208,7 @@ def send_message_to_collab_server(config, repo_id):
         logging.warning('Failed to send message to collab_server %s', collab_server)
 
 
+# 生成资料库监控记录（文件或者目录变化后，对 commit 进行 diff，然后生成记录）
 def generate_repo_monitor_records(repo_id, commit,
                                   added_files, deleted_files,
                                   added_dirs, deleted_dirs,
@@ -251,6 +258,7 @@ def generate_repo_monitor_records(repo_id, commit,
 
     records = []
 
+    # 增加文件
     if added_files:
 
         added_files_record = copy.copy(base_record)
@@ -277,8 +285,10 @@ def generate_repo_monitor_records(repo_id, commit,
 
             added_files_record["commit_diff"].append(commit_diff)
 
+        # 记录一个添加文件的记录
         records.append(added_files_record)
 
+    # 删除文件
     if deleted_files:
         deleted_files_record = copy.copy(base_record)
         deleted_files_record["commit_diff"] = []
@@ -449,6 +459,7 @@ def generate_repo_monitor_records(repo_id, commit,
     return filtered_records
 
 
+# 保存信息到用户通知中
 def save_message_to_user_notification(session, records):
 
     if not records:
@@ -462,6 +473,7 @@ def save_message_to_user_notification(session, records):
         if not repo_id:
             continue
 
+        # 监控用户
         monitor_users = cache.get('{}_monitor_users'.format(repo_id))
         if not monitor_users:
             sql = "SELECT email FROM base_usermonitoredrepos where repo_id='{}'".format(repo_id)
@@ -572,6 +584,7 @@ def save_message_to_user_notification(session, records):
         session.execute(text(sql))
         session.commit()
 
+# 保存用户活动
 def save_user_activities(session, records):
     if not records:
         return
@@ -595,6 +608,7 @@ def save_user_activities(session, records):
             save_user_activity(session, record)
 
 
+# 保存资料库回收站
 def save_repo_trashs(session, records):
     for record in records:
         if record['op_type'] == 'delete':
@@ -624,6 +638,7 @@ def get_delete_records(session, repo_id, show_day, start, limit):
 
     return res, total_count
 
+# 生成活动记录（不同活动不同的字段）
 def generate_activity_records(added_files, deleted_files, added_dirs,
         deleted_dirs, modified_files, renamed_files, moved_files, renamed_dirs,
         moved_dirs, commit, repo_id, parent, related_users, time):
@@ -923,6 +938,7 @@ def save_file_histories(config, session, records):
             save_filehistory(session, fh_threshold, record)
 
 
+# 判断是否记录
 def should_record(config, record):
     """ return True if record['path'] is a specified office file
     """
@@ -935,6 +951,7 @@ def should_record(config, record):
     return False
 
 
+# 文件上传事件处理
 def FileUpdateEventHandler(config, session, msg):
     try:
         elements = json.loads(msg['content'])
@@ -963,6 +980,7 @@ def FileUpdateEventHandler(config, session, msg):
     save_file_update_event(session, time, creator_name, org_id,
                            repo_id, commit_id, commit.desc)
 
+# 文件审计事件处理
 def FileAuditEventHandler(config, session, msg):
     try:
         elements = json.loads(msg['content'])
@@ -985,6 +1003,7 @@ def FileAuditEventHandler(config, session, msg):
     save_file_audit_event(session, timestamp, msg_type, user_name, ip,
                           user_agent, org_id, repo_id, file_path)
 
+# 权限审计事件处理
 def PermAuditEventHandler(config, session, msg):
     try:
         elements = json.loads(msg['content'])
@@ -1006,6 +1025,7 @@ def PermAuditEventHandler(config, session, msg):
                           org_id, repo_id, file_path, perm)
 
 
+# 注册全部的事件处理（某个事件触发对应的处理函数）
 def register_handlers(handlers, enable_audit):
     handlers.add_handler('seaf_server.event:repo-update', RepoUpdateEventHandler)
     if enable_audit:
