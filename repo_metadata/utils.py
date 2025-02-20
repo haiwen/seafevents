@@ -51,7 +51,7 @@ def get_location_from_map_service(point_key):
             response = requests.get(BAIDU_MAP_URL, params=params, timeout=30)
             if response.status_code == 200:
                 data = response.json()
-                if data['status'] == 0:
+                if data.get('status') == 0:
                     return {
                         'address': data['result']['formatted_address'],
                         'country': data['result']['addressComponent']['country'],
@@ -60,10 +60,10 @@ def get_location_from_map_service(point_key):
                         'district': data['result']['addressComponent']['district']
                     }
                 else:
-                    logger.error(f"Baidu Map Service Request Failed: {str(data['message'])}")
+                    logger.warning(f"Baidu Map Service Request Failed: {str(data.get('message'))}")
                     return {}
         except Exception as e:
-            logger.error('Get location from baidu map service error: %s', e)
+            logger.warning('Get location from baidu map service error: %s', e)
             return {}
 
     if GOOGLE_MAP_KEY:
@@ -75,7 +75,7 @@ def get_location_from_map_service(point_key):
             response = requests.get(GOOGLE_MAP_URL, params=params, timeout=30)
             if response.status_code == 200:
                 data = response.json()
-                if data['status'] == 'OK' and data['results']:
+                if data.get('status') == 'OK' and data.get('results'):
                     result = data['results'][0]
                     address_components = {
                         'country': '',
@@ -104,10 +104,10 @@ def get_location_from_map_service(point_key):
                         'district': address_components['district'],
                     }
                 else:
-                    logger.error(f"Google Map Service Request Failed: {str(data['error_message'])}")
+                    logger.warning(f"Google Map Service Request Failed: {str(data.get('error_message'))}")
                     return {}
         except Exception as e:
-            logger.error('Get location from google map service error: %s', e)
+            logger.warning('Get location from google map service error: %s', e)
             return {}
         
     logger.warning("Baidu map key or Google map key not configured.")
