@@ -7,6 +7,7 @@ import math
 import exiftool
 import tempfile
 import requests
+import logging
 
 from datetime import timedelta, timezone, datetime
 
@@ -17,6 +18,9 @@ from seafevents.app.config import METADATA_FILE_TYPES, BAIDU_MAP_KEY, BAIDU_MAP_
 from seafevents.repo_metadata.view_data_sql import view_data_2_sql, sort_data_2_sql
 from seafevents.utils import timestamp_to_isoformat_timestr
 from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT, METADATA_TABLE
+
+
+logger = logging.getLogger(__name__)
 
 
 def gen_fileext_type_map():
@@ -56,8 +60,10 @@ def get_location_from_map_service(point_key):
                         'district': data['result']['addressComponent']['district']
                     }
             else:
+              logger.error(f"Baidu Map Service Request Failed: {str(response.status_code)}")
               return {}
         except Exception as e:
+            logger.error('Get location from baidu map service error: %s', e)
             return {}
 
     if GOOGLE_MAP_KEY:
@@ -98,10 +104,13 @@ def get_location_from_map_service(point_key):
                         'district': address_components['district'],
                     }
             else:
+              logger.error(f"Google Map Service Request Failed: {str(response.status_code)}")
               return {}
         except Exception as e:
+            logger.error('Get location from google map service error: %s', e)
             return {}
         
+    logger.warning("Baidu map key or Google map key not configured.")
     return {}
 
 def get_file_type_ext_by_name(filename):
