@@ -13,6 +13,7 @@ __all__ = [
 ]
 
 
+# 索引更新服务
 class IndexUpdater(object):
     def __init__(self, config):
         self._enabled = False
@@ -29,6 +30,7 @@ class IndexUpdater(object):
 
         self._parse_config(config)
 
+    # 解析 events.conf
     def _parse_config(self, config):
         """Parse index update related parts of events.conf"""
         section_name = 'INDEX FILES'

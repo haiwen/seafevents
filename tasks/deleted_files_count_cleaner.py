@@ -19,6 +19,7 @@ __all__ = [
 ]
 
 
+# 删除文件数量清理器
 class DeletedFilesCountCleaner(object):
     def __init__(self, config):
         self._db_session_class = init_db_session_class(config)
@@ -27,6 +28,7 @@ class DeletedFilesCountCleaner(object):
         DeletedFilesCountTask(self._db_session_class).start()
 
 
+# 删除文件数量任务
 class DeletedFilesCountTask(Thread):
     def __init__(self, db_session_class):
         Thread.__init__(self)

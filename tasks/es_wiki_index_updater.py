@@ -12,6 +12,7 @@ __all__ = [
 ]
 
 
+# es搜索引擎的wiki索引更新
 class ESWikiIndexUpdater(object):
     def __init__(self, config):
         self._enabled = False
@@ -25,6 +26,7 @@ class ESWikiIndexUpdater(object):
 
         self._parse_config(config)
 
+    # 配置转换
     def _parse_config(self, config):
         """Parse index update related parts of events.conf"""
         section_name = 'INDEX FILES'
@@ -107,6 +109,7 @@ class ESWikiIndexUpdater(object):
         self._es_host = es_host
         self._es_port = es_port
 
+    # 开始启动
     def start(self):
         if not self.is_enabled():
             logging.warning('Can not start wiki index updater: it is not enabled!')
@@ -121,7 +124,7 @@ class ESWikiIndexUpdater(object):
     def is_enabled(self):
         return self._enabled
 
-
+# 维基索引更新计时器
 class WikiIndexUpdateTimer(Thread):
 
     def __init__(self, interval, seafesdir, logfile, loglevel, es_host, es_port):

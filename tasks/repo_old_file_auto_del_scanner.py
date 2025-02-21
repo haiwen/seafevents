@@ -6,6 +6,7 @@ from seafevents.utils import get_python_executable, run, parse_bool, parse_inter
 from seafevents.app.config import SEAHUB_DIR
 
 
+# 资料库旧文件自动删除扫描器
 class RepoOldFileAutoDelScanner(object):
     def __init__(self, config):
         self._enabled = False

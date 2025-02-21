@@ -6,6 +6,7 @@ from seafevents.statistics import TotalStorageCounter, FileOpsCounter, TrafficIn
                                   MonthlyTrafficCounter, UserActivityCounter
 
 
+# 捕获错误
 def exception_catch(module):
     def func_wrapper(func):
         def wrapper(*args, **kwargs):
@@ -17,6 +18,7 @@ def exception_catch(module):
     return func_wrapper
 
 
+# 统计
 class Statistics(Thread):
     def __init__(self, config, seafile_config):
         Thread.__init__(self)
@@ -41,6 +43,7 @@ class Statistics(Thread):
             return
 
 
+# 统计总存储
 class CountTotalStorage(Thread):
     def __init__(self, config, seafile_config):
         Thread.__init__(self)
@@ -58,8 +61,15 @@ class CountTotalStorage(Thread):
         self.finished.set()
 
 
+# 统计文件操作
 class CountFileOps(Thread):
     def __init__(self, config):
+        """
+        Initialize a CountFileOps object.
+
+        :param config: The configuration object from config file.
+        :type config: configobj.ConfigObj
+        """
         Thread.__init__(self)
         self.config = config
         self.finished = Event()
@@ -74,6 +84,7 @@ class CountFileOps(Thread):
         self.finished.set()
 
 
+# 统计流量
 class CountTrafficInfo(Thread):
     # This should run at frontend node server.
     def __init__(self, config):
@@ -98,6 +109,7 @@ class CountTrafficInfo(Thread):
         self.finished.set()
 
 
+# 统计月流量
 class CountMonthlyTrafficInfo(Thread):
     def __init__(self, config):
         Thread.__init__(self)
@@ -114,6 +126,7 @@ class CountMonthlyTrafficInfo(Thread):
         self.finished.set()
 
 
+# 统计用户活动
 class CountUserActivity(Thread):
     # This should run at frontend node server.
     def __init__(self, config):

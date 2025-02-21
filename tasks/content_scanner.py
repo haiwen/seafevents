@@ -8,14 +8,17 @@ from seafevents.utils import get_python_executable, run, parse_bool, parse_inter
 
 
 class ContentScanner(object):
+    # 用配置初始化 ContentScanner 对象
     def __init__(self, config):
         self._enabled = False
         self._interval = None
         self._logfile = None
         self._timer = None
 
+        # 调用 _parse_config 方法设置对象的属性。
         self._parse_config(config)
 
+    # 解析配置以确定内容扫描器是否启用，并设置扫描间隔和日志文件路径。
     def _parse_config(self, config):
         section_name = 'CONTENT SCAN'
         if not config.has_section(section_name):
@@ -35,6 +38,7 @@ class ContentScanner(object):
 
         self._logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'content_scan.log')
 
+    # 如果内容扫描器启用，则启动它，并记录一条警告消息，如果它未启用。
     def start(self):
         if not self.is_enabled():
             logging.warning('Can not start content scanner: it is not enabled!')
@@ -43,10 +47,12 @@ class ContentScanner(object):
         logging.info('content scanner is started, interval = %s sec', self._interval)
         ContentScanTimer(self._interval, self._logfile).start()
 
+    # 返回一个布尔值，指示内容扫描器是否启用。
     def is_enabled(self):
         return self._enabled
 
 
+# 内容扫描定时器
 class ContentScanTimer(Thread):
 
     def __init__(self, interval, log_file):

@@ -12,6 +12,7 @@ __all__ = [
 ]
 
 
+# 企业微信发送通知
 class WorkWinxinNoticeSender(object):
 
     def __init__(self, config):

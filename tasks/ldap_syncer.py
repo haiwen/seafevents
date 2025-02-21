@@ -4,7 +4,7 @@ import logging
 from threading import Thread, Event
 from seafevents.ldap_syncer import Settings
 
-
+# ldap syncer
 class LdapSyncer(object):
     def __init__(self, config):
         self.settings = Settings(config)

@@ -181,21 +181,26 @@
 │   └── models.py 数据库建表语句：用于存储和管理用户活动事件、用户事件和用户活动事件统计信息。
 ```
 
+## 16 tasks 任务（这些模块基本类似，都是入口任务（处理配置，处理定时器）
+
+```
+├── __init__.py 模块入口函数（导出全部模块，各种扫描器等）
+├── content_scanner.py 内容扫描函数
+├── deleted_files_count_cleaner.py 已删除文件数量清理器
+├── es_wiki_index_updater.py es维基索引更新（搜索任务）
+├── face_cluster.py 人脸识别任务
+├── file_updates_sender.py 文件更新发送器
+├── index_updater.py 索引更新任务
+├── ldap_syncer.py 同步器 ldap syncer
+├── repo_old_file_auto_del_scanner.py 资料库旧文件自动删除扫描器
+├── seahub_email_sender.py 发送邮件
+├── statistics.py 统计（文件活动，用户活动，文件存储，流量控制）
+├── virus_scanner.py 病毒扫描器
+└── work_weixin_notice_sender.py 企业微信发送通知
+```
+
 # 未整理
 
-├── tasks
-│   ├── content_scanner.py
-│   ├── deleted_files_count_cleaner.py
-│   ├── es_wiki_index_updater.py
-│   ├── face_cluster.py
-│   ├── file_updates_sender.py
-│   ├── index_updater.py
-│   ├── ldap_syncer.py
-│   ├── repo_old_file_auto_del_scanner.py
-│   ├── seahub_email_sender.py
-│   ├── statistics.py
-│   ├── virus_scanner.py
-│   └── work_weixin_notice_sender.py
 
 ├── seafevent_server
 │   ├── export_task_manager.py

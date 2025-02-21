@@ -10,6 +10,7 @@ __all__ = [
 ]
 
 
+# 发送邮件
 class SeahubEmailSender(object):
     def __init__(self, config):
         self._enabled = False
