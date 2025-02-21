@@ -9,34 +9,14 @@ logger = logging.getLogger('seafevents')
 
 
 def get_seafile_db_name():
-    seafile_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('SEAFILE_CONF_DIR')
-    if not seafile_conf_dir:
-        error_msg = 'Environment variable seafile_conf_dir is not define.'
-        return None, error_msg
-
-    seafile_conf_path = os.path.join(seafile_conf_dir, 'seafile.conf')
-    config = configparser.ConfigParser()
-    config.read(seafile_conf_path)
-
-    if config.has_section('database'):
-        # 暂时的调整，
-        # db_name = config.get('database', 'db_name', fallback='seafile')
-        db_name = config.get('database', 'user', fallback='seafile')
-    else:
-        db_name = 'sysdba'
-
-    # if config.get('database', 'type') != 'mysql':
-    #     error_msg = 'Failed to init seafile db, only mysql db supported.'
-    #     print(error_msg)
-    #     # return None, error_msg
-    return db_name, None
+    return os.environ.get('SEAFILE_MYSQL_DB_SEAFILE_DB_NAME', '') or 'SYSDBA'
 
 
 class SeafileDB(object):
     def __init__(self):
         self.db_session = None
         self.init_seafile_db()
-        self.db_name = get_seafile_db_name()[0]
+        self.db_name = get_seafile_db_name()
 
     def __enter__(self):
         return self

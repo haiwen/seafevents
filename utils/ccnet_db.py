@@ -59,7 +59,7 @@ class CcnetDB(object):
         sql = f"""
             SELECT * 
             FROM
-                {self.db_name}."Group"
+                {self.db_name}.Group
             WHERE
                 group_id IN ({group_ids_str})
         """
