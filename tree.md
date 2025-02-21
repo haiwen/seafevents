@@ -46,7 +46,7 @@
 │   └── handlers.py 发布资料库更新事件到消息队列（Redis）
 ```
 
-## 05 content_scanner 内容扫描模块（2018年）
+## 05 content_scanner 内容扫描模块
 ```
 │   ├── ali_scan.py 调用阿里云提供的病毒扫描接口
 │   ├── content_scan.py 扫描内容（通过计算 repo 的 commit id，进行 diff 操作，判断文件增删改情况，然后调用 API 进行内容扫描）
