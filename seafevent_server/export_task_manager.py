@@ -14,8 +14,10 @@ from seafevents.events.metrics import NODE_NAME, METRIC_CHANNEL_NAME
 logger = logging.getLogger('seafevents')
 
 
+# 用于管理事件日志导出和维基转换任务的EventExportTaskManager
 class EventExportTaskManager(object):
 
+    # 初始化任务管理器，设置默认配置和空任务映射。
     def __init__(self):
         self.app = None
         self._db_session_class = None
@@ -29,12 +31,14 @@ class EventExportTaskManager(object):
             'expire_time': 30 * 60
         }
 
+    # init: 使用给定的应用程序、工作线程数、任务过期时间和配置初始化任务管理器。
     def init(self, app, workers, task_expire_time, config):
         self.app = app
         self.conf['expire_time'] = task_expire_time
         self.conf['workers'] = workers
         self._db_session_class = init_db_session_class(config)
 
+    # 检查任务 ID 是否有效，通过检查任务 ID 是否存在于任务映射中。
     def is_valid_task_id(self, task_id):
         return task_id in (self.tasks_map.keys() | self.task_results_map.keys())
 
@@ -50,6 +54,7 @@ class EventExportTaskManager(object):
         }
         redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))
 
+    # 添加一个导出事件日志到 Excel 的任务。
     def add_export_logs_task(self, start_time, end_time, log_type):
         task_id = str(uuid.uuid4())
         task = (export_event_log_to_excel, (self._db_session_class, start_time, end_time, log_type, task_id))
@@ -59,6 +64,7 @@ class EventExportTaskManager(object):
         self.publish_io_qsize_metric(self.tasks_queue.qsize())
         return task_id
 
+    # 添加一个导出组织事件日志到 Excel 的任务。
     def add_org_export_logs_task(self, start_time, end_time, log_type, org_id):
         task_id = str(uuid.uuid4())
         task = (export_org_event_log_to_excel, (self._db_session_class, start_time, end_time, log_type, task_id, org_id))
@@ -68,6 +74,7 @@ class EventExportTaskManager(object):
         self.publish_io_qsize_metric(self.tasks_queue.qsize())
         return task_id
 
+    # 添加一个转换维基的任务。
     def add_convert_wiki_task(self, old_repo_id, new_repo_id, username):
 
         task_id = str(uuid.uuid4())
@@ -78,6 +85,7 @@ class EventExportTaskManager(object):
         self.publish_io_qsize_metric(self.tasks_queue.qsize())
         return task_id
 
+    # 通过任务 ID 查询任务状态。
     def query_status(self, task_id):
         task_result = self.task_results_map.pop(task_id, None)
         if task_result == 'success':
@@ -86,12 +94,14 @@ class EventExportTaskManager(object):
             return True, task_result[6:]
         return False, None
 
+    # 检查工作线程是否存活。
     def threads_is_alive(self):
         info = {}
         for t in self.threads:
             info[t.name] = t.is_alive()
         return info
 
+    # 从任务队列中运行一个任务。
     def handle_task(self):
         while True:
             try:
@@ -129,6 +139,7 @@ class EventExportTaskManager(object):
             finally:
                 self.tasks_map.pop(task_id, None)
 
+    # 启动工作线程来处理任务。
     def run(self):
         thread_num = self.conf['workers']
         for i in range(thread_num):

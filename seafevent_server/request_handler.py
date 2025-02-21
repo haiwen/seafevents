@@ -18,9 +18,9 @@ app = Flask(__name__)
 logger = logging.getLogger(__name__)
 
 
+    # 新建的 flask 服务器，处理 http 请求
 
-def check_auth_token(req):
-    auth = req.headers.get('Authorization', '').split()
+    # 检查 token
     if not auth or auth[0].lower() != 'token' or len(auth) != 2:
         return False, 'Token invalid.'
 
@@ -37,6 +37,7 @@ def check_auth_token(req):
     return True, None
 
 
+# 添加初始化 metadata 任务
 @app.route('/add-init-metadata-task', methods=['GET'])
 def add_init_metadata_task():
     is_valid, error = check_auth_token(request)
@@ -60,6 +61,7 @@ def add_init_metadata_task():
     return make_response(({'task_id': task_id}, 200))
 
 
+# 添加导出日志任务
 @app.route('/add-export-log-task', methods=['GET'])
 def get_sys_logs_task():
     is_valid, error = check_auth_token(request)
@@ -83,6 +85,8 @@ def get_sys_logs_task():
 
     return make_response(({'task_id': task_id}, 200))
 
+
+# 添加导出日志任务
 @app.route('/add-org-export-log-task', methods=['GET'])
 def get_org_logs_task():
     is_valid, error = check_auth_token(request)
@@ -108,6 +112,7 @@ def get_org_logs_task():
     return make_response(({'task_id': task_id}, 200))
 
 
+# 查询导出任务状态
 @app.route('/query-export-status', methods=['GET'])
 def query_status():
     is_valid, error = check_auth_token(request)
@@ -129,6 +134,7 @@ def query_status():
     return make_response(({'is_finished': is_finished}, 200))
 
 
+# 搜索
 @app.route('/search', methods=['POST'])
 def search():
     is_valid = check_auth_token(request)
@@ -166,6 +172,7 @@ def search():
     return {'results': results}, 200
 
 
+# 添加人脸识别任务
 @app.route('/add-init-face-recognition-task', methods=['GET'])
 def add_init_face_recognition_task():
     is_valid, error = check_auth_token(request)
@@ -189,6 +196,7 @@ def add_init_face_recognition_task():
     return make_response(({'task_id': task_id}, 200))
 
 
+# 提取文件详细信息
 @app.route('/extract-file-details', methods=['POST'])
 def extract_file_details():
     is_valid = check_auth_token(request)
@@ -215,6 +223,7 @@ def extract_file_details():
     return {'details': details}, 200
 
 
+# wiki 搜索
 @app.route('/wiki-search', methods=['POST'])
 def search_wiki():
     is_valid = check_auth_token(request)
@@ -248,6 +257,7 @@ def search_wiki():
     return {'results': results, 'total': total}, 200
 
 
+# 添加 wiki 转换任务
 @app.route('/add-convert-wiki-task', methods=['GET'])
 def add_convert_wiki_task():
     is_valid = check_auth_token(request)
@@ -276,6 +286,7 @@ def add_convert_wiki_task():
     return {'task_id': task_id}, 200
 
 
+# 更新人脸封面
 @app.route('/update-people-cover-photo', methods=['POST'])
 def update_cover_photo():
     is_valid, error = check_auth_token(request)

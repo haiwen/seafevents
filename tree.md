@@ -4,6 +4,17 @@
 
 一共 120 个 python 文件
 
+## 00 seafevent 服务器
+
+```
+├── seafevent_server
+│   ├── export_task_manager.py 管理事件日志导出和维基转换任务
+│   ├── request_handler.py Flask处理HTTP请求（人脸识别，搜索，维基服务，上传进度查询等）
+│   ├── seafevent_server.py 服务器入口
+│   ├── task_manager.py 任务管理器（开始各种任务-线程池处理任务）
+│   └── utils.py 工具函数（导入导出Excel，wiki转换等）
+```
+
 ## 01 utils 工具函数
 
 ```
@@ -198,13 +209,3 @@
 ├── virus_scanner.py 病毒扫描器
 └── work_weixin_notice_sender.py 企业微信发送通知
 ```
-
-# 未整理
-
-
-├── seafevent_server
-│   ├── export_task_manager.py
-│   ├── request_handler.py
-│   ├── seafevent_server.py
-│   ├── task_manager.py
-│   └── utils.py

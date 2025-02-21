@@ -36,6 +36,18 @@ SYS_DIR_PATHS = ['images']
 
 
 def get_diff_files(repo_id, old_commit_id, new_commit_id):
+    """
+    Get the diff files between two commits of a library.
+
+    :param repo_id: The library id.
+    :type repo_id: str
+    :param old_commit_id: The id of the old commit.
+    :type old_commit_id: str
+    :param new_commit_id: The id of the new commit.
+    :type new_commit_id: str
+    :return: A list of DiffEntry.
+    :rtype: list
+    """
     if old_commit_id == new_commit_id:
         return
 
@@ -102,6 +114,14 @@ def write_xls(sheet_name, head, data_list):
 
 def utc_to_local(dt):
     # change from UTC timezone to current seahub timezone
+    """
+    Change a UTC datetime object to the current seahub timezone.
+
+    :param dt: The UTC datetime object
+    :type dt: datetime.datetime
+    :return: The datetime object in the current seahub timezone
+    :rtype: datetime.datetime
+    """
     tz = pytz.timezone(TIME_ZONE)
     utc = dt.replace(tzinfo=datetime.timezone.utc)
     local = utc.astimezone(tz).replace(tzinfo=None)
@@ -110,6 +130,24 @@ def utc_to_local(dt):
 
 
 def generate_file_audit_event_type(e):
+    """
+    Generate the file audit event type based on the event type and device.
+
+    Given the event type and device, generate a tuple of two elements.
+    The first element is the event type, the second element is the device
+    name if the device is not empty, otherwise it is an empty string.
+
+    Parameters
+    ----------
+    e : FileAudit
+        The file audit event object
+
+    Returns
+    -------
+    tuple
+        A tuple of two elements, the first element is the event type,
+        the second element is the device name.
+    """
     event_type_dict = {
         'file-download-web': ('web', ''),
         'file-download-share-link': ('share-link', ''),
@@ -126,6 +164,24 @@ def generate_file_audit_event_type(e):
 
 
 def export_event_log_to_excel(session, start_time, end_time, log_type, task_id):
+    """
+    Export event logs to an Excel file based on the specified log type and time range.
+
+    This function queries the database for event logs within the given time range and log type, 
+    then exports the results to an Excel file. Supported log types include 'fileaudit', 
+    'fileupdate', 'permaudit', and 'loginadmin'. The exported Excel file is saved in a 
+    temporary directory with a unique task ID.
+
+    :param session: A database session for executing queries.
+    :param start_time: The start time for the log query, in seconds since the epoch.
+    :param end_time: The end time for the log query, in seconds since the epoch.
+    :param log_type: The type of log to export. Must be one of ['fileaudit', 'fileupdate', 
+                     'permaudit', 'loginadmin'].
+    :param task_id: A unique identifier for the export task, used for saving the Excel file.
+    
+    :raises RuntimeError: If the time range or log type parameters are invalid, or if the 
+                          export to Excel fails.
+    """
     start_time = ast.literal_eval(start_time)
     end_time = ast.literal_eval(end_time)
 
@@ -299,6 +355,24 @@ def export_event_log_to_excel(session, start_time, end_time, log_type, task_id):
 
 
 def export_org_event_log_to_excel(session, start_time, end_time, log_type, task_id, org_id):
+    """
+    Export organization-specific event logs to an Excel file.
+
+    This function retrieves event logs for a specified organization and time range,
+    and exports them to an Excel file. The logs can be of type 'fileupdate', 'permaudit',
+    or 'fileaudit'. The resulting Excel file is saved to a temporary directory.
+
+    Args:
+        session: A SQLAlchemy session object for database interactions.
+        start_time: The start timestamp of the log retrieval period, as a string.
+        end_time: The end timestamp of the log retrieval period, as a string.
+        log_type: The type of logs to retrieve ('fileupdate', 'permaudit', or 'fileaudit').
+        task_id: A unique identifier for the export task.
+        org_id: The organization ID for which logs are to be retrieved.
+
+    Raises:
+        RuntimeError: If the time range parameters are invalid or if the log_type is not recognized.
+    """
     start_time = ast.literal_eval(start_time)
     end_time = ast.literal_eval(end_time)
 
@@ -453,6 +527,14 @@ def export_org_event_log_to_excel(session, start_time, end_time, log_type, task_
 
 
 def save_wiki_config(repo_id, username, wiki_config):
+    """
+    Save wiki config to the corresponding library.
+
+    :param repo_id: Library id.
+    :param username: Username of the user who saves the wiki config.
+    :param wiki_config: The content of the wiki config file.
+    :return: None
+    """
     dir_id = seafile_api.get_dir_id_by_path(repo_id, WIKI_CONFIG_PATH)
     if not dir_id:
         seafile_api.mkdir_with_parents(repo_id, '/', WIKI_CONFIG_PATH, username)
@@ -465,6 +547,13 @@ def save_wiki_config(repo_id, username, wiki_config):
 
 
 def get_file_content_by_obj_id(repo_id, obj_id):
+    """
+    Get file content by obj_id.
+
+    :param repo_id: Library id.
+    :param obj_id: Object id of the file.
+    :return: File content if obj_id is not ZERO_OBJ_ID and not empty, otherwise empty string.
+    """
     if obj_id == ZERO_OBJ_ID:
         return ''
     f = fs_mgr.load_seafile(repo_id, 1, obj_id)
@@ -479,6 +568,27 @@ def create_new_wiki_doc_by_old_wiki_path(page_name, file_parent_dir, new_repo_id
                                          parent_path_to_page_id, pages, navigation, page_id_set, db_session_class,
                                          old_wiki_path_is_dir):
 
+    """
+    Create a new wiki document in the new repository based on the old wiki path.
+
+    This function generates a new structured document (sdoc) for a given wiki page and
+    creates the necessary directory structure in the new repository. It updates various
+    mappings and navigation structures to reflect the new document's presence.
+
+    :param page_name: The name of the wiki page to be created.
+    :param file_parent_dir: The parent directory of the original file.
+    :param new_repo_id: The repository ID where the new wiki document will be created.
+    :param file_content: The content of the wiki page to be converted and saved.
+    :param modifier: The username of the person modifying the wiki.
+    :param parent_path_to_page_id: A mapping from parent paths to page IDs.
+    :param pages: A list of pages to which the new page will be added.
+    :param navigation: The navigation structure to be updated with the new page.
+    :param page_id_set: A set of existing page IDs to ensure uniqueness.
+    :param db_session_class: The database session class used for database operations.
+    :param old_wiki_path_is_dir: A flag indicating if the old wiki path is a directory.
+
+    :return: None
+    """
     sdoc_uuid = uuid.uuid4()
     sdoc_filename = page_name + '.sdoc'
     parent_dir = os.path.join(WIKI_PAGES_DIR, str(sdoc_uuid))
@@ -582,6 +692,21 @@ def gen_new_page_nav_by_id(navigation, page_id, current_id):
 
 
 def convert_wiki(old_repo_id, new_repo_id, username, db_session_class):
+    """
+    Convert a wiki from an old repository to a new repository.
+
+    This function transfers wiki pages from an old repository to a new repository,
+    converting markdown files to structured documents (sdoc) and updating the wiki 
+    configuration. It processes the home page, directories, and markdown files, 
+    preserving the structure and navigation in the new repository.
+
+    :param old_repo_id: The repository ID of the old wiki.
+    :param new_repo_id: The repository ID where the new wiki will be created.
+    :param username: The username of the person performing the conversion.
+    :param db_session_class: The database session class used for database operations.
+
+    :return: None
+    """
     new_commit_id = repo_data.get_repo_head_commit(old_repo_id)
     files = get_diff_files(old_repo_id, ZERO_OBJ_ID, new_commit_id)
     if not files:

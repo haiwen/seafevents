@@ -12,6 +12,7 @@ from seafevents.repo_metadata.constants import ZERO_OBJ_ID
 logger = logging.getLogger(__name__)
 
 
+# 索引任务
 class IndexTask:
 
     def __init__(self, task_id, readable_id, func, args):
@@ -62,6 +63,7 @@ class IndexTask:
         return f'<IndexTask {self.id} {self.readable_id} {self.func.__name__} {self.status}>'
 
 
+# 任务管理
 class TaskManager:
 
     def __init__(self):
@@ -89,6 +91,7 @@ class TaskManager:
         task = self.readable_id2task_map.get(readable_id)
         return task
 
+    # 增加初始化元数据任务
     def add_init_metadata_task(self, username, repo_id):
         msg_content = {
             'msg_type': 'init-metadata',
@@ -100,6 +103,7 @@ class TaskManager:
         else:
             logging.info('No one subscribed to metadata_update channel, event (%s) has not been send' % msg_content)
 
+    # 增加初始化面部识别任务
     def add_init_face_recognition_task(self, username, repo_id):
         msg_content = {
             'msg_type': 'update_face_recognition',
@@ -114,9 +118,11 @@ class TaskManager:
     def query_task(self, task_id):
         return self.tasks_map.get(task_id)
 
+    # 处理任务
     def handle_task(self):
         while True:
             try:
+                # 从队列中获取任务
                 task = self.tasks_queue.get(timeout=2)
             except queue.Empty:
                 continue
@@ -128,6 +134,7 @@ class TaskManager:
                 task_info = task.get_info()
                 logger.info('Run task: %s' % task_info)
 
+                # 运行任务
                 # run
                 task.run()
                 task.set_result('success')
@@ -141,6 +148,7 @@ class TaskManager:
                     self.readable_id2task_map.pop(task.readable_id, None)
 
     def run(self):
+        # 启动线程
         thread_num = self.conf['workers']
         for i in range(thread_num):
             t_name = 'TaskManager Thread-' + str(i)
