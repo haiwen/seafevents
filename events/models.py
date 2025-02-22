@@ -12,7 +12,7 @@ from seafevents.db import Base
 class Activity(Base):
     """
     """
-    __tablename__ = 'Activity'
+    __tablename__ = 'ACTIVITY'
 
     id = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     op_type = mapped_column(String(length=128), nullable=False)
@@ -51,7 +51,7 @@ class Activity(Base):
 class UserActivity(Base):
     """
     """
-    __tablename__ = 'UserActivity'
+    __tablename__ = 'USERACTIVITY'
 
     id = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     username = mapped_column(String(length=255), nullable=False)
@@ -73,7 +73,7 @@ class UserActivity(Base):
 
 
 class FileHistory(Base):
-    __tablename__ = 'FileHistory'
+    __tablename__ = 'FILEHISTORY'
 
     id = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     op_type = mapped_column(String(length=128), nullable=False)
@@ -105,7 +105,7 @@ class FileHistory(Base):
 
 
 class FileAudit(Base):
-    __tablename__ = 'FileAudit'
+    __tablename__ = 'FILEAUDIT'
 
     eid = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     timestamp = mapped_column(DateTime, nullable=False, index=True)
@@ -149,7 +149,7 @@ class FileAudit(Base):
 
 
 class FileUpdate(Base):
-    __tablename__ = 'FileUpdate'
+    __tablename__ = 'FILEUPDATE'
 
     eid = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     timestamp = mapped_column(DateTime, nullable=False, index=True)
@@ -186,7 +186,7 @@ class FileUpdate(Base):
 
 
 class PermAudit(Base):
-    __tablename__ = 'PermAudit'
+    __tablename__ = 'PERMAUDIT'
 
     eid = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     timestamp = mapped_column(DateTime, nullable=False)
@@ -246,7 +246,7 @@ class UserLogin(Base):
         self.login_success = login_success
 
 class FileTrash(Base):
-    __tablename__ = 'FileTrash'
+    __tablename__ = 'FILETRASH'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
     user = mapped_column(String(length=255), nullable=False)

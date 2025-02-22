@@ -81,6 +81,23 @@ def create_engine_from_conf(config, db='seafevent'):
         db_url = "oracle://%s:%s@%s:%s/%s" % (username, quote_plus(passwd),
                 host, port, service_name)
 
+    elif backend == 'dm':
+        if config.has_option(db_sec, 'host'):
+            host = config.get(db_sec, 'host').lower()
+        else:
+            host = 'localhost'
+
+        if config.has_option(db_sec, 'port'):
+            port = config.getint(db_sec, 'port')
+        else:
+            port = 5236
+        username = config.get(db_sec, user)
+        passwd = config.get(db_sec, 'password')
+        service_name = config.get(db_sec, db_name)
+        if db == 'seafile':
+            service_name = config.get(db_sec, user)
+
+        db_url = "dm+dmPython://%s:%s@%s:%s/?schema=%s" % (username, quote_plus(passwd), host, port, service_name)
     else:
         logger.error("Unknown database backend: %s" % backend)
         raise RuntimeError("Unknown database backend: %s" % backend)
@@ -104,7 +121,7 @@ def init_db_session_class(config, db='seafevent'):
     try:
         engine = create_engine_from_conf(config, db)
     except (configparser.NoOptionError, configparser.NoSectionError) as e:
-        logger.error(e)
+        logger.exception(e)
         raise RuntimeError("create db engine error: %s" % e)
 
     Session = sessionmaker(bind=engine)
@@ -134,6 +151,7 @@ def prepare_db_tables(seafile_config):
         logger.error(e)
         raise RuntimeError("create db engine error: %s" % e)
 
+    # SeafBase.prepare(autoload_with=engine, schema='SYSDBA')
     SeafBase.prepare(autoload_with=engine)
 
 
@@ -159,7 +177,7 @@ class GroupIdLDAPUuidPair(Base):
     """
     for ldap group sync
     """
-    __tablename__ = 'GroupIdLDAPUuidPair'
+    __tablename__ = 'GROUPIDLDAPUUIDPAIR'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
     group_id = mapped_column(Integer, unique=True, nullable=False)

@@ -5,7 +5,7 @@ from seafevents.db import Base
 
 
 class DeletedFilesCount(Base):
-    __tablename__ = 'deleted_files_count'
+    __tablename__ = 'DELETED_FILES_COUNT'
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     repo_id = Column(String(length=36), nullable=False, index=True)
