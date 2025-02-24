@@ -1,6 +1,6 @@
 from threading import Thread
+from waitress import serve
 
-from gevent.pywsgi import WSGIServer
 from seafevents.seafevent_server.request_handler import app as application
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
@@ -20,7 +20,6 @@ class SeafEventServer(Thread):
         task_manager.run()
         event_export_task_manager.run()
         application.face_recognition_manager = FaceRecognitionManager(config)
-        self._server = WSGIServer((self._host, int(self._port)), application)
 
         index_task_manager.init(config)
 
@@ -46,4 +45,4 @@ class SeafEventServer(Thread):
             self._task_expire_time = 30 * 60
 
     def run(self):
-        self._server.serve_forever()
+        serve(application, host=self._host, port=self._port)
