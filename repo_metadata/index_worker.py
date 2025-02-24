@@ -1,9 +1,8 @@
 import time
 import logging
-import threading
 import os
 import signal
-import gevent
+import multiprocessing
 
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 
@@ -18,13 +17,6 @@ logger = logging.getLogger(__name__)
 face_recognition_logger = logging.getLogger('face_recognition')
 
 
-def patch_greenlet(f):
-    def inner(*args, **kwargs):
-        return gevent.spawn(f, *args, **kwargs)
-
-    return inner
-
-
 class RepoMetadataIndexWorker(object):
     """ The handler for redis message queue
     """
@@ -33,10 +25,11 @@ class RepoMetadataIndexWorker(object):
         self._db_session_class = init_db_session_class(config)
         self.metadata_server_api = MetadataServerAPI('seafevents')
 
-        self.should_stop = threading.Event()
+        self.should_stop = multiprocessing.Event()
         self.LOCK_TIMEOUT = 1800  # 30 minutes
         self.REFRESH_INTERVAL = 600
-        self.locked_keys = set()
+        self.manager = multiprocessing.Manager()
+        self.locked_keys = self.manager.dict()
         self.mq_server = '127.0.0.1'
         self.mq_port = 6379
         self.mq_password = ''
@@ -46,7 +39,6 @@ class RepoMetadataIndexWorker(object):
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
         self.face_recognition_manager = FaceRecognitionManager(config)
         self.set_signal()
-        self.worker_list = []
 
     def _parse_config(self, config):
         redis_section_name = 'REDIS'
@@ -74,28 +66,18 @@ class RepoMetadataIndexWorker(object):
 
     @property
     def tname(self):
-        return threading.current_thread().name
-
-    def clear_worker(self):
-        for th in self.worker_list:
-            th.join()
-        logger.info("All worker threads has stopped.")
+        return multiprocessing.current_process().name
 
     def start(self):
         for i in range(int(self.worker_num)):
-            t = threading.Thread(target=self.face_cluster_handler, name='face_cluster_' + str(i), daemon=True)
-            t.start()
-            self.worker_list.append(t)
+            multiprocessing.Process(target=self.face_cluster_handler, daemon=True, name='face_cluster_' + str(i)).start()
 
-        t = threading.Thread(target=self.refresh_lock, name='refresh_thread', daemon=True)
-        t.start()
-        self.worker_list.append(t)
-        self.clear_worker()
+        multiprocessing.Process(target=self.refresh_lock, daemon=True, name='refresh_thread').start()
 
     def face_cluster_handler(self):
-        face_recognition_logger.info('%s starting face cluster' % self.tname)
+        face_recognition_logger.info('%s starting face cluster', self.tname)
         try:
-            while not self.should_stop.isSet():
+            while not self.should_stop.is_set():
                 try:
                     res = self.mq.brpop('face_cluster_task', timeout=30)
                     if res is not None:
@@ -116,17 +98,17 @@ class RepoMetadataIndexWorker(object):
 
     def face_cluster_task_handler(self, mq, repo_id, should_stop, op_type, username=None):
         # Python cannot kill threads, so stop it generate more locked key.
-        if not should_stop.isSet():
+        if not should_stop.is_set():
             # set key-value if does not exist which will expire 30 minutes later
             if mq.set(self._get_face_cluster_lock_key(repo_id), time.time(),
                       ex=self.LOCK_TIMEOUT, nx=True):
                 # get lock
-                face_recognition_logger.info('%s start face cluster repo %s' % (threading.current_thread().name, repo_id))
+                face_recognition_logger.info('%s start face cluster repo %s' % (self.tname, repo_id))
                 lock_key = self._get_face_cluster_lock_key(repo_id)
-                self.locked_keys.add(lock_key)
+                self.locked_keys[lock_key] = True
                 self.update_face_cluster(repo_id, username)
                 try:
-                    self.locked_keys.remove(lock_key)
+                    self.locked_keys.pop(lock_key)
                 except KeyError:
                     face_recognition_logger.error("%s is already removed. SHOULD NOT HAPPEN!" % lock_key)
                 mq.delete(lock_key)
@@ -143,8 +125,8 @@ class RepoMetadataIndexWorker(object):
             face_recognition_logger.exception('update repo: %s metadata error: %s', repo_id, e)
 
     def refresh_lock(self):
-        logger.info('%s Starting refresh locks' % self.tname)
-        while True:
+        logger.info('%s Starting refresh locks', self.tname)
+        while not self.should_stop.is_set():
             try:
                 # workaround for the RuntimeError: Set changed size during iteration
                 copy = self.locked_keys.copy()
@@ -157,19 +139,19 @@ class RepoMetadataIndexWorker(object):
                                  (self.tname, lock, ttl, new_ttl))
                 time.sleep(self.REFRESH_INTERVAL)
             except Exception as e:
-                logger.error(e)
+                logger.exception(e)
                 time.sleep(1)
 
-    @patch_greenlet
     def clear(self):
-        self.should_stop.set()
-        # if a thread just lock key, wait to add the lock to the list.
-        time.sleep(1)
-        # del redis locked key
-        for key in self.locked_keys:
-            self.mq.delete(key)
-            logger.info("redis lock key %s has been deleted" % key)
-        # sys.exit
+        if multiprocessing.current_process().name == 'MainProcess':
+            self.should_stop.set()
+            # if a process just lock key, wait to add the lock to the list.
+            time.sleep(1)
+            # del redis locked key
+            for key in self.locked_keys.keys():
+                self.mq.delete(key)
+                logger.info("redis lock key %s has been deleted" % key)
+            self.manager.shutdown()
         logger.info("Exit the process")
         os._exit(0)
 

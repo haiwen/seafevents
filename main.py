@@ -63,8 +63,6 @@ def main(background_tasks_only=False):
         foreground_tasks_enabled = True
         background_tasks_enabled = False
 
-    from gevent import monkey; monkey.patch_all()
-
     app = App(config, seafile_config, foreground_tasks_enabled=foreground_tasks_enabled,
               background_tasks_enabled=background_tasks_enabled)
 
