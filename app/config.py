@@ -26,6 +26,10 @@ try:
     METADATA_FILE_TYPES = getattr(seahub_settings, 'METADATA_FILE_TYPES', {})
     DOWNLOAD_LIMIT_WHEN_THROTTLE = getattr(seahub_settings, 'DOWNLOAD_LIMIT_WHEN_THROTTLE', '1k')
     ENABLED_ROLE_PERMISSIONS = getattr(seahub_settings, 'ENABLED_ROLE_PERMISSIONS', {})
+    BAIDU_MAP_KEY = getattr(seahub_settings, 'BAIDU_MAP_KEY', '')
+    BAIDU_MAP_URL = getattr(seahub_settings, 'BAIDU_MAP_URL', '')
+    GOOGLE_MAP_KEY = getattr(seahub_settings, 'GOOGLE_MAP_KEY', '')
+    GOOGLE_MAP_URL = getattr(seahub_settings, 'GOOGLE_MAP_URL', '')
 
 except ImportError:
     logger.critical("Can not import seahub settings.")

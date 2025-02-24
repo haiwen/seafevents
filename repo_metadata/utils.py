@@ -6,16 +6,21 @@ import random
 import math
 import exiftool
 import tempfile
+import requests
+import logging
 
 from datetime import timedelta, timezone, datetime
 
 from PIL import Image, UnidentifiedImageError
 from seafobj import commit_mgr, fs_mgr
 
-from seafevents.app.config import METADATA_FILE_TYPES
+from seafevents.app.config import METADATA_FILE_TYPES, BAIDU_MAP_KEY, BAIDU_MAP_URL, GOOGLE_MAP_KEY, GOOGLE_MAP_URL
 from seafevents.repo_metadata.view_data_sql import view_data_2_sql, sort_data_2_sql
 from seafevents.utils import timestamp_to_isoformat_timestr
 from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT, METADATA_TABLE
+
+
+logger = logging.getLogger(__name__)
 
 
 def gen_fileext_type_map():
@@ -32,6 +37,81 @@ def gen_fileext_type_map():
 
 FILEEXT_TYPE_MAP = gen_fileext_type_map()
 
+
+def get_location_from_map_service(point_key):
+    if BAIDU_MAP_KEY:
+        params = {
+            'ak': BAIDU_MAP_KEY,
+            'output': 'json',
+            'location': point_key,
+            "coordtype": "wgs84ll",
+            'extensions_poi': '0'
+        }
+        try:
+            response = requests.get(BAIDU_MAP_URL, params=params, timeout=30)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 0:
+                    return {
+                        'address': data['result']['formatted_address'],
+                        'country': data['result']['addressComponent']['country'],
+                        'province': data['result']['addressComponent']['province'],
+                        'city': data['result']['addressComponent']['city'],
+                        'district': data['result']['addressComponent']['district']
+                    }
+                else:
+                    logger.warning(f"Baidu Map Service Request Failed: {str(data.get('message'))}")
+                    return {}
+        except Exception as e:
+            logger.warning('Get location from baidu map service error: %s', e)
+            return {}
+
+    if GOOGLE_MAP_KEY:
+        params = {
+            'latlng': point_key,
+            'key': GOOGLE_MAP_KEY
+        }
+        try:
+            response = requests.get(GOOGLE_MAP_URL, params=params, timeout=30)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'OK' and data.get('results'):
+                    result = data['results'][0]
+                    address_components = {
+                        'country': '',
+                        'province': '',
+                        'city': '',
+                        'district': ''
+                    }
+                    
+                    for component in result['address_components']:
+                        types = component['types']
+                        
+                        if 'country' in types:
+                            address_components['country'] = component['long_name']
+                        elif 'administrative_area_level_1' in types:
+                            address_components['province'] = component['long_name']
+                        elif 'locality' in types or 'administrative_area_level_2' in types:
+                            address_components['city'] = component['long_name']
+                        elif 'sublocality' in types or 'administrative_area_level_3' in types or 'sublocality_level_1' in types:
+                            address_components['district'] = component['long_name']
+
+                    return {
+                        'address': result['formatted_address'],
+                        'country': address_components['country'],
+                        'province': address_components['province'],
+                        'city': address_components['city'],
+                        'district': address_components['district'],
+                    }
+                else:
+                    logger.warning(f"Google Map Service Request Failed: {str(data.get('error_message'))}")
+                    return {}
+        except Exception as e:
+            logger.warning('Get location from google map service error: %s', e)
+            return {}
+        
+    logger.warning("Baidu map key or Google map key not configured.")
+    return {}
 
 def get_file_type_ext_by_name(filename):
     file_ext = os.path.splitext(filename)[1][1:].lower()
@@ -201,9 +281,16 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_man
 
 def add_image_detail_row(row_id, content, has_capture_time_column):
     image_details, location = get_image_details(content)
+    lng = location.get('lng', '')
+    lat = location.get('lat', '')
+    location_translated = {}
+    if lng and lat:
+        point_key = f"{lat},{lng}"
+        location_translated = get_location_from_map_service(point_key)
     update_row = {
         METADATA_TABLE.columns.id.name: row_id,
-        METADATA_TABLE.columns.location.name: {'lng': location.get('lng', ''), 'lat': location.get('lat', '')},
+        METADATA_TABLE.columns.location.name: {'lng': lng, 'lat': lat},
+        METADATA_TABLE.columns.location_translated.name: location_translated,
         METADATA_TABLE.columns.file_details.name: f'\n\n```json\n{json.dumps(image_details)}\n```\n\n\n',
     }
 
