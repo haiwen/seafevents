@@ -45,7 +45,7 @@ def get_location_from_map_service(point_key):
             'output': 'json',
             'location': point_key,
             "coordtype": "wgs84ll",
-            'extensions_poi': '0'
+            'extensions_poi': '1'
         }
         try:
             response = requests.get(BAIDU_MAP_URL, params=params, timeout=30)
@@ -53,7 +53,7 @@ def get_location_from_map_service(point_key):
                 data = response.json()
                 if data.get('status') == 0:
                     return {
-                        'address': data['result']['formatted_address'],
+                        'address': data['result']['formatted_address_poi'],
                         'country': data['result']['addressComponent']['country'],
                         'province': data['result']['addressComponent']['province'],
                         'city': data['result']['addressComponent']['city'],
