@@ -1,6 +1,7 @@
 import base64
 import os
 import json
+import time
 import posixpath
 
 from seaserv import seafile_api
@@ -111,7 +112,7 @@ def save_cluster_face(repo_id, related_row_ids, row_ids, id_to_record, cluster_c
     if not face_image:
         return
 
-    filename = f'{face_row_id}.jpg'
+    filename = f'{face_row_id}?t={time.time()}.jpg'
     save_face(repo_id, face_image, filename)
 
 
@@ -125,6 +126,14 @@ def save_face(repo_id, image, filename, replace=False):
         f.write(image)
 
     if replace:
-        seafile_api.del_file(repo_id, FACES_SAVE_PATH, json.dumps([filename]), 'system')
+        people_img_name_map = {}
+        file_list = seafile_api.list_dir_by_path(repo_id, FACES_SAVE_PATH)
+        for item in file_list:
+            parts = item.obj_name.split('?t=')
+            if len(parts) == 2:
+                people, time = parts
+                people_img_name_map[people] = item.obj_name
+        people_id = filename.split('?t=')[0]
+        seafile_api.del_file(repo_id, FACES_SAVE_PATH, json.dumps([people_img_name_map[people_id]]), 'system')
     seafile_api.post_file(repo_id, tmp_content_path, FACES_SAVE_PATH, filename, 'system')
     os.remove(tmp_content_path)

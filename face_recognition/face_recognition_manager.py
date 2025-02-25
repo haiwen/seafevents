@@ -260,5 +260,5 @@ class FaceRecognitionManager(object):
 
     def update_people_cover_photo(self, repo_id, people_id, obj_id):
         face_image = get_image_face(repo_id, obj_id, self.image_embedding_api, center=None)
-        filename = f'{people_id}.jpg'
+        filename = f'{people_id}?t={time.time()}.jpg'
         save_face(repo_id, face_image, filename, replace=True)
