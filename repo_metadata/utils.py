@@ -37,6 +37,44 @@ def gen_fileext_type_map():
 
 FILEEXT_TYPE_MAP = gen_fileext_type_map()
 
+def wgs2gcj(point_key):
+    """
+    Convert WGS-84 coordinates to GCJ-02 (Mars coordinates).
+    """
+    lat, lng = map(float, point_key.split(','))
+
+    def transform_lat(x, y):
+        ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * math.sqrt(abs(x))
+        ret += (20.0 * math.sin(6.0 * x * math.pi) + 20.0 * math.sin(2.0 * x * math.pi)) * 2.0 / 3.0
+        ret += (20.0 * math.sin(y * math.pi) + 40.0 * math.sin(y / 3.0 * math.pi)) * 2.0 / 3.0
+        ret += (160.0 * math.sin(y / 12.0 * math.pi) + 320 * math.sin(y * math.pi / 30.0)) * 2.0 / 3.0
+        return ret
+
+    def transform_lng(x, y):
+        ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * math.sqrt(abs(x))
+        ret += (20.0 * math.sin(6.0 * x * math.pi) + 20.0 * math.sin(2.0 * x * math.pi)) * 2.0 / 3.0
+        ret += (20.0 * math.sin(x * math.pi) + 40.0 * math.sin(x / 3.0 * math.pi)) * 2.0 / 3.0
+        ret += (150.0 * math.sin(x / 12.0 * math.pi) + 300.0 * math.sin(x / 30.0 * math.pi)) * 2.0 / 3.0
+        return ret
+
+    def out_of_china(lng, lat):
+        return not (73.66 < lng < 135.05 and 3.86 < lat < 53.55)
+
+    if out_of_china(lng, lat):
+        return lng, lat
+
+    dlat = transform_lat(lng - 105.0, lat - 35.0)
+    dlng = transform_lng(lng - 105.0, lat - 35.0)
+    radlat = lat / 180.0 * math.pi
+    magic = math.sin(radlat)
+    magic = 1 - 0.00669342162296594323 * magic * magic
+    sqrtmagic = math.sqrt(magic)
+    dlat = (dlat * 180.0) / ((6378245.0 * (1 - 0.00669342162296594323)) / (magic * sqrtmagic) * math.pi)
+    dlng = (dlng * 180.0) / (6378245.0 / sqrtmagic * math.cos(radlat) * math.pi)
+    mglat = lat + dlat
+    mglng = lng + dlng
+    return f"{mglat},{mglng}"
+
 
 def get_location_from_map_service(point_key):
     if BAIDU_MAP_KEY:
@@ -68,8 +106,8 @@ def get_location_from_map_service(point_key):
 
     if GOOGLE_MAP_KEY:
         params = {
-            'latlng': point_key,
-            'key': GOOGLE_MAP_KEY
+            'latlng': wgs2gcj(point_key),
+            'key': GOOGLE_MAP_KEY,
         }
         try:
             response = requests.get(GOOGLE_MAP_URL, params=params, timeout=30)
