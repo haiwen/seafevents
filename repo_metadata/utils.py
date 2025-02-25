@@ -304,10 +304,16 @@ def add_image_detail_row(row_id, content, has_capture_time_column):
 
 def add_video_detail_row(row_id, content, has_capture_time_column):
     video_details, location = get_video_details(content)
-
+    lng = location.get('lng', '')
+    lat = location.get('lat', '')
+    location_translated = {}
+    if lng and lat:
+        point_key = f"{lat},{lng}"
+        location_translated = get_location_from_map_service(point_key)
     update_row = {
         METADATA_TABLE.columns.id.name: row_id,
-        METADATA_TABLE.columns.location.name: {'lng': location.get('lng', ''), 'lat': location.get('lat', '')},
+        METADATA_TABLE.columns.location.name: {'lng': lng, 'lat': lat},
+        METADATA_TABLE.columns.location_translated.name: location_translated,
         METADATA_TABLE.columns.file_details.name: f'\n\n```json\n{json.dumps(video_details)}\n```\n\n\n',
     }
 
