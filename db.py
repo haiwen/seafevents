@@ -110,6 +110,12 @@ def init_db_session_class(config, db='seafevent'):
     Session = sessionmaker(bind=engine)
     return Session
 
+def init_redis_cache(config):
+    from seafevents.app.event_redis import redis_cache
+    redis_cache.init_redis(config)
+
+    return redis_cache
+
 
 def create_db_tables(config):
     # create seafevents tables if not exists.
