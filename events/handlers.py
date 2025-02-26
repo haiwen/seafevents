@@ -10,7 +10,7 @@ from urllib import request
 from datetime import timedelta
 from os.path import splitext
 
-from django.core.cache import cache
+from seafevents.app.cache_provider import cache
 from sqlalchemy import select, text, desc, func
 import pymysql
 
@@ -460,6 +460,8 @@ def save_message_to_user_notification(session, records):
             result = session.execute(text(sql))
             monitor_users = result.fetchall()
             monitor_users = [item[0] for item in monitor_users]
+        else:
+            monitor_users = json.loads(monitor_users)
 
         cache_monitor_users = []
         for monitor_user in monitor_users:
@@ -474,7 +476,7 @@ def save_message_to_user_notification(session, records):
             cache_monitor_users.append(monitor_user)
 
         cache.set('{}_monitor_users'.format(repo_id),
-                  cache_monitor_users,
+                  json.dumps(cache_monitor_users),
                   24 * 60 * 60)
 
         repo_id_monitor_users[repo_id] = cache_monitor_users
@@ -561,7 +563,6 @@ def save_message_to_user_notification(session, records):
                  VALUES %s""" % ', '.join(["('%s', '%s', '%s', '%s', %s)" % value for value in values])
         session.execute(text(sql))
         session.commit()
-
 
 def save_user_activities(session, records):
     if not records:
