@@ -10,3 +10,4 @@ mdit_py_plugins==0.4.2
 linkify-it-py==2.0.3
 scikit-learn==1.5.*
 waitress==3.0.*
+python-memcached==1.62
