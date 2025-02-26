@@ -22,7 +22,7 @@ class CacheProvider(object):
         else:
             self.cache_client = redis_cache
 
-    def set(self, key, value, timeout=None):
+    def set(self, key, value, timeout=0):
         
         if not self.cache_client:
             return 
