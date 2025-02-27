@@ -10,7 +10,7 @@ from seafevents.mq import get_mq
 logger = logging.getLogger('face_recognition')
 
 
-class RepoFaceClusterUpdater(object):
+class FaceClusterPublisher(object):
     def __init__(self, config):
         self._face_recognition_manager = FaceRecognitionManager(config)
         self._session = init_db_session_class(config)
@@ -36,12 +36,12 @@ class RepoFaceClusterUpdater(object):
 
     def start(self):
         try:
-            self.update_face_cluster()
+            self.publish_face_cluster_task()
         except Exception as e:
             logger.exception("Error: %s" % e)
 
-    def update_face_cluster(self):
-        logger.info("Start timer update face cluster")
+    def publish_face_cluster_task(self):
+        logger.info("Start publish face cluster")
 
         start, count = 0, 1000
         while True:
@@ -75,7 +75,7 @@ class RepoFaceClusterUpdater(object):
                         'repo_id': repo_id
                     }
                     if self.mq.publish('metadata_update', json.dumps(msg_content)) > 0:
-                        logger.debug('Publish event: %s' % msg_content)
+                        logger.debug('Publish metadata_update event: %s' % msg_content)
                     else:
                         logger.info(
                             'No one subscribed to metadata_update channel, event (%s) has not been send' % msg_content)

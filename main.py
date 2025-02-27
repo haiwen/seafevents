@@ -8,6 +8,7 @@ from seafevents.utils import write_pidfile
 from seafevents.app.log import LogConfigurator
 from seafevents.app.app import App
 from seafevents.app.config import get_config, is_cluster_enabled, is_syslog_enabled
+from seafevents.app.signal_handler import set_signal
 
 
 def main(background_tasks_only=False):
@@ -50,9 +51,6 @@ def main(background_tasks_only=False):
     if is_syslog_enabled(config):
         app_logger.add_syslog_handler()
 
-    face_recognition_log_path = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'face_recognition.log')
-    app_logger.add_face_recognition_logger(face_recognition_log_path)
-
     foreground_tasks_enabled = True
     background_tasks_enabled = True
 
@@ -62,6 +60,8 @@ def main(background_tasks_only=False):
     elif is_cluster_enabled(seafile_config):
         foreground_tasks_enabled = True
         background_tasks_enabled = False
+
+    set_signal()
 
     app = App(config, seafile_config, foreground_tasks_enabled=foreground_tasks_enabled,
               background_tasks_enabled=background_tasks_enabled)
