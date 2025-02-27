@@ -21,8 +21,8 @@ class FaceClusterUpdater(object):
         self._parse_config(config)
 
     def _parse_config(self, config):
-        # default face cluster log file is 'face_cluster.log' in SEAFEVENTS_LOG_DIR
-        logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'face_cluster.log')
+        # default face cluster log file is 'face_recognition.log' in SEAFEVENTS_LOG_DIR
+        logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'face_recognition.log')
         loglevel = 'info'
         self._logfile = os.path.abspath(logfile)
         self._loglevel = loglevel
