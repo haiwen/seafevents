@@ -3,12 +3,12 @@ import logging
 from threading import Thread, Event
 from seafevents.utils import get_opt_from_conf_or_env
 
-from seafevents.face_recognition.face_cluster_updater import RepoFaceClusterUpdater
+from seafevents.face_recognition.face_cluster_publisher import FaceClusterPublisher
 
 logger = logging.getLogger('face_recognition')
 
 
-class FaceCluster(object):
+class FaceClusterTaskPublisher(object):
     def __init__(self, config):
         self._interval = 60 * 60
         self.config = config
@@ -24,17 +24,17 @@ class FaceCluster(object):
 
     def start(self):
         if not self.is_enabled():
-            logging.warning('Can not start face cluster: please check you config!')
+            logging.warning('Can not start face cluster timer: please check you config!')
             return
 
-        logging.info('Face cluster is started, interval = %s sec', self._interval)
-        FaceClusterTimer(self._interval, self.config).start()
+        logging.info('Face cluster timer is started, interval = %s sec', self._interval)
+        FaceClusterTaskPublishTimer(self._interval, self.config).start()
 
     def is_enabled(self):
         return self._enabled
 
 
-class FaceClusterTimer(Thread):
+class FaceClusterTaskPublishTimer(Thread):
 
     def __init__(self, interval, config):
         Thread.__init__(self)
@@ -47,7 +47,7 @@ class FaceClusterTimer(Thread):
             self.finished.wait(self._interval)
             if not self.finished.is_set():
                 try:
-                    RepoFaceClusterUpdater(self._config).start()
+                    FaceClusterPublisher(self._config).start()
                 except Exception as e:
                     logger.exception('error when face cluster: %s', e)
 

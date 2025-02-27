@@ -9,5 +9,6 @@ from .work_weixin_notice_sender import WorkWinxinNoticeSender
 from .file_updates_sender import FileUpdatesSender
 from .repo_old_file_auto_del_scanner import RepoOldFileAutoDelScanner
 from .deleted_files_count_cleaner import DeletedFilesCountCleaner
-from .face_cluster import FaceCluster
+from .face_cluster_task_publisher import FaceClusterTaskPublisher
 from .es_wiki_index_updater import ESWikiIndexUpdater
+from .face_cluster_updater import FaceClusterUpdater
