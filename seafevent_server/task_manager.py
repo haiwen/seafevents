@@ -83,7 +83,7 @@ class TaskManager:
         self.conf['workers'] = workers
 
         self._db_session_class = init_db_session_class(config)
-        self._redis_connection = RedisClient(config).connection
+        self._redis_connection = RedisClient().connection
 
     def get_pending_or_running_task(self, readable_id):
         task = self.readable_id2task_map.get(readable_id)
