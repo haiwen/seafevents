@@ -37,6 +37,12 @@ class SlowMetadataTaskHandler(object):
         key_server = 'redis_server'
         key_port = 'redis_port'
         key_password = 'redis_password'
+
+        key_enabled = 'enable_redis'
+
+        enable_redis = get_opt_from_env(key_enabled)
+        if not enable_redis:
+            return
         
         self.mq_server = get_opt_from_env(key_server, default='')
         self.mq_port = get_opt_from_env(key_port, default=6379)

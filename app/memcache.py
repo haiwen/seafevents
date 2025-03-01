@@ -16,6 +16,9 @@ class Memcache(object):
         self._init_config_from_env()
 
     def _init_config_from_env(self):
+        enable_memcached = get_opt_from_env('ENABLE_MEMCACHED') == 'true'
+        if not enable_memcached:
+            return
         m_host = get_opt_from_env('MEMCACHED_SERVER')
         if m_host:
             self._host = m_host
@@ -26,12 +29,18 @@ class Memcache(object):
         self.cache = memcache.Client(['%s:%s' % (self._host, self._port)], debug=1)
 
     def set(self, key, value, timeout=None):
+        if not self.cache:
+            return
         return self.cache.set(key, value, timeout)
 
     def get(self, key):
+        if not self.cache:
+            return
         return self.cache.get(key)
     
     def delete(self, key):
+        if not self.cache:
+            return
         return self.cache.delete(key)
     
 mem_cache = Memcache()

@@ -17,6 +17,9 @@ class RedisClient(object):
         self._init_config_from_env(socket_connect_timeout, socket_timeout)
     
     def _init_config_from_env(self, socket_connect_timeout, socket_timeout):
+        enable_redis = get_opt_from_env('ENABLE_REDIS') == 'true'
+        if not enable_redis:
+            return
         r_host = get_opt_from_env('REDIS_SERVER')
         if r_host:
             self._host = r_host
@@ -34,15 +37,21 @@ class RedisClient(object):
         )
 
     def get(self, key):
+        if not self.connection:
+            return
         return self.connection.get(key)
 
     def set(self, key, value, timeout=None):
+        if not self.connection:
+            return
         if not timeout:
             return self.connection.set(key, value)
         else:
             return self.connection.setex(key, timeout, value)
 
     def delete(self, key):
+        if not self.connection:
+            return
         return self.connection.delete(key)
 
 class RedisCache(object):
