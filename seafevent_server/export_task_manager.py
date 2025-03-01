@@ -57,7 +57,6 @@ class EventExportTaskManager(object):
         self.tasks_queue.put(task_id)
         self.tasks_map[task_id] = task
         return task_id
-        pass
 
     def query_status(self, task_id):
         task_result = self.task_results_map.pop(task_id, None)
