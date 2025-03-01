@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from datetime import datetime, timedelta
 import json
@@ -8,7 +9,7 @@ from sqlalchemy.sql import text
 from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
-from seafevents.repo_metadata.image_embedding_api import ImageEmbeddingAPI
+from seafevents.repo_metadata.seafile_ai_api import SeafileAIAPI
 from seafevents.repo_metadata.utils import query_metadata_rows, get_metadata_by_row_ids
 from seafevents.repo_metadata.constants import METADATA_TABLE, FACES_TABLE
 from seafevents.face_recognition.constants import UNKNOWN_PEOPLE_NAME
@@ -26,19 +27,19 @@ class FaceRecognitionManager(object):
     def __init__(self, config):
         self._db_session_class = init_db_session_class(config)
         self.metadata_server_api = MetadataServerAPI('seafevents')
-        self.image_embedding_api = None
+        self.seafile_ai_api = None
 
         self._parse_config(config)
 
     def _parse_config(self, config):
         ai_section_name = 'AI'
         if config.has_section(ai_section_name):
-            image_embedding_service_url = get_opt_from_conf_or_env(config, ai_section_name, 'image_embedding_service_url')
-            image_embedding_secret_key = get_opt_from_conf_or_env(config, ai_section_name, 'image_embedding_secret_key')
-            self.image_embedding_api = ImageEmbeddingAPI(image_embedding_service_url, image_embedding_secret_key)
+            seafile_ai_service_url = get_opt_from_conf_or_env(config, ai_section_name, 'seafile_ai_service_url')
+            seafile_ai_secret_key = get_opt_from_conf_or_env(config, ai_section_name, 'seafile_ai_secret_key')
+            self.seafile_ai_api = SeafileAIAPI(seafile_ai_service_url, seafile_ai_secret_key)
 
     def check_face_recognition_status(self, repo_id):
-        if not self.image_embedding_api:
+        if not self.seafile_ai_api:
             return None
         with self._db_session_class() as session:
             sql = "SELECT face_recognition_enabled FROM repo_metadata WHERE repo_id='%s'" % repo_id
@@ -54,44 +55,37 @@ class FaceRecognitionManager(object):
 
     def face_embeddings(self, repo_id, rows):
         logger.info('repo %s need update face_vectors rows count: %d', repo_id, len(rows))
-        obj_id_to_rows = {}
-        for item in rows:
-            obj_id = item[METADATA_TABLE.columns.obj_id.name]
-            if obj_id not in obj_id_to_rows:
-                obj_id_to_rows[obj_id] = []
-            obj_id_to_rows[obj_id].append(item)
-
-        obj_ids = list(obj_id_to_rows.keys())
         updated_rows = []
         start_time = time.time()
-        for i in range(0, len(obj_ids), 50):
-            obj_ids_batch = obj_ids[i: i + 50]
-            result = self.image_embedding_api.face_embeddings(repo_id, obj_ids_batch).get('data', [])
-            if not result:
+        for row in rows:
+            obj_id = row[METADATA_TABLE.columns.obj_id.name]
+            parent_dir = row.get(METADATA_TABLE.columns.parent_dir.name)
+            file_name = row.get(METADATA_TABLE.columns.file_name.name)
+            path = os.path.join(parent_dir, file_name)
+            token = seafile_api.get_fileserver_access_token(repo_id, obj_id, 'download', 'system', use_onetime=True)
+            faces = self.seafile_ai_api.face_embeddings(path, token).get('faces', [])
+            if not faces:
                 continue
 
-            for item in result:
-                obj_id = item['obj_id']
-                face_embeddings = [face['embedding'] for face in item['faces']]
-                vector = b64encode_embeddings(face_embeddings) if face_embeddings else VECTOR_DEFAULT_FLAG
-                for row in obj_id_to_rows.get(obj_id, []):
-                    row_id = row[METADATA_TABLE.columns.id.name]
-                    updated_rows.append({
-                        METADATA_TABLE.columns.id.name: row_id,
-                        METADATA_TABLE.columns.face_vectors.name: vector,
-                    })
-                    if len(updated_rows) >= EMBEDDING_UPDATE_LIMIT:
-                        self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
-                        logger.info('repo %s updated face_vectors rows count: %d, cost time: %.2f', repo_id, len(updated_rows), time.time() - start_time)
-                        start_time = time.time()
-                        updated_rows = []
+            face_embeddings = [face['embedding'] for face in faces]
+            vector = b64encode_embeddings(face_embeddings) if face_embeddings else VECTOR_DEFAULT_FLAG
+            row_id = row[METADATA_TABLE.columns.id.name]
+            updated_rows.append({
+                METADATA_TABLE.columns.id.name: row_id,
+                METADATA_TABLE.columns.face_vectors.name: vector,
+            })
+            if len(updated_rows) >= EMBEDDING_UPDATE_LIMIT:
+                self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
+                logger.info('repo %s updated face_vectors rows count: %d, cost time: %.2f', repo_id, len(updated_rows), time.time() - start_time)
+                start_time = time.time()
+                updated_rows = []
 
         if updated_rows:
             logger.info('repo %s updated face_vectors rows count: %d, cost time: %.2f', repo_id, len(updated_rows), time.time() - start_time)
             self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
 
     def ensure_face_vectors(self, repo_id):
-        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.suffix.name}` in {SUPPORTED_IMAGE_FORMATS} AND `{METADATA_TABLE.columns.face_vectors.name}` IS NULL'
+        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.suffix.name}` in {SUPPORTED_IMAGE_FORMATS} AND `{METADATA_TABLE.columns.face_vectors.name}` IS NULL'
 
         query_result = query_metadata_rows(repo_id, self.metadata_server_api, sql)
         if not query_result:
@@ -107,7 +101,7 @@ class FaceRecognitionManager(object):
         except ImportError:
             logger.warning('Package scikit-learn is not installed. ')
             return
-        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.face_vectors.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.face_vectors.name}` IS NOT NULL AND `{METADATA_TABLE.columns.face_vectors.name}` <> "{VECTOR_DEFAULT_FLAG}"'
+        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.face_vectors.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.face_vectors.name}` IS NOT NULL AND `{METADATA_TABLE.columns.face_vectors.name}` <> "{VECTOR_DEFAULT_FLAG}"'
         query_result = query_metadata_rows(repo_id, self.metadata_server_api, sql)
         if not query_result:
             return
@@ -207,7 +201,7 @@ class FaceRecognitionManager(object):
                 continue
 
             # save a cover for new face cluster.
-            save_cluster_face(repo_id, related_row_ids, row_ids, id_to_record, cluster_center, face_row_id, self.image_embedding_api)
+            save_cluster_face(repo_id, related_row_ids, row_ids, id_to_record, cluster_center, face_row_id, self.seafile_ai_api)
 
     def update_face_cluster(self, repo_id, username=None):
         logger.info('Updating face cluster repo %s' % repo_id)
@@ -258,7 +252,7 @@ class FaceRecognitionManager(object):
             session.execute(text(sql))
             session.commit()
 
-    def update_people_cover_photo(self, repo_id, people_id, obj_id):
-        face_image = get_image_face(repo_id, obj_id, self.image_embedding_api, center=None)
+    def update_people_cover_photo(self, repo_id, people_id, path, download_token):
+        face_image = get_image_face(path, download_token, self.seafile_ai_api, center=None)
         filename = f'{people_id}.jpg'
         save_face(repo_id, face_image, filename, replace=True)

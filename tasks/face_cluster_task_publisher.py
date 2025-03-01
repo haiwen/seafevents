@@ -17,9 +17,9 @@ class FaceClusterTaskPublisher(object):
     def _parse_config(self, config):
         ai_section_name = 'AI'
         if config.has_section(ai_section_name):
-            image_embedding_service_url = get_opt_from_conf_or_env(config, ai_section_name, 'image_embedding_service_url')
-            image_embedding_secret_key = get_opt_from_conf_or_env(config, ai_section_name, 'image_embedding_secret_key')
-            if not image_embedding_service_url or not image_embedding_secret_key:
+            seafile_ai_service_url = get_opt_from_conf_or_env(config, ai_section_name, 'seafile_ai_service_url')
+            seafile_ai_secret_key = get_opt_from_conf_or_env(config, ai_section_name, 'seafile_ai_secret_key')
+            if not seafile_ai_service_url or not seafile_ai_secret_key:
                 self._enabled = False
 
     def start(self):

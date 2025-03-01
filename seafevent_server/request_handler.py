@@ -284,18 +284,21 @@ def update_cover_photo():
         return {'error_msg': 'Bad request.'}, 400
 
     repo_id = data.get('repo_id')
+    path = data.get('path')
     people_id = data.get('people_id')
-    obj_id = data.get('obj_id')
+    download_token = data.get('download_token')
 
     if not repo_id:
         return {'error_msg': 'repo_id invalid.'}, 400
+    if not path:
+        return {'error_msg': 'path invalid.'}, 400
     if not people_id:
         return {'error_msg': 'people_id invalid.'}, 400
-    if not obj_id:
-        return {'error_msg': 'obj_id invalid.'}, 400
+    if not download_token:
+        return {'error_msg': 'download_token invalid.'}, 400
 
     try:
-        app.face_recognition_manager.update_people_cover_photo(repo_id, people_id, obj_id)
+        app.face_recognition_manager.update_people_cover_photo(repo_id, people_id, path, download_token)
     except Exception as e:
         logger.error(e)
         return make_response((e, 500))
