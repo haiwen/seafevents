@@ -162,7 +162,7 @@ def get_opt_from_conf_or_env(config, section, key, env_key=None, default=None):
         else:
             return os.environ.get(env_key.upper(), default)
         
-def get_opt_from_env(env_key, default):
+def get_opt_from_env(env_key, default=''):
 
     return os.environ.get(env_key.upper(), default)
 
