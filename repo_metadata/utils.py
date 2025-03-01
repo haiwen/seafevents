@@ -61,7 +61,7 @@ def wgs2gcj(point_key):
         return not (73.66 < lng < 135.05 and 3.86 < lat < 53.55)
 
     if out_of_china(lng, lat):
-        return lng, lat
+        return point_key
 
     dlat = transform_lat(lng - 105.0, lat - 35.0)
     dlng = transform_lng(lng - 105.0, lat - 35.0)
@@ -216,9 +216,16 @@ def get_image_details(content):
             for k, v in metadata.items():
                 if k.startswith('XMP') and k != 'XMP:XMPToolkit':
                     details[k[4:]] = v
-
             lat = metadata.get('EXIF:GPSLatitude')
             lng = metadata.get('EXIF:GPSLongitude')
+            lat_ref = metadata.get('EXIF:GPSLatitudeRef')
+            lng_ref = metadata.get('EXIF:GPSLongitudeRef')
+            
+            if lat and lat_ref == 'S': 
+                lat = -lat
+            if lng and lng_ref == 'W':
+                lng = -lng
+                
             location = {
                 'lat': lat,
                 'lng': lng,
@@ -235,6 +242,13 @@ def get_video_details(content):
             metadata = et.get_metadata(temp_file_path)
             lat = metadata.get('Composite:GPSLatitude')
             lng = metadata.get('Composite:GPSLongitude')
+            lat_ref = metadata.get('Composite:GPSLatitudeRef')
+            lng_ref = metadata.get('Composite:GPSLongitudeRef')
+
+            if lat and lat_ref == 'S':
+                lat = -lat
+            if lng and lng_ref == 'W':
+                lng = -lng
             software = metadata.get('QuickTime:Software', '')
             capture_time = metadata.get('QuickTime:CreateDate', '')
             if is_valid_datetime(capture_time, '%Y:%m:%d %H:%M:%S'):
