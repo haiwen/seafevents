@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import logging
+from seafevents.utils import get_opt_from_env
 
 logger = logging.getLogger(__name__)
 
@@ -16,13 +17,13 @@ class RedisClient(object):
         self._init_config_from_env(socket_connect_timeout, socket_timeout)
     
     def _init_config_from_env(self, socket_connect_timeout, socket_timeout):
-        r_host = os.environ.get('REDIS_SERVER')
+        r_host = get_opt_from_env('REDIS_SERVER')
         if r_host:
             self._host = r_host
-        r_port = os.environ.get('REDIS_PORT')
+        r_port = get_opt_from_env('REDIS_PORT')
         if r_port:
             self._port = r_port
-        r_password = os.environ.get("REDIS_PASSWORD")
+        r_password = get_opt_from_env("REDIS_PASSWORD", '')
         if r_password:
             self._password = r_password
 

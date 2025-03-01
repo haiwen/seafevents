@@ -1,6 +1,7 @@
 # cache obj : memcache
 import os
 import memcache
+from seafevents.utils import get_opt_from_env
 
 
 class Memcache(object):
@@ -15,10 +16,10 @@ class Memcache(object):
         self._init_config_from_env()
 
     def _init_config_from_env(self):
-        m_host = os.environ.get('MEMCACHED_SERVER')
+        m_host = get_opt_from_env('MEMCACHED_SERVER')
         if m_host:
             self._host = m_host
-        m_port = os.environ.get('MEMCACHED_PORT')
+        m_port = get_opt_from_env('MEMCACHED_PORT')
         if m_port:
             self._port = m_port
 

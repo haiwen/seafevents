@@ -6,7 +6,7 @@ from collections import OrderedDict
 from copy import deepcopy
 
 from seafevents.mq import get_mq
-from seafevents.utils import get_opt_from_conf_or_env
+from seafevents.utils import get_opt_from_env
 
 logger = logging.getLogger(__name__)
 
@@ -25,17 +25,13 @@ class RepoMetadataIndexMaster(Thread):
         self.pending_tasks = OrderedDict()  # repo_id: commit_id
 
     def _parse_config(self, config):
-        section_name = 'REDIS'
-        key_server = 'server'
-        key_port = 'port'
-        key_password = 'password'
-
-        if not config.has_section(section_name):
-            return
-
-        self.mq_server = get_opt_from_conf_or_env(config, section_name, key_server, default='')
-        self.mq_port = get_opt_from_conf_or_env(config, section_name, key_port, default=6379)
-        self.mq_password = get_opt_from_conf_or_env(config, section_name, key_password, default='')
+        key_server = 'redis_server'
+        key_port = 'redis_port'
+        key_password = 'redis_password'
+        
+        self.mq_server = get_opt_from_env(key_server, default='')
+        self.mq_port = get_opt_from_env(key_port, default=6379)
+        self.mq_password = get_opt_from_env(key_password, default='')
 
     def now(self):
         return time.time()

@@ -6,7 +6,7 @@ import json
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 
 from seafevents.mq import get_mq
-from seafevents.utils import get_opt_from_conf_or_env
+from seafevents.utils import get_opt_from_conf_or_env, get_opt_from_env
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 from seafevents.repo_metadata.utils import add_file_details
@@ -34,15 +34,13 @@ class SlowMetadataTaskHandler(object):
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
 
     def _parse_config(self, config):
-        redis_section_name = 'REDIS'
-        key_server = 'server'
-        key_port = 'port'
-        key_password = 'password'
-
-        if config.has_section(redis_section_name):
-            self.mq_server = get_opt_from_conf_or_env(config, redis_section_name, key_server, default='')
-            self.mq_port = get_opt_from_conf_or_env(config, redis_section_name, key_port, default=6379)
-            self.mq_password = get_opt_from_conf_or_env(config, redis_section_name, key_password, default='')
+        key_server = 'redis_server'
+        key_port = 'redis_port'
+        key_password = 'redis_password'
+        
+        self.mq_server = get_opt_from_env(key_server, default='')
+        self.mq_port = get_opt_from_env(key_port, default=6379)
+        self.mq_password = get_opt_from_env(key_password, default='')
 
         metadata_section_name = 'METADATA'
         key_index_workers = 'index_workers'

@@ -4,7 +4,7 @@ import json
 from seafevents.db import init_db_session_class
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 from seafevents.repo_data import repo_data
-from seafevents.utils import get_opt_from_conf_or_env
+from seafevents.utils import get_opt_from_env
 from seafevents.mq import get_mq
 
 logger = logging.getLogger('face_recognition')
@@ -22,17 +22,13 @@ class FaceClusterPublisher(object):
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
 
     def _parse_config(self, config):
-        section_name = 'REDIS'
-        key_server = 'server'
-        key_port = 'port'
-        key_password = 'password'
-
-        if not config.has_section(section_name):
-            return
-
-        self.mq_server = get_opt_from_conf_or_env(config, section_name, key_server, default='')
-        self.mq_port = get_opt_from_conf_or_env(config, section_name, key_port, default=6379)
-        self.mq_password = get_opt_from_conf_or_env(config, section_name, key_password, default='')
+        key_server = 'redis_server'
+        key_port = 'redis_port'
+        key_password = 'redis_password'
+        
+        self.mq_server = get_opt_from_env(key_server, default='')
+        self.mq_port = get_opt_from_env(key_port, default=6379)
+        self.mq_password = get_opt_from_env(key_password, default='')
 
     def start(self):
         try:
