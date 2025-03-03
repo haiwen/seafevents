@@ -30,6 +30,9 @@ try:
     BAIDU_MAP_URL = getattr(seahub_settings, 'BAIDU_MAP_URL', '')
     GOOGLE_MAP_KEY = getattr(seahub_settings, 'GOOGLE_MAP_KEY', '')
     GOOGLE_MAP_URL = getattr(seahub_settings, 'GOOGLE_MAP_URL', '')
+    ENABLE_SEAFILE_AI = getattr(seahub_settings, 'ENABLE_SEAFILE_AI', False)
+    SEAFILE_AI_SECRET_KEY = getattr(seahub_settings, 'SEAFILE_AI_SECRET_KEY', '')
+    SEAFILE_AI_SERVER_URL = getattr(seahub_settings, 'SEAFILE_AI_SERVER_URL', '')
 
 except ImportError:
     logger.critical("Can not import seahub settings.")
@@ -86,7 +89,7 @@ def is_seasearch_enabled(config):
             return config.getboolean('SEASEARCH', 'enabled')
         except ValueError:
             return False
-    return False  
+    return False
 
 def is_audit_enabled(config):
     if config.has_option('Audit', 'enabled'):
