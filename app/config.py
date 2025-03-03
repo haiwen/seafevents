@@ -38,6 +38,13 @@ except ImportError:
     logger.critical("Can not import seahub settings.")
     raise RuntimeError("Can not import seahub settings.")
 
+# config from env
+REDIS_SERVER = os.environ.get('REDIS_SERVER', '')
+REDIS_PORT = os.environ.get('REDIS_PORT', '')
+REDIS_PASSWORD = os.environ.get('REDIS_PASSPORT', '')
+MEMCACHED_SERVER = os.environ.get('MEMCACHED_SERVER', '')
+MEMCACHED_PORT = os.environ.get('MEMCACHED_PORT', '')
+
 
 def get_config(config_file):
     config = configparser.ConfigParser()
