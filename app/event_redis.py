@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
 import logging
-from seafevents.utils import get_opt_from_env
 from seafevents.app.config import REDIS_SERVER, REDIS_PORT, REDIS_PASSWORD
 
 logger = logging.getLogger(__name__)

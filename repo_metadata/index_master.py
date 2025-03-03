@@ -6,7 +6,6 @@ from collections import OrderedDict
 from copy import deepcopy
 
 from seafevents.mq import get_mq
-from seafevents.utils import get_opt_from_env
 from seafevents.app.config import REDIS_SERVER, REDIS_PORT, REDIS_PASSWORD
 
 logger = logging.getLogger(__name__)

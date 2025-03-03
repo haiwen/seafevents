@@ -7,7 +7,7 @@ import signal
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 
 from seafevents.mq import get_mq
-from seafevents.utils import get_opt_from_conf_or_env, get_opt_from_env
+from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager

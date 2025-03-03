@@ -4,7 +4,6 @@ import json
 from seafevents.db import init_db_session_class
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 from seafevents.repo_data import repo_data
-from seafevents.utils import get_opt_from_env
 from seafevents.mq import get_mq
 from seafevents.app.config import REDIS_SERVER, REDIS_PORT, REDIS_PASSWORD
 

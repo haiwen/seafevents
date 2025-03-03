@@ -2,7 +2,6 @@
 import os
 import logging
 import memcache
-from seafevents.utils import get_opt_from_env
 from seafevents.app.config import MEMCACHED_SERVER, MEMCACHED_PORT
 
 
