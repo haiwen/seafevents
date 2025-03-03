@@ -70,43 +70,33 @@ def get_faces_rows(repo_id, metadata_server_api):
     return clustered_rows, unclustered_rows
 
 
-def get_face_embeddings(repo_id, image_embedding_api, obj_ids):
-    embeddings = []
-
-    per_size = 50
-    for i in range(0, len(obj_ids), per_size):
-        query_results = image_embedding_api.face_embeddings(repo_id, obj_ids[i: i + per_size]).get('data', [])
-        embeddings.append(query_results)
-
-    return embeddings
-
-
-def get_image_face(repo_id, obj_id, image_embedding_api, center=None):
-    result = image_embedding_api.face_embeddings(repo_id, [obj_id], True).get('data', [])
-    if not result:
+def get_image_face(path, download_token, seafile_ai_api, center=None):
+    faces = seafile_ai_api.face_embeddings(path, download_token, True).get('faces', [])
+    if not faces:
         return None
 
-    if len(result) == 1:
-        return base64.b64decode(result[0]['faces'][0]['face'])
+    if len(faces) == 1:
+        return base64.b64decode(faces[0]['face'])
 
-    faces = result[0]['faces']
     sim = [feature_distance(center, face['embedding']) for face in faces]
     return base64.b64decode(faces[sim.index(min(sim))]['face'])
 
 
-def save_cluster_face(repo_id, related_row_ids, row_ids, id_to_record, cluster_center, face_row_id, image_embedding_api):
+def save_cluster_face(repo_id, related_row_ids, row_ids, id_to_record, cluster_center, face_row_id, seafile_ai_api):
     face_image = None
     for row_id in related_row_ids:
         if row_ids.count(row_id) == 1:
             record = id_to_record[row_id]
-            obj_id = record[METADATA_TABLE.columns.obj_id.name]
-            face_image = get_image_face(repo_id, obj_id, image_embedding_api, cluster_center.tolist())
             break
 
     if not face_image:
         record = id_to_record[related_row_ids[0]]
-        obj_id = record[METADATA_TABLE.columns.obj_id.name]
-        face_image = get_image_face(repo_id, obj_id, image_embedding_api, cluster_center.tolist())
+    obj_id = record[METADATA_TABLE.columns.obj_id.name]
+    parent_dir = record.get(METADATA_TABLE.columns.parent_dir.name)
+    file_name = record.get(METADATA_TABLE.columns.file_name.name)
+    path = os.path.join(parent_dir, file_name)
+    token = seafile_api.get_fileserver_access_token(repo_id, obj_id, 'download', 'system', use_onetime=True)
+    face_image = get_image_face(path, token, seafile_ai_api, cluster_center.tolist())
 
     if not face_image:
         return
