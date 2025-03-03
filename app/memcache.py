@@ -1,5 +1,6 @@
 # cache obj : memcache
 import os
+import logging
 import memcache
 from seafevents.utils import get_opt_from_env
 
@@ -26,7 +27,10 @@ class Memcache(object):
         if m_port:
             self._port = m_port
 
-        self.cache = memcache.Client(['%s:%s' % (self._host, self._port)], debug=1)
+        if self._host and self._port:
+            self.cache = memcache.Client(['%s:%s' % (self._host, self._port)], debug=1)
+        else:
+            logging.warning("Memcached has not been set up")
 
     def set(self, key, value, timeout=None):
         if not self.cache:

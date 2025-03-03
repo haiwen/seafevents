@@ -17,9 +17,7 @@ class RedisClient(object):
         self._init_config_from_env(socket_connect_timeout, socket_timeout)
     
     def _init_config_from_env(self, socket_connect_timeout, socket_timeout):
-        enable_redis = get_opt_from_env('ENABLE_REDIS') == 'true'
-        if not enable_redis:
-            return
+
         r_host = get_opt_from_env('REDIS_SERVER')
         if r_host:
             self._host = r_host
@@ -30,11 +28,14 @@ class RedisClient(object):
         if r_password:
             self._password = r_password
 
-        import redis
-        self.connection = redis.Redis(
-            host=self._host, port=self._port, password=self._password, decode_responses=True,
-            socket_timeout=socket_timeout, socket_connect_timeout=socket_connect_timeout,
-        )
+        if self._host and self._port:
+            import redis
+            self.connection = redis.Redis(
+                host=self._host, port=self._port, password=self._password, decode_responses=True,
+                socket_timeout=socket_timeout, socket_connect_timeout=socket_connect_timeout,
+            )
+        else:
+            logging.warning('Redis has not been set up')
 
     def get(self, key):
         if not self.connection:

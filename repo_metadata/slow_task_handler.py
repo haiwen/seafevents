@@ -38,12 +38,6 @@ class SlowMetadataTaskHandler(object):
         key_port = 'redis_port'
         key_password = 'redis_password'
 
-        key_enabled = 'enable_redis'
-
-        enable_redis = get_opt_from_env(key_enabled)
-        if not enable_redis:
-            return
-        
         self.mq_server = get_opt_from_env(key_server, default='')
         self.mq_port = get_opt_from_env(key_port, default=6379)
         self.mq_password = get_opt_from_env(key_password, default='')
@@ -58,6 +52,8 @@ class SlowMetadataTaskHandler(object):
         return threading.current_thread().name
 
     def start(self):
+        if not self.mq:
+            return
         for i in range(int(self.worker_num)):
             threading.Thread(target=self.worker_handler, name='slow_task_handler_thread_' + str(i), daemon=True).start()
 

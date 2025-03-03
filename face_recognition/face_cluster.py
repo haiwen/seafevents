@@ -44,12 +44,6 @@ class FaceCluster(object):
         key_server = 'redis_server'
         key_port = 'redis_port'
         key_password = 'redis_password'
-
-        key_enabled = 'enable_redis'
-
-        enable_redis = get_opt_from_env(key_enabled)
-        if not enable_redis:
-            return
         
         self.mq_server = get_opt_from_env(key_server, default='')
         self.mq_port = get_opt_from_env(key_port, default=6379)
@@ -73,6 +67,8 @@ class FaceCluster(object):
         logger.info("All face cluster worker threads has stopped.")
 
     def start(self):
+        if not self.mq:
+            return
         for i in range(int(self.worker_num)):
             t = threading.Thread(target=self.face_cluster_handler, name='face_cluster_' + str(i), daemon=True)
             t.start()
@@ -151,6 +147,8 @@ class FaceCluster(object):
                 time.sleep(1)
 
     def clear(self):
+        if not self.mq:
+            return
         self.should_stop.set()
         # if a thread just lock key, wait to add the lock to the list.
         time.sleep(1)
