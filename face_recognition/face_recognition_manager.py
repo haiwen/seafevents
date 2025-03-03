@@ -16,6 +16,7 @@ from seafevents.face_recognition.constants import UNKNOWN_PEOPLE_NAME
 from seafevents.face_recognition.utils import get_faces_rows, get_cluster_by_center, b64encode_embeddings, \
     b64decode_embeddings, VECTOR_DEFAULT_FLAG, get_min_cluster_size, SUPPORTED_IMAGE_FORMATS, EMBEDDING_UPDATE_LIMIT, \
     save_cluster_face, get_image_face, save_face
+from seafevents.app.config import ENABLE_SEAFILE_AI, SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
 
 from seaserv import seafile_api
 
@@ -27,16 +28,7 @@ class FaceRecognitionManager(object):
     def __init__(self, config):
         self._db_session_class = init_db_session_class(config)
         self.metadata_server_api = MetadataServerAPI('seafevents')
-        self.seafile_ai_api = None
-
-        self._parse_config(config)
-
-    def _parse_config(self, config):
-        ai_section_name = 'AI'
-        if config.has_section(ai_section_name):
-            seafile_ai_service_url = get_opt_from_conf_or_env(config, ai_section_name, 'seafile_ai_service_url')
-            seafile_ai_secret_key = get_opt_from_conf_or_env(config, ai_section_name, 'seafile_ai_secret_key')
-            self.seafile_ai_api = SeafileAIAPI(seafile_ai_service_url, seafile_ai_secret_key)
+        self.seafile_ai_api = SeafileAIAPI(SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY)
 
     def check_face_recognition_status(self, repo_id):
         if not self.seafile_ai_api:

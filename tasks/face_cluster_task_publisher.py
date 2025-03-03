@@ -1,9 +1,9 @@
 # coding: UTF-8
 import logging
 from threading import Thread, Event
-from seafevents.utils import get_opt_from_conf_or_env
 
 from seafevents.face_recognition.face_cluster_publisher import FaceClusterPublisher
+from seafevents.app.config import ENABLE_SEAFILE_AI
 
 logger = logging.getLogger('face_recognition')
 
@@ -12,15 +12,7 @@ class FaceClusterTaskPublisher(object):
     def __init__(self, config):
         self._interval = 60 * 60
         self.config = config
-        self._enabled = True
-
-    def _parse_config(self, config):
-        ai_section_name = 'AI'
-        if config.has_section(ai_section_name):
-            seafile_ai_service_url = get_opt_from_conf_or_env(config, ai_section_name, 'seafile_ai_service_url')
-            seafile_ai_secret_key = get_opt_from_conf_or_env(config, ai_section_name, 'seafile_ai_secret_key')
-            if not seafile_ai_service_url or not seafile_ai_secret_key:
-                self._enabled = False
+        self._enabled = ENABLE_SEAFILE_AI
 
     def start(self):
         if not self.is_enabled():
