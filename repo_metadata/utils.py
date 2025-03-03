@@ -91,7 +91,7 @@ def get_location_from_map_service(point_key):
                 data = response.json()
                 if data.get('status') == 0:
                     return {
-                        'address': data['result']['formatted_address_poi'],
+                        'address': data['result']['formatted_address_poi'] or data['result']['formatted_address'],
                         'country': data['result']['addressComponent']['country'],
                         'province': data['result']['addressComponent']['province'],
                         'city': data['result']['addressComponent']['city'],
