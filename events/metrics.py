@@ -133,3 +133,27 @@ class MetricRedisCollect(Thread):
     def cancel(self):
         self.finished.set()
 
+
+class MetricsManager(object):
+    def __init__(self, app=None, config=None):
+        self.app = app
+        self.config = config
+        self._interval = 15
+        
+    def start(self):
+        logging.info('Start metric collect, interval = %s sec', self._interval)
+        self._metric_collect_thread = MetricRedisCollect(self._interval)
+        self._metric_collect_thread.start()
+        
+        if self.app and self.config:
+            logging.info('Starting metric handler')
+            self._metric_task = MetricTask(self.app, self.config)
+            self._metric_task.start()
+    
+    def stop(self):
+        if hasattr(self, '_metric_collect_thread'):
+            self._metric_collect_thread.cancel()
+        
+        if hasattr(self, '_metric_task'):
+            self._metric_task._finished.set()
+        
