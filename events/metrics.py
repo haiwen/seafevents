@@ -129,11 +129,3 @@ class MetricsManager(object):
             logging.info('Starting metric handler')
             self._metric_task = MetricTask(self.app, self.config)
             self._metric_task.start()
-    
-    def stop(self):
-        if hasattr(self, '_metric_collect_thread'):
-            self._metric_collect_thread.cancel()
-        
-        if hasattr(self, '_metric_task'):
-            self._metric_task._finished.set()
-        

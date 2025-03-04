@@ -60,8 +60,6 @@ class EventExportTaskManager(object):
         self.tasks_queue.put(task_id)
         self.tasks_map[task_id] = task
         self.publish_io_qsize_metric(self.tasks_queue.qsize())
-        print(self.tasks_queue.qsize(), '11111111')
-        time.sleep(10)
         return task_id
 
     def add_org_export_logs_task(self, start_time, end_time, log_type, org_id):
@@ -99,8 +97,6 @@ class EventExportTaskManager(object):
 
     def handle_task(self):
         while True:
-            print(self.tasks_queue.qsize(), '222222')
-            time.sleep(10)
             try:
                 task_id = self.tasks_queue.get(timeout=2)
             except queue.Empty:
@@ -136,7 +132,7 @@ class EventExportTaskManager(object):
 
     def run(self):
         thread_num = self.conf['workers']
-        for i in range(2):
+        for i in range(thread_num):
             t_name = 'TaskManager Thread-' + str(i)
             t = threading.Thread(target=self.handle_task, name=t_name)
             self.threads.append(t)
