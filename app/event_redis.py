@@ -10,7 +10,6 @@ import time
 logger = logging.getLogger(__name__)
 
 REDIS_METRIC_KEY = "metric"
-LOCK_NAME = "metric_lock"
 
 
 class RedisClient(object):
@@ -101,30 +100,20 @@ class RedisCache(object):
 
     def delete(self, key):
         return self._redis_client.delete(key)
-
-    def acquire_lock(self):
-        lock_value = str(uuid.uuid4())  # create  lock id
-        if self._redis_client.setnx(LOCK_NAME, lock_value):  # get lock
-            self._redis_client.expire(LOCK_NAME, timeout=10)  # set lock
-            return lock_value
-        return None
-
-    def release_lock(self):
-        self._redis_client.delete(LOCK_NAME)
+    
 
     def create_or_update(self, key, value):
-        lock_value = self.acquire_lock()
-        if lock_value:
-            try:
-                current_value = self._redis_client.get(key)
-                if current_value:
-                    current_value_dict_copy = copy.deepcopy(json.loads(current_value))
-                    current_value_dict_copy.update(value)
-                    self._redis_client.set(key, json.dumps(current_value_dict_copy))
-                else:
-                    self._redis_client.set(key, json.dumps(value))
-            finally:
-                self.release_lock()
+        try:
+            current_value = self._redis_client.get(key)
+            if current_value:
+                current_value_dict_copy = copy.deepcopy(json.loads(current_value))
+                current_value_dict_copy.update(value)
+                self._redis_client.set(key, json.dumps(current_value_dict_copy))
+            else:
+                self._redis_client.set(key, json.dumps(value))
+        except Exception as e:
+            logger.error(e)
+
 
     def publish(self, channel, message):
         self._redis_client.publish(channel, message)

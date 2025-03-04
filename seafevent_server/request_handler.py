@@ -10,7 +10,7 @@ from seafevents.seafevent_server.export_task_manager import event_export_task_ma
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
-
+from seafevents.app.event_redis import redis_cache, RedisClient, REDIS_METRIC_KEY
 
 
 app = Flask(__name__)
@@ -308,21 +308,28 @@ def update_cover_photo():
 
 
 @app.route('/metrics', methods=['GET'])
-def query_status():
+def get_metrics():
     is_valid, error = check_auth_token(request)
     if not is_valid:
         return make_response((error, 403))
 
-    task_id = request.args.get('task_id')
-    if not event_export_task_manager.is_valid_task_id(task_id):
-        return make_response(('task_id not found.', 404))
-
-    try:
-        is_finished, error = event_export_task_manager.query_status(task_id)
-    except Exception as e:
-        logger.debug(e)
-        return make_response((e, 500))
-
     if error:
         return make_response((error, 500))
-    return make_response(({'is_finished': is_finished}, 200))
+    
+    metrics = redis_cache.get(REDIS_METRIC_KEY)
+    if not metrics:
+        return ''
+    metrics = json.loads(metrics)
+
+    metric_info = ''
+    for metric_name, metric_detail in metrics.items():
+        metric_value = metric_detail.pop('metric_value')
+        if metric_detail:
+            for label_name, label_value in metric_detail.items():
+                label = label_name + '="' + str(label_value) + '",'
+            label = label[:-1]
+            metric_info += '%s{%s} %s\n' % (metric_name, label, str(metric_value))
+        else:
+            metric_info += '%s %s\n' % (metric_name, str(metric_value))
+
+    return metric_info.encode()

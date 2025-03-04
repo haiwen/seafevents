@@ -37,26 +37,6 @@ def handle_metric_timing(metric_name):
     return decorator
 
 
-def format_metrics(cache):
-    metrics = cache.get(REDIS_METRIC_KEY)
-    if not metrics:
-        return ''
-    metrics = json.loads(metrics)
-
-    metric_info = ''
-    for metric_name, metric_detail in metrics.items():
-        metric_value = metric_detail.pop('metric_value')
-        if metric_detail:
-            for label_name, label_value in metric_detail.items():
-                label = label_name + '="' + str(label_value) + '",'
-            label = label[:-1]
-            metric_info += '%s{%s} %s\n' % (metric_name, label, str(metric_value))
-        else:
-            metric_info += '%s %s\n' % (metric_name, str(metric_value))
-
-    return metric_info.encode()
-
-
 class MetricHandler(object):
     def __init__(self, app, config):
 

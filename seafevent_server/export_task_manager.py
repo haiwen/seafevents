@@ -39,7 +39,7 @@ class EventExportTaskManager(object):
     def is_valid_task_id(self, task_id):
         return task_id in (self.tasks_map.keys() | self.task_results_map.keys())
 
-    def publish_io_qsize_metric(qsize):
+    def publish_io_qsize_metric(self, qsize):
         if not ENABLE_METRIC:
             return
         publish_metric = {
