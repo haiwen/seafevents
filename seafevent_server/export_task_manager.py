@@ -100,9 +100,11 @@ class EventExportTaskManager(object):
                 logging.info('Run task success: %s cost %ds \n' % (task_info, int(finish_time - start_time)))
                 self.current_task_info.pop(task_id, None)
             except Exception as e:
-                self.task_results_map[task_id] = 'error_' + str(e.args[0])
-                logger.exception(e)
-                logger.error('Failed to handle task %s, error: %s \n' % (task_info, e))
+                logger.exception('Failed to handle task %s, error: %s \n' % (task_info, e))
+                if len(e.args) > 0:
+                    self.task_results_map[task_id] = 'error_' + str(e.args[0])
+                else:
+                    self.task_results_map[task_id] = 'error_' + str(e)
                 self.current_task_info.pop(task_id, None)
             finally:
                 self.tasks_map.pop(task_id, None)
