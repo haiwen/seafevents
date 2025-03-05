@@ -15,9 +15,9 @@ class Memcache(object):
         self._port = MEMCACHED_PORT
         
         self.cache = None
-        self._init_config_from_env()
+        self._init_config()
 
-    def _init_config_from_env(self):
+    def _init_config(self):
         if self._host and self._port:
             self.cache = memcache.Client(['%s:%s' % (self._host, self._port)], debug=1)
         else:

@@ -1,23 +1,24 @@
 import os
 from seafevents.app.event_redis import redis_cache
 from seafevents.app.memcache import mem_cache
+from seafevents.app.config import CACHE_PROVIDER
 
-MEMCACHE_PROVIDER = 'memcached'
+MEMCACHED_PROVIDER = 'memcached'
 REDIS_CACHE_PROVIDER = 'redis'
-
+ 
 
 class CacheProvider(object):
 
     def __init__(self):
         self.cache_client = None
-        self._init_cache_provider_from_env()
+        self._init_cache_provider()
 
-    def _init_cache_provider_from_env(self):
-        cache_provider = os.environ.get('CACHE_PROVIDER')
-        if cache_provider not in [MEMCACHE_PROVIDER, REDIS_CACHE_PROVIDER]:
+    def _init_cache_provider(self):
+        cache_provider = CACHE_PROVIDER
+        if cache_provider not in [MEMCACHED_PROVIDER, REDIS_CACHE_PROVIDER]:
             return
         
-        if cache_provider == MEMCACHE_PROVIDER:
+        if cache_provider == MEMCACHED_PROVIDER:
             self.cache_client = mem_cache
         else:
             self.cache_client = redis_cache

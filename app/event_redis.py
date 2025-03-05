@@ -14,9 +14,9 @@ class RedisClient(object):
         self._password = REDIS_PASSWORD
         self.connection = None
 
-        self._init_config_from_env(socket_connect_timeout, socket_timeout)
+        self._init_config(socket_connect_timeout, socket_timeout)
     
-    def _init_config_from_env(self, socket_connect_timeout, socket_timeout):
+    def _init_config(self, socket_connect_timeout, socket_timeout):
         if self._host and self._port:
             import redis
             self.connection = redis.Redis(
