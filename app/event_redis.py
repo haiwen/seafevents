@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
 import logging
 from seafevents.app.config import REDIS_SERVER, REDIS_PORT, REDIS_PASSWORD
 

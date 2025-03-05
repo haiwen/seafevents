@@ -1,4 +1,3 @@
-import os
 from seafevents.app.event_redis import redis_cache
 from seafevents.app.memcache import mem_cache
 from seafevents.app.config import CACHE_PROVIDER
@@ -12,6 +11,7 @@ class CacheProvider(object):
     def __init__(self):
         self.cache_client = None
         self._init_cache_provider()
+        self.cache_name = self.cache_client and self.cache_client.CACHE_NAME or None
 
     def _init_cache_provider(self):
         cache_provider = CACHE_PROVIDER
