@@ -601,14 +601,17 @@ def convert_wiki(old_repo_id, new_repo_id, username, db_session_class):
     else:
         file_id = seafile_api.get_file_id_by_path(old_repo_id, home_page_path)
 
-    home_page_content = get_file_content_by_obj_id(old_repo_id, file_id)
-    if home_page_content:
-        try:
-            home_page_content = md2sdoc(home_page_content, username=username)
-            home_page_content = json.dumps(home_page_content)
-        except Exception as e:
-            logger.warning('convert wiki from old_repo_id: %s to new_repo_id: %s, convert markdown: %s to sdoc failed, error: %s', old_repo_id, new_repo_id, home_page_path, e)
-            home_page_content = ''
+    if not file_id:
+        home_page_content = ''
+    else:
+        home_page_content = get_file_content_by_obj_id(old_repo_id, file_id)
+        if home_page_content:
+            try:
+                home_page_content = md2sdoc(home_page_content, username=username)
+                home_page_content = json.dumps(home_page_content)
+            except Exception as e:
+                logger.warning('convert wiki from old_repo_id: %s to new_repo_id: %s, convert markdown: %s to sdoc failed, error: %s', old_repo_id, new_repo_id, home_page_path, e)
+                home_page_content = ''
 
     parent_dir = os.path.dirname(home_page_path)
     base_name = os.path.basename(home_page_path)
