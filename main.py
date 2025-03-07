@@ -11,6 +11,7 @@ from seafevents.app.config import get_config, is_cluster_enabled, is_syslog_enab
 from seafevents.app.signal_handler import set_signal
 
 
+
 def main(background_tasks_only=False):
     parser = argparse.ArgumentParser(description='seafevents main program')
     parser.add_argument('--config-file', default=os.path.join(os.getcwd(), 'events.conf'), help='config file')

@@ -3,8 +3,14 @@ import threading
 import logging
 import time
 import uuid
+import datetime
+import json
+
 from seafevents.db import init_db_session_class
 from seafevents.seafevent_server.utils import export_event_log_to_excel, export_org_event_log_to_excel, convert_wiki
+from seafevents.app.event_redis import redis_cache
+from seafevents.events.metrics import NODE_NAME, METRIC_CHANNEL_NAME
+from seafevents.app.config import ENABLE_METRIC
 
 logger = logging.getLogger('seafevents')
 
@@ -33,12 +39,27 @@ class EventExportTaskManager(object):
     def is_valid_task_id(self, task_id):
         return task_id in (self.tasks_map.keys() | self.task_results_map.keys())
 
+    def publish_io_qsize_metric(self, qsize):
+        if not ENABLE_METRIC:
+            return
+        publish_metric = {
+            "metric_name": "io_task_qsize",
+            "instance_name": "seafevents",
+            "node_name": NODE_NAME,
+            "metric_value": qsize,
+            "details": {
+                "collected_at": datetime.datetime.now().isoformat()
+            }
+        }
+        redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))
+
     def add_export_logs_task(self, start_time, end_time, log_type):
         task_id = str(uuid.uuid4())
         task = (export_event_log_to_excel, (self._db_session_class, start_time, end_time, log_type, task_id))
 
         self.tasks_queue.put(task_id)
         self.tasks_map[task_id] = task
+        self.publish_io_qsize_metric(self.tasks_queue.qsize())
         return task_id
 
     def add_org_export_logs_task(self, start_time, end_time, log_type, org_id):
@@ -47,6 +68,7 @@ class EventExportTaskManager(object):
 
         self.tasks_queue.put(task_id)
         self.tasks_map[task_id] = task
+        self.publish_io_qsize_metric(self.tasks_queue.qsize())
         return task_id
 
     def add_convert_wiki_task(self, old_repo_id, new_repo_id, username):
@@ -56,6 +78,7 @@ class EventExportTaskManager(object):
 
         self.tasks_queue.put(task_id)
         self.tasks_map[task_id] = task
+        self.publish_io_qsize_metric(self.tasks_queue.qsize())
         return task_id
 
     def query_status(self, task_id):

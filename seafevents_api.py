@@ -8,6 +8,7 @@ from .app.config import is_repo_auto_del_enabled, is_search_enabled, is_audit_en
     is_seasearch_enabled
 
 
+
 def is_pro():
     return False
 

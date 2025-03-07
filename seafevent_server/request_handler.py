@@ -2,6 +2,7 @@ import jwt
 import logging
 import json
 
+
 from flask import Flask, request, make_response
 from seafevents.app.config import SEAHUB_SECRET_KEY
 from seafevents.seafevent_server.task_manager import task_manager
@@ -10,9 +11,12 @@ from seafevents.seasearch.index_task.index_task_manager import index_task_manage
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
 from seafevents.app.cache_provider import cache
+from seafevents.app.event_redis import redis_cache, REDIS_METRIC_KEY
+
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
+
 
 
 def check_auth_token(req):
@@ -330,3 +334,31 @@ def delete_repo_monitored_user_cache():
         return make_response((e, 500))
 
     return {'success': True}, 200
+
+
+@app.route('/metrics', methods=['GET'])
+def get_metrics():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+
+    if error:
+        return make_response((error, 500))
+    
+    metrics = redis_cache.get(REDIS_METRIC_KEY)
+    if not metrics:
+        return ''
+    metrics = json.loads(metrics)
+
+    metric_info = ''
+    for metric_name, metric_detail in metrics.items():
+        metric_value = metric_detail.pop('metric_value')
+        if metric_detail:
+            for label_name, label_value in metric_detail.items():
+                label = label_name + '="' + str(label_value) + '",'
+            label = label[:-1]
+            metric_info += '%s{%s} %s\n' % (metric_name, label, str(metric_value))
+        else:
+            metric_info += '%s %s\n' % (metric_name, str(metric_value))
+
+    return metric_info.encode()
