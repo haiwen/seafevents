@@ -37,7 +37,10 @@ def handle_metric_timing(metric_name):
     return decorator
 
 
-class MetricTask(Thread):
+class MetricReceiver(Thread):
+    """
+    Collect metrics from redis channel and save to local variable
+    """
     def __init__(self):
         Thread.__init__(self)
         self._finished = Event()
@@ -70,7 +73,10 @@ class MetricTask(Thread):
                 subscriber = self._redis_client.get_subscriber(METRIC_CHANNEL_NAME)
 
 
-class MetricRedisCollect(Thread):
+class MetricSaver(Thread):
+    """
+    Save metrics to redis
+    """
 
     def __init__(self, interval):
         Thread.__init__(self)
@@ -78,7 +84,6 @@ class MetricRedisCollect(Thread):
         self.finished = Event()
 
     def run(self):
-
         while not self.finished.is_set():
             self.finished.wait(self._interval)
             if not self.finished.is_set():
@@ -99,9 +104,9 @@ class MetricsManager(object):
         
     def start(self):
         logging.info('Start metric collect, interval = %s sec', self._interval)
-        self._metric_collect_thread = MetricRedisCollect(self._interval)
+        self._metric_collect_thread = MetricSaver(self._interval)
         self._metric_collect_thread.start()
 
         logging.info('Starting metric handler')
-        self._metric_task = MetricTask()
+        self._metric_task = MetricReceiver()
         self._metric_task.start()
