@@ -66,6 +66,7 @@ class PrivatePropertyKeys:
     TAGS = '_tags'
     OCR = '_ocr'
     LOCATION_TRANSLATED = '_location_translated'
+    LOCATION_DISPLAY = '_location_display'
 
 
 class FilterPredicateTypes(object):
