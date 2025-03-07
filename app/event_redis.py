@@ -52,6 +52,8 @@ class RedisClient(object):
         return self.connection.delete(key)
     
     def get_subscriber(self, channel_name):
+        if not self.connection:
+            return
         while True:
             try:
                 subscriber = self.connection.pubsub(ignore_subscribe_messages=True)
@@ -66,12 +68,18 @@ class RedisClient(object):
                 return subscriber
 
     def setnx(self, key, value):
+        if not self.connection:
+            return
         return self.connection.setnx(key, value)
 
     def expire(self, name, timeout):
+        if not self.connection:
+            return
         return self.connection.expire(name, timeout)
 
     def publish(self, channel, message):
+        if not self.connection:
+            return
         return self.connection.publish(channel, message)
 
 class RedisCache(object):

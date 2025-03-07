@@ -1,4 +1,4 @@
-from .db import init_db_session_class, init_redis_cache
+from .db import init_db_session_class
 from .statistics.db import *
 from .events.db import *
 from .events.handlers import get_delete_records

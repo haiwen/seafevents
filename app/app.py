@@ -39,7 +39,7 @@ class App(object):
             self._repo_old_file_auto_del_scanner = RepoOldFileAutoDelScanner(config)
             self._deleted_files_count_cleaner = DeletedFilesCountCleaner(config)
             if ENABLE_METRIC:
-                self._metrics_manager = MetricsManager(self, config)
+                self._metrics_manager = MetricsManager()
 
             if ENABLE_METADATA_MANAGEMENT:
                 self._index_master = RepoMetadataIndexMaster(config)

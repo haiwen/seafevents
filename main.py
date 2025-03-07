@@ -10,7 +10,6 @@ from seafevents.app.app import App
 from seafevents.app.config import get_config, is_cluster_enabled, is_syslog_enabled
 from seafevents.app.signal_handler import set_signal
 
-from seafevents.app.event_redis import redis_cache
 
 
 def main(background_tasks_only=False):
@@ -39,7 +38,6 @@ def main(background_tasks_only=False):
 
     seafile_config = get_config(seafile_conf_path)
     config = get_config(args.config_file)
-    redis_cache.init_redis(config)
     try:
         create_db_tables(config)
         prepare_db_tables(seafile_config)

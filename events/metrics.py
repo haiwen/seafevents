@@ -37,22 +37,11 @@ def handle_metric_timing(metric_name):
     return decorator
 
 
-class MetricHandler(object):
-    def __init__(self, app, config):
-
-        self.app = app
-        self.config = config
-
-    def start(self):
-        MetricTask(self.app, self.config).start()
-
-
 class MetricTask(Thread):
-    def __init__(self, app, config):
+    def __init__(self):
         Thread.__init__(self)
         self._finished = Event()
-        self._redis_client = RedisClient(config)
-        self.app = app
+        self._redis_client = RedisClient()
 
     def run(self):
         logging.info('Starting handle redis channel')
@@ -81,16 +70,6 @@ class MetricTask(Thread):
                 subscriber = self._redis_client.get_subscriber(METRIC_CHANNEL_NAME)
 
 
-class MetricRedisRecorder(object):
-
-    def __init__(self):
-        self._interval = 15
-
-    def start(self):
-        logging.info('Start metric collect, interval = %s sec', self._interval)
-        MetricRedisCollect(self._interval).start()
-
-
 class MetricRedisCollect(Thread):
 
     def __init__(self, interval):
@@ -115,17 +94,14 @@ class MetricRedisCollect(Thread):
 
 
 class MetricsManager(object):
-    def __init__(self, app=None, config=None):
-        self.app = app
-        self.config = config
+    def __init__(self):
         self._interval = 15
         
     def start(self):
         logging.info('Start metric collect, interval = %s sec', self._interval)
         self._metric_collect_thread = MetricRedisCollect(self._interval)
         self._metric_collect_thread.start()
-        
-        if self.app and self.config:
-            logging.info('Starting metric handler')
-            self._metric_task = MetricTask(self.app, self.config)
-            self._metric_task.start()
+
+        logging.info('Starting metric handler')
+        self._metric_task = MetricTask()
+        self._metric_task.start()
