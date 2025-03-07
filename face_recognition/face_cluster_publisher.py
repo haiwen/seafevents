@@ -4,8 +4,8 @@ import json
 from seafevents.db import init_db_session_class
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 from seafevents.repo_data import repo_data
-from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.mq import get_mq
+from seafevents.app.config import REDIS_SERVER, REDIS_PORT, REDIS_PASSWORD
 
 logger = logging.getLogger('face_recognition')
 
@@ -14,27 +14,15 @@ class FaceClusterPublisher(object):
     def __init__(self, config):
         self._face_recognition_manager = FaceRecognitionManager(config)
         self._session = init_db_session_class(config)
-        self.mq_server = '127.0.0.1'
-        self.mq_port = 6379
-        self.mq_password = ''
-        self._parse_config(config)
+        self.mq_server = REDIS_SERVER
+        self.mq_port = REDIS_PORT
+        self.mq_password = REDIS_PASSWORD
 
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
 
-    def _parse_config(self, config):
-        section_name = 'REDIS'
-        key_server = 'server'
-        key_port = 'port'
-        key_password = 'password'
-
-        if not config.has_section(section_name):
-            return
-
-        self.mq_server = get_opt_from_conf_or_env(config, section_name, key_server, default='')
-        self.mq_port = get_opt_from_conf_or_env(config, section_name, key_port, default=6379)
-        self.mq_password = get_opt_from_conf_or_env(config, section_name, key_password, default='')
-
     def start(self):
+        if not self.mq:
+            return
         try:
             self.publish_face_cluster_task()
         except Exception as e:

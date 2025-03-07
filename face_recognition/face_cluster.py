@@ -13,6 +13,7 @@ from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 from seafevents.app.config import get_config
 from seafevents.app.log import LogConfigurator
+from seafevents.app.config import REDIS_SERVER, REDIS_PORT, REDIS_PASSWORD
 
 logger = logging.getLogger('face_recognition')
 
@@ -29,9 +30,9 @@ class FaceCluster(object):
         self.LOCK_TIMEOUT = 1800  # 30 minutes
         self.REFRESH_INTERVAL = 600
         self.locked_keys = set()
-        self.mq_server = '127.0.0.1'
-        self.mq_port = 6379
-        self.mq_password = ''
+        self.mq_server = REDIS_SERVER
+        self.mq_port = REDIS_PORT
+        self.mq_password = REDIS_PASSWORD
         self.worker_num = 3
         self._parse_config(config)
 
@@ -41,16 +42,6 @@ class FaceCluster(object):
         self.worker_list = []
 
     def _parse_config(self, config):
-        redis_section_name = 'REDIS'
-        key_server = 'server'
-        key_port = 'port'
-        key_password = 'password'
-
-        if config.has_section(redis_section_name):
-            self.mq_server = get_opt_from_conf_or_env(config, redis_section_name, key_server, default='')
-            self.mq_port = get_opt_from_conf_or_env(config, redis_section_name, key_port, default=6379)
-            self.mq_password = get_opt_from_conf_or_env(config, redis_section_name, key_password, default='')
-
         metadata_section_name = 'METADATA'
         key_index_workers = 'index_workers'
         if config.has_section(metadata_section_name):
@@ -69,6 +60,8 @@ class FaceCluster(object):
         logger.info("All face cluster worker threads has stopped.")
 
     def start(self):
+        if not self.mq:
+            return
         for i in range(int(self.worker_num)):
             t = threading.Thread(target=self.face_cluster_handler, name='face_cluster_' + str(i), daemon=True)
             t.start()
@@ -147,6 +140,8 @@ class FaceCluster(object):
                 time.sleep(1)
 
     def clear(self):
+        if not self.mq:
+            return
         self.should_stop.set()
         # if a thread just lock key, wait to add the lock to the list.
         time.sleep(1)

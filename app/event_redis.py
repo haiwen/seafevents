@@ -1,39 +1,62 @@
 # -*- coding: utf-8 -*-
 import logging
+from seafevents.app.config import REDIS_SERVER, REDIS_PORT, REDIS_PASSWORD
 
 logger = logging.getLogger(__name__)
 
 
 class RedisClient(object):
 
-    def __init__(self, config, socket_connect_timeout=30, socket_timeout=None):
-        self._host = '127.0.0.1'
-        self._port = 6379
-        self._password = None
+    def __init__(self, socket_connect_timeout=30, socket_timeout=None):
+        self._host = REDIS_SERVER
+        self._port = REDIS_PORT
+        self._password = REDIS_PASSWORD
         self.connection = None
 
-        self._parse_config(config, socket_connect_timeout, socket_timeout)
+        self._init_config(socket_connect_timeout, socket_timeout)
+    
+    def _init_config(self, socket_connect_timeout, socket_timeout):
+        if self._host and self._port:
+            import redis
+            self.connection = redis.Redis(
+                host=self._host, port=self._port, password=self._password, decode_responses=True,
+                socket_timeout=socket_timeout, socket_connect_timeout=socket_connect_timeout,
+            )
+        else:
+            logging.warning('Redis has not been set up')
 
-    def _parse_config(self, config, socket_connect_timeout, socket_timeout):
-
-        if not config.has_section('REDIS'):
+    def get(self, key):
+        if not self.connection:
             return
+        return self.connection.get(key)
 
-        if config.has_option('REDIS', 'server'):
-            self._host = config.get('REDIS', 'server')
+    def set(self, key, value, timeout=None):
+        if not self.connection:
+            return
+        if not timeout:
+            return self.connection.set(key, value)
+        else:
+            return self.connection.setex(key, timeout, value)
 
-        if config.has_option('REDIS', 'port'):
-            self._port = config.getint('REDIS', 'port')
+    def delete(self, key):
+        if not self.connection:
+            return
+        return self.connection.delete(key)
 
-        if config.has_option('REDIS', 'password'):
-            self._password = config.get('REDIS', 'password')
+class RedisCache(object):
 
-        """
-        By default, each Redis instance created will in turn create its own connection pool.
-        Every caller using redis client will has it's own pool with config caller passed.
-        """
-        import redis
-        self.connection = redis.Redis(
-            host=self._host, port=self._port, password=self._password, decode_responses=True,
-            socket_timeout=socket_timeout, socket_connect_timeout=socket_connect_timeout,
-        )
+    CACHE_NAME = 'redis'
+
+    def __init__(self):
+        self._redis_client = RedisClient()
+        
+    def get(self, key):
+        return self._redis_client.get(key)
+
+    def set(self, key, value, timeout=None):
+        return self._redis_client.set(key, value, timeout=timeout)
+
+    def delete(self, key):
+        return self._redis_client.delete(key)
+    
+redis_cache = RedisCache()

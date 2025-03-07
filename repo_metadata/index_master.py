@@ -6,7 +6,7 @@ from collections import OrderedDict
 from copy import deepcopy
 
 from seafevents.mq import get_mq
-from seafevents.utils import get_opt_from_conf_or_env
+from seafevents.app.config import REDIS_SERVER, REDIS_PORT, REDIS_PASSWORD
 
 logger = logging.getLogger(__name__)
 
@@ -16,31 +16,19 @@ class RepoMetadataIndexMaster(Thread):
     """
     def __init__(self, config):
         Thread.__init__(self)
-        self.mq_server = '127.0.0.1'
-        self.mq_port = 6379
-        self.mq_password = ''
-        self._parse_config(config)
+        self.mq_server = REDIS_SERVER
+        self.mq_port = REDIS_PORT
+        self.mq_password = REDIS_PASSWORD
 
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
         self.pending_tasks = OrderedDict()  # repo_id: commit_id
-
-    def _parse_config(self, config):
-        section_name = 'REDIS'
-        key_server = 'server'
-        key_port = 'port'
-        key_password = 'password'
-
-        if not config.has_section(section_name):
-            return
-
-        self.mq_server = get_opt_from_conf_or_env(config, section_name, key_server, default='')
-        self.mq_port = get_opt_from_conf_or_env(config, section_name, key_port, default=6379)
-        self.mq_password = get_opt_from_conf_or_env(config, section_name, key_password, default='')
 
     def now(self):
         return time.time()
 
     def run(self):
+        if not self.mq:
+            return
         logger.info('metadata master event receive thread started')
         while True:
             try:

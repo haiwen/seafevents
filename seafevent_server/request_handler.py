@@ -9,6 +9,7 @@ from seafevents.seafevent_server.export_task_manager import event_export_task_ma
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
+from seafevents.app.cache_provider import cache
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
@@ -299,6 +300,31 @@ def update_cover_photo():
 
     try:
         app.face_recognition_manager.update_people_cover_photo(repo_id, people_id, path, download_token)
+    except Exception as e:
+        logger.error(e)
+        return make_response((e, 500))
+
+    return {'success': True}, 200
+
+@app.route('/delete-repo-monitored-user-cache', methods=['POST'])
+def delete_repo_monitored_user_cache():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+
+    try:
+        data = json.loads(request.data)
+    except Exception as e:
+        logger.exception(e)
+        return {'error_msg': 'Bad request.'}, 400
+
+    repo_id = data.get('repo_id')
+    if not repo_id:
+        return {'error_msg': 'repo_id invalid.'}, 400
+    
+    try:
+        cache_key = '{}_monitor_users'.format(repo_id)
+        cache.delete(cache_key)
     except Exception as e:
         logger.error(e)
         return make_response((e, 500))
