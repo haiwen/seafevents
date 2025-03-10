@@ -361,36 +361,38 @@ class WikiIndex(object):
             },
         }
         index_name = WIKI_INDEX_PREFIX + wiki
-        index_info = {"index": index_name}
-        bulk_search_params.append(index_info)
-        bulk_search_params.append(data)
+        bulk_search_params.append({'index': index_name, 'query': data})
 
-        results = self.seasearch_api.m_search(bulk_search_params)
-        wiki_content = []
-        for result in results.get('responses'):
-            hits = result.get('hits', {}).get('hits', [])
+        query_body = json.dumps({
+            'index_queries': bulk_search_params
+        })
 
-            if not hits:
-                continue
+        results = self.seasearch_api.unified_search(query_body)
+        wikis = []
 
-            for hit in hits:
-                source = hit.get('_source')
-                score = hit.get('_score')
-                _id = hit.get('_id')
+        hits = results.get('hits', []).get('hits', [])
+        total = results.get('hits', {}).get('total', {}).get('value', 0)
 
-                r = {
-                    'doc_uuid': source['doc_uuid'],
-                    'wiki_id': source['wiki_id'],
-                    'score': score,
-                    '_id': _id,
-                }
-                if highlight_content := hit.get('highlight', {}).get('content', [None])[0]:
-                    r.update(content=highlight_content)
-                if highlight_title := hit.get('highlight', {}).get('title', [None])[0]:
-                    r.update(title=highlight_title)
-                wiki_content.append(r)
+        if not hits:
+            return wikis, 0
 
-        return wiki_content
+        for hit in hits:
+            source = hit.get('_source')
+            score = hit.get('_score')
+            _id = hit.get('_id')
+            r = {
+                'doc_uuid': source['doc_uuid'],
+                'wiki_id': source['wiki_id'],
+                'score': score,
+                '_id': _id,
+            }
+            if highlight_content := hit.get('highlight', {}).get('content', [None])[0]:
+                r.update(content=highlight_content)
+            if highlight_title := hit.get('highlight', {}).get('title', [None])[0]:
+                r.update(title=highlight_title)
+            wikis.append(r)
+
+        return wikis, total
 
     def delete_index_by_index_name(self, index_name):
         self.seasearch_api.delete_index_by_name(index_name)

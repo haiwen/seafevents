@@ -98,6 +98,11 @@ class SeaSearchAPI(object):
         response = requests.post(url, headers=self.headers, data=data, timeout=self.timeout)
         return parse_response(response)
 
+    def unified_search(self, data):
+        url = self.server + '/api/unified_search'
+        response = requests.post(url, headers=self.headers, data=data, timeout=self.timeout)
+        return parse_response(response)
+
     def check_index_mapping(self, index_name):
         url = self.server + '/es/' + index_name + '/_mapping'
         response = requests.get(url, headers=self.headers, timeout=self.timeout)
