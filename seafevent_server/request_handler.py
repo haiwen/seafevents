@@ -156,7 +156,7 @@ def search():
     except:
         count = 20
 
-    results = index_task_manager.keyword_search(query, repos, count, suffixes, search_path, obj_type)
+    results = index_task_manager.file_search(query, repos, count, suffixes, search_path, obj_type)
 
     return {'results': results}, 200
 
@@ -238,9 +238,9 @@ def search_wiki():
     except:
         count = 20
 
-    results = index_task_manager.wiki_search(query, wiki, count)
+    results, total = index_task_manager.wiki_search(query, wiki, count)
 
-    return {'results': results}, 200
+    return {'results': results, 'total': total}, 200
 
 
 @app.route('/add-convert-wiki-task', methods=['GET'])

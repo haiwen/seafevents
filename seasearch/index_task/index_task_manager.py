@@ -67,8 +67,8 @@ class IndexTaskManager:
             wiki_file_size_limit=int(wiki_size_limit) * 1024 * 1024,
         )
 
-    def keyword_search(self, query, repos, count, suffixes, search_path, obj_type):
-        return self.index_manager.keyword_search(
+    def file_search(self, query, repos, count, suffixes, search_path, obj_type):
+        return self.index_manager.file_search(
             query, repos, self._repo_filename_index, count, suffixes, search_path, obj_type
         )
 
