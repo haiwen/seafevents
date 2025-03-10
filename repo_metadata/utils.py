@@ -41,6 +41,8 @@ def wgs2gcj(point_key):
     """
     Convert WGS-84 coordinates to GCJ-02 (Mars coordinates).
     """
+    a = 6378245.0;
+    ee = 0.00669342162296594323;
     lat, lng = map(float, point_key.split(','))
 
     def transform_lat(x, y):
@@ -67,10 +69,10 @@ def wgs2gcj(point_key):
     dlng = transform_lng(lng - 105.0, lat - 35.0)
     radlat = lat / 180.0 * math.pi
     magic = math.sin(radlat)
-    magic = 1 - 0.00669342162296594323 * magic * magic
+    magic = 1 - ee * magic * magic
     sqrtmagic = math.sqrt(magic)
-    dlat = (dlat * 180.0) / ((6378245.0 * (1 - 0.00669342162296594323)) / (magic * sqrtmagic) * math.pi)
-    dlng = (dlng * 180.0) / (6378245.0 / sqrtmagic * math.cos(radlat) * math.pi)
+    dlat = (dlat * 180.0) / ((a * (1 - ee)) / (magic * sqrtmagic) * math.pi)
+    dlng = (dlng * 180.0) / (a / sqrtmagic * math.cos(radlat) * math.pi)
     mglat = lat + dlat
     mglng = lng + dlng
     return f"{mglat},{mglng}"
