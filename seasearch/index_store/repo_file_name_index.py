@@ -1,3 +1,4 @@
+import json
 import os
 import logging
 
@@ -169,34 +170,38 @@ class RepoFileNameIndex(object):
                 'sort': ['_score']
             }
             index_name = REPO_FILENAME_INDEX_PREFIX + repo_id
-            index_info = {"index": index_name}
-            bulk_search_params.append(index_info)
-            bulk_search_params.append(data)
-            search_path = None
+            repo_query_info = {
+                'index': index_name,
+                'query': data
+            }
+            bulk_search_params.append(repo_query_info)
 
-        results = self.seasearch_api.m_search(bulk_search_params)
+            search_path = None
+        query_body = json.dumps({
+            'index_queries': bulk_search_params
+        })
+        results = self.seasearch_api.unified_search(query_body)
         files = []
 
-        for result in results.get('responses'):
-            hits = result.get('hits', {}).get('hits', [])
+        hits = results.get('hits', []).get('hits', [])
+        total = results.get('hits', {}).get('total', {}).get('value', 0)
 
-            if not hits:
-                continue
+        if not hits:
+            return files
 
-            for hit in hits:
-                source = hit.get('_source')
-                score = hit.get('_score')
-                _id = hit.get('_id')
-                r = {
-                    'repo_id': source['repo_id'],
-                    'fullpath': source['path'],
-                    'name': source['filename'],
-                    'is_dir': source['is_dir'],
-                    'score': score,
-                    '_id': _id,
-                }
-                files.append(r)
-        files = sorted(files, key=lambda row: row['score'], reverse=True)[:size]
+        for hit in hits:
+            source = hit.get('_source')
+            score = hit.get('_score')
+            _id = hit.get('_id')
+            r = {
+                'repo_id': source['repo_id'],
+                'fullpath': source['path'],
+                'name': source['filename'],
+                'is_dir': source['is_dir'],
+                'score': score,
+                '_id': _id,
+            }
+            files.append(r)
 
         logger.debug('search keyword: %s, search path: %s, in repos: %s , \nsearch result: %s', keyword, search_path,
                     repos, files)
