@@ -19,7 +19,7 @@ class QuotaAlertEmailSender(object):
 
     def start(self):
 
-        logging.info('seahub full disk email sender is started, interval = %s sec', self._interval)
+        logging.info('seahub quota alert email sender is started, interval = %s sec', self._interval)
         SendQuotaAlertEmailTimer(self._interval).start()
 
     def is_enabled(self):
@@ -37,7 +37,7 @@ class SendQuotaAlertEmailTimer(Thread):
         while not self.finished.is_set():
             self.finished.wait(self._interval)
             if not self.finished.is_set():
-                logging.info('starts to send full disk email notice')
+                logging.info('starts to send quota alert email notice')
                 try:
                     python_exec = get_python_executable()
                     manage_py = os.path.join(SEAHUB_DIR, 'manage.py')
@@ -50,7 +50,7 @@ class SendQuotaAlertEmailTimer(Thread):
                     ]
                     run(cmd, cwd=SEAHUB_DIR)
                 except Exception as e:
-                    logging.exception('error when send email for full disk notice: %s', e)
+                    logging.exception('error when send email for quota alert notice: %s', e)
 
     def cancel(self):
         self.finished.set()
