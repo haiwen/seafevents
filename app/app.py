@@ -3,12 +3,12 @@ from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
         WorkWinxinNoticeSender, FileUpdatesSender, RepoOldFileAutoDelScanner,\
         DeletedFilesCountCleaner, FaceClusterTaskPublisher, ESWikiIndexUpdater, FaceClusterUpdater, \
-        FullDiskEmailSender
+        QuotaAlertEmailSender
 
 from seafevents.repo_metadata.index_master import RepoMetadataIndexMaster
 from seafevents.repo_metadata.slow_task_handler import SlowMetadataTaskHandler
 from seafevents.seafevent_server.seafevent_server import SeafEventServer
-from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_METRIC, ENABLE_FULL_DISK_EMAIL_NOTICE
+from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_METRIC, ENABLE_QUOTA_ALERT
 from seafevents.seasearch.index_task.filename_index_updater import RepoFilenameIndexUpdater
 from seafevents.seasearch.index_task.wiki_index_updater import SeasearchWikiIndexUpdater
 from seafevents.events.metrics import MetricsManager
@@ -50,8 +50,8 @@ class App(object):
             self._repo_filename_index_updater = RepoFilenameIndexUpdater(config)
             self._es_wiki_index_updater = ESWikiIndexUpdater(config)
             self._seasearch_wiki_index_updater = SeasearchWikiIndexUpdater(config)
-            if ENABLE_FULL_DISK_EMAIL_NOTICE:
-                self._full_disk_email_sender = FullDiskEmailSender()
+            if ENABLE_QUOTA_ALERT:
+                self._quota_alert_email_sender = QuotaAlertEmailSender()
 
     def serve_forever(self):
         if self._fg_tasks_enabled:
@@ -83,5 +83,5 @@ class App(object):
             self._repo_filename_index_updater.start()
             self._seasearch_wiki_index_updater.start()
             self._es_wiki_index_updater.start()
-            if ENABLE_FULL_DISK_EMAIL_NOTICE:
-                self._full_disk_email_sender.start()
+            if ENABLE_QUOTA_ALERT:
+                self._quota_alert_email_sender.start()
