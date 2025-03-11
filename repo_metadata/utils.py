@@ -37,6 +37,46 @@ def gen_fileext_type_map():
 
 FILEEXT_TYPE_MAP = gen_fileext_type_map()
 
+def wgs2gcj(point_key):
+    """
+    Convert WGS-84 coordinates to GCJ-02 (Mars coordinates).
+    """
+    a = 6378245.0;
+    ee = 0.00669342162296594323;
+    lat, lng = map(float, point_key.split(','))
+
+    def transform_lat(x, y):
+        ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * math.sqrt(abs(x))
+        ret += (20.0 * math.sin(6.0 * x * math.pi) + 20.0 * math.sin(2.0 * x * math.pi)) * 2.0 / 3.0
+        ret += (20.0 * math.sin(y * math.pi) + 40.0 * math.sin(y / 3.0 * math.pi)) * 2.0 / 3.0
+        ret += (160.0 * math.sin(y / 12.0 * math.pi) + 320 * math.sin(y * math.pi / 30.0)) * 2.0 / 3.0
+        return ret
+
+    def transform_lng(x, y):
+        ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * math.sqrt(abs(x))
+        ret += (20.0 * math.sin(6.0 * x * math.pi) + 20.0 * math.sin(2.0 * x * math.pi)) * 2.0 / 3.0
+        ret += (20.0 * math.sin(x * math.pi) + 40.0 * math.sin(x / 3.0 * math.pi)) * 2.0 / 3.0
+        ret += (150.0 * math.sin(x / 12.0 * math.pi) + 300.0 * math.sin(x / 30.0 * math.pi)) * 2.0 / 3.0
+        return ret
+
+    def out_of_china(lng, lat):
+        return not (73.66 < lng < 135.05 and 3.86 < lat < 53.55)
+
+    if out_of_china(lng, lat):
+        return point_key
+
+    dlat = transform_lat(lng - 105.0, lat - 35.0)
+    dlng = transform_lng(lng - 105.0, lat - 35.0)
+    radlat = lat / 180.0 * math.pi
+    magic = math.sin(radlat)
+    magic = 1 - ee * magic * magic
+    sqrtmagic = math.sqrt(magic)
+    dlat = (dlat * 180.0) / ((a * (1 - ee)) / (magic * sqrtmagic) * math.pi)
+    dlng = (dlng * 180.0) / (a / sqrtmagic * math.cos(radlat) * math.pi)
+    mglat = lat + dlat
+    mglng = lng + dlng
+    return f"{mglat},{mglng}"
+
 
 def get_location_from_map_service(point_key):
     if BAIDU_MAP_KEY:
@@ -53,7 +93,7 @@ def get_location_from_map_service(point_key):
                 data = response.json()
                 if data.get('status') == 0:
                     return {
-                        'address': data['result']['formatted_address_poi'],
+                        'address': data['result']['formatted_address_poi'] or data['result']['formatted_address'],
                         'country': data['result']['addressComponent']['country'],
                         'province': data['result']['addressComponent']['province'],
                         'city': data['result']['addressComponent']['city'],
@@ -68,8 +108,8 @@ def get_location_from_map_service(point_key):
 
     if GOOGLE_MAP_KEY:
         params = {
-            'latlng': point_key,
-            'key': GOOGLE_MAP_KEY
+            'latlng': wgs2gcj(point_key),
+            'key': GOOGLE_MAP_KEY,
         }
         try:
             response = requests.get(GOOGLE_MAP_URL, params=params, timeout=30)
@@ -178,9 +218,16 @@ def get_image_details(content):
             for k, v in metadata.items():
                 if k.startswith('XMP') and k != 'XMP:XMPToolkit':
                     details[k[4:]] = v
-
             lat = metadata.get('EXIF:GPSLatitude')
             lng = metadata.get('EXIF:GPSLongitude')
+            lat_ref = metadata.get('EXIF:GPSLatitudeRef')
+            lng_ref = metadata.get('EXIF:GPSLongitudeRef')
+            
+            if lat and lat_ref == 'S': 
+                lat = -lat
+            if lng and lng_ref == 'W':
+                lng = -lng
+                
             location = {
                 'lat': lat,
                 'lng': lng,
@@ -197,6 +244,13 @@ def get_video_details(content):
             metadata = et.get_metadata(temp_file_path)
             lat = metadata.get('Composite:GPSLatitude')
             lng = metadata.get('Composite:GPSLongitude')
+            lat_ref = metadata.get('Composite:GPSLatitudeRef')
+            lng_ref = metadata.get('Composite:GPSLongitudeRef')
+
+            if lat and lat_ref == 'S':
+                lat = -lat
+            if lng and lng_ref == 'W':
+                lng = -lng
             software = metadata.get('QuickTime:Software', '')
             capture_time = metadata.get('QuickTime:CreateDate', '')
             if is_valid_datetime(capture_time, '%Y:%m:%d %H:%M:%S'):
@@ -304,10 +358,16 @@ def add_image_detail_row(row_id, content, has_capture_time_column):
 
 def add_video_detail_row(row_id, content, has_capture_time_column):
     video_details, location = get_video_details(content)
-
+    lng = location.get('lng', '')
+    lat = location.get('lat', '')
+    location_translated = {}
+    if lng and lat:
+        point_key = f"{lat},{lng}"
+        location_translated = get_location_from_map_service(point_key)
     update_row = {
         METADATA_TABLE.columns.id.name: row_id,
-        METADATA_TABLE.columns.location.name: {'lng': location.get('lng', ''), 'lat': location.get('lat', '')},
+        METADATA_TABLE.columns.location.name: {'lng': lng, 'lat': lat},
+        METADATA_TABLE.columns.location_translated.name: location_translated,
         METADATA_TABLE.columns.file_details.name: f'\n\n```json\n{json.dumps(video_details)}\n```\n\n\n',
     }
 
