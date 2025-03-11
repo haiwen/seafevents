@@ -12,6 +12,7 @@ from os.path import splitext
 
 from seafevents.app.cache_provider import cache
 from sqlalchemy import select, text, desc, func
+from sqlalchemy.exc import NoResultFound
 import pymysql
 
 from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
@@ -23,7 +24,7 @@ from seafevents.events.db import save_file_audit_event, save_file_update_event, 
 from seafevents.app.config import TIME_ZONE
 from seafevents.utils import get_opt_from_conf_or_env
 from .change_file_path import ChangeFilePathHandler
-from .models import Activity, FileTrash
+from .models import Activity, FileTrash, OrgLastActivityTime
 from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, save_deleted_files_msg
 from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
 
@@ -83,6 +84,13 @@ def RepoUpdateEventHandler(config, session, msg):
             users = []
             org_id = get_org_id_by_repo_id(repo_id)
             if org_id > 0:
+                try:
+                    org_last_activity_time = session.query(OrgLastActivityTime).filter_by(org_id=org_id).one()
+                    org_last_activity_time.timestamp = datetime.datetime.now()
+                except NoResultFound:
+                    org_last_activity_time = OrgLastActivityTime(org_id, datetime.datetime.now())
+                    session.add(org_last_activity_time)
+                session.commit()
                 users = seafile_api.org_get_shared_users_by_repo(org_id, repo_id)
                 owner = seafile_api.get_org_repo_owner(repo_id)
             else:

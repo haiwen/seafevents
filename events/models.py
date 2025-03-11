@@ -276,3 +276,14 @@ class FileTrash(Base):
     def __str__(self):
         return 'FileTrash<id: %s, type: %s, repo_id: %s>' % \
             (self.id, self.obj_type, self.repo_id)
+
+class OrgLastActivityTime(Base):
+    __tablename__ = 'org_last_active_time'
+
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    org_id = mapped_column(Integer, nullable=False, index=True)
+    timestamp = mapped_column(DateTime, nullable=False)
+
+    def __init__(self, org_id, timestamp):
+        self.org_id = org_id
+        self.timestamp = timestamp
