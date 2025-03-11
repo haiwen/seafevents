@@ -6,27 +6,27 @@ from seafevents.app.config import SEAHUB_DIR
 from seafevents.utils import get_python_executable, run
 
 __all__ = [
-    'FullDiskEmailSender',
+    'QuotaAlertEmailSender',
 ]
 
 
-class FullDiskEmailSender(object):
+class QuotaAlertEmailSender(object):
     def __init__(self):
         self._enabled = True
-        self._interval = 3600
+        self._interval = 36
         self._logfile = None
         self._timer = None
 
     def start(self):
 
         logging.info('seahub full disk email sender is started, interval = %s sec', self._interval)
-        SendFullDiskEmailTimer(self._interval).start()
+        SendQuotaAlertEmailTimer(self._interval).start()
 
     def is_enabled(self):
         return self._enabled
 
 
-class SendFullDiskEmailTimer(Thread):
+class SendQuotaAlertEmailTimer(Thread):
 
     def __init__(self, interval):
         Thread.__init__(self)
