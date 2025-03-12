@@ -11,8 +11,7 @@ import logging
 
 from datetime import timedelta, timezone, datetime
 
-from PIL import Image, UnidentifiedImageError
-from seafobj import commit_mgr, fs_mgr
+from seafobj import fs_mgr
 
 from seafevents.app.config import METADATA_FILE_TYPES, BAIDU_MAP_KEY, BAIDU_MAP_URL, GOOGLE_MAP_KEY, GOOGLE_MAP_URL
 from seafevents.repo_metadata.view_data_sql import view_data_2_sql, sort_data_2_sql
@@ -123,10 +122,10 @@ def get_location_from_map_service(point_key):
                         'city': '',
                         'district': ''
                     }
-                    
+
                     for component in result['address_components']:
                         types = component['types']
-                        
+
                         if 'country' in types:
                             address_components['country'] = component['long_name']
                         elif 'administrative_area_level_1' in types:
@@ -149,7 +148,7 @@ def get_location_from_map_service(point_key):
         except Exception as e:
             logger.warning('Get location from google map service error: %s', e)
             return {}
-        
+
     logger.warning("Baidu map key or Google map key not configured.")
     return {}
 
@@ -196,15 +195,15 @@ def get_image_details(content):
                 capture_time = ''
             focal_length = str(metadata['EXIF:FocalLength']) + 'mm' if metadata.get('EXIF:FocalLength') else ''
             f_number = 'f/' + str(metadata['EXIF:FNumber']) if metadata.get('EXIF:FNumber') else ''
-            width = metadata.get('File:ImageWidth')
-            height = metadata.get('File:ImageHeight')
+            width = metadata.get('File:ImageWidth') or metadata.get('EXIF:ImageWidth') or metadata.get('EXIF:ExifImageWidth')
+            height = metadata.get('File:ImageHeight') or metadata.get('EXIF:ImageHeight') or metadata.get('EXIF:ExifImageHeight')
+
             if not width or not height:
-                try:
-                    img = Image.open(io.BytesIO(content))
-                    width, height = img.size
-                except UnidentifiedImageError as e:
-                    pass
-            dimensions = str(width) + 'x' + str(height) if width and height else ''
+                # 'Composite:ImageSize': '1178 754'
+                image_size = metadata.get('Composite:ImageSize', '').split(' ')
+                if len(image_size) == 2:
+                    width, height = image_size
+            dimensions = str(width) + 'x' + str(height) if (width and height) else ''
             details = {
                 'Dimensions': dimensions,
                 'Device make': metadata.get('EXIF:Make', ''),
@@ -222,12 +221,12 @@ def get_image_details(content):
             lng = metadata.get('EXIF:GPSLongitude')
             lat_ref = metadata.get('EXIF:GPSLatitudeRef')
             lng_ref = metadata.get('EXIF:GPSLongitudeRef')
-            
-            if lat and lat_ref == 'S': 
+
+            if lat and lat_ref == 'S':
                 lat = -lat
             if lng and lng_ref == 'W':
                 lng = -lng
-                
+
             location = {
                 'lat': lat,
                 'lng': lng,
@@ -259,9 +258,17 @@ def get_video_details(content):
                 capture_time = capture_time.isoformat()
             else:
                 capture_time = ''
+            width = metadata.get('QuickTime:ImageWidth') or metadata.get('QuickTime:SourceImageWidth')
+            height = metadata.get('QuickTime:ImageHeight') or metadata.get('QuickTime:SourceImageHeight')
+
+            if not width or not height:
+                # 'Composite:ImageSize': '540 960'
+                image_size = metadata.get('Composite:ImageSize', '').split(' ')
+                if len(image_size) == 2:
+                    width, height = image_size
             details = {
-                'Dimensions': str(metadata.get('QuickTime:SourceImageWidth')) + 'x' + str(metadata.get('QuickTime:SourceImageHeight')),
-                'Duration': str(metadata.get('QuickTime:Duration')),
+                'Dimensions': str(width) + 'x' + str(height) if (width and height) else '',
+                'Duration': str(metadata.get('QuickTime:Duration', '')),
             }
             if capture_time:
                 details['Capture time'] = capture_time
@@ -284,15 +291,12 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_man
     if face_recognition_manager and face_recognition_manager.check_face_recognition_status(repo_id):
         rows = [row for row in query_result if not row.get(METADATA_TABLE.columns.face_vectors.name) and face_recognition_manager.is_support_format(row.get(METADATA_TABLE.columns.suffix.name))]
         if rows:
-            face_recognition_manager.face_embeddings(repo_id, rows)
+            try:
+                face_recognition_manager.face_embeddings(repo_id, rows)
+            except Exception as e:
+                logger.warning('repo_id: %s, cluster face failed, error: %s.', repo_id, e)
 
-    obj_id_to_rows = {}
-    for item in query_result:
-        obj_id = item[METADATA_TABLE.columns.obj_id.name]
-        if obj_id not in obj_id_to_rows:
-            obj_id_to_rows[obj_id] = []
-        obj_id_to_rows[obj_id].append(item)
-
+    # extract file info
     updated_rows = []
     columns = metadata_server_api.list_columns(repo_id, METADATA_TABLE.id).get('columns', [])
     capture_time_column = [column for column in columns if column.get('key') == PrivatePropertyKeys.CAPTURE_TIME]
@@ -308,7 +312,7 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_man
         row_id = row[METADATA_TABLE.columns.id.name]
         obj_id = row[METADATA_TABLE.columns.obj_id.name]
 
-        limit = 100000 if suffix == 'mp4' else -1
+        limit = 1000000
         content = get_file_content(repo_id, obj_id, limit)
         if file_type == '_picture':
             update_row = add_image_detail_row(row_id, content, has_capture_time_column)
