@@ -45,6 +45,7 @@ class EventExportTaskManager(object):
         publish_metric = {
             "metric_name": "io_task_queue_size",
             "metric_type": "gauge",
+            "metric_help": "The size of the io task queue",
             "component_name": "seafevents",
             "node_name": NODE_NAME,
             "metric_value": qsize,

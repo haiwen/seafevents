@@ -22,6 +22,7 @@ def handle_metric_timing(metric_name):
             publish_metric = {
                 "metric_name": metric_name,
                 "metric_type": "gauge",
+                "metric_help": "",
                 "component_name": "seafevents",
                 "node_name": NODE_NAME,
                 "details": {}
@@ -62,6 +63,7 @@ class MetricReceiver(Thread):
                         metric_details = metric_data.get('details') or {}
                         metric_details['metric_value'] = metric_data.get('metric_value')
                         metric_details['metric_type'] = metric_data.get('metric_type')
+                        metric_details['metric_help'] = metric_data.get('metric_help')
                         metric_details['node'] = node_name
                         metric_details['component'] = component_name
                         # global
