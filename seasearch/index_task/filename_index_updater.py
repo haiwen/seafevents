@@ -104,7 +104,7 @@ def clear_deleted_repo(repo_status_filename_index, repo_filename_index, index_ma
     logger.info("filename index deleted repo has been cleared")
 
 
-@handle_metric_timing('seasearch_index_timing')
+@handle_metric_timing('seasearch_index_duration_seconds')
 def update_repo_file_name_indexes(repo_status_filename_index, repo_filename_index, index_manager, repo_data):
     start, count = 0, 1000
     all_repos = []
