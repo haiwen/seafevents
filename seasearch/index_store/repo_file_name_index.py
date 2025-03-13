@@ -265,11 +265,7 @@ class RepoFileNameIndex(object):
                 continue
 
             if path == '/':
-                repo = self.repo_data.get_repo_name_mtime_size(repo_id)
-                if not repo:
-                    return
-
-                filename = repo[0]['name']
+                continue
             else:
                 filename = os.path.basename(path)
 
@@ -417,6 +413,25 @@ class RepoFileNameIndex(object):
 
         self.add_files(index_name, repo_id, need_added_files + need_update_metadata_files, path_to_metadata_row)
         self.add_dirs(index_name, repo_id, added_dirs)
+
+    def update_repo_name(self, index_name, repo_id):
+        repo = self.repo_data.get_repo_name_mtime_size(repo_id)
+        if not repo:
+            return
+        path = '/'
+        bulk_add_params = []
+        index_info = {'index': {'_index': index_name, '_id': md5(path)}}
+        doc_info = {
+            'repo_id': repo_id,
+            'path': path,
+            'suffix': None,
+            'filename': repo[0]['name'],
+            'is_dir': True,
+        }
+        bulk_add_params.append(index_info)
+        bulk_add_params.append(doc_info)
+
+        self.seasearch_api.bulk(index_name, bulk_add_params)
 
     def delete_index_by_index_name(self, index_name):
         self.seasearch_api.delete_index_by_name(index_name)

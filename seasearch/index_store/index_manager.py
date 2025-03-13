@@ -58,6 +58,11 @@ class IndexManager(object):
                 commit_id = to_commit
                 time.sleep(1)
 
+            try:
+                repo_filename_index.update_repo_name(index_name, repo_id)
+            except Exception as e:
+                logger.warning('update repo_name index failed, repo_id: %s, error: %s' % (repo_id, e))
+
             repo_status_filename_index.begin_update_repo(repo_id, commit_id, new_commit_id, metadata_last_updated_time)
             repo_filename_index.update(index_name, repo_id, commit_id, new_commit_id, rows, self.metadata_server_api, need_index_metadata)
             repo_status_filename_index.finish_update_repo(repo_id, new_commit_id, metadata_query_time)
