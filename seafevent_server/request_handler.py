@@ -360,8 +360,6 @@ def get_metrics():
             metric_info += "# HELP " + metric_name + " " + metric_help + '\n'
         if metric_type:
             metric_info += "# TYPE " + metric_name + " " + metric_type + '\n'
-        else:
-            metric_info += ''
         if metric_detail:
             label = ''
             for label_name, label_value in metric_detail.items():
