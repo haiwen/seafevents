@@ -352,10 +352,16 @@ def get_metrics():
 
     metric_info = ''
     for metric_name, metric_detail in metrics.items():
-        metric_value = metric_detail.pop('metric_value')
+        metric_value = metric_detail.pop('metric_value', None)
+        metric_type = metric_detail.pop('metric_type', None)
+        metric_help = metric_detail.pop('metric_help', None)
+        if metric_help:
+            metric_info += "# HELP " + metric_name + " " + metric_help + '\n'
+        metric_info += "# TYPE " + metric_name + " " + metric_type + '\n'
         if metric_detail:
+            label = ''
             for label_name, label_value in metric_detail.items():
-                label = label_name + '="' + str(label_value) + '",'
+                label += label_name + '="' + str(label_value) + '",'
             label = label[:-1]
             metric_info += '%s{%s} %s\n' % (metric_name, label, str(metric_value))
         else:

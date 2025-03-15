@@ -21,11 +21,11 @@ def handle_metric_timing(metric_name):
                 return func(*args, **kwargs)
             publish_metric = {
                 "metric_name": metric_name,
-                "instance_name": "seafevents",
+                "metric_type": "gauge",
+                "metric_help": "",
+                "component_name": "seafevents",
                 "node_name": NODE_NAME,
-                "details": {
-                    "collected_at": datetime.datetime.now().isoformat()
-                }
+                "details": {}
             }
             start_time = time.time()
             func(*args, **kwargs)
@@ -56,12 +56,16 @@ class MetricReceiver(Thread):
                 if message is not None:
                     metric_data = json.loads(message['data'])
                     try:
-                        instance_name = metric_data.get('instance_name')
+                        component_name = metric_data.get('component_name')
                         node_name = metric_data.get('node_name', 'default')
                         metric_name = metric_data.get('metric_name')
-                        key_name = '%s:%s:%s' % (instance_name, node_name, metric_name)
+                        key_name = '%s_%s' % (component_name, metric_name)
                         metric_details = metric_data.get('details') or {}
                         metric_details['metric_value'] = metric_data.get('metric_value')
+                        metric_details['metric_type'] = metric_data.get('metric_type')
+                        metric_details['metric_help'] = metric_data.get('metric_help')
+                        metric_details['node'] = node_name
+                        metric_details['component'] = component_name
                         # global
                         local_metric['metrics'][key_name] = metric_details
                     except Exception as e:
@@ -89,6 +93,9 @@ class MetricSaver(Thread):
             if not self.finished.is_set():
                 try:
                     if local_metric.get('metrics'):
+                        # add collected_at
+                        for metric_name, metric_detail in local_metric.get('metrics').items():
+                            metric_detail['collected_at'] = datetime.datetime.now().isoformat()
                         redis_cache.create_or_update(REDIS_METRIC_KEY, local_metric.get('metrics'))
                         local_metric['metrics'].clear()
                 except Exception as e:

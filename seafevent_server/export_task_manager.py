@@ -43,13 +43,13 @@ class EventExportTaskManager(object):
         if not ENABLE_METRIC:
             return
         publish_metric = {
-            "metric_name": "io_task_qsize",
-            "instance_name": "seafevents",
+            "metric_name": "io_task_queue_size",
+            "metric_type": "gauge",
+            "metric_help": "The size of the io task queue",
+            "component_name": "seafevents",
             "node_name": NODE_NAME,
             "metric_value": qsize,
-            "details": {
-                "collected_at": datetime.datetime.now().isoformat()
-            }
+            "details": {}
         }
         redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))
 
