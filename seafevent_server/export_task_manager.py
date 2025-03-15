@@ -118,7 +118,7 @@ class EventExportTaskManager(object):
                 # run
                 task[0](*task[1])
                 self.task_results_map[task_id] = 'success'
-
+                self.publish_io_qsize_metric(self.tasks_queue.qsize())
                 finish_time = time.time()
                 logging.info('Run task success: %s cost %ds \n' % (task_info, int(finish_time - start_time)))
                 self.current_task_info.pop(task_id, None)
