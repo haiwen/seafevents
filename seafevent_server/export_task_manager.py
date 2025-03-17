@@ -49,10 +49,23 @@ class EventExportTaskManager(object):
             "component_name": "seafevents",
             "node_name": NODE_NAME,
             "metric_value": qsize,
-            "details": {}
+            "labels": {
+                'a':'bbb'
+            }
+        }
+        publish_metric2 = {
+            "metric_name": "io_task_queue_size",
+            "metric_type": "gauge",
+            "metric_help": "The size of the io task queue",
+            "component_name": "seafevents",
+            "node_name": NODE_NAME,
+            "metric_value": 999,
+            "labels": {
+                'a':'bbb'
+            }
         }
         redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))
-
+        redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric2))
     def add_export_logs_task(self, start_time, end_time, log_type):
         task_id = str(uuid.uuid4())
         task = (export_event_log_to_excel, (self._db_session_class, start_time, end_time, log_type, task_id))

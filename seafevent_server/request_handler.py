@@ -11,7 +11,7 @@ from seafevents.seasearch.index_task.index_task_manager import index_task_manage
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
 from seafevents.app.cache_provider import cache
-from seafevents.app.event_redis import redis_cache, REDIS_METRIC_KEY
+from seafevents.app.event_redis import redis_cache, REDIS_METRIC_KEY, REDIS_METRIC_LABELS_KEY
 
 
 app = Flask(__name__)
@@ -349,24 +349,46 @@ def get_metrics():
     if not metrics:
         return ''
     metrics = json.loads(metrics)
-
+    
+    # 获取标签映射信息
+    labels_mapping = redis_cache.hgetall(REDIS_METRIC_LABELS_KEY)
+    print(labels_mapping,'---labels_mapping')
+    # 按指标名称重组数据
+    grouped_metrics = {}
+    for metric_key, metric_detail in metrics.items():
+        # 从key中提取metric_name和label_hash
+        label_hash = metric_detail.get('label_hash')
+        print(metric_key,'---metric_key')
+        print(metric_detail,'---metric_detail')
+        
+        # 从映射中获取完整的标签信息
+        if label_hash in labels_mapping:
+            labels_info = json.loads(labels_mapping[label_hash])
+            metric_detail['labels'] = labels_info
+        
+        if metric_key not in grouped_metrics:
+            grouped_metrics[metric_key] = {
+                'type': metric_detail.get('metric_type'),
+                'help': metric_detail.get('metric_help'),
+                'value': metric_detail.get('metric_value'),
+                'labels': metric_detail.get('labels', {})
+            }
+            
+    # 生成Prometheus格式输出
+    print(grouped_metrics,'---grouped_metrics')
     metric_info = ''
-    for metric_name, metric_detail in metrics.items():
-        metric_value = metric_detail.pop('metric_value', None)
-        metric_type = metric_detail.pop('metric_type', None)
-        metric_help = metric_detail.pop('metric_help', None)
-
-        if metric_help:
-            metric_info += "# HELP " + metric_name + " " + metric_help + '\n'
-        if metric_type:
-            metric_info += "# TYPE " + metric_name + " " + metric_type + '\n'
-        if metric_detail:
-            label = ''
-            for label_name, label_value in metric_detail.items():
-                label += label_name + '="' + str(label_value) + '",'
-            label = label[:-1]
-            metric_info += '%s{%s} %s\n' % (metric_name, label, str(metric_value))
+    for metric_key, metric_data in grouped_metrics.items():
+        metric_name = metric_key.split(':')[0]
+        if metric_data['help']:
+            metric_info += f"# HELP {metric_name} {metric_data['help']}\n"
+        if metric_data['type']:
+            metric_info += f"# TYPE {metric_name} {metric_data['type']}\n"
+        value = metric_data['value']
+        labels = metric_data['labels']
+        if labels:
+            label_str = ','.join(f'{k}="{v}"' for k, v in sorted(labels.items()))
+            metric_info += f'{metric_name}{{{label_str}}} {value}\n'
         else:
-            metric_info += '%s %s\n' % (metric_name, str(metric_value))
+            metric_info += f'{metric_name} {value}\n'
 
     return metric_info.encode()
