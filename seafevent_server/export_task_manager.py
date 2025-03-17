@@ -49,8 +49,8 @@ class EventExportTaskManager(object):
             "component_name": "seafevents",
             "node_name": NODE_NAME,
             "metric_value": qsize,
-            "labels": {
-                'a':'bbb'
+            "details": {
+                'a':'aaa'
             }
         }
         publish_metric2 = {
@@ -60,7 +60,7 @@ class EventExportTaskManager(object):
             "component_name": "seafevents",
             "node_name": NODE_NAME,
             "metric_value": 999,
-            "labels": {
+            "details": {
                 'a':'bbb'
             }
         }

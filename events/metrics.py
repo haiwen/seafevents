@@ -5,7 +5,7 @@ import datetime
 import logging
 from threading import Thread, Event
 from seafevents.app.config import ENABLE_METRIC
-from seafevents.app.event_redis import redis_cache, RedisClient, REDIS_METRIC_KEY, REDIS_METRIC_LABELS_KEY
+from seafevents.app.event_redis import redis_cache, RedisClient, REDIS_METRIC_KEY
 import hashlib
 
 
@@ -67,38 +67,33 @@ class MetricReceiver(Thread):
                         metric_name = metric_data.get('metric_name')
                         
                         # 1. 使用更细粒度的标识
-                        metric_labels = metric_data.get('labels', {})
-                        metric_labels.update({
+                        metric_details = metric_data.get('details', {})
+                        metric_details.update({
                             'node': node_name,
                             'component': component_name
                         })
                         
                         # 2. 使用MD5生成标签组合的唯一标识
                         # 使用 "|" 作为分隔符，因为它在指标名称中不常见
-                        label_str = '|'.join(f"{k}={v}" for k, v in sorted(metric_labels.items()))
+                        label_str = '|'.join(f"{k}={v}" for k, v in sorted(metric_details.items()))
                         # 或者直接对完整的标签字符串进行哈希
                         label_hash = hashlib.md5(label_str.encode()).hexdigest()[:8]
                         
-                        # 存储标签映射
-                        redis_cache.hset(REDIS_METRIC_LABELS_KEY, label_hash, json.dumps(metric_labels))
-                        
                         # 3. 构建指标详情
-                        metric_details = metric_data.get('details') or {}
                         metric_details.update({
                             'metric_value': metric_data.get('metric_value'),
                             'metric_type': metric_data.get('metric_type'),
                             'metric_help': metric_data.get('metric_help'),
-                            'label_hash': label_hash
                         })
                         
                         # 4. 使用 ":" 作为指标名称和哈希值的分隔符
                         key_name = f"{metric_name}:{label_hash}"
                         
                         # 5. 按照指标名称分组存储
-                        if metric_name not in local_metric['metrics']:
-                            local_metric['metrics'][metric_name] = {}
+                        if key_name not in local_metric['metrics']:
+                            local_metric['metrics'][key_name] = {}
                         
-                        local_metric['metrics'][metric_name][label_hash] = metric_details
+                        local_metric['metrics'][key_name] = metric_details
                         
                     except Exception as e:
                         logging.error('Handle metrics failed: %s' % e)
@@ -127,12 +122,10 @@ class MetricSaver(Thread):
                     if local_metric.get('metrics'):
                         current_time = datetime.datetime.now().isoformat()
                         metrics_to_save = {}
-                        for metric_name, label_groups in local_metric['metrics'].items():
-                            for label_hash, metric_detail in label_groups.items():
-                                metric_detail['collected_at'] = current_time
-                                # 使用 ":" 作为分隔符
-                                metrics_to_save[f"{metric_name}:{label_hash}"] = metric_detail
-                        
+                        for key_name, metric_detail in local_metric['metrics'].items():
+                            metric_detail['collected_at'] = current_time
+                            metrics_to_save[key_name] = metric_detail
+                        print(metrics_to_save,'---metrics_to_save')
                         redis_cache.create_or_update(REDIS_METRIC_KEY, metrics_to_save)
                         local_metric['metrics'].clear()
                 except Exception as e:

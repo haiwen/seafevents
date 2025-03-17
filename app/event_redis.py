@@ -12,8 +12,6 @@ logger = logging.getLogger(__name__)
 
 REDIS_METRIC_KEY = "metric"
 
-REDIS_METRIC_LABELS_KEY = "metric_labels_mapping"
-
 class RedisClient(object):
 
     def __init__(self, socket_connect_timeout=30, socket_timeout=None):
@@ -83,15 +81,6 @@ class RedisClient(object):
             return
         return self.connection.publish(channel, message)
 
-    def hset(self, name, key, value):
-        if not self.connection:
-            return
-        return self.connection.hset(name, key, value)
-
-    def hgetall(self, name):
-        if not self.connection:
-            return {}
-        return self.connection.hgetall(name)
 
 class RedisCache(object):
 
@@ -109,16 +98,8 @@ class RedisCache(object):
     def delete(self, key):
         return self._redis_client.delete(key)
 
-    def hset(self, name, key, value):
-        """设置hash表中的值"""
-        return self._redis_client.hset(name, key, value)
-
-    def hgetall(self, name):
-        """获取hash表中所有的值"""
-        return self._redis_client.hgetall(name)
-
     def create_or_update(self, key, value):
-        self._redis_client.delete(key)
+        # self._redis_client.delete(key)
         try:
             current_value = self._redis_client.get(key)
             if current_value:
