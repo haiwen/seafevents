@@ -346,30 +346,36 @@ def get_metrics():
         return make_response((error, 500))
     
     metrics = redis_cache.get(REDIS_METRIC_KEY)
-    redis_cache.delete(REDIS_METRIC_KEY)
     if not metrics:
         return ''
+    redis_cache.delete(REDIS_METRIC_KEY)
     metrics = json.loads(metrics)
-    
     metric_info = ''
     metric_names = []
-    for metric_key, metric_data in metrics.items():
-        metric_name = metric_key.split(':')[0]
-        metric_value = metric_data.pop('metric_value', None)
+    for metric_name, metric_data in metrics.items():
+        # metric_value = metric_data.pop('metric_value', None)
         metric_type = metric_data.pop('metric_type', None)
         metric_help = metric_data.pop('metric_help', None)
+        collected_at = metric_data.pop('collected_at', None)
+        lable_keys = metric_data.pop('hash_key', None)
+
+        # handle base info
         if metric_name not in metric_names:
             metric_names.append(metric_name)
             if metric_help:
                 metric_info += "# HELP " + metric_name + " " + metric_help + '\n'
             if metric_type:
                 metric_info += "# TYPE " + metric_name + " " + metric_type + '\n'
+        # handle labels
         if metric_data:
-            label = ''
-            for label_name, label_value in metric_data.items():
-                label += label_name + '="' + str(label_value) + '",'
-            label = label[:-1]
-            metric_info += '%s{%s} %s\n' % (metric_name, label, str(metric_value))
+            for _, hash_value in metric_data.items():
+                lables = ''
+                metric_value = hash_value.pop()
+                pairs = [f'{key}="{value}"' for key, value in zip(lable_keys, hash_value)]
+                lables = ','.join(pairs)
+                lables += f' collected_at="{collected_at}"'
+                metric_info += f'{metric_name} {{{lables}}} {metric_value}\n'
         else:
-            metric_info += '%s %s\n' % (metric_name, str(metric_value))
+            metric_info += f'{metric_name} {metric_value}\n'
+
     return metric_info.encode()

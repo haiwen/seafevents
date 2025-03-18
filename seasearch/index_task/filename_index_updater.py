@@ -75,17 +75,17 @@ class RepoFilenameIndexUpdater(object):
         return self._enabled
 
     def start(self):
-        if not self.is_enabled():
-            logging.warning('Can not start filename index updater: it is not enabled!')
-            return
+        # if not self.is_enabled():
+        #     logging.warning('Can not start filename index updater: it is not enabled!')
+        #     return
 
-        logging.info('Start to update filename index, interval = %s sec', self._interval)
+        logging.info('Start to update filename index, interval = %s sec', 5)
         RepoFilenameIndexUpdaterTimer(
             self._repo_status_filename_index,
             self._repo_filename_index,
             self._index_manager,
             self._repo_data,
-            self._interval
+            5
         ).start()
 
 

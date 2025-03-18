@@ -50,7 +50,7 @@ class EventExportTaskManager(object):
             "node_name": NODE_NAME,
             "metric_value": qsize,
             "details": {
-                'a':'aaa'
+                'user':'aaa@a.com'
             }
         }
         publish_metric2 = {
@@ -61,7 +61,7 @@ class EventExportTaskManager(object):
             "node_name": NODE_NAME,
             "metric_value": 999,
             "details": {
-                'a':'bbb'
+                'user':'bbb@b.com',
             }
         }
         redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))

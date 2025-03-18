@@ -14,7 +14,6 @@ local_metric = {'metrics': {}}
 NODE_NAME = os.environ.get('NODE_NAME', 'default')
 METRIC_CHANNEL_NAME = "metric-channel"
 
-# 添加一个用于存储标签映射的Redis key
 
 ### metrics decorator
 def handle_metric_timing(metric_name):
@@ -28,17 +27,27 @@ def handle_metric_timing(metric_name):
                 "metric_help": "",
                 "component_name": "seafevents",
                 "node_name": NODE_NAME,
-                "labels": {
-                    "process": "video_processing",
-                    "status": "success"
-                }
+                "details": {}
             }
+            publish_metric2 = {
+                "metric_name": metric_name,
+                "metric_type": "gauge",
+                "metric_help": "",
+                "component_name": "seafevents",
+                "node_name": NODE_NAME,
+                'metric_value': 999,
+                'details': {
+                    'user': 'aaa@a.com',
+                    'label': 'aaa'
+                }
+            }   
             start_time = time.time()
             func(*args, **kwargs)
             end_time = time.time()
             duration_seconds = end_time - start_time
             publish_metric['metric_value'] = round(duration_seconds, 3)
             redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))
+            redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric2))
         return wrapper
     return decorator
 
@@ -65,36 +74,36 @@ class MetricReceiver(Thread):
                         component_name = metric_data.get('component_name')
                         node_name = metric_data.get('node_name', 'default')
                         metric_name = metric_data.get('metric_name')
+                        metric_value = metric_data.get('metric_value')
                         
-                        # 1. 使用更细粒度的标识
                         metric_details = metric_data.get('details', {})
                         metric_details.update({
                             'node': node_name,
                             'component': component_name
                         })
                         
-                        # 2. 使用MD5生成标签组合的唯一标识
-                        # 使用 "|" 作为分隔符，因为它在指标名称中不常见
+                        # Use MD5 to generate unique identifiers for tag combinations
                         label_str = '|'.join(f"{k}={v}" for k, v in sorted(metric_details.items()))
-                        # 或者直接对完整的标签字符串进行哈希
                         label_hash = hashlib.md5(label_str.encode()).hexdigest()[:8]
-                        
-                        # 3. 构建指标详情
-                        metric_details.update({
-                            'metric_value': metric_data.get('metric_value'),
-                            'metric_type': metric_data.get('metric_type'),
-                            'metric_help': metric_data.get('metric_help'),
-                        })
-                        
-                        # 4. 使用 ":" 作为指标名称和哈希值的分隔符
-                        key_name = f"{metric_name}:{label_hash}"
-                        
-                        # 5. 按照指标名称分组存储
-                        if key_name not in local_metric['metrics']:
-                            local_metric['metrics'][key_name] = {}
-                        
-                        local_metric['metrics'][key_name] = metric_details
-                        
+
+                        metric_info = local_metric['metrics'].get(metric_name, {})
+                        if metric_name not in local_metric['metrics']:
+                            metric_info = {
+                                'metric_type': metric_data.get('metric_type'),
+                                'metric_help': metric_data.get('metric_help'),
+                            }
+                        hash_value = []
+                        hash_key = []
+                        for key, value in sorted(metric_details.items()):
+                            hash_value.append(value)
+                            hash_key.append(key) # Ensure that the number of incoming labels and label names are consistent
+                        hash_value.append(metric_value)
+                        if label_hash not in metric_info:
+                            metric_info[label_hash] = hash_value
+                            metric_info['hash_key'] = hash_key
+                        else:
+                            metric_info[label_hash] = hash_value
+                        local_metric['metrics'][metric_name] = metric_info
                     except Exception as e:
                         logging.error('Handle metrics failed: %s' % e)
                 else:
@@ -122,10 +131,9 @@ class MetricSaver(Thread):
                     if local_metric.get('metrics'):
                         current_time = datetime.datetime.now().isoformat()
                         metrics_to_save = {}
-                        for key_name, metric_detail in local_metric['metrics'].items():
-                            metric_detail['collected_at'] = current_time
-                            metrics_to_save[key_name] = metric_detail
-                        print(metrics_to_save,'---metrics_to_save')
+                        for metric_name, metric_info in local_metric['metrics'].items():
+                            metric_info['collected_at'] = current_time
+                            metrics_to_save[metric_name] = metric_info
                         redis_cache.create_or_update(REDIS_METRIC_KEY, metrics_to_save)
                         local_metric['metrics'].clear()
                 except Exception as e:
