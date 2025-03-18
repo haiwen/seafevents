@@ -349,24 +349,31 @@ def get_metrics():
     if not metrics:
         return ''
     metrics = json.loads(metrics)
-
     metric_info = ''
-    for metric_name, metric_detail in metrics.items():
-        metric_value = metric_detail.pop('metric_value', None)
-        metric_type = metric_detail.pop('metric_type', None)
-        metric_help = metric_detail.pop('metric_help', None)
+    metric_names = []
+    for metric_name, metric_data in metrics.items():
+        metric_type = metric_data.pop('metric_type', None)
+        metric_help = metric_data.pop('metric_help', None)
+        collected_at = metric_data.pop('collected_at', None)
+        lable_keys = metric_data.pop('hash_key', [])
 
-        if metric_help:
-            metric_info += "# HELP " + metric_name + " " + metric_help + '\n'
-        if metric_type:
-            metric_info += "# TYPE " + metric_name + " " + metric_type + '\n'
-        if metric_detail:
-            label = ''
-            for label_name, label_value in metric_detail.items():
-                label += label_name + '="' + str(label_value) + '",'
-            label = label[:-1]
-            metric_info += '%s{%s} %s\n' % (metric_name, label, str(metric_value))
+        # handle base info
+        if metric_name not in metric_names:
+            metric_names.append(metric_name)
+            if metric_help:
+                metric_info += "# HELP " + metric_name + " " + metric_help + '\n'
+            if metric_type:
+                metric_info += "# TYPE " + metric_name + " " + metric_type + '\n'
+        # handle labels
+        if metric_data:
+            for _, hash_value in metric_data.items():
+                lables = ''
+                metric_value = hash_value.pop()
+                pairs = [f'{key}="{value}"' for key, value in zip(lable_keys, hash_value)]
+                lables = ','.join(pairs)
+                lables += f' collected_at="{collected_at}"'
+                metric_info += f'{metric_name} {{{lables}}} {metric_value}\n'
         else:
-            metric_info += '%s %s\n' % (metric_name, str(metric_value))
+            metric_info += f'{metric_name} {metric_value}\n'
 
     return metric_info.encode()

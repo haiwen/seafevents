@@ -99,6 +99,7 @@ class RedisCache(object):
         return self._redis_client.delete(key)
 
     def create_or_update(self, key, value):
+        # self._redis_client.delete(key)
         try:
             current_value = self._redis_client.get(key)
             if current_value:

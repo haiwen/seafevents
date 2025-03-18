@@ -6,6 +6,7 @@ import logging
 from threading import Thread, Event
 from seafevents.app.config import ENABLE_METRIC
 from seafevents.app.event_redis import redis_cache, RedisClient, REDIS_METRIC_KEY
+import hashlib
 
 
 local_metric = {'metrics': {}}
@@ -58,16 +59,38 @@ class MetricReceiver(Thread):
                     try:
                         component_name = metric_data.get('component_name')
                         node_name = metric_data.get('node_name', 'default')
-                        metric_name = metric_data.get('metric_name')
-                        key_name = '%s_%s' % (component_name, metric_name)
-                        metric_details = metric_data.get('details') or {}
-                        metric_details['metric_value'] = metric_data.get('metric_value')
-                        metric_details['metric_type'] = metric_data.get('metric_type')
-                        metric_details['metric_help'] = metric_data.get('metric_help')
-                        metric_details['node'] = node_name
-                        metric_details['component'] = component_name
-                        # global
-                        local_metric['metrics'][key_name] = metric_details
+                        metric_name_ori = metric_data.get('metric_name')
+                        metric_name = str(component_name) + '_' + str(metric_name_ori)
+                        metric_value = metric_data.get('metric_value')
+                        
+                        metric_details = metric_data.get('details', {})
+                        metric_details.update({
+                            'node': node_name,
+                            'component': component_name
+                        })
+                        
+                        # Use MD5 to generate unique identifiers for tag combinations
+                        label_str = '|'.join(f"{k}={v}" for k, v in sorted(metric_details.items()))
+                        label_hash = hashlib.md5(label_str.encode()).hexdigest()[:8]
+
+                        metric_info = local_metric['metrics'].get(metric_name, {})
+                        if metric_name not in local_metric['metrics']:
+                            metric_info = {
+                                'metric_type': metric_data.get('metric_type'),
+                                'metric_help': metric_data.get('metric_help'),
+                            }
+                        hash_value = []
+                        hash_key = []
+                        for key, value in sorted(metric_details.items()):
+                            hash_value.append(value)
+                            hash_key.append(key) # Ensure that the number of incoming labels and label names are consistent
+                        hash_value.append(metric_value)
+                        if label_hash not in metric_info:
+                            metric_info[label_hash] = hash_value
+                            metric_info['hash_key'] = hash_key
+                        else:
+                            metric_info[label_hash] = hash_value
+                        local_metric['metrics'][metric_name] = metric_info
                     except Exception as e:
                         logging.error('Handle metrics failed: %s' % e)
                 else:
@@ -93,10 +116,12 @@ class MetricSaver(Thread):
             if not self.finished.is_set():
                 try:
                     if local_metric.get('metrics'):
-                        # add collected_at
-                        for metric_name, metric_detail in local_metric.get('metrics').items():
-                            metric_detail['collected_at'] = datetime.datetime.now().isoformat()
-                        redis_cache.create_or_update(REDIS_METRIC_KEY, local_metric.get('metrics'))
+                        current_time = datetime.datetime.now().isoformat()
+                        metrics_to_save = {}
+                        for metric_name, metric_info in local_metric['metrics'].items():
+                            metric_info['collected_at'] = current_time
+                            metrics_to_save[metric_name] = metric_info
+                        redis_cache.create_or_update(REDIS_METRIC_KEY, metrics_to_save)
                         local_metric['metrics'].clear()
                 except Exception as e:
                     logging.exception('metric collect error: %s', e)
