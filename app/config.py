@@ -33,7 +33,6 @@ try:
     ENABLE_SEAFILE_AI = getattr(seahub_settings, 'ENABLE_SEAFILE_AI', False)
     SEAFILE_AI_SECRET_KEY = getattr(seahub_settings, 'SEAFILE_AI_SECRET_KEY', '')
     SEAFILE_AI_SERVER_URL = getattr(seahub_settings, 'SEAFILE_AI_SERVER_URL', '')
-    ENABLE_METRIC = getattr(seahub_settings, 'ENABLE_METRIC', False)
 
 except ImportError:
     logger.critical("Can not import seahub settings.")
@@ -46,6 +45,7 @@ REDIS_PASSWORD = os.environ.get('REDIS_PASSPORT', '')
 MEMCACHED_SERVER = os.environ.get('MEMCACHED_SERVER', '')
 MEMCACHED_PORT = os.environ.get('MEMCACHED_PORT', '')
 CACHE_PROVIDER = os.environ.get('CACHE_PROVIDER', 'memcached')
+ENABLE_METRIC = os.environ.get('ENABLE_METRIC', False)
 
 
 def get_config(config_file):
