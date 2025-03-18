@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 REDIS_METRIC_KEY = "metric"
 
+
 class RedisClient(object):
 
     def __init__(self, socket_connect_timeout=30, socket_timeout=None):
@@ -80,7 +81,6 @@ class RedisClient(object):
         if not self.connection:
             return
         return self.connection.publish(channel, message)
-
 
 class RedisCache(object):
 

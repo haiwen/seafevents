@@ -348,16 +348,15 @@ def get_metrics():
     metrics = redis_cache.get(REDIS_METRIC_KEY)
     if not metrics:
         return ''
-    redis_cache.delete(REDIS_METRIC_KEY)
+    # redis_cache.delete(REDIS_METRIC_KEY)
     metrics = json.loads(metrics)
     metric_info = ''
     metric_names = []
     for metric_name, metric_data in metrics.items():
-        # metric_value = metric_data.pop('metric_value', None)
         metric_type = metric_data.pop('metric_type', None)
         metric_help = metric_data.pop('metric_help', None)
         collected_at = metric_data.pop('collected_at', None)
-        lable_keys = metric_data.pop('hash_key', None)
+        lable_keys = metric_data.pop('hash_key', [])
 
         # handle base info
         if metric_name not in metric_names:

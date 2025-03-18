@@ -29,25 +29,12 @@ def handle_metric_timing(metric_name):
                 "node_name": NODE_NAME,
                 "details": {}
             }
-            publish_metric2 = {
-                "metric_name": metric_name,
-                "metric_type": "gauge",
-                "metric_help": "",
-                "component_name": "seafevents",
-                "node_name": NODE_NAME,
-                'metric_value': 999,
-                'details': {
-                    'user': 'aaa@a.com',
-                    'label': 'aaa'
-                }
-            }   
             start_time = time.time()
             func(*args, **kwargs)
             end_time = time.time()
             duration_seconds = end_time - start_time
             publish_metric['metric_value'] = round(duration_seconds, 3)
             redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))
-            redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric2))
         return wrapper
     return decorator
 
@@ -73,7 +60,8 @@ class MetricReceiver(Thread):
                     try:
                         component_name = metric_data.get('component_name')
                         node_name = metric_data.get('node_name', 'default')
-                        metric_name = metric_data.get('metric_name')
+                        metric_name_ori = metric_data.get('metric_name')
+                        metric_name = str(component_name) + '_' + str(metric_name_ori)
                         metric_value = metric_data.get('metric_value')
                         
                         metric_details = metric_data.get('details', {})
