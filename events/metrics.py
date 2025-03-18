@@ -14,7 +14,6 @@ local_metric = {'metrics': {}}
 NODE_NAME = os.environ.get('NODE_NAME', 'default')
 METRIC_CHANNEL_NAME = "metric-channel"
 
-
 ### metrics decorator
 def handle_metric_timing(metric_name):
     def decorator(func):

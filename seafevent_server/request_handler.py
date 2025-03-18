@@ -348,7 +348,6 @@ def get_metrics():
     metrics = redis_cache.get(REDIS_METRIC_KEY)
     if not metrics:
         return ''
-    # redis_cache.delete(REDIS_METRIC_KEY)
     metrics = json.loads(metrics)
     metric_info = ''
     metric_names = []
