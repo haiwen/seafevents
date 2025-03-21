@@ -62,15 +62,21 @@ class SeasearchWikiIndexUpdater(object):
         )
         self._repo_data = repo_data
         self._interval = interval
-        self._wiki_status_index = WikiStatusIndex(
-            self.seasearch_api, WIKI_STATUS_INDEX_NAME
-        )
-        self._wiki_index = WikiIndex(
-            self.seasearch_api,
-            self._repo_data,
-            int(SHARD_NUM),
-            wiki_file_size_limit=int(wiki_size_limit) * 1024 * 1024,
-        )
+
+        try:
+            self._wiki_status_index = WikiStatusIndex(
+                self.seasearch_api, WIKI_STATUS_INDEX_NAME
+            )
+            self._wiki_index = WikiIndex(
+                self.seasearch_api,
+                self._repo_data,
+                int(SHARD_NUM),
+                wiki_file_size_limit=int(wiki_size_limit) * 1024 * 1024,
+            )
+        except Exception as e:
+            logger.warning('Failed to init seasearch wiki index object, error: %s', e)
+            self._enabled = False
+            return
         self._index_manager = IndexManager(config)
 
     def is_enabled(self):
@@ -78,9 +84,10 @@ class SeasearchWikiIndexUpdater(object):
 
     def start(self):
         if not self.is_enabled():
+            logging.warning('Can not start seasearch wiki index updater: it is not enabled!')
             return
 
-        logging.info('Start to update wiki index, interval = %s sec', self._interval)
+        logging.info('Start to update seasearch wiki index, interval = %s sec', self._interval)
         WikiIndexUpdaterTimer(
             self._wiki_status_index,
             self._wiki_index,

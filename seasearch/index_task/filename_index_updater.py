@@ -61,14 +61,20 @@ class RepoFilenameIndexUpdater(object):
         )
         self._repo_data = repo_data
         self._interval = interval
-        self._repo_status_filename_index = RepoStatusIndex(
-            self.seasearch_api, REPO_STATUS_FILENAME_INDEX_NAME
-        )
-        self._repo_filename_index = RepoFileNameIndex(
-            self.seasearch_api,
-            self._repo_data,
-            int(SHARD_NUM),
-        )
+
+        try:
+            self._repo_status_filename_index = RepoStatusIndex(
+                self.seasearch_api, REPO_STATUS_FILENAME_INDEX_NAME
+            )
+            self._repo_filename_index = RepoFileNameIndex(
+                self.seasearch_api,
+                self._repo_data,
+                int(SHARD_NUM),
+            )
+        except Exception as e:
+            logger.warning('Failed to init seasearch filename index object, error: %s', e)
+            self._enabled = False
+            return
         self._index_manager = IndexManager(config)
 
     def is_enabled(self):
@@ -76,10 +82,10 @@ class RepoFilenameIndexUpdater(object):
 
     def start(self):
         if not self.is_enabled():
-            logging.warning('Can not start filename index updater: it is not enabled!')
+            logging.warning('Can not start seasearch filename index updater: it is not enabled!')
             return
 
-        logging.info('Start to update filename index, interval = %s sec', self._interval)
+        logging.info('Start to update seasearch filename index, interval = %s sec', self._interval)
         RepoFilenameIndexUpdaterTimer(
             self._repo_status_filename_index,
             self._repo_filename_index,
