@@ -480,13 +480,17 @@ def get_log_events_by_type_users_repo(session, log_type, emails, repo_ids, start
         obj = FileAudit
     else:
         obj = PermAudit
-    print(log_type, emails, repo_ids, start, limit)
     stmt = select(obj)
     if emails:
         if hasattr(obj, 'user'):
             stmt = stmt.where(obj.user.in_(emails))
         else:
-            stmt = stmt.where(obj.from_user.in_(emails))
+            from_users = emails.get('from_emails')
+            to_users = emails.get('to_emails') + emails.get('to_groups', [])
+            if from_users:
+                stmt = stmt.where(obj.from_user.in_(from_users))
+            if to_users:
+                stmt = stmt.where(obj.to.in_(to_users))
     
     if repo_ids:
         stmt = stmt.where(obj.repo_id.in_(repo_ids))
