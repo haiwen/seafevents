@@ -10,7 +10,7 @@ from seafevents.app.event_redis import redis_cache, RedisClient, REDIS_METRIC_KE
 local_metric = {'metrics': {}}
 
 NODE_NAME = os.environ.get('NODE_NAME', 'default')
-METRIC_CHANNEL_NAME = "metric-channel"
+METRIC_CHANNEL_NAME = "metric_channel"
 
 ### metrics decorator
 def handle_metric_timing(metric_name):
