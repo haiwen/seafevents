@@ -4,21 +4,18 @@ import time
 import datetime
 import logging
 from threading import Thread, Event
-from seafevents.app.config import ENABLE_METRIC
 from seafevents.app.event_redis import redis_cache, RedisClient, REDIS_METRIC_KEY
 
 
 local_metric = {'metrics': {}}
 
 NODE_NAME = os.environ.get('NODE_NAME', 'default')
-METRIC_CHANNEL_NAME = "metric-channel"
+METRIC_CHANNEL_NAME = "metric_channel"
 
 ### metrics decorator
 def handle_metric_timing(metric_name):
     def decorator(func):
         def wrapper(*args, **kwargs):
-            if not ENABLE_METRIC:
-                return func(*args, **kwargs)
             publish_metric = {
                 "metric_name": metric_name,
                 "metric_type": "gauge",
@@ -48,6 +45,9 @@ class MetricReceiver(Thread):
 
     def run(self):
         logging.info('Starting handle redis channel')
+        if not self._redis_client.connection:
+            logging.warning('Can not start seafevents metrics handler: redis connection is not initialized')
+            return
         subscriber = self._redis_client.get_subscriber(METRIC_CHANNEL_NAME)
 
         while not self._finished.is_set():
@@ -59,13 +59,11 @@ class MetricReceiver(Thread):
                         component_name = metric_data.get('component_name')
                         node_name = metric_data.get('node_name', 'default')
                         metric_name = metric_data.get('metric_name')
-                        key_name = '%s_%s' % (component_name, metric_name)
+                        key_name = '%s:%s:%s' % (component_name, node_name, metric_name)
                         metric_details = metric_data.get('details') or {}
                         metric_details['metric_value'] = metric_data.get('metric_value')
                         metric_details['metric_type'] = metric_data.get('metric_type')
                         metric_details['metric_help'] = metric_data.get('metric_help')
-                        metric_details['node'] = node_name
-                        metric_details['component'] = component_name
                         # global
                         local_metric['metrics'][key_name] = metric_details
                     except Exception as e:
@@ -94,7 +92,7 @@ class MetricSaver(Thread):
                 try:
                     if local_metric.get('metrics'):
                         # add collected_at
-                        for metric_name, metric_detail in local_metric.get('metrics').items():
+                        for key, metric_detail in local_metric.get('metrics').items():
                             metric_detail['collected_at'] = datetime.datetime.now().isoformat()
                         redis_cache.create_or_update(REDIS_METRIC_KEY, local_metric.get('metrics'))
                         local_metric['metrics'].clear()
