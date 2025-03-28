@@ -1,7 +1,7 @@
 import jwt
 import logging
 import json
-
+import datetime
 
 from flask import Flask, request, make_response
 from seafevents.app.config import SEAHUB_SECRET_KEY
@@ -351,22 +351,19 @@ def get_metrics():
     metrics = json.loads(metrics)
 
     metric_info = ''
-    for metric_name, metric_detail in metrics.items():
+    for key, metric_detail in metrics.items():
+        metric_name = "%s_%s" % (key.split(':')[0], key.split(':')[2])
+        node_name = key.split(':')[1]
+        component_name = key.split(':')[0]
         metric_value = metric_detail.pop('metric_value', None)
         metric_type = metric_detail.pop('metric_type', None)
         metric_help = metric_detail.pop('metric_help', None)
-
+        collected_at = metric_detail.pop('collected_at', datetime.datetime.now().isoformat())
         if metric_help:
             metric_info += "# HELP " + metric_name + " " + metric_help + '\n'
         if metric_type:
             metric_info += "# TYPE " + metric_name + " " + metric_type + '\n'
-        if metric_detail:
-            label = ''
-            for label_name, label_value in metric_detail.items():
-                label += label_name + '="' + str(label_value) + '",'
-            label = label[:-1]
-            metric_info += '%s{%s} %s\n' % (metric_name, label, str(metric_value))
-        else:
-            metric_info += '%s %s\n' % (metric_name, str(metric_value))
+        label = 'component="%s",node="%s",collected_at="%s"' % (component_name, node_name, collected_at)
+        metric_info += '%s{%s} %s\n' % (metric_name, label, str(metric_value))
 
     return metric_info.encode()

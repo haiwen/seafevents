@@ -10,7 +10,6 @@ from seafevents.db import init_db_session_class
 from seafevents.seafevent_server.utils import export_event_log_to_excel, export_org_event_log_to_excel, convert_wiki
 from seafevents.app.event_redis import redis_cache
 from seafevents.events.metrics import NODE_NAME, METRIC_CHANNEL_NAME
-from seafevents.app.config import ENABLE_METRIC
 
 logger = logging.getLogger('seafevents')
 
@@ -40,8 +39,6 @@ class EventExportTaskManager(object):
         return task_id in (self.tasks_map.keys() | self.task_results_map.keys())
 
     def publish_io_qsize_metric(self, qsize):
-        if not ENABLE_METRIC:
-            return
         publish_metric = {
             "metric_name": "io_task_queue_size",
             "metric_type": "gauge",
