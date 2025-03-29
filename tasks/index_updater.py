@@ -6,7 +6,7 @@ import configparser
 from threading import Thread, Event
 
 from seafevents.utils import get_python_executable, run, parse_bool, parse_interval, get_opt_from_conf_or_env
-from seafevents.seafevents_api import is_pro
+from seafevents.app.config import IS_PRO_VERSION
 
 __all__ = [
     'IndexUpdater',
@@ -49,7 +49,7 @@ class IndexUpdater(object):
         # [ enabled ]
         enabled = get_opt_from_conf_or_env(config, section_name, key_enabled, default=False)
         enabled = parse_bool(enabled)
-        is_pro_version = is_pro()
+        is_pro_version = IS_PRO_VERSION
         logging.debug('seafes enabled: %s', enabled)
 
         if not enabled or not is_pro_version:

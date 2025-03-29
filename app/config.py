@@ -45,6 +45,7 @@ REDIS_PASSWORD = os.environ.get('REDIS_PASSPORT', '')
 MEMCACHED_SERVER = os.environ.get('MEMCACHED_SERVER', '')
 MEMCACHED_PORT = os.environ.get('MEMCACHED_PORT', '')
 CACHE_PROVIDER = os.environ.get('CACHE_PROVIDER', 'memcached')
+IS_PRO_VERSION = os.environ.get('IS_PRO_VERSION', 'false') == 'true'
 
 
 def get_config(config_file):
