@@ -2,7 +2,7 @@
 import copy
 import json
 import logging
-from seafevents.app.config import REDIS_SERVER, REDIS_PORT, REDIS_PASSWORD
+from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 import uuid
 
 import redis
@@ -16,7 +16,7 @@ REDIS_METRIC_KEY = "metric"
 class RedisClient(object):
 
     def __init__(self, socket_connect_timeout=30, socket_timeout=None):
-        self._host = REDIS_SERVER
+        self._host = REDIS_HOST
         self._port = REDIS_PORT
         self._password = REDIS_PASSWORD
         self.connection = None

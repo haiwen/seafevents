@@ -1,6 +1,6 @@
 import logging
 import memcache
-from seafevents.app.config import MEMCACHED_SERVER, MEMCACHED_PORT
+from seafevents.app.config import MEMCACHED_HOST, MEMCACHED_PORT
 
 
 
@@ -9,7 +9,7 @@ class Memcache(object):
     CACHE_NAME = 'memcached'
 
     def __init__(self):
-        self._host = MEMCACHED_SERVER
+        self._host = MEMCACHED_HOST
         self._port = MEMCACHED_PORT
         
         self.cache = None

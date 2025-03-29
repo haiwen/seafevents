@@ -6,7 +6,7 @@ from collections import OrderedDict
 from copy import deepcopy
 
 from seafevents.mq import get_mq
-from seafevents.app.config import REDIS_SERVER, REDIS_PORT, REDIS_PASSWORD
+from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class RepoMetadataIndexMaster(Thread):
     """
     def __init__(self, config):
         Thread.__init__(self)
-        self.mq_server = REDIS_SERVER
+        self.mq_server = REDIS_HOST
         self.mq_port = REDIS_PORT
         self.mq_password = REDIS_PASSWORD
 
