@@ -37,53 +37,42 @@ def create_engine_from_conf(config, db='seafevent'):
         user = 'user'
         db_name = 'db_name'
 
-    backend = config.get(db_sec, 'type')
-    if backend == 'sqlite' or backend == 'sqlite3':
-        path = config.get(db_sec, 'path')
-        if not os.path.isabs(path):
-            path = os.path.join(os.path.abspath('.'), path)
-        db_url = "sqlite:///%s" % path
-        need_connection_pool_fix = False
-    elif backend == 'mysql':
-        if config.has_option(db_sec, 'host'):
-            host = config.get(db_sec, 'host').lower()
+    db_url = ''
+
+    if config.has_section('database'):
+        backend = config.get(db_sec, 'type')
+        if backend == 'mysql':
+            if config.has_option(db_sec, 'host'):
+                host = config.get(db_sec, 'host').lower()
+            else:
+                host = 'localhost'
+
+            if config.has_option(db_sec, 'port'):
+                port = config.getint(db_sec, 'port')
+            else:
+                port = 3306
+            username = config.get(db_sec, user)
+            dbname = config.get(db_sec, db_name)
+
+            if config.has_option(db_sec, 'password'):
+                passwd = config.get(db_sec, 'password')
+                
+
+            if config.has_option(db_sec, 'unix_socket'):
+                unix_socket = config.get(db_sec, 'unix_socket')
+                db_url = f"mysql+pymysql://{username}:@{host}:{port}/{dbname}?unix_socket={unix_socket}&charset=utf8"
+
         else:
-            host = 'localhost'
-
-        if config.has_option(db_sec, 'port'):
-            port = config.getint(db_sec, 'port')
-        else:
-            port = 3306
-        username = config.get(db_sec, user)
-        dbname = config.get(db_sec, db_name)
-
-        if config.has_option(db_sec, 'password'):
-            passwd = config.get(db_sec, 'password')
-            db_url = "mysql+pymysql://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
-
-        if config.has_option(db_sec, 'unix_socket'):
-            unix_socket = config.get(db_sec, 'unix_socket')
-            db_url = f"mysql+pymysql://{username}:@{host}:{port}/{dbname}?unix_socket={unix_socket}&charset=utf8"
-
-    elif backend == 'oracle':
-        if config.has_option(db_sec, 'host'):
-            host = config.get(db_sec, 'host').lower()
-        else:
-            host = 'localhost'
-
-        if config.has_option(db_sec, 'port'):
-            port = config.getint(db_sec, 'port')
-        else:
-            port = 1521
-        username = config.get(db_sec, user)
-        passwd = config.get(db_sec, 'password')
-        service_name = config.get(db_sec, 'service_name')
-        db_url = "oracle://%s:%s@%s:%s/%s" % (username, quote_plus(passwd),
-                host, port, service_name)
-
-    else:
-        logger.error("Unknown database backend: %s" % backend)
-        raise RuntimeError("Unknown database backend: %s" % backend)
+            logger.error("Unknown database backend: %s" % backend)
+            raise RuntimeError("Unknown database backend: %s" % backend)
+    
+    if not db_url: # connect mysql traditionally
+        host = os.getenv('SEAFILE_MYSQL_DB_HOST') or host
+        port = int(os.getenv('SEAFILE_MYSQL_DB_PORT', 0)) or port
+        username = os.getenv('SEAFILE_MYSQL_DB_USER') or username
+        passwd = os.getenv('SEAFILE_MYSQL_DB_PASSWORD') or passwd
+        dbname = os.getenv('SEAFILE_MYSQL_DB_SEAFILE_DB_NAME' if db == 'seafile' else 'SEAFILE_MYSQL_DB_SEAHUB_DB_NAME') or dbname
+        db_url = "mysql+pymysql://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
 
     # Add pool recycle, or mysql connection will be closed by mysqld if idle
     # for too long.

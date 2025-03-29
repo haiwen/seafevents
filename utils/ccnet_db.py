@@ -51,10 +51,10 @@ class CcnetDB(object):
             return
 
         db_name = os.environ.get('SEAFILE_MYSQL_DB_CCNET_DB_NAME', '') or 'ccnet_db'
-        db_host = seafile_config.get('database', 'host', fallback='127.0.0.1')
-        db_port = seafile_config.getint('database', 'port', fallback=3306)
-        db_user = seafile_config.get('database', 'user')
-        db_passwd = seafile_config.get('database', 'password')
+        db_host = os.getenv('SEAFILE_MYSQL_DB_HOST') or seafile_config.get('database', 'host', fallback='127.0.0.1')
+        db_port = int(os.getenv('SEAFILE_MYSQL_DB_PORT', 0)) or seafile_config.getint('database', 'port', fallback=3306)
+        db_user = os.getenv('SEAFILE_MYSQL_DB_USER') or seafile_config.get('database', 'user')
+        db_passwd = os.getenv('SEAFILE_MYSQL_DB_PASSWORD') or seafile_config.get('database', 'password')
 
         try:
             self.ccnet_db_conn = pymysql.connect(host=db_host, port=db_port, user=db_user,

@@ -40,10 +40,10 @@ except ImportError:
     raise RuntimeError("Can not import seahub settings.")
 
 # config from env
-REDIS_SERVER = os.environ.get('REDIS_SERVER', '')
+REDIS_HOST = os.environ.get('REDIS_HOST', '')
 REDIS_PORT = os.environ.get('REDIS_PORT', '')
 REDIS_PASSWORD = os.environ.get('REDIS_PASSPORT', '')
-MEMCACHED_SERVER = os.environ.get('MEMCACHED_SERVER', '')
+MEMCACHED_HOST = os.environ.get('MEMCACHED_HOST', '')
 MEMCACHED_PORT = os.environ.get('MEMCACHED_PORT', '')
 CACHE_PROVIDER = os.environ.get('CACHE_PROVIDER', 'memcached')
 

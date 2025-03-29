@@ -13,7 +13,7 @@ from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 from seafevents.app.config import get_config
 from seafevents.app.log import LogConfigurator
-from seafevents.app.config import REDIS_SERVER, REDIS_PORT, REDIS_PASSWORD
+from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 
 logger = logging.getLogger('face_recognition')
 
@@ -30,7 +30,7 @@ class FaceCluster(object):
         self.LOCK_TIMEOUT = 1800  # 30 minutes
         self.REFRESH_INTERVAL = 600
         self.locked_keys = set()
-        self.mq_server = REDIS_SERVER
+        self.mq_server = REDIS_HOST
         self.mq_port = REDIS_PORT
         self.mq_password = REDIS_PASSWORD
         self.worker_num = 3

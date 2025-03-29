@@ -10,7 +10,7 @@ from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 from seafevents.repo_metadata.utils import add_file_details
 from seafevents.db import init_db_session_class
-from seafevents.app.config import REDIS_SERVER, REDIS_PORT, REDIS_PASSWORD
+from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class SlowMetadataTaskHandler(object):
         self.face_recognition_manager = FaceRecognitionManager(config)
 
         self.should_stop = threading.Event()
-        self.mq_server = REDIS_SERVER
+        self.mq_server = REDIS_HOST
         self.mq_port = REDIS_PORT
         self.mq_password = REDIS_PASSWORD
         self.worker_num = 3
