@@ -44,7 +44,7 @@ def create_engine_from_conf(config, db='seafevent'):
     passwd = ''
     dbname = 'seafile_db'
 
-    if config.has_section('database'):
+    if config.has_section(db_sec):
         backend = config.get(db_sec, 'type')
         if backend == 'mysql':
             if config.has_option(db_sec, 'host'):
