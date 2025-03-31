@@ -38,6 +38,11 @@ def create_engine_from_conf(config, db='seafevent'):
         db_name = 'db_name'
 
     db_url = ''
+    host = 'db'
+    port = '3306'
+    username = 'seafile'
+    passwd = ''
+    dbname = 'seafile_db'
 
     if config.has_section('database'):
         backend = config.get(db_sec, 'type')
