@@ -1,5 +1,6 @@
 import logging
 import configparser
+import os
 
 from urllib.parse import quote_plus
 
@@ -21,25 +22,32 @@ logger = logging.getLogger('seafes')
 def create_engine_from_conf(config_file):
     seaf_conf = configparser.ConfigParser()
     seaf_conf.read(config_file)
-    backend = seaf_conf.get('database', 'type')
-    if backend == 'mysql':
-        db_server = 'localhost'
-        db_port = 3306
 
-        if seaf_conf.has_option('database', 'host'):
-            db_server = seaf_conf.get('database', 'host')
-        if seaf_conf.has_option('database', 'port'):
-            db_port =seaf_conf.getint('database', 'port')
-        db_username = seaf_conf.get('database', 'user')
-        db_passwd = seaf_conf.get('database', 'password')
-        db_name = seaf_conf.get('database', 'db_name')
-        db_url = "mysql+pymysql://%s:%s@%s:%s/%s?charset=utf8" % \
-                 (db_username, quote_plus(db_passwd),
-                 db_server, db_port, db_name)
-    else:
-        logger.critical("Unknown Database backend: %s" % backend)
-        raise RuntimeError("Unknown Database backend: %s" % backend)
+    if seaf_conf.has_section('database'):
+        if (backend := seaf_conf.get('database', 'type')) == 'mysql':
+            db_server = 'localhost'
+            db_port = 3306
 
+            if seaf_conf.has_option('database', 'host'):
+                db_server = seaf_conf.get('database', 'host')
+            if seaf_conf.has_option('database', 'port'):
+                db_port =seaf_conf.getint('database', 'port')
+            db_username = seaf_conf.get('database', 'user')
+            db_passwd = seaf_conf.get('database', 'password')
+            db_name = seaf_conf.get('database', 'db_name')
+        else:
+            logger.critical("Unknown Database backend: %s" % backend)
+            raise RuntimeError("Unknown Database backend: %s" % backend)
+
+    db_server = os.getenv('SEAFILE_MYSQL_DB_HOST') or db_server
+    db_port = int(os.getenv('SEAFILE_MYSQL_DB_PORT', 0)) or db_port
+    db_username = os.getenv('SEAFILE_MYSQL_DB_USER') or db_username
+    db_passwd = os.getenv('SEAFILE_MYSQL_DB_PASSWORD') or db_passwd
+    db_name = os.getenv('SEAFILE_MYSQL_DB_SEAFILE_DB_NAME') or db_name
+
+    db_url = "mysql+pymysql://%s:%s@%s:%s/%s?charset=utf8" % \
+        (db_username, quote_plus(db_passwd),
+        db_server, db_port, db_name)
     kwargs = dict(pool_recycle=300, echo=False, echo_pool=False)
 
     engine = create_engine(db_url, **kwargs)
