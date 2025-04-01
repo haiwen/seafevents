@@ -2,7 +2,8 @@ import logging
 import posixpath
 import json
 
-from seafevents.seasearch.utils import get_library_diff_files, is_wiki_page, extract_sdoc_text, md5
+from seafevents.seasearch.utils import get_library_diff_files, is_wiki_page, md5
+from seafevents.seasearch.utils.extract import extract_sdoc_text
 from seafevents.seasearch.utils.constants import ZERO_OBJ_ID, WIKI_INDEX_PREFIX
 from seafevents.utils.constants import WIKI_PAGES_DIR, WIKI_CONFIG_PATH, WIKI_CONFIG_FILE_NAME
 from seafobj import fs_mgr, commit_mgr
@@ -288,7 +289,7 @@ class WikiIndex(object):
 
     def update(self, index_name, wiki_id, old_commit_id, new_commit_id):
         # Clean trash equivalent to remove corresponding dirs
-        added_files, _, modified_files, _, deleted_dirs = \
+        added_files, _, modified_files, _, deleted_dirs, version = \
             get_library_diff_files(wiki_id, old_commit_id, new_commit_id)
 
         # When the file is placed in the recycle bin, the index_json file is modified

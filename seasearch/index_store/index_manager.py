@@ -4,7 +4,7 @@ from datetime import datetime
 
 from seafevents.seasearch.utils import need_index_metadata_info
 from seafevents.db import init_db_session_class
-from seafevents.seasearch.utils.constants import ZERO_OBJ_ID, REPO_FILENAME_INDEX_PREFIX, \
+from seafevents.seasearch.utils.constants import ZERO_OBJ_ID, REPO_FILE_INDEX_PREFIX, \
     WIKI_INDEX_PREFIX
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.constants import METADATA_TABLE
@@ -21,14 +21,14 @@ class IndexManager(object):
         self.session = init_db_session_class(config)
         self.metadata_server_api = MetadataServerAPI('seafevents')
 
-    def update_library_filename_index(self, repo_id, commit_id, repo_filename_index, repo_status_filename_index, metadata_query_time):
+    def update_library_file_index(self, repo_id, commit_id, repo_file_index, repo_status_file_index, metadata_query_time):
         try:
             new_commit_id = commit_id
-            index_name = REPO_FILENAME_INDEX_PREFIX + repo_id
+            index_name = REPO_FILE_INDEX_PREFIX + repo_id
 
-            repo_filename_index.create_index_if_missing(index_name)
+            repo_file_index.create_index_if_missing(index_name)
 
-            repo_status = repo_status_filename_index.get_repo_status_by_id(repo_id)
+            repo_status = repo_status_file_index.get_repo_status_by_id(repo_id)
             from_commit = repo_status.from_commit
             to_commit = repo_status.to_commit
             metadata_last_updated_time = repo_status.metadata_updated_time
@@ -44,7 +44,7 @@ class IndexManager(object):
                 if not metadata_last_updated_time:
                     metadata_last_updated_time = datetime(1970, 1, 1).timestamp()
                 last_update_time = timestamp_to_isoformat_timestr(float(metadata_last_updated_time))
-                sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name`, `_obj_id` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False AND `_mtime` >= '{last_update_time}'"
+                sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name`, `_obj_id`, `_file_mtime`, `_size` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False AND `_mtime` >= '{last_update_time}'"
                 rows = query_metadata_rows(repo_id, self.metadata_server_api, sql)
             else:
                 metadata_query_time = None
@@ -53,33 +53,33 @@ class IndexManager(object):
                 return
 
             if repo_status.need_recovery():
-                logger.warning('%s: repo filename index inrecovery', repo_id)
-                repo_filename_index.update(index_name, repo_id, commit_id, to_commit, rows, self.metadata_server_api, need_index_metadata)
+                logger.warning('%s: repo file index inrecovery', repo_id)
+                repo_file_index.update(index_name, repo_id, commit_id, to_commit, rows, self.metadata_server_api, need_index_metadata)
                 commit_id = to_commit
                 time.sleep(1)
 
             try:
-                repo_filename_index.update_repo_name(index_name, repo_id)
+                repo_file_index.update_repo_name(index_name, repo_id)
             except Exception as e:
                 logger.warning('update repo_name index failed, repo_id: %s, error: %s' % (repo_id, e))
 
-            repo_status_filename_index.begin_update_repo(repo_id, commit_id, new_commit_id, metadata_last_updated_time)
-            repo_filename_index.update(index_name, repo_id, commit_id, new_commit_id, rows, self.metadata_server_api, need_index_metadata)
-            repo_status_filename_index.finish_update_repo(repo_id, new_commit_id, metadata_query_time)
+            repo_status_file_index.begin_update_repo(repo_id, commit_id, new_commit_id, metadata_last_updated_time)
+            repo_file_index.update(index_name, repo_id, commit_id, new_commit_id, rows, self.metadata_server_api, need_index_metadata)
+            repo_status_file_index.finish_update_repo(repo_id, new_commit_id, metadata_query_time)
 
-            logger.info('repo: %s, update repo filename index success', repo_id)
+            logger.info('repo: %s, update repo file index success', repo_id)
 
         except Exception as e:
-            logger.exception('repo_id: %s, update repo filename index error: %s.', repo_id, e)
+            logger.exception('repo_id: %s, update repo file index error: %s.', repo_id, e)
 
-    def delete_repo_filename_index(self, repo_id, repo_filename_index, repo_status_filename_index):
+    def delete_repo_file_index(self, repo_id, repo_file_index, repo_status_file_index):
         # first delete repo_file_index
-        repo_filename_index_name = REPO_FILENAME_INDEX_PREFIX + repo_id
-        repo_filename_index.delete_index_by_index_name(repo_filename_index_name)
-        repo_status_filename_index.delete_documents_by_repo(repo_id)
+        repo_file_index_name = REPO_FILE_INDEX_PREFIX + repo_id
+        repo_file_index.delete_index_by_index_name(repo_file_index_name)
+        repo_status_file_index.delete_documents_by_repo(repo_id)
 
-    def file_search(self, query, repos, repo_filename_index, count, suffixes=None, search_path=None, obj_type=None):
-        return repo_filename_index.search_files(repos, query, 0, count, suffixes, search_path, obj_type)
+    def file_search(self, query, repos, repo_file_index, count, suffixes, search_path, obj_type, time_range, size_range):
+        return repo_file_index.search_files(repos, query, 0, count, suffixes, search_path, obj_type, time_range, size_range)
 
     def delete_wiki_index(self, wiki_id, wiki_index, wiki_status_index):
         # first delete wiki_index

@@ -5,7 +5,7 @@ export PYTHONPATH=$COMPILE_PATH:$CONF_PATH:$PYTHONPATH:/usr/lib/python3.8/dist-p
 export SEAHUB_DIR=/data/dev/seahub/
 
 if [[ $# == 1 && $1 == "clear" ]]; then
-    python -m seafevents.seasearch.script.repo_filename_index_local clear
+    python -m seafevents.seasearch.script.repo_file_index_local clear
 else
-    python -m seafevents.seasearch.script.repo_filename_index_local update
+    python -m seafevents.seasearch.script.repo_file_index_local update
 fi

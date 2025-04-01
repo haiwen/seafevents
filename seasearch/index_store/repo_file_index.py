@@ -3,16 +3,18 @@ import os
 import logging
 
 from seafevents.seasearch.utils import get_library_diff_files, md5, is_sys_dir_or_file
-from seafevents.seasearch.utils.constants import REPO_FILENAME_INDEX_PREFIX
+from seafevents.seasearch.utils.constants import REPO_FILE_INDEX_PREFIX
 from seafevents.repo_metadata.constants import METADATA_TABLE
 from seafevents.repo_metadata.utils import get_metadata_by_obj_ids
+from seafevents.utils import get_opt_from_conf_or_env, parse_bool
+from seafevents.seasearch.utils.extract import ExtractorFactory
 
 logger = logging.getLogger(__name__)
 
 SEASEARCH_BULK_OPETATE_LIMIT = 2000
 
 
-class RepoFileNameIndex(object):
+class RepoFileIndex(object):
     mapping = {
         'properties': {
             'repo_id': {
@@ -27,7 +29,7 @@ class RepoFileNameIndex(object):
                     'ngram': {
                         'type': 'text',
                         'index': True,
-                        'analyzer': 'seafile_file_name_ngram_analyzer',
+                        'analyzer': 'seafile_file_ngram_analyzer',
                     },
                 },
             },
@@ -35,11 +37,23 @@ class RepoFileNameIndex(object):
                 'type': 'text',
                 'analyzer': 'standard'
             },
+            'content': {
+                'type': 'text',
+                'analyzer': 'standard',
+                'highlightable': True
+            },
             'suffix': {
                 'type': 'keyword'
             },
             'is_dir': {
                 'type': 'boolean',
+            },
+            'mtime': {
+                'type': 'date',
+                'format': 'epoch_millis'
+            },
+            'size': {
+                'type': 'numeric'
             }
         }
     }
@@ -47,16 +61,16 @@ class RepoFileNameIndex(object):
     index_settings = {
         'analysis': {
             'analyzer': {
-                'seafile_file_name_ngram_analyzer': {
+                'seafile_file_ngram_analyzer': {
                     'type': 'custom',
-                    'tokenizer': 'seafile_file_name_ngram_tokenizer',
+                    'tokenizer': 'seafile_file_ngram_tokenizer',
                     'filter': [
                         'lowercase',
                     ],
                 }
             },
             'tokenizer': {
-                'seafile_file_name_ngram_tokenizer': {
+                'seafile_file_ngram_tokenizer': {
                     'type': 'ngram',
                     'min_gram': 4,
                     'max_gram': 4,
@@ -69,10 +83,25 @@ class RepoFileNameIndex(object):
         }
     }
 
-    def __init__(self, seasearch_api, repo_data, shard_num):
+    def __init__(self, seasearch_api, repo_data, shard_num, config):
         self.seasearch_api = seasearch_api
         self.repo_data = repo_data
         self.shard_num = shard_num
+        self.text_size_limit = 100 * 1024  # 100k
+        self.office_file_size_limit = 10 * 1024 * 1024  # 10M
+        self.index_office_pdf = False
+        self.config = config
+
+        self._parse_config()
+
+    def _parse_config(self):
+        section_name = 'SEASEARCH'
+        self.office_file_size_limit = get_opt_from_conf_or_env(
+            self.config, section_name, 'office_file_size_limit', default=int(5)
+        ) * 1024 * 1024
+
+        index_office_pdf = get_opt_from_conf_or_env(self.config, section_name, 'index_office_pdf', default=False)
+        self.index_office_pdf = parse_bool(index_office_pdf)
 
     def create_index_if_missing(self, index_name):
         if not self.seasearch_api.check_index_mapping(index_name).get('is_exist'):
@@ -96,6 +125,7 @@ class RepoFileNameIndex(object):
 
         searches = []
         searches.append(_make_match_query('filename', keyword, **match_query_kwargs))
+        searches.append(_make_match_query('content', keyword, **match_query_kwargs))
         searches.append({
             'match': {
                 'filename.ngram': {
@@ -142,7 +172,46 @@ class RepoFileNameIndex(object):
         query_map['bool']['filter'].append({'term': {'is_dir': obj_type == 'dir'}})
         return query_map
 
-    def search_files(self, repos, keyword, start=0, size=10, suffixes=None, search_path=None, obj_type=None):
+    def is_valid_range(self, data_range):
+        if not isinstance(data_range, list):
+            return False
+        if len(data_range) != 2:
+            return False
+        if all(e is None for e in data_range):
+            return False
+        return True
+
+    def _add_time_range_filter(self, query_map, time_range):
+        if not self.is_valid_range(time_range):
+            return query_map
+        search_content = {}
+        time_from = time_range[0] * 1000
+        time_to = time_range[1] * 1000
+        if time_from:
+            search_content['gte'] = time_from
+        if time_to:
+            search_content['lte'] = time_to
+        query_map = self._ensure_filter_exists(query_map)
+        query_map['bool']['filter'].append({'range': {'mtime': search_content}})
+        return query_map
+
+    def _add_size_range_filter(self, query_map, size_range):
+        if not self.is_valid_range(size_range):
+            return query_map
+
+        search_content = {}
+        size_from = size_range[0]
+        size_to = size_range[1]
+        if size_from:
+            search_content['gte'] = size_from
+        if size_to:
+            search_content['lte'] = size_to
+        query_map = self._ensure_filter_exists(query_map)
+        query_map['bool']['filter'].append({'range': {'size': search_content}})
+        return query_map
+
+    def search_files(self, repos, keyword, start=0, size=10, suffixes=None, search_path=None, obj_type=None,
+                     time_range=None, size_range=None):
         bulk_search_params = []
         for repo in repos:
             repo_id = repo[0]
@@ -162,18 +231,27 @@ class RepoFileNameIndex(object):
             query_map = self._add_suffix_filter(query_map, suffixes)
             query_map = self._add_path_filter(query_map, search_path)
             query_map = self._add_obj_type_filter(query_map, obj_type)
+
+            query_map = self._add_time_range_filter(query_map, time_range)
+            query_map = self._add_size_range_filter(query_map, size_range)
             data = {
                 'query': query_map,
                 'from': start,
                 'size': size,
-                '_source': ['path', 'repo_id', 'filename', 'is_dir'],
-                'sort': ['_score']
+                '_source': ['path', 'repo_id', 'filename', 'is_dir', 'mtime', 'size'],
+                'sort': ['_score'],
+                'highlight': {
+                    'pre_tags': ['<mark>'],
+                    'post_tags': ['</mark>'],
+                    'fields': {'content': {}},
+                }
             }
-            index_name = REPO_FILENAME_INDEX_PREFIX + repo_id
+            index_name = REPO_FILE_INDEX_PREFIX + repo_id
             repo_query_info = {
                 'index': index_name,
                 'query': data
             }
+            logger.info(json.dumps(repo_query_info))
             bulk_search_params.append(repo_query_info)
 
             search_path = None
@@ -200,7 +278,11 @@ class RepoFileNameIndex(object):
                 'is_dir': source['is_dir'],
                 'score': score,
                 '_id': _id,
+                'mtime': source['mtime'],
+                'size': source['size'],
             }
+            if highlight_content := hit.get('highlight', {}).get('content', [None])[0]:
+                r.update(content=highlight_content)
             files.append(r)
 
         logger.debug('search keyword: %s, search path: %s, in repos: %s , \nsearch result: %s', keyword, search_path,
@@ -219,10 +301,13 @@ class RepoFileNameIndex(object):
         except:
             return None
 
-    def add_files(self, index_name, repo_id, files, path_to_metadata_row):
+    def add_files(self, index_name, repo_id, files, path_to_metadata_row, version):
         bulk_add_params = []
         for file_info in files:
             path = file_info[0]
+            obj_id = file_info[1]
+            mtime = file_info[2]
+            size = file_info[3]
 
             if is_sys_dir_or_file(path):
                 continue
@@ -241,8 +326,13 @@ class RepoFileNameIndex(object):
                 'filename': filename,
                 'description': metadata_row.get('_description', ''),
                 'is_dir': False,
+                'mtime': mtime,
+                'size': size,
             }
 
+            content = self.parse_content(repo_id, path, size, obj_id, version)
+
+            doc_info['content'] = content
             bulk_add_params.append(index_info)
             bulk_add_params.append(doc_info)
 
@@ -252,6 +342,27 @@ class RepoFileNameIndex(object):
                 bulk_add_params = []
         if bulk_add_params:
             self.seasearch_api.bulk(index_name, bulk_add_params)
+
+    def check_file_size_limit(self, path, size):
+        from seafevents.seasearch.utils.extract import is_text_file, is_office_pdf
+
+        if is_text_file(path):
+            return size <= self.text_size_limit
+        elif is_office_pdf(path):
+            return size <= self.office_file_size_limit
+        else:
+            return False
+
+    def parse_content(self, repo_id, path, size, obj_id, version):
+        if not self.index_office_pdf:
+            return None
+        if not self.check_file_size_limit(path, size):
+            logger.warning("repo_id: %s, file %s size exceeds limit", repo_id, path)
+            content = None
+        else:
+            extractor = ExtractorFactory.get_extractor(os.path.basename(path))
+            content = extractor.extract(repo_id, version, obj_id, path) if extractor else None
+        return content
 
     def add_dirs(self, index_name, repo_id, dirs):
         bulk_add_params = []
@@ -277,6 +388,9 @@ class RepoFileNameIndex(object):
                 'suffix': None,
                 'filename': filename,
                 'is_dir': True,
+                'content': None,
+                'mtime': mtime,
+                'size': None,
             }
             bulk_add_params.append(index_info)
             bulk_add_params.append(doc_info)
@@ -395,7 +509,7 @@ class RepoFileNameIndex(object):
         return exist_paths
 
     def update(self, index_name, repo_id, old_commit_id, new_commit_id, metadata_rows, metadata_server_api, need_index_metadata):
-        added_files, deleted_files, modified_files, added_dirs, deleted_dirs = \
+        added_files, deleted_files, modified_files, added_dirs, deleted_dirs, version = \
             get_library_diff_files(repo_id, old_commit_id, new_commit_id)
 
         need_deleted_files = deleted_files
@@ -411,7 +525,8 @@ class RepoFileNameIndex(object):
         if need_index_metadata:
             need_update_metadata_files, path_to_metadata_row = self.cal_metadata_files(index_name, repo_id, metadata_rows, need_added_files, metadata_server_api)
 
-        self.add_files(index_name, repo_id, need_added_files + need_update_metadata_files, path_to_metadata_row)
+        self.add_files(index_name, repo_id, need_added_files + need_update_metadata_files, path_to_metadata_row, version)
+
         self.add_dirs(index_name, repo_id, added_dirs)
 
     def update_repo_name(self, index_name, repo_id):
@@ -443,10 +558,12 @@ class RepoFileNameIndex(object):
         need_added_paths = {item[0] for item in need_added_files}
         for row in metadata_rows:
             path = os.path.join(row[METADATA_TABLE.columns.parent_dir.name], row[METADATA_TABLE.columns.file_name.name])
+            mtime = row[METADATA_TABLE.columns.file_mtime.name]
+            size = row[METADATA_TABLE.columns.size.name]
             path_to_metadata_row[path] = row
             metadate_file_obj_ids.append(row['_obj_id'])
             if path not in need_added_paths:
-                metadata_files.append([path, row['_obj_id']])
+                metadata_files.append([path, row['_obj_id'], mtime, size])
 
         added_files_lacked_obj_ids = [file_info[1] for file_info in need_added_files if file_info[1] not in metadate_file_obj_ids]
         added_files_lacked_rows = get_metadata_by_obj_ids(repo_id, added_files_lacked_obj_ids,
