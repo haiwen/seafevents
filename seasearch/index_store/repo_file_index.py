@@ -279,7 +279,7 @@ class RepoFileIndex(object):
                 'is_dir': source['is_dir'],
                 'score': score,
                 '_id': _id,
-                'mtime': source['mtime'],
+                'mtime': source['mtime'] / 1000,
                 'size': source['size'],
             }
             if highlight_content := hit.get('highlight', {}).get('content', [None])[0]:
@@ -307,7 +307,7 @@ class RepoFileIndex(object):
         for file_info in files:
             path = file_info[0]
             obj_id = file_info[1]
-            mtime = file_info[2]
+            mtime = file_info[2] * 1000
             size = file_info[3]
 
             if is_sys_dir_or_file(path):
@@ -370,7 +370,7 @@ class RepoFileIndex(object):
         for dir in dirs:
             path = dir[0]
             obj_id = dir[1]
-            mtime = dir[2]
+            mtime = dir[2] * 1000
             size = dir[3]
 
             if is_sys_dir_or_file(path):
@@ -544,7 +544,7 @@ class RepoFileIndex(object):
             'filename': repo[0]['name'],
             'is_dir': True,
             'content': None,
-            'mtime': repo[0]['update_time'],
+            'mtime': repo[0]['update_time'] * 1000,
             'size': None,
         }
         bulk_add_params.append(index_info)
