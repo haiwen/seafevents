@@ -93,9 +93,10 @@ class FaceRecognitionManager(object):
                 else:
                     cluster_id = unclustered_rows[0][FACES_TABLE.columns.id.name]
 
-                if cluster_id not in row_id_map:
-                    row_id_map[row[METADATA_TABLE.columns.id.name]] = []
-                row_id_map[row[METADATA_TABLE.columns.id.name]].append(cluster_id)
+                row_id = row[METADATA_TABLE.columns.id.name]
+                if row_id not in row_id_map:
+                    row_id_map[row_id] = []
+                row_id_map[row_id].append(cluster_id)
 
         if row_id_map:
             self.metadata_server_api.update_link(repo_id, FACES_TABLE.face_link_id, METADATA_TABLE.id, row_id_map)
