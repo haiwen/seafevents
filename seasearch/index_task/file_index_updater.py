@@ -70,6 +70,7 @@ class RepoFileIndexUpdater(object):
                 self.seasearch_api,
                 self._repo_data,
                 int(SHARD_NUM),
+                config
             )
         except Exception as e:
             logger.warning('Failed to init seasearch file index object, error: %s', e)

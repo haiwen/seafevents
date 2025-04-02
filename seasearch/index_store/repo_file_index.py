@@ -8,6 +8,7 @@ from seafevents.repo_metadata.constants import METADATA_TABLE
 from seafevents.repo_metadata.utils import get_metadata_by_obj_ids
 from seafevents.utils import get_opt_from_conf_or_env, parse_bool
 from seafevents.seasearch.utils.extract import ExtractorFactory
+from seafevents.utils import isoformat_timestr_to_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -542,6 +543,9 @@ class RepoFileIndex(object):
             'suffix': None,
             'filename': repo[0]['name'],
             'is_dir': True,
+            'content': None,
+            'mtime': repo[0]['update_time'],
+            'size': None,
         }
         bulk_add_params.append(index_info)
         bulk_add_params.append(doc_info)
@@ -558,7 +562,7 @@ class RepoFileIndex(object):
         need_added_paths = {item[0] for item in need_added_files}
         for row in metadata_rows:
             path = os.path.join(row[METADATA_TABLE.columns.parent_dir.name], row[METADATA_TABLE.columns.file_name.name])
-            mtime = row[METADATA_TABLE.columns.file_mtime.name]
+            mtime = isoformat_timestr_to_timestamp(row[METADATA_TABLE.columns.file_mtime.name])
             size = row[METADATA_TABLE.columns.size.name]
             path_to_metadata_row[path] = row
             metadate_file_obj_ids.append(row['_obj_id'])
