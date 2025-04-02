@@ -232,6 +232,12 @@ def timestamp_to_isoformat_timestr(timestamp):
         return ''
 
 
+def isoformat_timestr_to_timestamp(time_str):
+    dt_aware = datetime.datetime.fromisoformat(time_str)
+
+    return dt_aware.timestamp()
+
+
 UNIT_KB = 'kb'
 UNIT_MB = 'mb'
 UNIT_GB = 'gb'
