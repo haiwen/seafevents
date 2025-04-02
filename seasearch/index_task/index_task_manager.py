@@ -1,7 +1,7 @@
 import logging
 
 from seafevents.seasearch.index_store.index_manager import IndexManager
-from seafevents.seasearch.index_store.repo_file_name_index import RepoFileNameIndex
+from seafevents.seasearch.index_store.repo_file_index import RepoFileIndex
 from seafevents.seasearch.index_store.wiki_index import WikiIndex
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.seasearch.utils.constants import SHARD_NUM
@@ -19,14 +19,14 @@ class IndexTaskManager:
         self.seasearch_api = None
         self._repo_data = None
         self.index_manager = None
-        self._repo_filename_index = None
+        self._repo_file_index = None
         self._wiki_index = None
 
     def init(self, config):
         self._parse_config(config)
 
     def _parse_config(self, config):
-        """Parse fimename index update related parts of events.conf"""
+        """Parse file index update related parts of events.conf"""
         section_name = 'SEASEARCH'
         key_enabled = 'enabled'
 
@@ -55,10 +55,11 @@ class IndexTaskManager:
         )
         self._repo_data = repo_data
         self.index_manager = IndexManager(config)
-        self._repo_filename_index = RepoFileNameIndex(
+        self._repo_file_index = RepoFileIndex(
             self.seasearch_api,
             self._repo_data,
             int(SHARD_NUM),
+            config
         )
         self._wiki_index = WikiIndex(
             self.seasearch_api,
@@ -67,9 +68,9 @@ class IndexTaskManager:
             wiki_file_size_limit=int(wiki_size_limit) * 1024 * 1024,
         )
 
-    def file_search(self, query, repos, count, suffixes, search_path, obj_type):
+    def file_search(self, query, repos, count, suffixes, search_path, obj_type, time_range, size_range):
         return self.index_manager.file_search(
-            query, repos, self._repo_filename_index, count, suffixes, search_path, obj_type
+            query, repos, self._repo_file_index, count, suffixes, search_path, obj_type, time_range, size_range
         )
 
     def wiki_search(self, query, wiki, count):

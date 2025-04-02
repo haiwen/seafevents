@@ -16,8 +16,9 @@ SYS_DIRS = ['images', '_Internal']
 WIKI_DIRS = ['wiki-pages']
 
 def get_library_diff_files(repo_id, old_commit_id, new_commit_id):
+    version = 1
     if old_commit_id == new_commit_id:
-        return [], [], [], [], []
+        return [], [], [], [], [], version
 
     old_root = None
     if old_commit_id:
@@ -33,7 +34,7 @@ def get_library_diff_files(repo_id, old_commit_id, new_commit_id):
     except GetObjectError as e:
         # new commit should exists in the obj store
         logger.warning(e)
-        return [], [], [], [], []
+        return [], [], [], [], [], version
 
     new_root = new_commit.root_id
     version = new_commit.get_version()
@@ -44,9 +45,9 @@ def get_library_diff_files(repo_id, old_commit_id, new_commit_id):
     except Exception as e:
         logger.warning('repo: %s, version: %s, old_commit_id:%s, nea_commit_id: %s, old_root:%s, new_root: %s, differ error: %s',
                         repo_id, version, old_commit_id, new_commit_id, old_root, new_root, e)
-        return [], [], [], [], []
+        return [], [], [], [], [], version
 
-    return added_files, deleted_files, modified_files, added_dirs, deleted_dirs
+    return added_files, deleted_files, modified_files, added_dirs, deleted_dirs, version
 
 
 def init_logging(args):
@@ -113,20 +114,3 @@ def is_wiki_page(path):
     if path.split('/')[1] in WIKI_DIRS and path.endswith('.sdoc'):
         return True
     return False
-
-
-def extract_sdoc_text(content):
-    data = json.loads(content)
-    texts = []
-    def extract_text(node):
-        if isinstance(node, dict):
-            if "text" in node:
-                texts.append(node["text"])
-            for key, value in node.items():
-                extract_text(value)
-        elif isinstance(node, list):
-            for item in node:
-                extract_text(item)
-    extract_text(data)
-    result = ' '.join(texts)
-    return result

@@ -8,7 +8,7 @@ from seafevents.repo_metadata.index_master import RepoMetadataIndexMaster
 from seafevents.repo_metadata.slow_task_handler import SlowMetadataTaskHandler
 from seafevents.seafevent_server.seafevent_server import SeafEventServer
 from seafevents.app.config import ENABLE_METADATA_MANAGEMENT
-from seafevents.seasearch.index_task.filename_index_updater import RepoFilenameIndexUpdater
+from seafevents.seasearch.index_task.file_index_updater import RepoFileIndexUpdater
 from seafevents.seasearch.index_task.wiki_index_updater import SeasearchWikiIndexUpdater
 from seafevents.events.metrics import MetricsManager
 
@@ -45,7 +45,7 @@ class App(object):
                 self._face_cluster_updater = FaceClusterUpdater(config)
                 self._slow_md_task_handler = SlowMetadataTaskHandler(config)
                 self._face_cluster_task_publisher = FaceClusterTaskPublisher(config)
-            self._repo_filename_index_updater = RepoFilenameIndexUpdater(config)
+            self._repo_file_index_updater = RepoFileIndexUpdater(config)
             self._es_wiki_index_updater = ESWikiIndexUpdater(config)
             self._seasearch_wiki_index_updater = SeasearchWikiIndexUpdater(config)
 
@@ -74,6 +74,6 @@ class App(object):
                 self._face_cluster_task_publisher.start()
 
             self._metrics_manager.start()
-            self._repo_filename_index_updater.start()
+            self._repo_file_index_updater.start()
             self._seasearch_wiki_index_updater.start()
             self._es_wiki_index_updater.start()

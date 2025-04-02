@@ -149,6 +149,8 @@ def search():
     suffixes = data.get('suffixes')
     search_path = data.get('search_path')
     obj_type = data.get('obj_type')
+    time_range = data.get('time_range')
+    size_range = data.get('size_range')
 
     if not query:
         return {'error_msg': 'query invalid.'}, 400
@@ -161,7 +163,7 @@ def search():
     except:
         count = 20
 
-    results = index_task_manager.file_search(query, repos, count, suffixes, search_path, obj_type)
+    results = index_task_manager.file_search(query, repos, count, suffixes, search_path, obj_type, time_range, size_range)
 
     return {'results': results}, 200
 
@@ -325,7 +327,7 @@ def delete_repo_monitored_user_cache():
     repo_id = data.get('repo_id')
     if not repo_id:
         return {'error_msg': 'repo_id invalid.'}, 400
-    
+
     try:
         cache_key = '{}_monitor_users'.format(repo_id)
         cache.delete(cache_key)
@@ -344,7 +346,7 @@ def get_metrics():
 
     if error:
         return make_response((error, 500))
-    
+
     metrics = redis_cache.get(REDIS_METRIC_KEY)
     if not metrics:
         return ''

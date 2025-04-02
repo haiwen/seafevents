@@ -14,8 +14,8 @@ from seafevents.repo_data import repo_data
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.seasearch.index_store.repo_status_index import RepoStatusIndex
-from seafevents.seasearch.utils.constants import REPO_STATUS_FILENAME_INDEX_NAME, REPO_FILENAME_INDEX_PREFIX, REPO_TYPE_WIKI
-from seafevents.seasearch.index_store.repo_file_name_index import RepoFileNameIndex
+from seafevents.seasearch.utils.constants import REPO_STATUS_FILE_INDEX_NAME, REPO_FILE_INDEX_PREFIX, REPO_TYPE_WIKI
+from seafevents.seasearch.index_store.repo_file_index import RepoFileIndex
 
 logger = logging.getLogger('seasearch')
 
@@ -24,13 +24,13 @@ lockfile = None
 NO_TASKS = False
 
 
-class RepoFileNameIndexLocal(object):
-    """ Independent update repo file name index.
+class RepoFileIndexLocal(object):
+    """ Independent update repo file index.
     """
-    def __init__(self, index_manager, repo_status_filename_index, repo_filename_index, repo_data, workers=3):
+    def __init__(self, index_manager, repo_status_file_index, repo_file_index, repo_data, workers=3):
         self.index_manager = index_manager
-        self.repo_status_filename_index = repo_status_filename_index
-        self.repo_filename_index = repo_filename_index
+        self.repo_status_file_index = repo_status_file_index
+        self.repo_file_index = repo_file_index
         self.repo_data = repo_data
         self.error_counter = 0
         self.worker_list = []
@@ -46,7 +46,7 @@ class RepoFileNameIndexLocal(object):
         repos_queue = queue.Queue(0)
         for i in range(self.workers):
             thread_name = "worker" + str(i)
-            logger.info("starting %s worker threads for repo filename indexing"
+            logger.info("starting %s worker threads for repo file indexing"
                         % thread_name)
             t = threading.Thread(target=self.thread_task, args=(repos_queue, ), name=thread_name)
             t.start()
@@ -87,7 +87,7 @@ class RepoFileNameIndexLocal(object):
                 start += per_size
 
         self.clear_worker()
-        logger.info("repo filename index updated, total time %s seconds" % str(time.time() - time_start))
+        logger.info("repo file index updated, total time %s seconds" % str(time.time() - time_start))
         try:
             self.clear_deleted_repo(list(repos.keys()))
         except Exception as e:
@@ -112,9 +112,9 @@ class RepoFileNameIndexLocal(object):
                 commit_id = queue_data[1]
                 metadata_query_time = queue_data[2]
                 try:
-                    self.index_manager.update_library_filename_index(repo_id, commit_id, self.repo_filename_index, self.repo_status_filename_index, metadata_query_time)
+                    self.index_manager.update_library_file_index(repo_id, commit_id, self.repo_file_index, self.repo_status_file_index, metadata_query_time)
                 except Exception as e:
-                    logger.exception('Repo filename index error: %s, repo_id: %s' % (e, repo_id), exc_info=True)
+                    logger.exception('Repo file index error: %s, repo_id: %s' % (e, repo_id), exc_info=True)
                     self.incr_error()
 
         logger.info(
@@ -130,7 +130,7 @@ class RepoFileNameIndexLocal(object):
 
     def clear_deleted_repo(self, repos):
         logger.info("start to clear deleted repo")
-        repo_all = [e.get('repo_id') for e in self.repo_status_filename_index.get_all_repos_from_index()]
+        repo_all = [e.get('repo_id') for e in self.repo_status_file_index.get_all_repos_from_index()]
 
         repo_deleted = set(repo_all) - set(repos)
         logger.info("%d repos need to be deleted." % len(repo_deleted))
@@ -146,7 +146,7 @@ class RepoFileNameIndexLocal(object):
     def delete_repo(self, repo_id):
         if len(repo_id) != 36:
             return
-        self.index_manager.delete_repo_filename_index(repo_id, self.repo_filename_index, self.repo_status_filename_index)
+        self.index_manager.delete_repo_file_index(repo_id, self.repo_file_index, self.repo_status_file_index)
 
 
 def start_index_local():
@@ -164,19 +164,19 @@ def start_index_local():
 
     index_manager = IndexManager(config)
     seasearch_api = SeaSearchAPI(seasearch_url, seasearch_token)
-    repo_status_filename_index = RepoStatusIndex(seasearch_api, REPO_STATUS_FILENAME_INDEX_NAME)
-    repo_filename_index = RepoFileNameIndex(seasearch_api, repo_data, shard_num=1)
+    repo_status_file_index = RepoStatusIndex(seasearch_api, REPO_STATUS_FILE_INDEX_NAME)
+    repo_file_index = RepoFileIndex(seasearch_api, repo_data, 1, config)
 
     try:
-        index_local = RepoFileNameIndexLocal(index_manager, repo_status_filename_index, repo_filename_index,repo_data)
+        index_local = RepoFileIndexLocal(index_manager, repo_status_file_index, repo_file_index,repo_data)
     except Exception as e:
-        logger.error("Index repo filename process init error: %s." % e)
+        logger.error("Index repo file process init error: %s." % e)
         return
 
-    logger.info("Index repo filename process initialized.")
+    logger.info("Index repo file process initialized.")
     index_local.run()
 
-    logger.info('\n\nRepo filename index updated, statistic report:\n')
+    logger.info('\n\nRepo file index updated, statistic report:\n')
     logger.info('[commit read] %s', commit_mgr.read_count())
     logger.info('[dir read]    %s', fs_mgr.dir_read_count())
     logger.info('[file read]   %s', fs_mgr.file_read_count())
@@ -195,8 +195,8 @@ def delete_indices():
     )
 
     seasearch_api = SeaSearchAPI(seasearch_url, seasearch_token)
-    repo_status_filename_index = RepoStatusIndex(seasearch_api, REPO_STATUS_FILENAME_INDEX_NAME)
-    repo_filename_index = RepoFileNameIndex(seasearch_api, repo_data, shard_num=1)
+    repo_status_file_index = RepoStatusIndex(seasearch_api, REPO_STATUS_FILE_INDEX_NAME)
+    repo_file_index = RepoFileIndex(seasearch_api, repo_data, 1, config)
 
     start, count = 0, 1000
     while True:
@@ -217,10 +217,10 @@ def delete_indices():
         for repo_id, commit_id, repo_type in repo_commits:
             if repo_id in virtual_repo_set or repo_type == REPO_TYPE_WIKI:
                 continue
-            repo_filename_index_name = REPO_FILENAME_INDEX_PREFIX + repo_id
-            repo_filename_index.delete_index_by_index_name(repo_filename_index_name)
+            repo_file_index_name = REPO_FILE_INDEX_PREFIX + repo_id
+            repo_file_index.delete_index_by_index_name(repo_file_index_name)
 
-    repo_status_filename_index.delete_index_by_index_name()
+    repo_status_file_index.delete_index_by_index_name()
 
 
 def main():
@@ -239,11 +239,11 @@ def main():
         help='log level')
 
     # update index
-    parser_update = subparsers.add_parser('update', help='update seafile repo filename index')
+    parser_update = subparsers.add_parser('update', help='update seafile repo file index')
     parser_update.set_defaults(func=start_index_local)
 
     # clear
-    parser_clear = subparsers.add_parser('clear', help='clear all repo filename index')
+    parser_clear = subparsers.add_parser('clear', help='clear all repo file index')
     parser_clear.set_defaults(func=delete_indices)
 
     if len(sys.argv) == 1:
