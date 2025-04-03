@@ -5,9 +5,12 @@ import posixpath
 
 from seaserv import seafile_api
 
-from seafevents.repo_metadata.utils import query_metadata_rows, get_file_content
+from seafevents.repo_metadata.utils import query_metadata_rows, get_metadata_by_obj_ids
 from seafevents.repo_metadata.constants import FACES_TABLE, METADATA_TABLE
 from seafevents.face_recognition.constants import UNKNOWN_PEOPLE_NAME
+from seafevents.app.config import SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
+from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
+from seafevents.repo_metadata.seafile_ai_api import SeafileAIAPI
 
 
 VECTOR_DEFAULT_FLAG = '0'
@@ -118,3 +121,53 @@ def save_face(repo_id, image, filename, replace=False):
         seafile_api.del_file(repo_id, FACES_SAVE_PATH, json.dumps([filename]), 'system')
     seafile_api.post_file(repo_id, tmp_content_path, FACES_SAVE_PATH, filename, 'system')
     os.remove(tmp_content_path)
+
+
+def recognize_faces(repo_id, obj_ids):
+    metadata_server_api = MetadataServerAPI('seafevents')
+    seafile_ai_api = SeafileAIAPI(SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY)
+    query_result = get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api)
+    if not query_result:
+        return
+
+    clustered_rows, unclustered_rows = get_faces_rows(repo_id, metadata_server_api)
+    updated_rows = list()
+    row_id_map = dict()
+    for row in query_result:
+        if row.get(METADATA_TABLE.columns.face_links.name):
+            continue
+
+        if not row.get(METADATA_TABLE.columns.face_vectors.name):
+            obj_id = row[METADATA_TABLE.columns.obj_id.name]
+            parent_dir = row.get(METADATA_TABLE.columns.parent_dir.name)
+            file_name = row.get(METADATA_TABLE.columns.file_name.name)
+            path = os.path.join(parent_dir, file_name)
+            token = seafile_api.get_fileserver_access_token(repo_id, obj_id, 'download', 'system', use_onetime=True)
+            faces = seafile_ai_api.face_embeddings(path, token).get('faces', [])
+            face_embeddings = [face['embedding'] for face in faces]
+            vector = b64encode_embeddings(face_embeddings) if face_embeddings else VECTOR_DEFAULT_FLAG
+            row_id = row[METADATA_TABLE.columns.id.name]
+            updated_rows.append({
+                METADATA_TABLE.columns.id.name: row_id,
+                METADATA_TABLE.columns.face_vectors.name: vector,
+            })
+        else:
+            vector = row[METADATA_TABLE.columns.face_vectors.name]
+            face_embeddings = b64decode_embeddings(vector) if vector != VECTOR_DEFAULT_FLAG else []
+
+        row_id = row[METADATA_TABLE.columns.id.name]
+        for item in face_embeddings:
+            cluster, _ = get_cluster_by_center(item, clustered_rows)
+            if cluster:
+                cluster_id = cluster[FACES_TABLE.columns.id.name]
+            else:
+                cluster_id = unclustered_rows[0][FACES_TABLE.columns.id.name]
+
+            if row_id not in row_id_map:
+                row_id_map[row_id] = []
+            row_id_map[row_id].append(cluster_id)
+
+    if updated_rows:
+        metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
+    if row_id_map:
+        metadata_server_api.update_link(repo_id, FACES_TABLE.face_link_id, METADATA_TABLE.id, row_id_map)
