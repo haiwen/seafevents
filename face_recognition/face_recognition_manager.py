@@ -84,6 +84,8 @@ class FaceRecognitionManager(object):
         clustered_rows, unclustered_rows = get_faces_rows(repo_id, self.metadata_server_api)
         row_id_map = dict()
         for row in rows:
+            if row[METADATA_TABLE.columns.face_vectors.name] == VECTOR_DEFAULT_FLAG:
+                continue
             face_vectors = b64decode_embeddings(row[METADATA_TABLE.columns.face_vectors.name])
 
             for item in face_vectors:
