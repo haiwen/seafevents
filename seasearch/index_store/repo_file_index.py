@@ -12,7 +12,7 @@ from seafevents.utils import isoformat_timestr_to_timestamp
 
 logger = logging.getLogger(__name__)
 
-SEASEARCH_BULK_OPETATE_LIMIT = 2000
+SEASEARCH_BULK_OPETATE_LIMIT = 100
 
 
 class RepoFileIndex(object):
