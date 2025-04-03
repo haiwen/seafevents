@@ -137,6 +137,7 @@ def recognize_faces(repo_id, obj_ids):
         if row.get(METADATA_TABLE.columns.face_links.name):
             continue
 
+        row_id = row[METADATA_TABLE.columns.id.name]
         if not row.get(METADATA_TABLE.columns.face_vectors.name):
             obj_id = row[METADATA_TABLE.columns.obj_id.name]
             parent_dir = row.get(METADATA_TABLE.columns.parent_dir.name)
@@ -146,7 +147,6 @@ def recognize_faces(repo_id, obj_ids):
             faces = seafile_ai_api.face_embeddings(path, token).get('faces', [])
             face_embeddings = [face['embedding'] for face in faces]
             vector = b64encode_embeddings(face_embeddings) if face_embeddings else VECTOR_DEFAULT_FLAG
-            row_id = row[METADATA_TABLE.columns.id.name]
             updated_rows.append({
                 METADATA_TABLE.columns.id.name: row_id,
                 METADATA_TABLE.columns.face_vectors.name: vector,
@@ -155,7 +155,6 @@ def recognize_faces(repo_id, obj_ids):
             vector = row[METADATA_TABLE.columns.face_vectors.name]
             face_embeddings = b64decode_embeddings(vector) if vector != VECTOR_DEFAULT_FLAG else []
 
-        row_id = row[METADATA_TABLE.columns.id.name]
         for item in face_embeddings:
             cluster, _ = get_cluster_by_center(item, clustered_rows)
             if cluster:

@@ -212,7 +212,11 @@ def recognize_faces_menu():
     if not repo_id:
         return {'error_msg': 'repo_id invalid.'}, 400
 
-    recognize_faces(repo_id, obj_ids)
+    try:
+        recognize_faces(repo_id, obj_ids)
+    except Exception as e:
+        logger.error(e)
+        return {'error_msg': 'Internal Server Error'}, 500
 
     return {'success': True}, 200
 
