@@ -45,7 +45,7 @@ class FaceRecognitionManager(object):
 
         return False
 
-    def face_embeddings(self, repo_id, rows):
+    def face_embeddings(self, repo_id, rows, need_classify=False):
         logger.info('repo %s need update face_vectors rows count: %d', repo_id, len(rows))
         updated_rows = []
         start_time = time.time()
@@ -68,13 +68,40 @@ class FaceRecognitionManager(object):
             })
             if len(updated_rows) >= EMBEDDING_UPDATE_LIMIT:
                 self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
+                if need_classify:
+                    self.update_face_classify_by_sim(repo_id, updated_rows)
                 logger.info('repo %s updated face_vectors rows count: %d, cost time: %.2f', repo_id, len(updated_rows), time.time() - start_time)
                 start_time = time.time()
                 updated_rows = []
 
         if updated_rows:
-            logger.info('repo %s updated face_vectors rows count: %d, cost time: %.2f', repo_id, len(updated_rows), time.time() - start_time)
             self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
+            if need_classify:
+                self.update_face_classify_by_sim(repo_id, updated_rows)
+            logger.info('repo %s updated face_vectors rows count: %d, cost time: %.2f', repo_id, len(updated_rows), time.time() - start_time)
+
+    def update_face_classify_by_sim(self, repo_id, rows):
+        clustered_rows, unclustered_rows = get_faces_rows(repo_id, self.metadata_server_api)
+        row_id_map = dict()
+        for row in rows:
+            if row[METADATA_TABLE.columns.face_vectors.name] == VECTOR_DEFAULT_FLAG:
+                continue
+            face_vectors = b64decode_embeddings(row[METADATA_TABLE.columns.face_vectors.name])
+
+            for item in face_vectors:
+                cluster, _ = get_cluster_by_center(item, clustered_rows)
+                if cluster:
+                    cluster_id = cluster[FACES_TABLE.columns.id.name]
+                else:
+                    cluster_id = unclustered_rows[0][FACES_TABLE.columns.id.name]
+
+                row_id = row[METADATA_TABLE.columns.id.name]
+                if row_id not in row_id_map:
+                    row_id_map[row_id] = []
+                row_id_map[row_id].append(cluster_id)
+
+        if row_id_map:
+            self.metadata_server_api.update_link(repo_id, FACES_TABLE.face_link_id, METADATA_TABLE.id, row_id_map)
 
     def ensure_face_vectors(self, repo_id):
         sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.suffix.name}` in {SUPPORTED_IMAGE_FORMATS} AND `{METADATA_TABLE.columns.face_vectors.name}` IS NULL'
