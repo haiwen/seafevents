@@ -486,7 +486,7 @@ def get_log_events_by_type_users_repo(session, log_type, emails, repo_ids, start
             stmt = stmt.where(obj.user.in_(emails))
         else:
             from_users = emails.get('from_emails')
-            to_users = emails.get('to_emails') + emails.get('to_groups', [])
+            to_users = emails.get('to_emails', []) + emails.get('to_groups', [])
             if from_users:
                 stmt = stmt.where(obj.from_user.in_(from_users))
             if to_users:
