@@ -292,7 +292,7 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_man
         rows = [row for row in query_result if not row.get(METADATA_TABLE.columns.face_vectors.name) and face_recognition_manager.is_support_format(row.get(METADATA_TABLE.columns.suffix.name))]
         if rows:
             try:
-                face_recognition_manager.face_embeddings(repo_id, rows)
+                face_recognition_manager.face_embeddings(repo_id, rows, need_classify=True)
             except Exception as e:
                 logger.warning('repo_id: %s, cluster face failed, error: %s.', repo_id, e)
 
