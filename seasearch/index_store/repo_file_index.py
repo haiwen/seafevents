@@ -116,7 +116,7 @@ class RepoFileIndex(object):
     def check_index(self, index_name):
         return self.seasearch_api.check_index_mapping(index_name).get('is_exist')
 
-    def _make_query_searches(self, keyword):
+    def _make_query_searches(self, keyword, search_filename_only):
         match_query_kwargs = {'minimum_should_match': '-25%'}
 
         def _make_match_query(field, key_word, **kw):
@@ -126,7 +126,6 @@ class RepoFileIndex(object):
 
         searches = []
         searches.append(_make_match_query('filename', keyword, **match_query_kwargs))
-        searches.append(_make_match_query('content', keyword, **match_query_kwargs))
         searches.append({
             'match': {
                 'filename.ngram': {
@@ -135,7 +134,10 @@ class RepoFileIndex(object):
                 }
             }
         })
-        searches.append(_make_match_query('description', keyword, **match_query_kwargs))
+        if not search_filename_only:
+            searches.append(_make_match_query('content', keyword, **match_query_kwargs))
+            searches.append(_make_match_query('description', keyword, **match_query_kwargs))
+
         return searches
 
     def _ensure_filter_exists(self, query_map):
@@ -212,14 +214,14 @@ class RepoFileIndex(object):
         return query_map
 
     def search_files(self, repos, keyword, start=0, size=10, suffixes=None, search_path=None, obj_type=None,
-                     time_range=None, size_range=None):
+                     time_range=None, size_range=None, search_filename_only=None):
         bulk_search_params = []
         for repo in repos:
             repo_id = repo[0]
             origin_repo_id = repo[1]
             origin_path = repo[2]
             query_map = {'bool': {'should': [], 'minimum_should_match': 1}}
-            searches = self._make_query_searches(keyword)
+            searches = self._make_query_searches(keyword, search_filename_only)
             query_map['bool']['should'] = searches
 
             if origin_repo_id:
