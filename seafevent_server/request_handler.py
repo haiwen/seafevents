@@ -151,6 +151,7 @@ def search():
     obj_type = data.get('obj_type')
     time_range = data.get('time_range')
     size_range = data.get('size_range')
+    search_filename_only = data.get('search_filename_only')
 
     if not query:
         return {'error_msg': 'query invalid.'}, 400
@@ -163,7 +164,7 @@ def search():
     except:
         count = 20
 
-    results = index_task_manager.file_search(query, repos, count, suffixes, search_path, obj_type, time_range, size_range)
+    results = index_task_manager.file_search(query, repos, count, suffixes, search_path, obj_type, time_range, size_range, search_filename_only)
 
     return {'results': results}, 200
 
