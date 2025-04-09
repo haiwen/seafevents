@@ -36,11 +36,11 @@ class RepoFileIndex(object):
             },
             'description': {
                 'type': 'text',
-                'analyzer': 'standard'
+                'analyzer': 'gse_standard'
             },
             'content': {
                 'type': 'text',
-                'analyzer': 'standard',
+                'analyzer': 'gse_standard',
                 'highlightable': True
             },
             'suffix': {
@@ -140,37 +140,53 @@ class RepoFileIndex(object):
 
     def _ensure_filter_exists(self, query_map):
         if 'filter' not in query_map['bool']:
-            query_map['bool']['filter'] = []
+            query_map['bool']['filter'] = {}
+        return query_map
+
+    def _ensure_should_filter_exists(self, query_map):
+        if 'filter' not in query_map['bool']:
+            query_map['bool']['filter'] = {'bool': {'should': []}}
+        elif 'bool' not in query_map['bool']['filter']:
+            query_map['bool']['filter']['bool'] = {'should': []}
+        elif 'should' not in query_map['bool']['filter']['bool']:
+            query_map['bool']['filter']['bool']['should'] = []
+        return query_map
+
+    def _ensure_filter_filter_exists(self, query_map):
+        if 'filter' not in query_map['bool']:
+            query_map['bool']['filter'] = {'bool': {'should': []}}
+        elif 'bool' not in query_map['bool']['filter']:
+            query_map['bool']['filter']['bool'] = {'should': []}
+        elif 'filter' not in query_map['bool']['filter']['bool']:
+            query_map['bool']['filter']['bool']['filter'] = []
         return query_map
 
     def _add_path_filter(self, query_map, search_path):
         if search_path is None:
             return query_map
 
-        query_map = self._ensure_filter_exists(query_map)
-        query_map['bool']['filter'].append({'prefix': {'path': search_path}})
+        self._ensure_should_filter_exists(query_map)
+        query_map['bool']['filter']['bool']['should'].append({'prefix': {'path': search_path}})
         return query_map
 
     def _add_suffix_filter(self, query_map, suffixes):
         if suffixes is None:
             return query_map
 
-        query_map = self._ensure_filter_exists(query_map)
-
+        self._ensure_filter_filter_exists(query_map)
         if isinstance(suffixes, list):
             suffixes = [x.lower() for x in suffixes]
-            query_map['bool']['filter'].append({'terms': {'suffix': suffixes}})
+            query_map['bool']['filter']['bool']['filter'].append({'terms': {'suffix': suffixes}})
         else:
-            query_map['bool']['filter'].append({'term': {'suffix': suffixes.lower()}})
+            query_map['bool']['filter']['bool']['filter'].append({'term': {'suffix': suffixes.lower()}})
         return query_map
 
     def _add_obj_type_filter(self, query_map, obj_type):
         if obj_type is None:
             return query_map
 
-        query_map = self._ensure_filter_exists(query_map)
-
-        query_map['bool']['filter'].append({'term': {'is_dir': obj_type == 'dir'}})
+        self._ensure_filter_filter_exists(query_map)
+        query_map['bool']['filter']['bool']['filter'].append({'term': {'is_dir': obj_type == 'dir'}})
         return query_map
 
     def is_valid_range(self, data_range):
@@ -192,8 +208,8 @@ class RepoFileIndex(object):
             search_content['gte'] = time_from
         if time_to:
             search_content['lte'] = time_to
-        query_map = self._ensure_filter_exists(query_map)
-        query_map['bool']['filter'].append({'range': {'mtime': search_content}})
+        self._ensure_filter_filter_exists(query_map)
+        query_map['bool']['filter']['bool']['filter'].append({'range': {'mtime': search_content}})
         return query_map
 
     def _add_size_range_filter(self, query_map, size_range):
@@ -207,30 +223,31 @@ class RepoFileIndex(object):
             search_content['gte'] = size_from
         if size_to:
             search_content['lte'] = size_to
-        query_map = self._ensure_filter_exists(query_map)
-        query_map['bool']['filter'].append({'range': {'size': search_content}})
+        self._ensure_filter_filter_exists(query_map)
+        query_map['bool']['filter']['bool']['filter'].append({'range': {'size': search_content}})
         return query_map
 
     def search_files(self, repos, keyword, start=0, size=10, suffixes=None, search_path=None, obj_type=None,
                      time_range=None, size_range=None):
+
         bulk_search_params = []
-        for repo in repos:
-            repo_id = repo[0]
-            origin_repo_id = repo[1]
-            origin_path = repo[2]
+        for repo_id, origin_paths in repos.items():
             query_map = {'bool': {'should': [], 'minimum_should_match': 1}}
             searches = self._make_query_searches(keyword)
             query_map['bool']['should'] = searches
 
-            if origin_repo_id:
-                repo_id = origin_repo_id
+            if origin_paths:
                 if search_path:
-                    search_path = os.path.join(origin_path, search_path.strip('/'))
+                    search_path = os.path.join(origin_paths[0], search_path.strip('/'))
+                    query_map = self._add_path_filter(query_map, search_path)
                 else:
-                    search_path = origin_path
+                    for origin_path in origin_paths:
+                        query_map = self._add_path_filter(query_map, origin_path)
+            else:
+                if search_path:
+                    query_map = self._add_path_filter(query_map, search_path)
 
             query_map = self._add_suffix_filter(query_map, suffixes)
-            query_map = self._add_path_filter(query_map, search_path)
             query_map = self._add_obj_type_filter(query_map, obj_type)
 
             query_map = self._add_time_range_filter(query_map, time_range)
@@ -252,7 +269,6 @@ class RepoFileIndex(object):
                 'index': index_name,
                 'query': data
             }
-            logger.info(json.dumps(repo_query_info))
             bulk_search_params.append(repo_query_info)
 
             search_path = None
@@ -287,7 +303,7 @@ class RepoFileIndex(object):
             files.append(r)
 
         logger.debug('search keyword: %s, search path: %s, in repos: %s , \nsearch result: %s', keyword, search_path,
-                    repos, files)
+                     repos, files)
 
         return files
 
