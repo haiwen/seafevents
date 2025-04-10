@@ -470,7 +470,7 @@ def get_event_log_by_time(session, log_type, tstart, tend):
 
     return res
 
-def get_log_events_by_type_users_repo(session, log_type, emails, repo_ids, start, limit):
+def get_event_log_by_users_and_repos(session, log_type, emails, repo_ids, start, limit):
     if log_type not in ('file_update', 'file_audit', 'perm_audit'):
         logger.error('Invalid log_type parameter')
         raise RuntimeError('Invalid log_type parameter')
