@@ -448,7 +448,7 @@ def save_perm_audit_event(session, timestamp, etype, from_user, to,
 def get_perm_audit_events(session, from_user, org_id, repo_id, start, limit):
     return get_events(session, PermAudit, from_user, org_id, repo_id, None, start, limit)
 
-def get_event_log_by_time(session, log_type, tstart, tend):
+def get_events_by_time(session, log_type, tstart, tend):
     if log_type not in ('file_update', 'file_audit', 'perm_audit'):
         logger.error('Invalid log_type parameter')
         raise RuntimeError('Invalid log_type parameter')
@@ -470,7 +470,7 @@ def get_event_log_by_time(session, log_type, tstart, tend):
 
     return res
 
-def get_event_log_by_users_and_repos(session, log_type, emails, repo_ids, start, limit):
+def get_events_by_users_and_repos(session, log_type, emails, repo_ids, start, limit):
     if log_type not in ('file_update', 'file_audit', 'perm_audit'):
         logger.error('Invalid log_type parameter')
         raise RuntimeError('Invalid log_type parameter')
