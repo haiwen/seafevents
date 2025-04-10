@@ -448,7 +448,7 @@ def save_perm_audit_event(session, timestamp, etype, from_user, to,
 def get_perm_audit_events(session, from_user, org_id, repo_id, start, limit):
     return get_events(session, PermAudit, from_user, org_id, repo_id, None, start, limit)
 
-def get_event_log_by_time(session, log_type, tstart, tend):
+def get_events_by_time(session, log_type, tstart, tend):
     if log_type not in ('file_update', 'file_audit', 'perm_audit'):
         logger.error('Invalid log_type parameter')
         raise RuntimeError('Invalid log_type parameter')
@@ -466,6 +466,36 @@ def get_event_log_by_time(session, log_type, tstart, tend):
 
     stmt = select(obj).where(obj.timestamp.between(datetime.datetime.utcfromtimestamp(tstart),
                                                    datetime.datetime.utcfromtimestamp(tend)))
+    res = session.scalars(stmt).all()
+
+    return res
+
+def get_events_by_users_and_repos(session, log_type, emails, repo_ids, start, limit):
+    if log_type not in ('file_update', 'file_audit', 'perm_audit'):
+        logger.error('Invalid log_type parameter')
+        raise RuntimeError('Invalid log_type parameter')
+    if log_type == 'file_update':
+        obj = FileUpdate
+    elif log_type == 'file_audit':
+        obj = FileAudit
+    else:
+        obj = PermAudit
+    stmt = select(obj)
+    if emails:
+        if hasattr(obj, 'user'):
+            stmt = stmt.where(obj.user.in_(emails))
+        else:
+            from_users = emails.get('from_emails')
+            to_users = emails.get('to_emails', []) + emails.get('to_groups', [])
+            if from_users:
+                stmt = stmt.where(obj.from_user.in_(from_users))
+            if to_users:
+                stmt = stmt.where(obj.to.in_(to_users))
+    
+    if repo_ids:
+        stmt = stmt.where(obj.repo_id.in_(repo_ids))
+    
+    stmt = stmt.order_by(desc(obj.eid)).slice(start, start + limit)
     res = session.scalars(stmt).all()
 
     return res
