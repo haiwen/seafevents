@@ -154,3 +154,38 @@ class MonthlySysTraffic(Base):
         self.sync_file_download = size_dict['sync_file_download']
         self.link_file_upload = size_dict['link_file_upload']
         self.link_file_download = size_dict['link_file_download']
+        
+        
+class UserQuotaUsage(Base):
+    __tablename__ = 'user_quota_usage'
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    org_id = mapped_column(Integer)
+    username = mapped_column(String(length=255), unique=True)
+    usage = mapped_column(BigInteger, nullable=False)
+    quota = mapped_column(BigInteger, nullable=False)
+    timestamp = mapped_column(DateTime, nullable=False, index=True)
+    
+    def __init__(self, org_id, username, usage, quota, timestamp):
+        super().__init__()
+        self.org_id = org_id
+        self.username = username
+        self.usage = usage
+        self.quota = quota
+        self.timestamp = timestamp
+        
+        
+class OrgQuotaUsage(Base):
+    __tablename__ = 'org_quota_usage'
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    org_id = mapped_column(Integer, unique=True)
+    usage = mapped_column(BigInteger, nullable=False)
+    quota = mapped_column(BigInteger, nullable=False)
+    timestamp = mapped_column(DateTime, nullable=False, index=True)
+    
+    def __init__(self, org_id, usage, quota, timestamp):
+        super().__init__()
+        self.org_id = org_id
+        self.usage = usage
+        self.quota = quota
+        self.timestamp = timestamp
+        
