@@ -193,7 +193,7 @@ def add_init_face_recognition_task():
 
 
 @app.route('/recognize-faces', methods=['POST'])
-def recognize_faces_menu():
+def recognize_faces():
     is_valid = check_auth_token(request)
     if not is_valid:
         return {'error_msg': 'Permission denied'}, 403

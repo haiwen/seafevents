@@ -1,0 +1,109 @@
+[2025-04-03 12:58:56] [INFO] face_recognition:168 face cluster worker process initialized.
+[2025-04-03 12:58:56] [INFO] face_recognition:76 face_cluster_0 starting face cluster
+[2025-04-03 12:58:57] [INFO] face_recognition:76 face_cluster_1 starting face cluster
+[2025-04-03 12:58:57] [INFO] face_recognition:76 face_cluster_2 starting face cluster
+[2025-04-03 12:58:57] [INFO] face_recognition:125 refresh_thread Starting refresh locks
+[2025-04-03 14:45:12] [INFO] face_recognition:168 face cluster worker process initialized.
+[2025-04-03 14:45:12] [INFO] face_recognition:76 face_cluster_0 starting face cluster
+[2025-04-03 14:45:12] [INFO] face_recognition:76 face_cluster_1 starting face cluster
+[2025-04-03 14:45:12] [INFO] face_recognition:76 face_cluster_2 starting face cluster
+[2025-04-03 14:45:12] [INFO] face_recognition:125 refresh_thread Starting refresh locks
+[2025-04-03 14:50:55] [INFO] face_recognition:104 face_cluster_2 start face cluster repo 46f5012f-62f8-4b96-8c62-ff8b3d1accff
+[2025-04-03 14:50:55] [INFO] face_recognition:233 Updating face cluster repo 46f5012f-62f8-4b96-8c62-ff8b3d1accff
+[2025-04-03 14:50:55] [ERROR] face_recognition:122 update face cluster repo: 46f5012f-62f8-4b96-8c62-ff8b3d1accff, error: 
+Traceback (most recent call last):
+  File "/data/dev/seafevents/face_recognition/face_cluster.py", line 120, in update_face_cluster
+    self.face_recognition_manager.update_face_cluster(repo_id, username=username)
+  File "/data/dev/seafevents/face_recognition/face_recognition_manager.py", line 235, in update_face_cluster
+  File "/data/dev/seafevents/face_recognition/face_recognition_manager.py", line 120, in ensure_face_vectors
+    clt = HDBSCAN(min_cluster_size=min_cluster_size)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/dev/seafevents/face_recognition/face_recognition_manager.py", line 49, in face_embeddings
+    logger.info('repo %s need update face_vectors rows count: %d', repo_id, len(rows))
+    ^^^^^^^^^^^^^^^^^
+Exception
+[2025-04-03 14:50:55] [INFO] face_recognition:113 face_cluster_2 Finish clustering face repo: 46f5012f-62f8-4b96-8c62-ff8b3d1accff, delete redis lock face_cluster_46f5012f-62f8-4b96-8c62-ff8b3d1accff
+[2025-04-03 14:52:17] [INFO] face_recognition:168 face cluster worker process initialized.
+[2025-04-03 14:52:17] [INFO] face_recognition:76 face_cluster_0 starting face cluster
+[2025-04-03 14:52:17] [INFO] face_recognition:76 face_cluster_1 starting face cluster
+[2025-04-03 14:52:17] [INFO] face_recognition:76 face_cluster_2 starting face cluster
+[2025-04-03 14:52:17] [INFO] face_recognition:125 refresh_thread Starting refresh locks
+[2025-04-03 14:57:49] [INFO] face_recognition:104 face_cluster_0 start face cluster repo 46f5012f-62f8-4b96-8c62-ff8b3d1accff
+[2025-04-03 14:57:49] [INFO] face_recognition:196 Updating face cluster repo 46f5012f-62f8-4b96-8c62-ff8b3d1accff
+[2025-04-03 14:57:49] [INFO] face_recognition:49 repo 46f5012f-62f8-4b96-8c62-ff8b3d1accff need update face_vectors rows count: 24
+[2025-04-03 14:57:58] [INFO] face_recognition:73 repo 46f5012f-62f8-4b96-8c62-ff8b3d1accff updated face_vectors rows count: 24, cost time: 9.43
+[2025-04-03 14:57:58] [INFO] face_recognition:84 repo 46f5012f-62f8-4b96-8c62-ff8b3d1accff face vectors is completed
+[2025-04-03 14:58:03] [INFO] face_recognition:204 Finish face cluster repo 46f5012f-62f8-4b96-8c62-ff8b3d1accff
+[2025-04-03 14:58:03] [INFO] face_recognition:113 face_cluster_0 Finish clustering face repo: 46f5012f-62f8-4b96-8c62-ff8b3d1accff, delete redis lock face_cluster_46f5012f-62f8-4b96-8c62-ff8b3d1accff
+[2025-04-03 15:03:08] [INFO] face_recognition:168 face cluster worker process initialized.
+[2025-04-03 15:03:08] [INFO] face_recognition:76 face_cluster_0 starting face cluster
+[2025-04-03 15:03:08] [INFO] face_recognition:76 face_cluster_1 starting face cluster
+[2025-04-03 15:03:08] [INFO] face_recognition:76 face_cluster_2 starting face cluster
+[2025-04-03 15:03:08] [INFO] face_recognition:125 refresh_thread Starting refresh locks
+[2025-04-03 15:23:23] [INFO] face_recognition:168 face cluster worker process initialized.
+[2025-04-03 15:23:23] [INFO] face_recognition:76 face_cluster_0 starting face cluster
+[2025-04-03 15:23:23] [INFO] face_recognition:76 face_cluster_1 starting face cluster
+[2025-04-03 15:23:23] [INFO] face_recognition:76 face_cluster_2 starting face cluster
+[2025-04-03 15:23:23] [INFO] face_recognition:125 refresh_thread Starting refresh locks
+[2025-04-03 15:26:29] [INFO] face_recognition:168 face cluster worker process initialized.
+[2025-04-03 15:26:29] [INFO] face_recognition:76 face_cluster_0 starting face cluster
+[2025-04-03 15:26:29] [INFO] face_recognition:76 face_cluster_1 starting face cluster
+[2025-04-03 15:26:29] [INFO] face_recognition:76 face_cluster_2 starting face cluster
+[2025-04-03 15:26:29] [INFO] face_recognition:125 refresh_thread Starting refresh locks
+[2025-04-03 15:32:49] [INFO] face_recognition:168 face cluster worker process initialized.
+[2025-04-03 15:32:49] [INFO] face_recognition:76 face_cluster_0 starting face cluster
+[2025-04-03 15:32:49] [INFO] face_recognition:76 face_cluster_1 starting face cluster
+[2025-04-03 15:32:49] [INFO] face_recognition:76 face_cluster_2 starting face cluster
+[2025-04-03 15:32:49] [INFO] face_recognition:125 refresh_thread Starting refresh locks
+[2025-04-03 15:40:03] [INFO] face_recognition:168 face cluster worker process initialized.
+[2025-04-03 15:40:03] [INFO] face_recognition:76 face_cluster_0 starting face cluster
+[2025-04-03 15:40:03] [INFO] face_recognition:76 face_cluster_1 starting face cluster
+[2025-04-03 15:40:03] [INFO] face_recognition:76 face_cluster_2 starting face cluster
+[2025-04-03 15:40:03] [INFO] face_recognition:125 refresh_thread Starting refresh locks
+[2025-04-03 15:42:55] [INFO] face_recognition:168 face cluster worker process initialized.
+[2025-04-03 15:42:55] [INFO] face_recognition:76 face_cluster_0 starting face cluster
+[2025-04-03 15:42:55] [INFO] face_recognition:76 face_cluster_1 starting face cluster
+[2025-04-03 15:42:55] [INFO] face_recognition:76 face_cluster_2 starting face cluster
+[2025-04-03 15:42:55] [INFO] face_recognition:125 refresh_thread Starting refresh locks
+[2025-04-03 15:54:12] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 15:54:14] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-03 16:22:56] [INFO] face_recognition:168 face cluster worker process initialized.
+[2025-04-03 16:22:56] [INFO] face_recognition:76 face_cluster_0 starting face cluster
+[2025-04-03 16:22:56] [INFO] face_recognition:76 face_cluster_1 starting face cluster
+[2025-04-03 16:22:56] [INFO] face_recognition:76 face_cluster_2 starting face cluster
+[2025-04-03 16:22:56] [INFO] face_recognition:125 refresh_thread Starting refresh locks
+[2025-04-03 16:27:31] [INFO] face_recognition:168 face cluster worker process initialized.
+[2025-04-03 16:27:31] [INFO] face_recognition:76 face_cluster_0 starting face cluster
+[2025-04-03 16:27:31] [INFO] face_recognition:76 face_cluster_1 starting face cluster
+[2025-04-03 16:27:31] [INFO] face_recognition:76 face_cluster_2 starting face cluster
+[2025-04-03 16:27:31] [INFO] face_recognition:125 refresh_thread Starting refresh locks
+[2025-04-07 10:09:32] [INFO] face_recognition:104 face_cluster_2 start face cluster repo 46f5012f-62f8-4b96-8c62-ff8b3d1accff
+[2025-04-07 10:09:32] [INFO] face_recognition:196 Updating face cluster repo 46f5012f-62f8-4b96-8c62-ff8b3d1accff
+[2025-04-07 10:09:37] [INFO] face_recognition:204 Finish face cluster repo 46f5012f-62f8-4b96-8c62-ff8b3d1accff
+[2025-04-07 10:09:37] [INFO] face_recognition:113 face_cluster_2 Finish clustering face repo: 46f5012f-62f8-4b96-8c62-ff8b3d1accff, delete redis lock face_cluster_46f5012f-62f8-4b96-8c62-ff8b3d1accff
+[2025-04-07 17:23:34] [INFO] face_recognition:153 Exit face cluster process
+[2025-04-07 17:23:34] [INFO] face_recognition:153 Exit face cluster process
