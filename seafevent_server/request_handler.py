@@ -12,7 +12,7 @@ from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
 from seafevents.app.cache_provider import cache
 from seafevents.app.event_redis import redis_cache, REDIS_METRIC_KEY
-from seafevents.face_recognition.utils import recognize_faces
+from seafevents.face_recognition.utils import recognize_faces_by_obj_ids
 
 
 app = Flask(__name__)
@@ -213,7 +213,7 @@ def recognize_faces():
         return {'error_msg': 'repo_id invalid.'}, 400
 
     try:
-        recognize_faces(repo_id, obj_ids)
+        recognize_faces_by_obj_ids(repo_id, obj_ids)
     except Exception as e:
         logger.error(e)
         return {'error_msg': 'Internal Server Error'}, 500

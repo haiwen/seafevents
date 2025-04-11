@@ -123,7 +123,7 @@ def save_face(repo_id, image, filename, replace=False):
     os.remove(tmp_content_path)
 
 
-def recognize_faces(repo_id, obj_ids):
+def recognize_faces_by_obj_ids(repo_id, obj_ids):
     metadata_server_api = MetadataServerAPI('seafevents')
     seafile_ai_api = SeafileAIAPI(SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY)
     query_result = get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api)
