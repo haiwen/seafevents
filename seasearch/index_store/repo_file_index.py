@@ -40,7 +40,7 @@ class RepoFileIndex(object):
             },
             'content': {
                 'type': 'text',
-                'analyzer': 'standard',
+                'analyzer': 'gse_standard',
                 'highlightable': True
             },
             'suffix': {
@@ -254,7 +254,6 @@ class RepoFileIndex(object):
                 'index': index_name,
                 'query': data
             }
-            logger.info(json.dumps(repo_query_info))
             bulk_search_params.append(repo_query_info)
 
             search_path = None
