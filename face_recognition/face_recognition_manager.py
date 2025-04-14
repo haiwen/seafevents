@@ -56,9 +56,6 @@ class FaceRecognitionManager(object):
             path = os.path.join(parent_dir, file_name)
             token = seafile_api.get_fileserver_access_token(repo_id, obj_id, 'download', 'system', use_onetime=True)
             faces = self.seafile_ai_api.face_embeddings(path, token).get('faces', [])
-            if not faces:
-                continue
-
             face_embeddings = [face['embedding'] for face in faces]
             vector = b64encode_embeddings(face_embeddings) if face_embeddings else VECTOR_DEFAULT_FLAG
             row_id = row[METADATA_TABLE.columns.id.name]
