@@ -135,7 +135,7 @@ class QuotaUsageCounter(object):
 
 class RepoChangeInfoCollector(Thread):
     """
-    Collect metrics from redis channel and save to local variable
+    Collect repo_id from redis queue and save to local variable
     """
     
     def __init__(self):
@@ -169,7 +169,7 @@ class RepoChangeInfoCollector(Thread):
 
 class QuotaUsageSaveTimer(Thread):
     """
-    Save metrics to redis
+    Save user / org quota usage to databases
     """
     
     def __init__(self, config, interval):
