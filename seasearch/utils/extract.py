@@ -14,7 +14,7 @@ from seafevents.seasearch.utils.constants import text_suffixes, office_suffixes,
 
 from seafobj import fs_mgr
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('seasearch')
 
 class ZipString(ZipFile):
     def __init__(self, content):

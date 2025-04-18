@@ -10,7 +10,7 @@ from seafevents.repo_data import repo_data
 from seafevents.utils import parse_bool, get_opt_from_conf_or_env, parse_interval
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('seasearch')
 
 
 class SeasearchWikiIndexUpdater(object):
@@ -74,7 +74,7 @@ class SeasearchWikiIndexUpdater(object):
                 wiki_file_size_limit=int(wiki_size_limit) * 1024 * 1024,
             )
         except Exception as e:
-            logger.warning('Failed to init seasearch wiki index object, error: %s', e)
+            logging.warning('Failed to init seasearch wiki index object, error: %s', e)
             self._enabled = False
             return
         self._index_manager = IndexManager(config)
@@ -148,11 +148,11 @@ class WikiIndexUpdaterTimer(Thread):
         while not self.finished.is_set():
             self.finished.wait(self.interval)
             if not self.finished.is_set():
-                logging.info('Start to update wiki index...')
+                logger.info('Start to update wiki index...')
                 try:
                     update_wiki_indexes(self.wiki_status_index, self.wiki_index, self.index_manager, self.repo_data)
                 except Exception as e:
-                    logging.exception('periodical update wiki index error: %s', e)
+                    logger.exception('periodical update wiki index error: %s', e)
 
     def cancel(self):
         self.finished.set()

@@ -9,7 +9,7 @@ from seafevents.repo_data import repo_data
 from seafevents.utils import parse_bool, get_opt_from_conf_or_env
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('seasearch')
 
 
 class IndexTaskManager:

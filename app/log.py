@@ -51,7 +51,7 @@ class LogConfigurator(object):
 
     def add_face_recognition_logger(self, logfile):
         logger = logging.getLogger('face_recognition')
-        
+
         seafile_log_to_stdout = os.getenv('SEAFILE_LOG_TO_STDOUT', 'false') == 'true'
         if seafile_log_to_stdout:
             handler = logging.StreamHandler(sys.stdout)
@@ -59,6 +59,26 @@ class LogConfigurator(object):
         else:
             handler = logging.handlers.TimedRotatingFileHandler(logfile, when='W0', interval=1)
             formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
+        handler.setLevel(self._level)
+        handler.setFormatter(formatter)
+
+        logger.setLevel(self._level)
+        logger.addHandler(handler)
+        logger.propagate = False
+
+    def add_seasearch_logger(self, logfile):
+        logger = logging.getLogger('seasearch')
+
+        seafile_log_to_stdout = os.getenv('SEAFILE_LOG_TO_STDOUT', 'false') == 'true'
+        if seafile_log_to_stdout:
+            handler = logging.StreamHandler(sys.stdout)
+            formatter = logging.Formatter('[seafevents] [%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(message)s',
+                                          datefmt='%Y-%m-%d %H:%M:%S')
+        else:
+            handler = logging.handlers.TimedRotatingFileHandler(logfile, when='W0', interval=1)
+            formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] %(name)s:%(lineno)s %(message)s',
+                                          datefmt='%Y-%m-%d %H:%M:%S')
 
         handler.setLevel(self._level)
         handler.setFormatter(formatter)

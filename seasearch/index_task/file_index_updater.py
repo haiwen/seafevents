@@ -11,7 +11,7 @@ from seafevents.utils import parse_bool, get_opt_from_conf_or_env, parse_interva
 from seafevents.events.metrics import handle_metric_timing
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('seasearch')
 
 
 class RepoFileIndexUpdater(object):
@@ -73,7 +73,7 @@ class RepoFileIndexUpdater(object):
                 config
             )
         except Exception as e:
-            logger.warning('Failed to init seasearch file index object, error: %s', e)
+            logging.warning('Failed to init seasearch file index object, error: %s', e)
             self._enabled = False
             return
         self._index_manager = IndexManager(config)
@@ -158,11 +158,11 @@ class RepoFileIndexUpdaterTimer(Thread):
         while not self.finished.is_set():
             self.finished.wait(self.interval)
             if not self.finished.is_set():
-                logging.info('starts to update seasearch file index...')
+                logger.info('starts to update seasearch file index...')
                 try:
                     update_repo_file_indexes(self.repo_status_file_index, self.repo_file_index, self.index_manager, self.repo_data)
                 except Exception as e:
-                    logging.exception('periodical update seasearch file index error: %s', e)
+                    logger.exception('periodical update seasearch file index error: %s', e)
 
     def cancel(self):
         self.finished.set()

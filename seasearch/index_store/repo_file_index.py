@@ -13,6 +13,7 @@ from seafevents.utils import isoformat_timestr_to_timestamp
 logger = logging.getLogger(__name__)
 
 SEASEARCH_BULK_OPETATE_LIMIT = 100
+SEASEARCH_BULK_OPETATE_SIZE_LIMIT = 100 * 1024
 
 
 class RepoFileIndex(object):
@@ -335,13 +336,16 @@ class RepoFileIndex(object):
             content = self.parse_content(repo_id, path, size, obj_id, version)
 
             doc_info['content'] = content
-            bulk_add_params.append(index_info)
-            bulk_add_params.append(doc_info)
 
-            # bulk add every 2000 params
-            if len(bulk_add_params) >= SEASEARCH_BULK_OPETATE_LIMIT:
-                self.seasearch_api.bulk(index_name, bulk_add_params)
-                bulk_add_params = []
+            if content is not None and size > SEASEARCH_BULK_OPETATE_SIZE_LIMIT:
+                self.seasearch_api.update_document_by_id(index_name, md5(path), doc_info)
+            else:
+                bulk_add_params.append(index_info)
+                bulk_add_params.append(doc_info)
+
+                if len(bulk_add_params) >= SEASEARCH_BULK_OPETATE_LIMIT:
+                    self.seasearch_api.bulk(index_name, bulk_add_params)
+                    bulk_add_params = []
         if bulk_add_params:
             self.seasearch_api.bulk(index_name, bulk_add_params)
 
@@ -397,7 +401,6 @@ class RepoFileIndex(object):
             bulk_add_params.append(index_info)
             bulk_add_params.append(doc_info)
 
-            # bulk add every 2000 params
             if len(bulk_add_params) >= SEASEARCH_BULK_OPETATE_LIMIT:
                 self.seasearch_api.bulk(index_name, bulk_add_params)
                 bulk_add_params = []
@@ -411,7 +414,6 @@ class RepoFileIndex(object):
             if is_sys_dir_or_file(path):
                 continue
             delete_params.append({'delete': {'_id': md5(path), '_index': index_name}})
-            # bulk add every 2000 params
             if len(delete_params) >= SEASEARCH_BULK_OPETATE_LIMIT:
                 self.seasearch_api.bulk(index_name, delete_params)
                 delete_params = []
@@ -427,7 +429,6 @@ class RepoFileIndex(object):
                 continue
             path = path + '/' if path != '/' else path
             delete_params.append({'delete': {'_id': md5(path), '_index': index_name}})
-            # bulk add every 2000 params
             if len(delete_params) >= SEASEARCH_BULK_OPETATE_LIMIT:
                 self.seasearch_api.bulk(index_name, delete_params)
                 delete_params = []
