@@ -98,7 +98,7 @@ class RepoFileIndex(object):
     def _parse_config(self):
         section_name = 'SEASEARCH'
         self.office_file_size_limit = get_opt_from_conf_or_env(
-            self.config, section_name, 'office_file_size_limit', default=int(5)
+            self.config, section_name, 'office_file_size_limit', default=int(10)
         ) * 1024 * 1024
 
         index_office_pdf = get_opt_from_conf_or_env(self.config, section_name, 'index_office_pdf', default=False)
