@@ -10,7 +10,7 @@ from seafobj import fs_mgr, commit_mgr
 from seaserv import seafile_api
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('seasearch')
 
 
 SEASEARCH_WIKI_BULK_ADD_LIMIT = 10

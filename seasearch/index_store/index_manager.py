@@ -12,7 +12,7 @@ from seafevents.utils import timestamp_to_isoformat_timestr
 
 from seafevents.repo_metadata.utils import query_metadata_rows
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('seasearch')
 
 
 class IndexManager(object):
