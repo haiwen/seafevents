@@ -93,9 +93,9 @@ class FaceRecognitionManager(object):
                     if not unclustered_rows:
                         metadata = self.metadata_server_api.get_metadata(repo_id)
                         tables = metadata.get('tables', [])
-                        if not tables:
+                        faces_table_id = next((table['id'] for table in tables if table['name'] == FACES_TABLE.name), None)
+                        if not faces_table_id:
                             return
-                        faces_table_id = [table['id'] for table in tables if table['name'] == FACES_TABLE.name][0]
                         result = self.metadata_server_api.insert_rows(repo_id, faces_table_id, [{
                             FACES_TABLE.columns.name.name: UNKNOWN_PEOPLE_NAME,
                         }])
