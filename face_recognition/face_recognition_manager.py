@@ -90,6 +90,19 @@ class FaceRecognitionManager(object):
                 if cluster:
                     cluster_id = cluster[FACES_TABLE.columns.id.name]
                 else:
+                    if not unclustered_rows:
+                        metadata = self.metadata_server_api.get_metadata(repo_id)
+                        tables = metadata.get('tables', [])
+                        if not tables:
+                            return
+                        faces_table_id = [table['id'] for table in tables if table['name'] == FACES_TABLE.name][0]
+                        result = self.metadata_server_api.insert_rows(repo_id, faces_table_id, [{
+                            FACES_TABLE.columns.name.name: UNKNOWN_PEOPLE_NAME,
+                        }])
+                        face_row_id = result.get('row_ids')[0]
+                        unclustered_rows = [{
+                            FACES_TABLE.columns.id.name: face_row_id
+                        }]
                     cluster_id = unclustered_rows[0][FACES_TABLE.columns.id.name]
 
                 row_id = row[METADATA_TABLE.columns.id.name]
