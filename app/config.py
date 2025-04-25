@@ -41,7 +41,7 @@ except ImportError:
 # config from env
 REDIS_HOST = os.environ.get('REDIS_HOST', '')
 REDIS_PORT = os.environ.get('REDIS_PORT', '')
-REDIS_PASSWORD = os.environ.get('REDIS_PASSPORT', '')
+REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '')
 MEMCACHED_HOST = os.environ.get('MEMCACHED_HOST', '')
 MEMCACHED_PORT = os.environ.get('MEMCACHED_PORT', '')
 CACHE_PROVIDER = os.environ.get('CACHE_PROVIDER', 'memcached')
