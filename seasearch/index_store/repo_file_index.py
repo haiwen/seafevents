@@ -37,7 +37,7 @@ class RepoFileIndex(object):
             },
             'description': {
                 'type': 'text',
-                'analyzer': 'standard'
+                'analyzer': 'gse_standard'
             },
             'content': {
                 'type': 'text',
@@ -92,6 +92,7 @@ class RepoFileIndex(object):
         self.text_size_limit = 100 * 1024  # 100k
         self.office_file_size_limit = 10 * 1024 * 1024  # 10M
         self.index_office_pdf = False
+        self.lang = 'chinese'
         self.config = config
 
         self._parse_config()
@@ -104,8 +105,12 @@ class RepoFileIndex(object):
 
         index_office_pdf = get_opt_from_conf_or_env(self.config, section_name, 'index_office_pdf', default=False)
         self.index_office_pdf = parse_bool(index_office_pdf)
+        self.lang = get_opt_from_conf_or_env(self.config, section_name, 'lang', default='chinese')
 
     def create_index_if_missing(self, index_name):
+        if self.lang != 'chinese':
+            self.mapping['properties']['description']['analyzer'] = 'standard'
+            self.mapping['properties']['content']['analyzer'] = 'standard'
         if not self.seasearch_api.check_index_mapping(index_name).get('is_exist'):
             data = {
                 'shard_num': self.shard_num,
