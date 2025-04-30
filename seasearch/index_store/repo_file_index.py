@@ -13,7 +13,7 @@ from seafevents.utils import isoformat_timestr_to_timestamp
 logger = logging.getLogger(__name__)
 
 SEASEARCH_BULK_OPETATE_LIMIT = 100
-SEASEARCH_BULK_OPETATE_SIZE_LIMIT = 100 * 1024
+INDEX_CONTENT_LENGTH_LIMIT = 100 * 1000
 
 
 class RepoFileIndex(object):
@@ -31,7 +31,7 @@ class RepoFileIndex(object):
                     'ngram': {
                         'type': 'text',
                         'index': True,
-                        'analyzer': 'seafile_file_ngram_analyzer',
+                        'analyzer': 'seafile_file_name_ngram_analyzer',
                     },
                 },
             },
@@ -41,7 +41,7 @@ class RepoFileIndex(object):
             },
             'content': {
                 'type': 'text',
-                'analyzer': 'gse_standard',
+                'analyzer': 'gse_standard_analyzer',
                 'highlightable': True
             },
             'suffix': {
@@ -63,16 +63,30 @@ class RepoFileIndex(object):
     index_settings = {
         'analysis': {
             'analyzer': {
-                'seafile_file_ngram_analyzer': {
+                'seafile_file_name_ngram_analyzer': {
                     'type': 'custom',
-                    'tokenizer': 'seafile_file_ngram_tokenizer',
+                    'tokenizer': 'seafile_file_name_ngram_tokenizer',
                     'filter': [
                         'lowercase',
                     ],
+                },
+                'gse_standard_analyzer': {
+                    'type': 'gse_standard',
+                    "char_filter": [
+                        "gse_filter"
+                    ]
+                },
+            },
+            "char_filter": {
+                "gse_filter": {
+                    "type": "mapping",
+                    "mappings": [
+                        "\n =>  "
+                    ]
                 }
             },
             'tokenizer': {
-                'seafile_file_ngram_tokenizer': {
+                'seafile_file_name_ngram_tokenizer': {
                     'type': 'ngram',
                     'min_gram': 4,
                     'max_gram': 4,
@@ -335,17 +349,15 @@ class RepoFileIndex(object):
 
             content = self.parse_content(repo_id, path, size, obj_id, version)
 
+            if content:
+                content = content[:INDEX_CONTENT_LENGTH_LIMIT]
             doc_info['content'] = content
+            bulk_add_params.append(index_info)
+            bulk_add_params.append(doc_info)
 
-            if content is not None and size > SEASEARCH_BULK_OPETATE_SIZE_LIMIT:
-                self.seasearch_api.update_document_by_id(index_name, md5(path), doc_info)
-            else:
-                bulk_add_params.append(index_info)
-                bulk_add_params.append(doc_info)
-
-                if len(bulk_add_params) >= SEASEARCH_BULK_OPETATE_LIMIT:
-                    self.seasearch_api.bulk(index_name, bulk_add_params)
-                    bulk_add_params = []
+            if len(bulk_add_params) >= SEASEARCH_BULK_OPETATE_LIMIT:
+                self.seasearch_api.bulk(index_name, bulk_add_params)
+                bulk_add_params = []
         if bulk_add_params:
             self.seasearch_api.bulk(index_name, bulk_add_params)
 

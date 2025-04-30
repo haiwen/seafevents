@@ -20,8 +20,6 @@ class ZipString(ZipFile):
     def __init__(self, content):
         ZipFile.__init__(self, BytesIO(content))
 
-def extract_html_text(content):
-    return re.sub('<(.|\n)*?>', ' ', content)
 
 def extract_pdf_text(content):
     temp_pdf = tempfile.NamedTemporaryFile()
@@ -66,19 +64,6 @@ def extract_pptx_text(content):
     cleaned = re.sub('<(.|\n)*?>', ' ', content)
     return cleaned.encode()
 
-def extract_xlsx_text(content):
-    doc = ZipString(content)
-    unpacked = doc.infolist()
-    slides = []
-    for item in unpacked:
-        if item.orig_filename.startswith('xl/worksheets') or item.orig_filename.startswith('xl/sharedStrings.xml'):
-            if item.orig_filename.endswith('xml'):
-                slides.append(doc.read(item.orig_filename).decode())
-
-    content = ''.join(slides)
-    cleaned = re.sub('<(.|\n)*?>', ' ', content)
-    return cleaned.encode()
-
 
 def extract_odf_text(content):
     doc = ZipString(content)
@@ -108,12 +93,8 @@ def extract_sdoc_text(content):
 
 
 EXTRACT_TEXT_FUNCS = {
-    'htm': extract_html_text,
-    'html': extract_html_text,
-    'xhtml': extract_html_text,
     'docx': extract_docx_text,
     'pptx': extract_pptx_text,
-    'xlsx': extract_xlsx_text,
     'pdf': extract_pdf_text,
     'odt': extract_odf_text,
     'ods': extract_odf_text,
@@ -121,8 +102,7 @@ EXTRACT_TEXT_FUNCS = {
     'sdoc': extract_sdoc_text,
 }
 
-EXTRACT_TEXT_FUNCS.update(dict([(suffix, lambda content, *args: content)
-                                for suffix in text_suffixes]))
+EXTRACT_TEXT_FUNCS.update(dict([(suffix, lambda content, *args: content) for suffix in text_suffixes]))
 
 def get_file_suffix(path):
     try:
