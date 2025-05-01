@@ -13,7 +13,7 @@ from seafevents.utils import isoformat_timestr_to_timestamp
 logger = logging.getLogger(__name__)
 
 SEASEARCH_BULK_OPETATE_LIMIT = 100
-INDEX_CONTENT_LENGTH_LIMIT = 100 * 1000
+INDEX_CONTENT_LENGTH_LIMIT = 10000
 
 
 class RepoFileIndex(object):
@@ -103,7 +103,7 @@ class RepoFileIndex(object):
         self.seasearch_api = seasearch_api
         self.repo_data = repo_data
         self.shard_num = shard_num
-        self.text_size_limit = 100 * 1024  # 100k
+        self.text_size_limit = 1 * 1024 * 1024  # 1M
         self.office_file_size_limit = 10 * 1024 * 1024  # 10M
         self.index_office_pdf = False
         self.lang = 'chinese'
