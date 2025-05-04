@@ -18,7 +18,6 @@ text_suffixes = [
 office_suffixes = [
     'docx',
     'pptx',
-    'xlsx',
     'pdf',
     'odt',
     'ods',
