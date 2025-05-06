@@ -13,7 +13,7 @@ from seafevents.db import init_db_session_class
 from .models import OrgQuotaUsage, UserQuotaUsage
 from seafevents.utils.seafile_db import SeafileDB
 
-local_repo_ids = {}
+storage_changed_repo_ids = {}
 
 REPO_SIZE_TASK_CHANNEL_NAME = "repo_size_task"
 CACHE_TIME_OUT = 24 * 60 * 60
@@ -128,7 +128,7 @@ class QuotaUsageCounter(object):
             session.commit()
     
     def start_count(self):
-        repos = local_repo_ids.keys()
+        repos = storage_changed_repo_ids.keys()
         logging.info('Start counting quota usage by repos, current %s repos waiting to count' % len(repos))
         for repo_id in repos:
             self.save_org_quota_usage(repo_id)
@@ -162,7 +162,7 @@ class RepoChangeInfoCollector(Thread):
                 if res is not None:
                     key, value = res
                     repo_id = json.loads(value).get('repo_id')
-                    local_repo_ids[repo_id] = 1
+                    storage_changed_repo_ids[repo_id] = 1
             
             except Exception as e:
                 logging.error('Failed to collect repo change information: %s' % e)
@@ -189,7 +189,7 @@ class QuotaUsageSaveTimer(Thread):
                     with SeafileDB() as seafile_db:
                         QuotaUsageCounter(self.config, seafile_db).start_count()
                         
-                    local_repo_ids.clear()
+                    storage_changed_repo_ids.clear()
                 except Exception as e:
                     logging.exception('Save quota usage error: %s', e)
     
