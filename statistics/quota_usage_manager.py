@@ -8,28 +8,30 @@ from seafevents.app.event_redis import RedisClient
 from seafevents.mq import get_mq
 from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 from seafevents.app.cache_provider import cache
-from seaserv import seafile_api
 
 from seafevents.db import init_db_session_class
 from .models import OrgQuotaUsage, UserQuotaUsage
+from seafevents.utils.seafile_db import SeafileDB
 
 local_repo_ids = {}
 
 REPO_SIZE_TASK_CHANNEL_NAME = "repo_size_task"
+CACHE_TIME_OUT = 1
 
 
 class QuotaUsageCounter(object):
     
     def __init__(self, config):
         self._db_session_class = init_db_session_class(config)
+        self.seafile_api = SeafileDB()
     
     def _get_org_id_by_repo_id(self, repo_id):
         
         cache_key = f"{repo_id}_org_id"
         org_id = cache.get(cache_key)
         if not org_id:
-            org_id = seafile_api.get_org_id_by_repo_id(repo_id)
-            cache.set(cache_key, org_id, 24 * 60 * 60)
+            org_id = self.seafile_api.get_org_id_by_repo_id(repo_id)
+            cache.set(cache_key, org_id, CACHE_TIME_OUT)
         return int(org_id)
     
     def _get_repo_owner_by_repo_id(self, repo_id):
@@ -41,11 +43,11 @@ class QuotaUsageCounter(object):
         org_id = self._get_org_id_by_repo_id(repo_id)
         if org_id > 0:
             # org_user
-            repo_owner = seafile_api.get_org_repo_owner(repo_id)
+            repo_owner = self.seafile_api.get_org_repo_owner(repo_id)
         else:
-            repo_owner = seafile_api.get_repo_owner(repo_id)
+            repo_owner = self.seafile_api.get_repo_owner(repo_id)
         
-        cache.set(cache_key, repo_owner, 24 * 60 * 60)
+        cache.set(cache_key, repo_owner, CACHE_TIME_OUT)
         return repo_owner
     
     def get_available_user_info_by_repo_id(self, repo_id):
@@ -58,12 +60,12 @@ class QuotaUsageCounter(object):
             return None, None, None, None
         
         if org_id > 0:
-            quota_usage = seafile_api.get_org_user_quota_usage(org_id, repo_owner)
-            quota_total = seafile_api.get_org_user_quota(org_id, repo_owner)
+            quota_usage = self.seafile_api.get_org_user_quota_usage(org_id, repo_owner)
+            quota_total = self.seafile_api.get_org_user_quota(org_id, repo_owner)
         
         else:
-            quota_usage = seafile_api.get_user_self_usage(repo_owner)
-            quota_total = seafile_api.get_user_quota(repo_owner)
+            quota_usage = self.seafile_api.get_user_self_usage(repo_owner)
+            quota_total = self.seafile_api.get_user_quota(repo_owner)
         
         return org_id, repo_owner, quota_usage, quota_total
     
@@ -71,8 +73,8 @@ class QuotaUsageCounter(object):
         # org usage, org quota
         org_id = self._get_org_id_by_repo_id(repo_id)
         if org_id > 0:
-            org_quota_usage = seafile_api.get_org_quota_usage(org_id)
-            org_quota_total = seafile_api.get_org_quota(org_id)
+            org_quota_usage = self.seafile_api.get_org_quota_usage(org_id)
+            org_quota_total = self.seafile_api.get_org_quota(org_id)
         else:
             return None, None, None
         
