@@ -16,14 +16,14 @@ from seafevents.utils.seafile_db import SeafileDB
 local_repo_ids = {}
 
 REPO_SIZE_TASK_CHANNEL_NAME = "repo_size_task"
-CACHE_TIME_OUT = 1
+CACHE_TIME_OUT = 24 * 60 * 60
 
 
 class QuotaUsageCounter(object):
     
-    def __init__(self, config):
+    def __init__(self, config, seafile_db=None):
         self._db_session_class = init_db_session_class(config)
-        self.seafile_api = SeafileDB()
+        self.seafile_api = seafile_db
     
     def _get_org_id_by_repo_id(self, repo_id):
         
@@ -186,7 +186,9 @@ class QuotaUsageSaveTimer(Thread):
             self.finished.wait(self._interval)
             if not self.finished.is_set():
                 try:
-                    QuotaUsageCounter(self.config).start_count()
+                    with SeafileDB() as seafile_db:
+                        QuotaUsageCounter(self.config, seafile_db).start_count()
+                        
                     local_repo_ids.clear()
                 except Exception as e:
                     logging.exception('Save quota usage error: %s', e)

@@ -141,30 +141,25 @@ class SeafileDB(object):
     
     def get_repo_owner(self, repo_id):
         sql = f"""SELECT owner_id FROM `{self.db_name}`.`RepoOwner` WHERE repo_id="{repo_id}" """
-        print(sql, '111111111111111')
-        with self.seafile_db_cursor as cursor:
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            
-            print(rows, 'get_repo_owner')
-            
-            for row in rows:
-                return row[0]
         
-            return None
+        self.seafile_db_cursor.execute(sql)
+        rows = self.seafile_db_cursor.fetchall()
+        
+        for row in rows:
+            return row[0]
+    
+        return None
     
     def get_org_repo_owner(self, repo_id):
         sql = f"""SELECT user FROM `{self.db_name}`.`OrgRepo` WHERE repo_id="{repo_id}" """
-        with self.seafile_db_cursor as cursor:
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            
-            print(rows, 'get_org_repo_owner')
         
-            for row in rows:
-                return row[0]
+        self.seafile_db_cursor.execute(sql)
+        rows = self.seafile_db_cursor.fetchall()
         
-            return None
+        for row in rows:
+            return row[0]
+    
+        return None
         
     def get_user_self_usage(self, email):
         sql = f"""
@@ -175,29 +170,25 @@ class SeafileDB(object):
         v.repo_id IS NULL
         
         """
-        with self.seafile_db_cursor as cursor:
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            
-            print(rows, 'get_user_self_usage')
-    
-            for row in rows:
-                return row[0]
-    
-            return None
+        self.seafile_db_cursor.execute(sql)
+        rows = self.seafile_db_cursor.fetchall()
+        
+        for row in rows:
+            return row[0]
+
+        return None
     
     def get_user_quota(self, email):
         sql = f"""SELECT quota FROM `{self.db_name}`.`UserQuota` WHERE user="{email}" """
-        with self.seafile_db_cursor as cursor:
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            
-            print(rows, 'get_user_quota')
         
-            for row in rows:
+        self.seafile_db_cursor.execute(sql)
+        rows = self.seafile_db_cursor.fetchall()
+        
+        for row in rows:
+            if row[0] > 0:
                 return row[0]
-        
-            return -2
+    
+        return -2
     
     
     def get_org_user_quota_usage(self, org_id, email):
@@ -210,43 +201,37 @@ class SeafileDB(object):
          v.repo_id IS NULL
 
         """
-        with self.seafile_db_cursor as cursor:
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            
-            print(rows, 'get_org_user_quota_usage')
         
-            for row in rows:
-                return row[0]
+        self.seafile_db_cursor.execute(sql)
+        rows = self.seafile_db_cursor.fetchall()
         
-            return None
+        for row in rows:
+            return row[0]
+    
+        return None
     
     def get_org_user_quota(self, org_id, email):
         sql = f"""SELECT quota FROM `{self.db_name}`.`OrgUserQuota` WHERE org_id={org_id} AND user="{email}" """
-        with self.seafile_db_cursor as cursor:
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            
-            print(rows, 'get_org_user_quota')
         
-            for row in rows:
+        self.seafile_db_cursor.execute(sql)
+        rows = self.seafile_db_cursor.fetchall()
+        
+        for row in rows:
+            if row[0] > 0:
                 return row[0]
-        
-            return -2
+    
+        return -2
         
     
     def get_org_id_by_repo_id(self, repo_id):
         sql = f"""SELECT org_id FROM `{self.db_name}`.`OrgRepo` WHERE repo_id="{repo_id}" """
-        with self.seafile_db_cursor as cursor:
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            
-            print(rows, 'get_org_id_by_repo_id')
+        self.seafile_db_cursor.execute(sql)
+        rows = self.seafile_db_cursor.fetchall()
         
-            for row in rows:
-                return row[0]
-        
-            return -1
+        for row in rows:
+            return row[0]
+    
+        return -1
     
     def get_org_quota_usage(self, org_id):
         sql = f"""
@@ -257,27 +242,23 @@ class SeafileDB(object):
                  v.repo_id IS NULL
 
                 """
-        with self.seafile_db_cursor as cursor:
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            
-            print(rows, 'get_org_quota_usage')
         
-            for row in rows:
-                return row[0]
+        self.seafile_db_cursor.execute(sql)
+        rows = self.seafile_db_cursor.fetchall()
         
-            return None
+        for row in rows:
+            return row[0]
+    
+        return None
     
     def get_org_quota(self, org_id):
         sql = f"""SELECT quota FROM `{self.db_name}`.`OrgQuota` WHERE org_id={org_id}"""
-        with self.seafile_db_cursor as cursor:
-            cursor.execute(sql)
-            rows = cursor.fetchall()
-            
-            print(rows, 'get_org_quota')
+        self.seafile_db_cursor.execute(sql)
+        rows = self.seafile_db_cursor.fetchall()
         
-            for row in rows:
+        for row in rows:
+            if row[0] > 0:
                 return row[0]
-        
-            return -2
+    
+        return -2
         
