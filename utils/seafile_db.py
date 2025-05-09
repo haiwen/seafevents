@@ -2,6 +2,7 @@ import os
 import configparser
 import logging
 from seafevents.app.config import get_config
+from seaserv import seafile_api
 
 
 logger = logging.getLogger('seafevents')
@@ -143,24 +144,25 @@ class SeafileDB(object):
         sql = f"""SELECT owner_id FROM `{self.db_name}`.`RepoOwner` WHERE repo_id="{repo_id}" """
         
         self.seafile_db_cursor.execute(sql)
-        rows = self.seafile_db_cursor.fetchall()
+        row = self.seafile_db_cursor.fetchone()
+        if not row:
+            return None
         
-        for row in rows:
-            return row[0]
-    
-        return None
+        return row[0]
+        
     
     def get_org_repo_owner(self, repo_id):
         sql = f"""SELECT user FROM `{self.db_name}`.`OrgRepo` WHERE repo_id="{repo_id}" """
         
         self.seafile_db_cursor.execute(sql)
-        rows = self.seafile_db_cursor.fetchall()
+        row = self.seafile_db_cursor.fetchone()
         
-        for row in rows:
-            return row[0]
+        if not row:
+            return None
+        
+        return row[0]
+        
     
-        return None
-        
     def get_user_self_usage(self, email):
         sql = f"""
         SELECT SUM(size) FROM
@@ -171,25 +173,12 @@ class SeafileDB(object):
         
         """
         self.seafile_db_cursor.execute(sql)
-        rows = self.seafile_db_cursor.fetchall()
+        row = self.seafile_db_cursor.fetchone()
+        if not row:
+            return None
         
-        for row in rows:
-            return row[0]
-
-        return None
-    
-    def get_user_quota(self, email):
-        sql = f"""SELECT quota FROM `{self.db_name}`.`UserQuota` WHERE user="{email}" """
+        return row[0]
         
-        self.seafile_db_cursor.execute(sql)
-        rows = self.seafile_db_cursor.fetchall()
-        
-        for row in rows:
-            if row[0] > 0:
-                return row[0]
-    
-        return -2
-    
     
     def get_org_user_quota_usage(self, org_id, email):
         sql = f"""
@@ -203,35 +192,24 @@ class SeafileDB(object):
         """
         
         self.seafile_db_cursor.execute(sql)
-        rows = self.seafile_db_cursor.fetchall()
+        row = self.seafile_db_cursor.fetchone()
         
-        for row in rows:
-            return row[0]
-    
-        return None
-    
-    def get_org_user_quota(self, org_id, email):
-        sql = f"""SELECT quota FROM `{self.db_name}`.`OrgUserQuota` WHERE org_id={org_id} AND user="{email}" """
+        if not row:
+            return None
         
-        self.seafile_db_cursor.execute(sql)
-        rows = self.seafile_db_cursor.fetchall()
-        
-        for row in rows:
-            if row[0] > 0:
-                return row[0]
-    
-        return -2
-        
-    
+        return row[0]
+
+
     def get_org_id_by_repo_id(self, repo_id):
         sql = f"""SELECT org_id FROM `{self.db_name}`.`OrgRepo` WHERE repo_id="{repo_id}" """
         self.seafile_db_cursor.execute(sql)
-        rows = self.seafile_db_cursor.fetchall()
+        row = self.seafile_db_cursor.fetchone()
         
-        for row in rows:
-            return row[0]
-    
-        return -1
+        if not row:
+            return -1
+        
+        return row[0]
+        
     
     def get_org_quota_usage(self, org_id):
         sql = f"""
@@ -244,21 +222,32 @@ class SeafileDB(object):
                 """
         
         self.seafile_db_cursor.execute(sql)
-        rows = self.seafile_db_cursor.fetchall()
+        row = self.seafile_db_cursor.fetchone()
         
-        for row in rows:
-            return row[0]
+        if not row:
+            return None
+        
+        return row[0]
     
-        return None
+
+    def get_user_quota(self, email):
+        '''
+        Geting user / org_user / org quota is related not only to the records in the database，
+        but also to the configurations in seafile.conf.
+
+        To simplify the logic here, the seafile_api is used to directly obtain the quota
+        instead of directly searching in the database.
+
+        '''
     
+        return seafile_api.get_user_quota(email)
+    
+
+    def get_org_user_quota(self, org_id, email):
+    
+        return seafile_api.get_org_user_quota(org_id, email)
+    
+
     def get_org_quota(self, org_id):
-        sql = f"""SELECT quota FROM `{self.db_name}`.`OrgQuota` WHERE org_id={org_id}"""
-        self.seafile_db_cursor.execute(sql)
-        rows = self.seafile_db_cursor.fetchall()
-        
-        for row in rows:
-            if row[0] > 0:
-                return row[0]
     
-        return -2
-        
+        return seafile_api.get_org_quota(org_id)
