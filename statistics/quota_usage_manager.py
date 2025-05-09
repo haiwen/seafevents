@@ -59,6 +59,9 @@ class QuotaUsageCounter(object):
             # Ignore the repo infomations in department
             return None, None, None, None
         
+        if not repo_owner:
+            return None, None, None, None
+        
         if org_id > 0:
             quota_usage = self.seafile_api.get_org_user_quota_usage(org_id, repo_owner)
             quota_total = self.seafile_api.get_org_user_quota(org_id, repo_owner)
