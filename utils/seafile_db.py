@@ -2,6 +2,7 @@ import os
 import configparser
 import logging
 from seafevents.app.config import get_config
+from seaserv import seafile_api
 
 
 logger = logging.getLogger('seafevents')
@@ -137,3 +138,116 @@ class SeafileDB(object):
         with self.seafile_db_cursor as cursor:
             cursor.execute(sql1)
             cursor.execute(sql2)
+            
+    
+    def get_repo_owner(self, repo_id):
+        sql = f"""SELECT owner_id FROM `{self.db_name}`.`RepoOwner` WHERE repo_id="{repo_id}" """
+        
+        self.seafile_db_cursor.execute(sql)
+        row = self.seafile_db_cursor.fetchone()
+        if not row:
+            return None
+        
+        return row[0]
+        
+    
+    def get_org_repo_owner(self, repo_id):
+        sql = f"""SELECT user FROM `{self.db_name}`.`OrgRepo` WHERE repo_id="{repo_id}" """
+        
+        self.seafile_db_cursor.execute(sql)
+        row = self.seafile_db_cursor.fetchone()
+        
+        if not row:
+            return None
+        
+        return row[0]
+        
+    
+    def get_user_self_usage(self, email):
+        sql = f"""
+        SELECT SUM(size) FROM
+        `{self.db_name}`.`RepoOwner` o LEFT JOIN `{self.db_name}`.`VirtualRepo` v ON o.repo_id=v.repo_id,
+        `{self.db_name}`.`RepoSize` WHERE owner_id="{email}" AND
+        o.repo_id=RepoSize.repo_id AND
+        v.repo_id IS NULL
+        
+        """
+        self.seafile_db_cursor.execute(sql)
+        row = self.seafile_db_cursor.fetchone()
+        if not row:
+            return None
+        
+        return row[0]
+        
+    
+    def get_org_user_quota_usage(self, org_id, email):
+        sql = f"""
+        SELECT SUM(size) FROM
+        `{self.db_name}`.`OrgRepo` o LEFT JOIN `{self.db_name}`.`VirtualRepo` v ON o.repo_id=v.repo_id,
+        `{self.db_name}`.`RepoSize` WHERE org_id={org_id} AND
+         user="{email}" AND
+         o.repo_id=RepoSize.repo_id AND
+         v.repo_id IS NULL
+
+        """
+        
+        self.seafile_db_cursor.execute(sql)
+        row = self.seafile_db_cursor.fetchone()
+        
+        if not row:
+            return None
+        
+        return row[0]
+
+
+    def get_org_id_by_repo_id(self, repo_id):
+        sql = f"""SELECT org_id FROM `{self.db_name}`.`OrgRepo` WHERE repo_id="{repo_id}" """
+        self.seafile_db_cursor.execute(sql)
+        row = self.seafile_db_cursor.fetchone()
+        
+        if not row:
+            return -1
+        
+        return row[0]
+        
+    
+    def get_org_quota_usage(self, org_id):
+        sql = f"""
+                SELECT SUM(size) FROM
+                `{self.db_name}`.`OrgRepo` o LEFT JOIN `{self.db_name}`.`VirtualRepo` v ON o.repo_id=v.repo_id,
+                `{self.db_name}`.`RepoSize` WHERE org_id={org_id} AND
+                 o.repo_id=RepoSize.repo_id AND
+                 v.repo_id IS NULL
+
+                """
+        
+        self.seafile_db_cursor.execute(sql)
+        row = self.seafile_db_cursor.fetchone()
+        
+        if not row:
+            return None
+        
+        return row[0]
+    
+
+    def get_user_quota(self, email):
+        '''
+        Geting user / org_user / org quota is related not only to the records in the database，
+        but also to the configurations in seafile.conf.
+
+        To simplify the logic here, the seafile_api is used to directly obtain the quota
+        instead of directly searching in the database.
+
+        '''
+    
+        return seafile_api.get_user_quota(email)
+    
+
+    def get_org_user_quota(self, org_id, email):
+    
+        return seafile_api.get_org_user_quota(org_id, email)
+    
+
+    def get_org_quota(self, org_id):
+    
+        return seafile_api.get_org_quota(org_id)

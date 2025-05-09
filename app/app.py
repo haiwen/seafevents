@@ -11,6 +11,7 @@ from seafevents.app.config import ENABLE_METADATA_MANAGEMENT
 from seafevents.seasearch.index_task.file_index_updater import RepoFileIndexUpdater
 from seafevents.seasearch.index_task.wiki_index_updater import SeasearchWikiIndexUpdater
 from seafevents.events.metrics import MetricsManager
+from seafevents.statistics.quota_usage_manager import QuotaUsageManager
 
 
 class App(object):
@@ -39,6 +40,7 @@ class App(object):
             self._repo_old_file_auto_del_scanner = RepoOldFileAutoDelScanner(config)
             self._deleted_files_count_cleaner = DeletedFilesCountCleaner(config)
             self._metrics_manager = MetricsManager()
+            self._quota_usage_manager = QuotaUsageManager(config)
 
             if ENABLE_METADATA_MANAGEMENT:
                 self._index_master = RepoMetadataIndexMaster(config)
@@ -77,3 +79,5 @@ class App(object):
             self._repo_file_index_updater.start()
             self._seasearch_wiki_index_updater.start()
             self._es_wiki_index_updater.start()
+            
+            self._quota_usage_manager.start()
