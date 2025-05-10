@@ -132,7 +132,8 @@ class QuotaUsageCounter(object):
     
     def start_count(self):
         repos = storage_changed_repo_ids.keys()
-        logging.info('Start counting quota usage by repos, current %s repos waiting to count' % len(repos))
+        if len(repos) > 0:
+            logging.info('Start counting quota usage by repos, current %s repos waiting to count' % len(repos))
         for repo_id in repos:
             try:
                 self.save_org_quota_usage(repo_id)
