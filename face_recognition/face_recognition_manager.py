@@ -40,7 +40,7 @@ class FaceRecognitionManager(object):
         return record[0] if record else None
 
     def is_support_format(self, suffix):
-        if suffix in SUPPORTED_IMAGE_FORMATS:
+        if suffix.lower() in SUPPORTED_IMAGE_FORMATS:
             return True
 
         return False
@@ -114,7 +114,8 @@ class FaceRecognitionManager(object):
             self.metadata_server_api.update_link(repo_id, FACES_TABLE.face_link_id, METADATA_TABLE.id, row_id_map)
 
     def ensure_face_vectors(self, repo_id):
-        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.suffix.name}` in {SUPPORTED_IMAGE_FORMATS} AND `{METADATA_TABLE.columns.face_vectors.name}` IS NULL'
+        support_formats = tuple(list(SUPPORTED_IMAGE_FORMATS) + [f.upper() for f in SUPPORTED_IMAGE_FORMATS])
+        sql = f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}`, `{METADATA_TABLE.columns.obj_id.name}` FROM `{METADATA_TABLE.name}` WHERE `{METADATA_TABLE.columns.suffix.name}` in {support_formats} AND `{METADATA_TABLE.columns.face_vectors.name}` IS NULL'
 
         query_result = query_metadata_rows(repo_id, self.metadata_server_api, sql)
         if not query_result:
