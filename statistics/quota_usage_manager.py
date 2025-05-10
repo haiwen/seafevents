@@ -18,7 +18,6 @@ storage_changed_repo_ids = {}
 REPO_SIZE_TASK_CHANNEL_NAME = "repo_size_task"
 CACHE_TIME_OUT = 24 * 60 * 60
 
-
 class QuotaUsageCounter(object):
     
     def __init__(self, config, seafile_db=None):
@@ -55,11 +54,12 @@ class QuotaUsageCounter(object):
         org_id = self._get_org_id_by_repo_id(repo_id)
         repo_owner = self._get_repo_owner_by_repo_id(repo_id)
         
-        if '@seafile_group' in repo_owner:
-            # Ignore the repo infomations in department
+        if not repo_owner:
+            logging.warning(f'The repo {repo_id} has no repo_owner when counting quota usage.')
             return None, None, None, None
         
-        if not repo_owner:
+        if '@seafile_group' in repo_owner:
+            # Ignore the repo infomations in department
             return None, None, None, None
         
         if org_id > 0:
@@ -134,8 +134,13 @@ class QuotaUsageCounter(object):
         repos = storage_changed_repo_ids.keys()
         logging.info('Start counting quota usage by repos, current %s repos waiting to count' % len(repos))
         for repo_id in repos:
-            self.save_org_quota_usage(repo_id)
-            self.save_user_quota_usage(repo_id)
+            try:
+                self.save_org_quota_usage(repo_id)
+                self.save_user_quota_usage(repo_id)
+            except Exception as e:
+                logging.exception(f'Counting quota usage error: {e}, repo_id: {repo_id}')
+                continue
+                
 
 
 class RepoChangeInfoCollector(Thread):
