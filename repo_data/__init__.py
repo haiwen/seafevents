@@ -25,15 +25,14 @@ class RepoData(object):
 
     def _get_repo_id_commit_id(self, start, count):
         session = self.db_session()
+        name = 'master'
         try:
-            cmd = """SELECT RepoInfo.repo_id, Branch.commit_id, RepoInfo.type
+            cmd = f"""SELECT RepoInfo.repo_id, Branch.commit_id, RepoInfo.type
                      FROM RepoInfo
                      INNER JOIN Branch ON RepoInfo.repo_id = Branch.repo_id
-                     WHERE Branch.name = :name
-                     limit :start, :count;"""
-            res = session.execute(text(cmd), {'name': 'master',
-                                              'start': start,
-                                              'count': count}).fetchall()
+                     WHERE Branch.name = '{name}'
+                     limit {start}, {count};"""
+            res = session.execute(text(cmd), ).fetchall()
             return res
         except Exception as e:
             raise e
@@ -42,17 +41,16 @@ class RepoData(object):
 
     def _get_wiki_repo_id_commit_id(self, start, count):
         session = self.db_session()
+        name = 'master'
+        repo_type = REPO_TYPE_WIKI
         try:
-            cmd = """SELECT RepoInfo.repo_id, Branch.commit_id, RepoInfo.type
+            cmd = f"""SELECT RepoInfo.repo_id, Branch.commit_id, RepoInfo.type
                      FROM RepoInfo
                      INNER JOIN Branch ON RepoInfo.repo_id = Branch.repo_id
-                     WHERE Branch.name = :name
-                     AND RepoInfo.type = :repo_type
-                     limit :start, :count;"""
-            res = session.execute(text(cmd), {'name': 'master',
-                                              'repo_type': REPO_TYPE_WIKI,
-                                              'start': start,
-                                              'count': count}).fetchall()
+                     WHERE Branch.name = '{name}'
+                     AND RepoInfo.type = '{repo_type}'
+                     limit {start}, {count};"""
+            res = session.execute(text(cmd), ).fetchall()
             return res
         except Exception as e:
             raise e
@@ -84,10 +82,10 @@ class RepoData(object):
     def _get_repo_head_commit(self, repo_id):
         session = self.db_session()
         try:
-            cmd = """SELECT b.commit_id
+            cmd = f"""SELECT b.commit_id
                      from Branch as b inner join Repo as r
-                     where b.repo_id=r.repo_id and b.repo_id=:repo_id"""
-            res = session.execute(text(cmd), {'repo_id': repo_id}).fetchone()
+                     where b.repo_id=r.repo_id and b.repo_id='{repo_id}'"""
+            res = session.execute(text(cmd), ).fetchone()
             return res[0] if res else None
         except Exception as e:
             raise e
@@ -97,10 +95,10 @@ class RepoData(object):
     def _get_repo_name_mtime_size(self, repo_id):
         session = self.db_session()
         try:
-            cmd = """SELECT RepoInfo.name, RepoInfo.update_time, RepoSize.size
+            cmd = f"""SELECT RepoInfo.name, RepoInfo.update_time, "SIZE"
                      FROM RepoInfo INNER JOIN RepoSize ON RepoInfo.repo_id = RepoSize.repo_id
-                     AND RepoInfo.repo_id = :repo_id"""
-            res = session.execute(text(cmd), {'repo_id': repo_id})
+                     AND RepoInfo.repo_id = f{repo_id}"""
+            res = session.execute(text(cmd), )
             return self.to_dict(res)
         except Exception as e:
             raise e
