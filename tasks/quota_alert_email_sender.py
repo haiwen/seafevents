@@ -13,7 +13,7 @@ __all__ = [
 class QuotaAlertEmailSender(object):
     def __init__(self):
         self._enabled = True
-        self._interval = 3600
+        self._interval = 60 * 60 * 24
         self._logfile = None
         self._timer = None
 
