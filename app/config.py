@@ -33,7 +33,6 @@ try:
     ENABLE_SEAFILE_AI = getattr(seahub_settings, 'ENABLE_SEAFILE_AI', False)
     SEAFILE_AI_SECRET_KEY = getattr(seahub_settings, 'SEAFILE_AI_SECRET_KEY', '')
     SEAFILE_AI_SERVER_URL = getattr(seahub_settings, 'SEAFILE_AI_SERVER_URL', '')
-    ENABLE_METRIC = getattr(seahub_settings, 'ENABLE_METRIC', False)
     ENABLE_QUOTA_ALERT = getattr(seahub_settings, 'ENABLE_QUOTA_ALERT', False)
 
 except ImportError:
