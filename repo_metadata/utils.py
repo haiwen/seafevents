@@ -77,13 +77,26 @@ def wgs2gcj(point_key):
     return f"{mglat},{mglng}"
 
 
+def gcj2bd(point_key):
+    """
+    Convert GCJ-02 coordinates to BD-09 coordinates.
+    """
+    lat, lng = map(float, point_key.split(','))
+    x_pi = math.pi * 3000.0 / 180.0
+    z = math.sqrt(lng * lng + lat * lat) + 0.00002 * math.sin(lat * x_pi)
+    theta = math.atan2(lat, lng) + 0.000003 * math.cos(lng * x_pi)
+    bd_lng = z * math.cos(theta) + 0.0065
+    bd_lat = z * math.sin(theta) + 0.006
+    return f"{bd_lat},{bd_lng}"
+
+
 def get_location_from_map_service(point_key):
     if BAIDU_MAP_KEY:
         params = {
             'ak': BAIDU_MAP_KEY,
             'output': 'json',
-            'location': point_key,
-            "coordtype": "wgs84ll",
+            'location': gcj2bd(wgs2gcj(point_key)),
+            "coordtype": "bd09ll",
             'extensions_poi': '1'
         }
         try:
