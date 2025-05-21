@@ -23,6 +23,12 @@ def create_engine_from_conf(config_file):
     seaf_conf = configparser.ConfigParser()
     seaf_conf.read(config_file)
 
+    db_server = None
+    db_port = None
+    db_username = None
+    db_passwd = None
+    db_name = None
+    
     if seaf_conf.has_section('database'):
         if (backend := seaf_conf.get('database', 'type')) == 'mysql':
             db_server = 'localhost'
