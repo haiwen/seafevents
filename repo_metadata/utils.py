@@ -13,7 +13,7 @@ from datetime import timedelta, timezone, datetime
 
 from seafobj import fs_mgr
 
-from seafevents.app.config import METADATA_FILE_TYPES, BAIDU_MAP_KEY, BAIDU_MAP_URL, GOOGLE_MAP_GEOCODE_API_KEY, GOOGLE_MAP_GEOCODE_API_URL
+from seafevents.app.config import METADATA_FILE_TYPES, BAIDU_MAP_KEY, BAIDU_MAP_URL, SERVER_GOOGLE_MAP_KEY, GOOGLE_MAP_GEOCODE_API_URL
 from seafevents.repo_metadata.view_data_sql import view_data_2_sql, sort_data_2_sql
 from seafevents.utils import timestamp_to_isoformat_timestr
 from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT, METADATA_TABLE
@@ -105,10 +105,10 @@ def get_location_from_map_service(point_key):
             logger.warning('Get location from baidu map service error: %s', e)
             return {}
 
-    if GOOGLE_MAP_GEOCODE_API_KEY:
+    if SERVER_GOOGLE_MAP_KEY:
         params = {
             'latlng': wgs2gcj(point_key),
-            'key': GOOGLE_MAP_GEOCODE_API_KEY,
+            'key': SERVER_GOOGLE_MAP_KEY,
         }
         try:
             response = requests.get(GOOGLE_MAP_GEOCODE_API_URL, params=params, timeout=30)

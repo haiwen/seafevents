@@ -28,7 +28,7 @@ try:
     ENABLED_ROLE_PERMISSIONS = getattr(seahub_settings, 'ENABLED_ROLE_PERMISSIONS', {})
     BAIDU_MAP_KEY = getattr(seahub_settings, 'BAIDU_MAP_KEY', '')
     BAIDU_MAP_URL = getattr(seahub_settings, 'BAIDU_MAP_URL', '')
-    GOOGLE_MAP_GEOCODE_API_KEY = getattr(seahub_settings, 'GOOGLE_MAP_GEOCODE_API_KEY', '')
+    SERVER_GOOGLE_MAP_KEY = getattr(seahub_settings, 'SERVER_GOOGLE_MAP_KEY', '')
     GOOGLE_MAP_GEOCODE_API_URL = 'https://maps.googleapis.com/maps/api/geocode/json'
     ENABLE_SEAFILE_AI = getattr(seahub_settings, 'ENABLE_SEAFILE_AI', False)
     SEAFILE_AI_SECRET_KEY = getattr(seahub_settings, 'SEAFILE_AI_SECRET_KEY', '')
