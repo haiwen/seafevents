@@ -2,7 +2,7 @@ import json
 
 import requests, jwt, time
 
-from seafevents.app.config import METADATA_SERVER_SECRET_KEY, METADATA_SERVER_URL
+from seafevents.app.config import JWT_PRIVATE_KEY, METADATA_SERVER_URL
 
 
 def parse_response(response):
@@ -19,7 +19,7 @@ class MetadataServerAPI:
     def __init__(self, user, timeout=30):
         self.user = user
         self.timeout = timeout
-        self.secret_key = METADATA_SERVER_SECRET_KEY
+        self.secret_key = JWT_PRIVATE_KEY
         self.server_url = METADATA_SERVER_URL
 
     def gen_headers(self, base_id):
