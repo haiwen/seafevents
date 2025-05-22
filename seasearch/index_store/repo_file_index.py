@@ -10,7 +10,7 @@ from seafevents.utils import get_opt_from_conf_or_env, parse_bool
 from seafevents.seasearch.utils.extract import ExtractorFactory
 from seafevents.utils import isoformat_timestr_to_timestamp
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('seasearch')
 
 SEASEARCH_BULK_OPETATE_LIMIT = 100
 INDEX_CONTENT_LENGTH_LIMIT = 10000
