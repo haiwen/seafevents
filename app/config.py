@@ -20,7 +20,7 @@ try:
     TIME_ZONE = getattr(seahub_settings, 'TIME_ZONE', 'UTC')
     ENABLE_WORK_WEIXIN = getattr(seahub_settings, 'ENABLE_WORK_WEIXIN', False)
     SEAHUB_SECRET_KEY = getattr(seahub_settings, 'SECRET_KEY', '')
-    METADATA_SERVER_SECRET_KEY = getattr(seahub_settings, 'METADATA_SERVER_SECRET_KEY', '')
+    JWT_PRIVATE_KEY = getattr(seahub_settings, 'JWT_PRIVATE_KEY', '')
     METADATA_SERVER_URL = getattr(seahub_settings, 'METADATA_SERVER_URL', '')
     ENABLE_METADATA_MANAGEMENT = getattr(seahub_settings, 'ENABLE_METADATA_MANAGEMENT', False)
     METADATA_FILE_TYPES = getattr(seahub_settings, 'METADATA_FILE_TYPES', {})
