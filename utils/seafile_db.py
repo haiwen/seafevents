@@ -9,6 +9,9 @@ logger = logging.getLogger('seafevents')
 
 
 def get_seafile_db_name():
+    if env_seafile_db_name := os.environ.get('SEAFILE_MYSQL_DB_SEAFILE_DB_NAME', ''):
+        return env_seafile_db_name, None
+
     seafile_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('SEAFILE_CONF_DIR')
     if not seafile_conf_dir:
         error_msg = 'Environment variable seafile_conf_dir is not define.'
