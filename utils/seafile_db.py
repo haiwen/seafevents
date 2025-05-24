@@ -20,12 +20,11 @@ def get_seafile_db_name():
 
     if config.has_section('database'):
         db_name = config.get('database', 'db_name', fallback='seafile')
+        if config.has_option('database', 'type') and config.get('database', 'type') != 'mysql':
+            error_msg = 'Failed to init seafile db, only mysql db supported.'
+            return None, error_msg
     else:
         db_name = 'seafile'
-
-    if config.get('database', 'type') != 'mysql':
-        error_msg = 'Failed to init seafile db, only mysql db supported.'
-        return None, error_msg
     return db_name, None
 
 
@@ -60,11 +59,7 @@ class SeafileDB(object):
         seafile_conf_path = os.path.join(seafile_conf_dir, 'seafile.conf')
         seafile_config = get_config(seafile_conf_path)
 
-        if not seafile_config.has_section('database'):
-            logger.warning('Failed to init seafile db, can not find db info in seafile.conf.')
-            return
-
-        if seafile_config.get('database', 'type') != 'mysql':
+        if seafile_config.has_section('database') and seafile_config.has_option('database', 'type') and seafile_config.get('database', 'type') != 'mysql':
             logger.warning('Failed to init seafile db, only mysql db supported.')
             return
 
