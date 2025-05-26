@@ -131,7 +131,7 @@ class WikiIndex(object):
         b_content = f.get_content()
         if not b_content.strip():
             return None
-        content = extract_sdoc_text(b_content)
+        content = extract_sdoc_text(b_content).decode()
 
         return content.strip()
 
