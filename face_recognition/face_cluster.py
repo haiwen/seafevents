@@ -23,7 +23,7 @@ class FaceCluster(object):
     """
 
     def __init__(self, config):
-        self._db_session_class = init_db_session_class(config)
+        self._db_session_class = init_db_session_class()
         self.metadata_server_api = MetadataServerAPI('seafevents')
 
         self.should_stop = threading.Event()

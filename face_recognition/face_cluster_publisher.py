@@ -13,7 +13,7 @@ logger = logging.getLogger('face_recognition')
 class FaceClusterPublisher(object):
     def __init__(self, config):
         self._face_recognition_manager = FaceRecognitionManager(config)
-        self._session = init_db_session_class(config)
+        self._session = init_db_session_class()
         self.mq_server = REDIS_HOST
         self.mq_port = REDIS_PORT
         self.mq_password = REDIS_PASSWORD

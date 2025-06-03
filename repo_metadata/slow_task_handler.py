@@ -28,7 +28,7 @@ class SlowMetadataTaskHandler(object):
         self.mq_port = REDIS_PORT
         self.mq_password = REDIS_PASSWORD
         self.worker_num = 3
-        self.session = init_db_session_class(config)
+        self.session = init_db_session_class()
         self._parse_config(config)
 
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)

@@ -1,5 +1,3 @@
-import os
-import configparser
 import logging
 import uuid
 from urllib.parse import quote_plus
@@ -14,6 +12,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import Pool
 from sqlalchemy.ext.automap import automap_base
 
+from seafevents.app.config import MYSQL_SEAHUB_DB_NAME, MYSQL_SEAFILE_DB_NAME, MYSQL_CCNET_DB_NAME, MYSQL_DB_HOST, \
+    MYSQL_DB_PROT, MYSQL_DB_PWD, MYSQL_DB_USER
+    
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,62 +27,26 @@ class Base(DeclarativeBase):
 SeafBase = automap_base()
 
 
-def create_engine_from_conf(config, db='seafevent'):
+def create_engine_from_env(db='seahub'):
     need_connection_pool_fix = True
 
-    db_sec = 'DATABASE'
-    user = 'username'
-    db_name = 'name'
-
-    if db == 'seafile':
-        db_sec = 'database'
-        user = 'user'
-        db_name = 'db_name'
-
-    db_url = ''
-    host = 'db'
-    port = '3306'
-    username = 'seafile'
-    passwd = ''
-    dbname = 'seafile_db'
-
-    if config.has_section(db_sec):
-        backend = config.get(db_sec, 'type')
-        if backend == 'mysql':
-            if config.has_option(db_sec, 'host'):
-                host = config.get(db_sec, 'host').lower()
-            else:
-                host = 'localhost'
-
-            if config.has_option(db_sec, 'port'):
-                port = config.getint(db_sec, 'port')
-            else:
-                port = 3306
-            username = config.get(db_sec, user)
-            dbname = config.get(db_sec, db_name)
-
-            if config.has_option(db_sec, 'password'):
-                passwd = config.get(db_sec, 'password')
-                
-
-            if config.has_option(db_sec, 'unix_socket'):
-                unix_socket = config.get(db_sec, 'unix_socket')
-                db_url = f"mysql+pymysql://{username}:@{host}:{port}/{dbname}?unix_socket={unix_socket}&charset=utf8"
-
-        else:
-            logger.error("Unknown database backend: %s" % backend)
-            raise RuntimeError("Unknown database backend: %s" % backend)
+    db_name = ''
+    if db == 'seahub':
+        db_name = MYSQL_SEAHUB_DB_NAME
+    elif db == 'seafile':
+        db_name = MYSQL_SEAFILE_DB_NAME
+    elif db == 'ccnet':
+        db_name = MYSQL_CCNET_DB_NAME
+        
+    db_host = MYSQL_DB_HOST
+    db_port = MYSQL_DB_PROT
+    db_user = MYSQL_DB_USER
+    db_pwd = MYSQL_DB_PWD
     
-    if not db_url: # connect mysql traditionally
-        host = os.getenv('SEAFILE_MYSQL_DB_HOST') or host
-        port = int(os.getenv('SEAFILE_MYSQL_DB_PORT', 0)) or port
-        username = os.getenv('SEAFILE_MYSQL_DB_USER') or username
-        passwd = os.getenv('SEAFILE_MYSQL_DB_PASSWORD') or passwd
-        dbname = os.getenv('SEAFILE_MYSQL_DB_SEAFILE_DB_NAME' if db == 'seafile' else 'SEAFILE_MYSQL_DB_SEAHUB_DB_NAME') or dbname
-        db_url = "mysql+pymysql://%s:%s@%s:%s/%s?charset=utf8" % (username, quote_plus(passwd), host, port, dbname)
-
-    # Add pool recycle, or mysql connection will be closed by mysqld if idle
-    # for too long.
+    if not (db_name and db_host and db_port and db_user and db_pwd):
+        raise RuntimeError('Database configured error')
+    
+    db_url = "mysql+pymysql://%s:%s@%s:%s/%s?charset=utf8" % (db_user, quote_plus(db_pwd), db_host, db_port, db_name)
     kwargs = dict(pool_recycle=300, echo=False, echo_pool=False)
 
     engine = create_engine(db_url, **kwargs)
@@ -93,11 +59,12 @@ def create_engine_from_conf(config, db='seafevent'):
     return engine
 
 
-def init_db_session_class(config, db='seafevent'):
+# check user source
+def init_db_session_class(db='seahub'):
     """Configure Session class for mysql according to the config file."""
     try:
-        engine = create_engine_from_conf(config, db)
-    except (configparser.NoOptionError, configparser.NoSectionError) as e:
+        engine = create_engine_from_env(db=db)
+    except Exception as e:
         logger.error(e)
         raise RuntimeError("create db engine error: %s" % e)
 
@@ -105,10 +72,11 @@ def init_db_session_class(config, db='seafevent'):
     return Session
 
 
-def create_db_tables(config):
+# check user source
+def create_db_tables():
     # create seafevents tables if not exists.
     try:
-        engine = create_engine_from_conf(config)
+        engine = create_engine_from_env()
     except Exception as e:
         logger.error(e)
         raise RuntimeError("create db engine error: %s" % e)
@@ -120,11 +88,11 @@ def create_db_tables(config):
         raise RuntimeError("Failed to create database tables")
     engine.dispose()
 
-
-def prepare_db_tables(seafile_config):
+# check user sources
+def prepare_db_tables():
     # reflect the seafile_db tables
     try:
-        engine = create_engine_from_conf(seafile_config, db='seafile')
+        engine = create_engine_from_env(db='seafile')
     except Exception as e:
         logger.error(e)
         raise RuntimeError("create db engine error: %s" % e)

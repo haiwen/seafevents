@@ -74,7 +74,7 @@ class Settings(object):
         self.load_cemail_attr = False
 
         self.ldap_configs = []
-        self.db_session = init_db_session_class(config)
+        self.db_session = init_db_session_class()
         if not self.get_option('ENABLE_LDAP', False) and not self.get_option('ENABLE_MULTI_LDAP', False):
             if is_test:
                 logging.info('LDAP is not set, stop ldap test.')

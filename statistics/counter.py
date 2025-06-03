@@ -81,7 +81,7 @@ def get_role_download_rate_limit_info():
 
 class FileOpsCounter(object):
     def __init__(self, config):
-        self.edb_session = init_db_session_class(config)()
+        self.edb_session = init_db_session_class()()
 
     def start_count(self):
         logging.info('Start counting file operations..')
@@ -175,8 +175,8 @@ class FileOpsCounter(object):
 
 class TotalStorageCounter(object):
     def __init__(self, config, seafile_config):
-        self.edb_session = init_db_session_class(config)()
-        self.seafdb_session = init_db_session_class(seafile_config, db='seafile')()
+        self.edb_session = init_db_session_class()()
+        self.seafdb_session = init_db_session_class(db='seafile')()
 
     def start_count(self):
         logging.info('Start counting total storage..')
@@ -232,7 +232,7 @@ class TotalStorageCounter(object):
 
 class TrafficInfoCounter(object):
     def __init__(self, config):
-        self.edb_session = init_db_session_class(config)()
+        self.edb_session = init_db_session_class()()
         self.download_type_list = ['web-file-download', 'link-file-download', 'sync-file-download']
 
     def start_count(self):
@@ -396,7 +396,7 @@ class TrafficInfoCounter(object):
 
 class MonthlyTrafficCounter(object):
     def __init__(self, config):
-        self.edb_session = init_db_session_class(config)()
+        self.edb_session = init_db_session_class()()
 
     def start_count(self):
         time_start = time.time()
@@ -528,7 +528,7 @@ class MonthlyTrafficCounter(object):
 
 class UserActivityCounter(object):
     def __init__(self, config):
-        self.edb_session = init_db_session_class(config)()
+        self.edb_session = init_db_session_class()()
 
     def start_count(self):
         logging.info('Start counting user activity info..')

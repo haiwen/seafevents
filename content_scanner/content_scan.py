@@ -33,8 +33,8 @@ class ContentScan(object):
         self.region = 'cn-shanghai'
         self.thread_num = 3
 
-        self.edb_session = init_db_session_class(config)
-        self.seafdb_session = init_db_session_class(seafile_config, db='seafile')
+        self.edb_session = init_db_session_class()
+        self.seafdb_session = init_db_session_class(db='seafile')
 
         self._parse_config(config)
 

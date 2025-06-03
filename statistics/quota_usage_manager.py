@@ -21,7 +21,7 @@ CACHE_TIME_OUT = 24 * 60 * 60
 class QuotaUsageCounter(object):
     
     def __init__(self, config, seafile_db=None):
-        self._db_session_class = init_db_session_class(config)
+        self._db_session_class = init_db_session_class()
         self.seafile_api = seafile_db
     
     def _get_org_id_by_repo_id(self, repo_id):

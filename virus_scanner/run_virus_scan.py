@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
     setting = Settings(config, seafile_config)
     if setting.is_enabled():
-        prepare_db_tables(seafile_config)
+        prepare_db_tables()
         VirusScan(setting).start()
     else:
         logger.info('Virus scan is disabled.')

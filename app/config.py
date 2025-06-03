@@ -39,14 +39,35 @@ except ImportError:
     logger.critical("Can not import seahub settings.")
     raise RuntimeError("Can not import seahub settings.")
 
-# config from env
+################## config from env ################################
+
+## config for redis
 REDIS_HOST = os.environ.get('REDIS_HOST', '')
 REDIS_PORT = os.environ.get('REDIS_PORT', '')
 REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '')
+
+# config for memcached
 MEMCACHED_HOST = os.environ.get('MEMCACHED_HOST', '')
 MEMCACHED_PORT = os.environ.get('MEMCACHED_PORT', '')
+
+# config for cache provider, choices: redis or memcached
 CACHE_PROVIDER = os.environ.get('CACHE_PROVIDER', 'memcached')
+
+
+# config for mysql
+MYSQL_DB_HOST = os.environ.get('SEAFILE_MYSQL_DB_HOST', 'db')
+MYSQL_DB_PROT = os.environ.get('SEAFILE_MYSQL_DB_PORT', 3306)
+MYSQL_DB_USER = os.environ.get('SEAFILE_MYSQL_DB_USER', 'root')
+MYSQL_DB_PWD = os.environ.get('SEAFILE_MYSQL_DB_PASSWORD', '')
+MYSQL_SEAHUB_DB_NAME = os.environ.get('SEAFILE_MYSQL_DB_SEAHUB_DB_NAME', 'seahub_db')
+MYSQL_SEAFILE_DB_NAME = os.environ.get('SEAFILE_MYSQL_DB_SEAFILE_DB_NAME', 'seafile_db')
+MYSQL_CCNET_DB_NAME = os.environ.get('SEAFILE_MYSQL_DB_CCNET_DB_NAME', 'ccnet_db')
+
+# config for seafile edition
 IS_PRO_VERSION = os.environ.get('IS_PRO_VERSION', 'false') == 'true'
+
+
+################## config from env ################################
 
 
 def get_config(config_file):
