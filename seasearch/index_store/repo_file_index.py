@@ -335,6 +335,9 @@ class RepoFileIndex(object):
             if is_sys_dir_or_file(path):
                 continue
 
+            if not mtime:
+                mtime = None
+
             suffix = self.get_file_suffix(path)
             filename = os.path.basename(path)
             if suffix:
@@ -403,6 +406,9 @@ class RepoFileIndex(object):
                 continue
             else:
                 filename = os.path.basename(path)
+
+            if not mtime:
+                mtime = None
 
             path = path + '/' if path != '/' else path
             index_info = {'index': {'_index': index_name, '_id': md5(path)}}
