@@ -24,7 +24,7 @@ class ScanTask(object):
 ## Compare each head_commit_id with the last scanned commit_id,
 ## if they're not equal, do diff and content scan.
 class ContentScan(object):
-    def __init__(self, config, seafile_config):
+    def __init__(self, config):
         self.suffix_list = []
         self.size_limit = 20 * 1024 * 1024
         self.platform = ''

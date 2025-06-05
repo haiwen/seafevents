@@ -149,7 +149,7 @@ def start_index_local():
     wiki_size_limit = get_opt_from_conf_or_env(
         config, section_name, 'wiki_file_size_limit', default=int(5)
     )
-    index_manager = IndexManager(config)
+    index_manager = IndexManager()
     seasearch_api = SeaSearchAPI(seasearch_url, seasearch_token)
     wiki_status_index = WikiStatusIndex(seasearch_api, WIKI_STATUS_INDEX_NAME)
     wiki_index = WikiIndex(

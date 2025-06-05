@@ -54,7 +54,7 @@ class IndexTaskManager:
             seasearch_token,
         )
         self._repo_data = repo_data
-        self.index_manager = IndexManager(config)
+        self.index_manager = IndexManager()
         self._repo_file_index = RepoFileIndex(
             self.seasearch_api,
             self._repo_data,

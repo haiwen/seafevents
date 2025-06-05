@@ -29,7 +29,7 @@ class EventExportTaskManager(object):
             'expire_time': 30 * 60
         }
 
-    def init(self, app, workers, task_expire_time, config):
+    def init(self, app, workers, task_expire_time):
         self.app = app
         self.conf['expire_time'] = task_expire_time
         self.conf['workers'] = workers

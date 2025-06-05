@@ -51,7 +51,7 @@ class LdapConfig(object):
 
 
 class Settings(object):
-    def __init__(self, config, is_test=False):
+    def __init__(self, is_test=False):
         # If any of ldap configs allows user-sync/group-sync, user-sync/group-sync task is allowed.
         self.enable_group_sync = False
         self.enable_user_sync = False

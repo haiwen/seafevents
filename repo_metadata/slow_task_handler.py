@@ -21,7 +21,7 @@ class SlowMetadataTaskHandler(object):
 
     def __init__(self, config):
         self.metadata_server_api = MetadataServerAPI('seafevents')
-        self.face_recognition_manager = FaceRecognitionManager(config)
+        self.face_recognition_manager = FaceRecognitionManager()
 
         self.should_stop = threading.Event()
         self.mq_server = REDIS_HOST

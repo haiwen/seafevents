@@ -20,7 +20,7 @@ CACHE_TIME_OUT = 24 * 60 * 60
 
 class QuotaUsageCounter(object):
     
-    def __init__(self, config, seafile_db=None):
+    def __init__(self, seafile_db=None):
         self._db_session_class = init_db_session_class()
         self.seafile_api = seafile_db
     
@@ -183,10 +183,9 @@ class QuotaUsageSaveTimer(Thread):
     Save user / org quota usage to databases
     """
     
-    def __init__(self, config, interval):
+    def __init__(self, interval):
         Thread.__init__(self)
         self._interval = interval
-        self.config = config
         self.finished = Event()
         self._redis_client = RedisClient()
     
@@ -196,7 +195,7 @@ class QuotaUsageSaveTimer(Thread):
             if not self.finished.is_set():
                 try:
                     with SeafileDB() as seafile_db:
-                        QuotaUsageCounter(self.config, seafile_db).start_count()
+                        QuotaUsageCounter(seafile_db).start_count()
                         
                     storage_changed_repo_ids.clear()
                 except Exception as e:
@@ -207,13 +206,12 @@ class QuotaUsageSaveTimer(Thread):
 
 
 class QuotaUsageManager(object):
-    def __init__(self, config):
+    def __init__(self):
         self._interval = 30
-        self.config = config
     
     def start(self):
         logging.info('Starting quota usage saver timer, interval = %s sec', self._interval)
-        self._quota_usage_recorder = QuotaUsageSaveTimer(self.config, self._interval)
+        self._quota_usage_recorder = QuotaUsageSaveTimer(self._interval)
         self._quota_usage_recorder.start()
         
         logging.info('Starting repo change collector')

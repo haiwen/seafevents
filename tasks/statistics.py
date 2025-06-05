@@ -33,25 +33,23 @@ class Statistics(Thread):
         # These tasks should run at backend node server.
         if self.is_enabled():
             logging.info("Start data statistics..")
-            CountTotalStorage(self.config, self.seafile_config).start()
-            CountFileOps(self.config).start()
-            CountMonthlyTrafficInfo(self.config).start()
+            CountTotalStorage().start()
+            CountFileOps().start()
+            CountMonthlyTrafficInfo().start()
         else:
             logging.info('Can not start data statistics: it is not enabled!')
             return
 
 
 class CountTotalStorage(Thread):
-    def __init__(self, config, seafile_config):
+    def __init__(self):
         Thread.__init__(self)
-        self.config = config
-        self.seafile_config = seafile_config
         self.finished = Event()
 
     @exception_catch('CountTotalStorage')
     def run(self):
         while not self.finished.is_set():
-            TotalStorageCounter(self.config, self.seafile_config).start_count()
+            TotalStorageCounter().start_count()
             self.finished.wait(3600)
 
     def cancel(self):
@@ -59,15 +57,14 @@ class CountTotalStorage(Thread):
 
 
 class CountFileOps(Thread):
-    def __init__(self, config):
+    def __init__(self):
         Thread.__init__(self)
-        self.config = config
         self.finished = Event()
 
     @exception_catch('CountFileOps')
     def run(self):
         while not self.finished.is_set():
-            FileOpsCounter(self.config).start_count()
+            FileOpsCounter().start_count()
             self.finished.wait(3600)
 
     def cancel(self):
@@ -91,7 +88,7 @@ class CountTrafficInfo(Thread):
             return
 
         while not self.finished.is_set():
-            TrafficInfoCounter(self.config).start_count()
+            TrafficInfoCounter().start_count()
             self.finished.wait(3600)
 
     def cancel(self):
@@ -99,15 +96,14 @@ class CountTrafficInfo(Thread):
 
 
 class CountMonthlyTrafficInfo(Thread):
-    def __init__(self, config):
+    def __init__(self):
         Thread.__init__(self)
-        self.config = config
         self.finished = Event()
 
     @exception_catch('CountMonthlyTrafficInfo')
     def run(self):
         while not self.finished.is_set():
-            MonthlyTrafficCounter(self.config).start_count()
+            MonthlyTrafficCounter().start_count()
             self.finished.wait(3600)
 
     def cancel(self):
@@ -130,7 +126,7 @@ class CountUserActivity(Thread):
             return
 
         while not self.finished.is_set():
-            UserActivityCounter(self.config).start_count()
+            UserActivityCounter().start_count()
             self.finished.wait(3600)
 
     def cancel(self):

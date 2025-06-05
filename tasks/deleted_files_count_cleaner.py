@@ -20,7 +20,7 @@ __all__ = [
 
 
 class DeletedFilesCountCleaner(object):
-    def __init__(self, config):
+    def __init__(self):
         self._db_session_class = init_db_session_class()
 
     def start(self):
