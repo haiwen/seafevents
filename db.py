@@ -50,7 +50,7 @@ def create_engine_from_env(db='seahub'):
     db_user = MYSQL_DB_USER
     db_pwd = MYSQL_DB_PWD
     
-    if not (db_name and db_host and db_port and db_user and db_pwd):
+    if not (db_name and db_host and db_port and db_user):
         raise RuntimeError('Database configured error')
     
     db_url = "mysql+pymysql://%s:%s@%s:%s/%s?charset=utf8" % (db_user, quote_plus(db_pwd), db_host, db_port, db_name)
