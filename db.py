@@ -28,6 +28,13 @@ SeafBase = automap_base()
 
 
 def create_engine_from_env(db='seahub'):
+    '''
+    Basicly, there are 3 different databses in a mysql-server involved in all seafile project.
+    seahub_db, seafile_db, ccnet_db which are assigned in .env file.
+    
+    :param db:  The name of database
+    :return:  An engine by which can make db sessions
+    '''
     need_connection_pool_fix = True
 
     db_name = ''
@@ -61,7 +68,7 @@ def create_engine_from_env(db='seahub'):
 
 # check user source
 def init_db_session_class(db='seahub'):
-    """Configure Session class for mysql according to the config file."""
+    """Configure Session class for mysql according to the env."""
     try:
         engine = create_engine_from_env(db=db)
     except Exception as e:
