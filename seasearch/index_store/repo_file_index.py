@@ -294,6 +294,7 @@ class RepoFileIndex(object):
             source = hit.get('_source')
             score = hit.get('_score')
             _id = hit.get('_id')
+            mtime = source['mtime'] / 1000 if source['mtime'] is not None else 0
             r = {
                 'repo_id': source['repo_id'],
                 'fullpath': source['path'],
@@ -301,7 +302,7 @@ class RepoFileIndex(object):
                 'is_dir': source['is_dir'],
                 'score': score,
                 '_id': _id,
-                'mtime': source['mtime'] / 1000,
+                'mtime': mtime,
                 'size': source['size'],
             }
             if highlight_content := hit.get('highlight', {}).get('content', [None])[0]:
