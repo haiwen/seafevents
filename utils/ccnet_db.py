@@ -34,10 +34,10 @@ class CcnetDB(object):
 
         group_ids = [str(id) for id in group_ids]
         if len(group_ids) == 1:
-            sql = "SELECT * FROM Group WHERE group_id = :group_id"
+            sql = "SELECT * FROM `Group` WHERE group_id = :group_id"
             params = {'group_id': group_ids[0]}
         else:
-            sql = "SELECT * FROM Group WHERE group_id IN :group_ids"
+            sql = "SELECT * FROM `Group` WHERE group_id IN :group_ids"
             params = {'group_ids': tuple(group_ids)}
 
         result = self.session.execute(text(sql), params)
