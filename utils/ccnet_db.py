@@ -1,76 +1,20 @@
-import os
-import configparser
 import logging
-from seafevents.app.config import get_config
-
+from seafevents.db import init_db_session_class
+from sqlalchemy import text
 
 logger = logging.getLogger('seafevents')
 
 
-def get_ccnet_db_name():
-    return os.environ.get('SEAFILE_MYSQL_DB_CCNET_DB_NAME', '') or 'ccnet_db'
-
-
 class CcnetDB(object):
     def __init__(self):
-        self.ccnet_db_conn = None
-        self.ccnet_db_cursor = None
-        self.init_ccnet_db()
-        self.db_name = get_ccnet_db_name()
-        if self.ccnet_db_cursor is None:
-            raise RuntimeError('Failed to init ccnet db.')
+        self.session = init_db_session_class(db = 'ccnet')()
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close_ccnet_db()
-
-    def init_ccnet_db(self):
-        try:
-            import pymysql
-            pymysql.install_as_MySQLdb()
-        except ImportError as e:
-            logger.warning('Failed to init ccnet db: %s.' % e)
-            return
-
-        seafile_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('SEAFILE_CONF_DIR')
-        if not seafile_conf_dir:
-            logging.warning('Environment variable seafile_conf_dir is not define')
-            return
-
-        seafile_conf_path = os.path.join(seafile_conf_dir, 'seafile.conf')
-        seafile_config = get_config(seafile_conf_path)
-
-        if not seafile_config.has_section('database'):
-            logger.warning('Failed to init ccnet db, can not find db info in seafile.conf.')
-            return
-
-        if seafile_config.get('database', 'type') != 'mysql':
-            logger.warning('Failed to init ccnet db, only mysql db supported.')
-            return
-
-        db_name = os.environ.get('SEAFILE_MYSQL_DB_CCNET_DB_NAME', '') or 'ccnet_db'
-        db_host = os.getenv('SEAFILE_MYSQL_DB_HOST') or seafile_config.get('database', 'host', fallback='127.0.0.1')
-        db_port = int(os.getenv('SEAFILE_MYSQL_DB_PORT', 0)) or seafile_config.getint('database', 'port', fallback=3306)
-        db_user = os.getenv('SEAFILE_MYSQL_DB_USER') or seafile_config.get('database', 'user')
-        db_passwd = os.getenv('SEAFILE_MYSQL_DB_PASSWORD') or seafile_config.get('database', 'password')
-
-        try:
-            self.ccnet_db_conn = pymysql.connect(host=db_host, port=db_port, user=db_user,
-                                                 passwd=db_passwd, db=db_name, charset='utf8')
-            self.ccnet_db_conn.autocommit(True)
-            self.ccnet_db_cursor = self.ccnet_db_conn.cursor()
-        except Exception as e:
-            self.cursor = None
-            logger.warning('Failed to init ccnet db: %s.' % e)
-            return
-
-    def close_ccnet_db(self):
-        if self.ccnet_db_cursor:
-            self.ccnet_db_cursor.close()
-        if self.ccnet_db_conn:
-            self.ccnet_db_conn.close()
+        if self.session:
+            self.session.close()
 
     def get_group_info(self, group):
         info = {
@@ -84,41 +28,31 @@ class CcnetDB(object):
         return info
 
     def get_groups_by_ids(self, group_ids):
-        group_ids_str = ','.join(["'%s'" % str(id) for id in group_ids])
-        sql = f"""
-            SELECT * 
-            FROM
-                `{self.db_name}`.`Group`
-            WHERE
-                group_id IN ({group_ids_str})
-        """
 
-        with self.ccnet_db_cursor as cursor:
-            if not group_ids:
-                return {}
-            cursor.execute(sql)
-            groups_map = {}
-            for item in cursor.fetchall():
-                groups_map[item[0]] = self.get_group_info(item)
+        if not group_ids:
+            return {}
 
-            return groups_map
+        group_ids = [str(id) for id in group_ids]
+        if len(group_ids) == 1:
+            sql = "SELECT * FROM `Group` WHERE group_id = :group_id"
+            params = {'group_id': group_ids[0]}
+        else:
+            sql = "SELECT * FROM `Group` WHERE group_id IN :group_ids"
+            params = {'group_ids': tuple(group_ids)}
+
+        result = self.session.execute(text(sql), params)
+        groups_map = {}
+        for item in result.fetchall():
+            groups_map[item[0]] = self.get_group_info(item)
+        return groups_map
 
     def get_org_user_count(self, org_id):
-        sql = f"""
-        SELECT COUNT(1) FROM `{self.db_name}`.`OrgUser` WHERE org_id={org_id}
-        """
-        with self.ccnet_db_cursor as cursor:
-            cursor.execute(sql)
-
-            return cursor.fetchone()[0]
+        sql = "SELECT COUNT(1) FROM OrgUser WHERE org_id = :org_id"
+        result = self.session.execute(text(sql), {'org_id': org_id})
+        return result.fetchone()[0]
 
     def get_user_role(self, email):
-        sql = f"""
-        SELECT role FROM `{self.db_name}`.`UserRole`
-        WHERE email="{email}"
-        """
-        with self.ccnet_db_cursor as cursor:
-            cursor.execute(sql)
-            result = cursor.fetchone()
-
-            return result[0] if result else 'default'
+        sql = "SELECT role FROM UserRole WHERE email = :email"
+        result = self.session.execute(text(sql), {'email': email})
+        row = result.fetchone()
+        return row[0] if row else 'default'

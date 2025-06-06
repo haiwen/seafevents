@@ -9,7 +9,8 @@ from seafevents.ldap_syncer.utils import bytes2str, add_group_uuid_pair
 
 from seaserv import get_group_dn_pairs
 
-from seafevents.app.config import get_config, seahub_settings
+from seafevents.app.config import get_config, seahub_settings, MYSQL_SEAHUB_DB_NAME, MYSQL_SEAFILE_DB_NAME, MYSQL_CCNET_DB_NAME, MYSQL_DB_HOST, \
+    MYSQL_DB_PROT, MYSQL_DB_PWD, MYSQL_DB_USER
 
 
 logger = logging.getLogger(__name__)
@@ -74,27 +75,14 @@ class LdapSync(Thread):
             logger.warning('Failed to init seahub db: %s.' % e)
             return
 
-        try:
-            db_infos = seahub_settings.DATABASES['default']
-        except KeyError:
-            logger.warning('Failed to init seahub db, can not find db info in seahub settings.')
+        db_host = MYSQL_DB_HOST
+        db_port = MYSQL_DB_PROT
+        db_user = MYSQL_DB_USER
+        db_passwd = MYSQL_DB_PWD
+        db_name = MYSQL_SEAHUB_DB_NAME
+        if not (db_host and db_port and db_user and db_name):
+            logger.warning('Failed to init seahub db')
             return
-
-        if db_infos.get('ENGINE') != 'django.db.backends.mysql':
-            logger.warning('Failed to init seahub db, only mysql db supported.')
-            return
-
-        db_host = db_infos.get('HOST', '127.0.0.1')
-        db_port = int(db_infos.get('PORT', '3306'))
-        db_name = db_infos.get('NAME')
-        if not db_name:
-            logger.warning('Failed to init seahub db, db name is not setted.')
-            return
-        db_user = db_infos.get('USER')
-        if not db_user:
-            logger.warning('Failed to init seahub db, db user is not setted.')
-            return
-        db_passwd = db_infos.get('PASSWORD')
 
         try:
             self.db_conn = pymysql.connect(host=db_host, port=db_port,
@@ -121,27 +109,15 @@ class LdapSync(Thread):
             logger.warning('Failed to init ccnet db: %s.' % e)
             return
 
-        seafile_conf_dir = os.environ.get('SEAFILE_CENTRAL_CONF_DIR') or os.environ.get('SEAFILE_CONF_DIR')
-        if not seafile_conf_dir:
-            logging.warning('Environment variable seafile_conf_dir is not define')
+        db_host = MYSQL_DB_HOST
+        db_port = MYSQL_DB_PROT
+        db_user = MYSQL_DB_USER
+        db_passwd = MYSQL_DB_PWD
+        db_name = MYSQL_SEAHUB_DB_NAME
+        if not (db_host and db_port and db_user and db_name):
+            logger.warning('Failed to init ccnet db')
             return
 
-        seafile_conf_path = os.path.join(seafile_conf_dir, 'seafile.conf')
-        seafile_config = get_config(seafile_conf_path)
-
-        if not seafile_config.has_section('database'):
-            logger.warning('Failed to init ccnet db, can not find db info in seafile.conf.')
-            return
-
-        if seafile_config.get('database', 'type') != 'mysql':
-            logger.warning('Failed to init ccnet db, only mysql db supported.')
-            return
-
-        db_name = os.environ.get('SEAFILE_MYSQL_DB_CCNET_DB_NAME', '') or 'ccnet_db'
-        db_host = seafile_config.get('database', 'host', fallback='127.0.0.1')
-        db_port = seafile_config.getint('database', 'port', fallback=3306)
-        db_user = seafile_config.get('database', 'user')
-        db_passwd = seafile_config.get('database', 'password')
 
         try:
             self.ccnet_db_conn = pymysql.connect(host=db_host, port=db_port, user=db_user,

@@ -9,9 +9,8 @@ logger = logging.getLogger('face_recognition')
 
 
 class FaceClusterTaskPublisher(object):
-    def __init__(self, config):
+    def __init__(self):
         self._interval = 60 * 60
-        self.config = config
         self._enabled = ENABLE_SEAFILE_AI
 
     def start(self):
@@ -20,7 +19,7 @@ class FaceClusterTaskPublisher(object):
             return
 
         logging.info('Face cluster timer is started, interval = %s sec', self._interval)
-        FaceClusterTaskPublishTimer(self._interval, self.config).start()
+        FaceClusterTaskPublishTimer(self._interval).start()
 
     def is_enabled(self):
         return self._enabled
@@ -28,10 +27,9 @@ class FaceClusterTaskPublisher(object):
 
 class FaceClusterTaskPublishTimer(Thread):
 
-    def __init__(self, interval, config):
+    def __init__(self, interval):
         Thread.__init__(self)
         self._interval = interval
-        self._config = config
         self.finished = Event()
 
     def run(self):
@@ -39,7 +37,7 @@ class FaceClusterTaskPublishTimer(Thread):
             self.finished.wait(self._interval)
             if not self.finished.is_set():
                 try:
-                    FaceClusterPublisher(self._config).start()
+                    FaceClusterPublisher().start()
                 except Exception as e:
                     logger.exception('error when face cluster: %s', e)
 

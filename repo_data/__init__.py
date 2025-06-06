@@ -2,20 +2,15 @@ import os
 import logging
 from sqlalchemy.sql import text
 
-from seafevents.repo_data.db import init_db_session_class
 from seafevents.seasearch.utils.constants import REPO_TYPE_WIKI
+from seafevents.db import init_db_session_class
 
 logger = logging.getLogger(__name__)
 
 
 class RepoData(object):
     def __init__(self):
-        if 'SEAFILE_CENTRAL_CONF_DIR' in os.environ:
-            confdir = os.environ['SEAFILE_CENTRAL_CONF_DIR']
-        else:
-            confdir = os.environ['SEAFILE_CONF_DIR']
-        self.seafile_conf = os.path.join(confdir, 'seafile.conf')
-        self.db_session = init_db_session_class(self.seafile_conf)
+        self.db_session = init_db_session_class(db='seafile')
 
     def to_dict(self, result_proxy):
         res = []

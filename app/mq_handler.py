@@ -96,7 +96,7 @@ class EventsHandler(object):
 
     def __init__(self, config):
         self._config = config
-        self._db_session_class = init_db_session_class(config)
+        self._db_session_class = init_db_session_class()
         self._redis_connection = RedisClient().connection
 
     def handle_event(self, channel):

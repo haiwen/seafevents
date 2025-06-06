@@ -34,8 +34,8 @@ class Settings(object):
             return
 
         try:
-            self.session_cls = init_db_session_class(config)
-            self.seaf_session_cls = init_db_session_class(seafile_config, db='seafile')
+            self.session_cls = init_db_session_class()
+            self.seaf_session_cls = init_db_session_class(db='seafile')
         except Exception as e:
             logger.warning('Failed to init db session class: %s', e)
             return

@@ -29,11 +29,11 @@ class EventExportTaskManager(object):
             'expire_time': 30 * 60
         }
 
-    def init(self, app, workers, task_expire_time, config):
+    def init(self, app, workers, task_expire_time):
         self.app = app
         self.conf['expire_time'] = task_expire_time
         self.conf['workers'] = workers
-        self._db_session_class = init_db_session_class(config)
+        self._db_session_class = init_db_session_class()
 
     def is_valid_task_id(self, task_id):
         return task_id in (self.tasks_map.keys() | self.task_results_map.keys())
@@ -94,6 +94,7 @@ class EventExportTaskManager(object):
 
     def handle_task(self):
         while True:
+            
             try:
                 task_id = self.tasks_queue.get(timeout=2)
             except queue.Empty:

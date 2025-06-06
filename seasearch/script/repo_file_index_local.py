@@ -162,7 +162,7 @@ def start_index_local():
         config, section_name, 'seasearch_token'
     )
 
-    index_manager = IndexManager(config)
+    index_manager = IndexManager()
     seasearch_api = SeaSearchAPI(seasearch_url, seasearch_token)
     repo_status_file_index = RepoStatusIndex(seasearch_api, REPO_STATUS_FILE_INDEX_NAME)
     repo_file_index = RepoFileIndex(seasearch_api, repo_data, 1, config)

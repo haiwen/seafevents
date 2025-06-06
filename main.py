@@ -39,8 +39,8 @@ def main(background_tasks_only=False):
     seafile_config = get_config(seafile_conf_path)
     config = get_config(args.config_file)
     try:
-        create_db_tables(config)
-        prepare_db_tables(seafile_config)
+        create_db_tables()
+        prepare_db_tables()
     except Exception as e:
         logging.error('Failed create tables, error: %s' % e)
         raise RuntimeError('Failed create tables, error: %s' % e)

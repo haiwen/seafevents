@@ -80,8 +80,8 @@ def get_role_download_rate_limit_info():
     
 
 class FileOpsCounter(object):
-    def __init__(self, config):
-        self.edb_session = init_db_session_class(config)()
+    def __init__(self):
+        self.edb_session = init_db_session_class()()
 
     def start_count(self):
         logging.info('Start counting file operations..')
@@ -174,9 +174,9 @@ class FileOpsCounter(object):
         self.edb_session.close()
 
 class TotalStorageCounter(object):
-    def __init__(self, config, seafile_config):
-        self.edb_session = init_db_session_class(config)()
-        self.seafdb_session = init_db_session_class(seafile_config, db='seafile')()
+    def __init__(self):
+        self.edb_session = init_db_session_class()()
+        self.seafdb_session = init_db_session_class(db='seafile')()
 
     def start_count(self):
         logging.info('Start counting total storage..')
@@ -231,8 +231,8 @@ class TotalStorageCounter(object):
         self.edb_session.close()
 
 class TrafficInfoCounter(object):
-    def __init__(self, config):
-        self.edb_session = init_db_session_class(config)()
+    def __init__(self):
+        self.edb_session = init_db_session_class()()
         self.download_type_list = ['web-file-download', 'link-file-download', 'sync-file-download']
 
     def start_count(self):
@@ -395,8 +395,8 @@ class TrafficInfoCounter(object):
                 logging.warning('Failed to update traffic info: %s.', e)
 
 class MonthlyTrafficCounter(object):
-    def __init__(self, config):
-        self.edb_session = init_db_session_class(config)()
+    def __init__(self):
+        self.edb_session = init_db_session_class()()
 
     def start_count(self):
         time_start = time.time()
@@ -527,8 +527,8 @@ class MonthlyTrafficCounter(object):
         self.sys_item_count += 1
 
 class UserActivityCounter(object):
-    def __init__(self, config):
-        self.edb_session = init_db_session_class(config)()
+    def __init__(self):
+        self.edb_session = init_db_session_class()()
 
     def start_count(self):
         logging.info('Start counting user activity info..')
