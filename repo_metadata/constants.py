@@ -64,7 +64,6 @@ class PrivatePropertyKeys:
     EXCLUDED_FACE_LINKS = '_excluded_face_links'
     INCLUDED_FACE_LINKS = '_included_face_links'
     TAGS = '_tags'
-    OCR = '_ocr'
     LOCATION_TRANSLATED = '_location_translated'
 
 
@@ -195,9 +194,6 @@ class MetadataColumns(object):
 
         # tag
         self.tags = MetadataColumn(PrivatePropertyKeys.TAGS, '_tags', PropertyTypes.LINK)
-
-        # ocr
-        self.ocr = MetadataColumn(PrivatePropertyKeys.OCR, '_ocr', PropertyTypes.TEXT)
 
         # location translated 
         self.location_translated = MetadataColumn(PrivatePropertyKeys.LOCATION_TRANSLATED, '_location_translated', PropertyTypes.GEOLOCATION)
