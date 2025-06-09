@@ -51,7 +51,7 @@ class LdapConfig(object):
 
 
 class Settings(object):
-    def __init__(self, config, is_test=False):
+    def __init__(self, is_test=False):
         # If any of ldap configs allows user-sync/group-sync, user-sync/group-sync task is allowed.
         self.enable_group_sync = False
         self.enable_user_sync = False
@@ -74,7 +74,7 @@ class Settings(object):
         self.load_cemail_attr = False
 
         self.ldap_configs = []
-        self.db_session = init_db_session_class(config)
+        self.db_session = init_db_session_class()
         if not self.get_option('ENABLE_LDAP', False) and not self.get_option('ENABLE_MULTI_LDAP', False):
             if is_test:
                 logging.info('LDAP is not set, stop ldap test.')

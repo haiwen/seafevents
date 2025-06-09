@@ -77,12 +77,12 @@ class TaskManager:
         self._redis_connection = None
         self._db_session_class = None
 
-    def init(self, app, workers, task_expire_time, config):
+    def init(self, app, workers, task_expire_time):
         self.app = app
         self.conf['expire_time'] = task_expire_time
         self.conf['workers'] = workers
 
-        self._db_session_class = init_db_session_class(config)
+        self._db_session_class = init_db_session_class()
         self._redis_connection = RedisClient().connection
 
     def get_pending_or_running_task(self, readable_id):

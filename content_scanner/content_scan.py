@@ -24,7 +24,7 @@ class ScanTask(object):
 ## Compare each head_commit_id with the last scanned commit_id,
 ## if they're not equal, do diff and content scan.
 class ContentScan(object):
-    def __init__(self, config, seafile_config):
+    def __init__(self, config):
         self.suffix_list = []
         self.size_limit = 20 * 1024 * 1024
         self.platform = ''
@@ -33,8 +33,8 @@ class ContentScan(object):
         self.region = 'cn-shanghai'
         self.thread_num = 3
 
-        self.edb_session = init_db_session_class(config)
-        self.seafdb_session = init_db_session_class(seafile_config, db='seafile')
+        self.edb_session = init_db_session_class()
+        self.seafdb_session = init_db_session_class(db='seafile')
 
         self._parse_config(config)
 

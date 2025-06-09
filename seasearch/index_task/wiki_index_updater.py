@@ -77,7 +77,7 @@ class SeasearchWikiIndexUpdater(object):
             logging.warning('Failed to init seasearch wiki index object, error: %s', e)
             self._enabled = False
             return
-        self._index_manager = IndexManager(config)
+        self._index_manager = IndexManager()
 
     def is_enabled(self):
         return self._enabled

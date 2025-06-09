@@ -17,8 +17,8 @@ logger = logging.getLogger('seasearch')
 
 class IndexManager(object):
 
-    def __init__(self, config):
-        self.session = init_db_session_class(config)
+    def __init__(self):
+        self.session = init_db_session_class()
         self.metadata_server_api = MetadataServerAPI('seafevents')
 
     def update_library_file_index(self, repo_id, commit_id, repo_file_index, repo_status_file_index, metadata_query_time):

@@ -137,7 +137,7 @@ if __name__ == '__main__':
         config_file = os.environ.get('EVENTS_CONFIG_FILE')
 
     config = get_config(config_file)
-    settings = Settings(config, True if arg.test else False)
+    settings = Settings(True if arg.test else False)
     if not settings.has_base_info:
         sys.exit()
 

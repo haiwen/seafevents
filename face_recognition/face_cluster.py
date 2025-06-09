@@ -23,7 +23,7 @@ class FaceCluster(object):
     """
 
     def __init__(self, config):
-        self._db_session_class = init_db_session_class(config)
+        self._db_session_class = init_db_session_class()
         self.metadata_server_api = MetadataServerAPI('seafevents')
 
         self.should_stop = threading.Event()
@@ -37,7 +37,7 @@ class FaceCluster(object):
         self._parse_config(config)
 
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
-        self.face_recognition_manager = FaceRecognitionManager(config)
+        self.face_recognition_manager = FaceRecognitionManager()
         self.set_signal()
         self.worker_list = []
 

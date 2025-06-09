@@ -14,12 +14,12 @@ class SeafEventServer(Thread):
         Thread.__init__(self)
         self._parse_config(config)
         self.app = app
-        task_manager.init(self.app, self._workers, self._task_expire_time, config)
-        event_export_task_manager.init(self.app, self._workers, self._task_expire_time, config)
+        task_manager.init(self.app, self._workers, self._task_expire_time)
+        event_export_task_manager.init(self.app, self._workers, self._task_expire_time)
 
         task_manager.run()
         event_export_task_manager.run()
-        application.face_recognition_manager = FaceRecognitionManager(config)
+        application.face_recognition_manager = FaceRecognitionManager()
 
         index_task_manager.init(config)
 
