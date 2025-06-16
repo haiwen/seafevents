@@ -16,7 +16,8 @@ from seafobj import fs_mgr
 from seafevents.app.config import METADATA_FILE_TYPES, BAIDU_MAP_KEY, BAIDU_MAP_URL, SERVER_GOOGLE_MAP_KEY, GOOGLE_MAP_GEOCODE_API_URL
 from seafevents.repo_metadata.view_data_sql import view_data_2_sql, sort_data_2_sql
 from seafevents.utils import timestamp_to_isoformat_timestr
-from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT, METADATA_TABLE
+from seafevents.repo_metadata.constants import PrivatePropertyKeys, METADATA_OP_LIMIT, METADATA_TABLE, \
+    FILE_DETAIL_EXTRACT_CONTENT_LIMIT, EXTRACT_DETAIL_FILE_SIZE_LIMIT
 
 
 logger = logging.getLogger(__name__)
@@ -311,9 +312,12 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_man
             need_update_file_type = True
         row_id = row[METADATA_TABLE.columns.id.name]
         obj_id = row[METADATA_TABLE.columns.obj_id.name]
+        file_size = row[METADATA_TABLE.columns.size.name]
 
-        limit = 1000000
+        limit = FILE_DETAIL_EXTRACT_CONTENT_LIMIT
         content = get_file_content(repo_id, obj_id, limit)
+        if file_size > EXTRACT_DETAIL_FILE_SIZE_LIMIT:
+            continue
         if file_type == '_picture':
             update_row = add_image_detail_row(row_id, content, has_capture_time_column)
         elif file_type == '_video':
