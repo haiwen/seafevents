@@ -315,9 +315,9 @@ def add_file_details(repo_id, obj_ids, metadata_server_api, face_recognition_man
         file_size = row[METADATA_TABLE.columns.size.name]
 
         limit = FILE_DETAIL_EXTRACT_CONTENT_LIMIT
-        content = get_file_content(repo_id, obj_id, limit)
         if file_size > EXTRACT_DETAIL_FILE_SIZE_LIMIT:
             continue
+        content = get_file_content(repo_id, obj_id, limit)
         if file_type == '_picture':
             update_row = add_image_detail_row(row_id, content, has_capture_time_column)
         elif file_type == '_video':
