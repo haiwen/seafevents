@@ -195,7 +195,7 @@ class MetadataColumns(object):
         # tag
         self.tags = MetadataColumn(PrivatePropertyKeys.TAGS, '_tags', PropertyTypes.LINK)
 
-        # location translated 
+        # location translated
         self.location_translated = MetadataColumn(PrivatePropertyKeys.LOCATION_TRANSLATED, '_location_translated', PropertyTypes.GEOLOCATION)
 
 
@@ -291,3 +291,7 @@ FACES_TABLE = FacesTable('faces', '0001', '0004', '0005')
 TAGS_TABLE = TagsTable('tags', '0002', '0003')
 
 ZERO_OBJ_ID = '0000000000000000000000000000000000000000'
+
+
+FILE_DETAIL_EXTRACT_CONTENT_LIMIT = 20 * 1024 * 1024
+EXTRACT_DETAIL_FILE_SIZE_LIMIT = 100 * 1024 * 1024
