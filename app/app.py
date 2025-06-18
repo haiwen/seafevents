@@ -3,17 +3,16 @@ from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
         WorkWinxinNoticeSender, FileUpdatesSender, RepoOldFileAutoDelScanner,\
         DeletedFilesCountCleaner, FaceClusterTaskPublisher, ESWikiIndexUpdater, FaceClusterUpdater, \
-        QuotaAlertEmailSender
+        QuotaAlertEmailSender, AIStatsManager
 
 from seafevents.repo_metadata.index_master import RepoMetadataIndexMaster
 from seafevents.repo_metadata.slow_task_handler import SlowMetadataTaskHandler
 from seafevents.seafevent_server.seafevent_server import SeafEventServer
 from seafevents.seasearch.index_task.file_index_updater import RepoFileIndexUpdater
-from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_QUOTA_ALERT
+from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_QUOTA_ALERT, ENABLE_SEAFILE_AI
 from seafevents.seasearch.index_task.wiki_index_updater import SeasearchWikiIndexUpdater
 from seafevents.events.metrics import MetricsManager
 from seafevents.statistics.quota_usage_manager import QuotaUsageManager
-
 
 class App(object):
     def __init__(self, config, seafile_config,
@@ -53,6 +52,8 @@ class App(object):
             self._seasearch_wiki_index_updater = SeasearchWikiIndexUpdater(config)
             if ENABLE_QUOTA_ALERT:
                 self._quota_alert_email_sender = QuotaAlertEmailSender()
+            if ENABLE_SEAFILE_AI:
+                self.ai_stats_manager = AIStatsManager()
 
     def serve_forever(self):
         if self._fg_tasks_enabled:
@@ -85,3 +86,5 @@ class App(object):
             self._quota_usage_manager.start()
             if ENABLE_QUOTA_ALERT:
                 self._quota_alert_email_sender.start()
+            if ENABLE_SEAFILE_AI:
+                self.ai_stats_manager.start()   
