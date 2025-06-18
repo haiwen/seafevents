@@ -139,14 +139,14 @@ class WikiIndex(object):
         # Get wiki config dict
         conf_path = posixpath.join(WIKI_CONFIG_PATH, WIKI_CONFIG_FILE_NAME)
         if commit_id == ZERO_OBJ_ID:
-            return None
+            return {}
 
         if commit_id is not None:
             file_id = seafile_api.get_file_id_by_commit_and_path(wiki_id, commit_id, conf_path)
         else:
             file_id = seafile_api.get_file_id_by_path(wiki_id, conf_path)
         if file_id is None:
-            return None
+            return {}
         f = fs_mgr.load_seafile(wiki_id, 1, file_id)
         return json.loads(f.get_content().decode())
 
@@ -179,7 +179,7 @@ class WikiIndex(object):
                 navigation_ids.add(item['id'])
                 if 'children' in item and item['children']:
                     extract_ids_from_navigation(item['children'], navigation_ids)
-        if config is None:
+        if not config:
             return {}, {}
         navigation_ids = set()
         extract_ids_from_navigation(config['navigation'], navigation_ids)
