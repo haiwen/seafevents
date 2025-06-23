@@ -120,7 +120,6 @@ class AIStatsSaver(Thread):
         return input_cost, output_cost
         
     def stats_worker(self):
-        global ORG_STATS, OWNER_STATS
         if not ORG_STATS and not OWNER_STATS:
             logger.info('There are no stats')
             return
@@ -204,10 +203,12 @@ class AIStatsSaver(Thread):
                     self.stats_worker()
                 except Exception as e:
                     logger.exception(e)
+    
     def reset_stats(self):
-        global ORG_STATS, OWNER_STATS
-        ORG_STATS = defaultdict(lambda: defaultdict(lambda: {'input_tokens': 0, 'output_tokens': 0}))
-        OWNER_STATS = defaultdict(lambda: defaultdict(lambda: {'input_tokens': 0, 'output_tokens': 0}))
+        ORG_STATS.clear()
+        OWNER_STATS.clear()
+        
+        
         
     def cancel(self):
         self.finished.set()
