@@ -16,9 +16,9 @@ from seafevents.app.config import SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
 logger = logging.getLogger(__name__)
 
 AI_STATS_CHANNEL = 'log_ai_model_usage'
-ORG_STATS = defaultdict(lambda: defaultdict(lambda: {'input_tokens': 0, 'output_tokens': 0}))
-OWNER_STATS = defaultdict(lambda: defaultdict(lambda: {'input_tokens': 0, 'output_tokens': 0}))
-RESET_AI_CREDIT_DATES = []
+org_stats = defaultdict(lambda: defaultdict(lambda: {'input_tokens': 0, 'output_tokens': 0}))
+owner_stats = defaultdict(lambda: defaultdict(lambda: {'input_tokens': 0, 'output_tokens': 0}))
+reset_ai_credit_dates = []
 
 class AIStatsReceiver(Thread):
     def __init__(self):
@@ -50,11 +50,11 @@ class AIStatsReceiver(Thread):
             usage['output_tokens'] = 0
 
         if org_id and org_id != -1:
-            ORG_STATS[org_id][model]['input_tokens'] += usage.get('input_tokens') or 0
-            ORG_STATS[org_id][model]['output_tokens'] += usage.get('output_tokens') or 0
+            org_stats[org_id][model]['input_tokens'] += usage.get('input_tokens') or 0
+            org_stats[org_id][model]['output_tokens'] += usage.get('output_tokens') or 0
         else:
-            OWNER_STATS[username][model]['input_tokens'] += usage.get('input_tokens') or 0
-            OWNER_STATS[username][model]['output_tokens'] += usage.get('output_tokens') or 0
+            owner_stats[username][model]['input_tokens'] += usage.get('input_tokens') or 0
+            owner_stats[username][model]['output_tokens'] += usage.get('output_tokens') or 0
     
     def run(self):
         if not self._redis_client.connection:
@@ -120,12 +120,12 @@ class AIStatsSaver(Thread):
         return input_cost, output_cost
         
     def stats_worker(self):
-        if not ORG_STATS and not OWNER_STATS:
+        if not org_stats and not owner_stats:
             logger.info('There are no stats')
             return
         with self.stats_lock:
-            local_org_stats = deepcopy(ORG_STATS)
-            local_owner_stats = deepcopy(OWNER_STATS)
+            local_org_stats = deepcopy(org_stats)
+            local_owner_stats = deepcopy(owner_stats)
             self.reset_stats()
 
         logger.info('There are %s org stats and %s owner stats', len(local_org_stats), len(local_owner_stats))
@@ -183,12 +183,12 @@ class AIStatsSaver(Thread):
                 session.execute(text(self.TEAM_SQL), team_data)
             if owner_data:
                 session.execute(text(self.OWNER_SQL), owner_data)
-            if today == first_day and first_day not in RESET_AI_CREDIT_DATES:
-                if len(RESET_AI_CREDIT_DATES) > 2:
-                    RESET_AI_CREDIT_DATES.pop(0)
+            if today == first_day and first_day not in reset_ai_credit_dates:
+                if len(reset_ai_credit_dates) > 2:
+                    reset_ai_credit_dates.pop(0)
                 session.execute(text(self.RESET_OWNER_AI_CREDIT_SQL))
                 session.execute(text(self.RESET_TEAM_AI_CREDIT_SQL))
-                RESET_AI_CREDIT_DATES.append(first_day)
+                reset_ai_credit_dates.append(first_day)
             session.commit()
         except Exception as e:
             logger.exception(e)
@@ -205,9 +205,9 @@ class AIStatsSaver(Thread):
                     logger.exception(e)
     
     def reset_stats(self):
-        ORG_STATS.clear()
-        OWNER_STATS.clear()
-         
+        org_stats.clear()
+        owner_stats.clear()
+        
     def cancel(self):
         self.finished.set()
         
