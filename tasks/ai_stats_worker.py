@@ -207,9 +207,7 @@ class AIStatsSaver(Thread):
     def reset_stats(self):
         ORG_STATS.clear()
         OWNER_STATS.clear()
-        
-        
-        
+         
     def cancel(self):
         self.finished.set()
         
