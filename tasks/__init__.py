@@ -13,3 +13,4 @@ from .face_cluster_task_publisher import FaceClusterTaskPublisher
 from .es_wiki_index_updater import ESWikiIndexUpdater
 from .face_cluster_updater import FaceClusterUpdater
 from .quota_alert_email_sender import QuotaAlertEmailSender
+from .ai_stats_worker import AIStatsManager
