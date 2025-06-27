@@ -4,7 +4,7 @@ import logging
 from threading import Thread, Event
 
 from seafevents.utils import get_python_executable, run, parse_bool, parse_interval, get_opt_from_conf_or_env
-from seafevents.app.config import ENABLE_WORK_WEIXIN, SEAHUB_DIR
+from seafevents.app.config import ENABLE_WORK_WEIXIN, SEAHUB_DIR, ENABLE_DINGTALK
 
 
 __all__ = [
@@ -35,7 +35,7 @@ class WorkWinxinNoticeSender(object):
         default_interval = 60  # 1min
 
         # enabled
-        enabled = ENABLE_WORK_WEIXIN
+        enabled = ENABLE_WORK_WEIXIN or ENABLE_DINGTALK
         enabled = parse_bool(enabled)
 
         if not enabled:
