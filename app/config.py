@@ -19,6 +19,7 @@ try:
     import seahub.settings as seahub_settings
     TIME_ZONE = getattr(seahub_settings, 'TIME_ZONE', 'UTC')
     ENABLE_WORK_WEIXIN = getattr(seahub_settings, 'ENABLE_WORK_WEIXIN', False)
+    ENABLE_DINGTALK = getattr(seahub_settings, 'ENABLE_DINGTALK', False)
     SEAHUB_SECRET_KEY = getattr(seahub_settings, 'SECRET_KEY', '')
     METADATA_SERVER_SECRET_KEY = getattr(seahub_settings, 'METADATA_SERVER_SECRET_KEY', '')
     METADATA_SERVER_URL = getattr(seahub_settings, 'METADATA_SERVER_URL', '')
