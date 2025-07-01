@@ -400,3 +400,64 @@ def get_metrics():
         metric_info += '%s{%s} %s\n' % (metric_name, label, str(metric_value))
 
     return metric_info.encode()
+
+
+@app.route('/upload-confluence-attachment', methods=['POST'])
+def upload_conflunece_attachment():
+    is_valid = check_auth_token(request)
+    if not is_valid:
+        return {'error_msg': 'Permission denied'}, 403
+
+    try:
+        data = json.loads(request.data)
+    except Exception as e:
+        logger.exception(e)
+        return {'error_msg': 'Bad request.'}, 400
+    exist_image_dir = data.get('exist_image_dir')
+    exist_attachment_dir = data.get('exist_attachment_dir')
+    if not exist_attachment_dir and not exist_image_dir:
+        logger.warning("exist_image_dir or exist_attachment_dir invalid.")
+    
+    wiki_id = data.get("wiki_id")
+    if not wiki_id:
+        return {'error_msg': 'wiki_id invalid.'}, 400
+    username = data.get("username")
+    if not username:
+        return {'error_msg': 'username invalid.'}, 400
+    space_dir = data.get("space_dir")
+    if not space_dir:
+        return {'error_msg': 'space_dir invalid.'}, 400
+    
+    upload_parameter = {
+        "wiki_id": wiki_id,
+        "space_dir": space_dir,
+        "username": username,
+        "exist_attachment_dir": False,
+        "exist_image_dir": False
+    }
+    if exist_image_dir:
+        image_parameters = data.get('is_image')
+        image_dir = image_parameters.get("image_dir")
+        if image_dir:
+            upload_parameter.update({
+                "exist_image_dir": exist_image_dir,
+                "image_dir": image_dir
+            })
+            
+    if exist_attachment_dir:
+        attachment_parameters = data.get('is_attachment')
+        cf_page_id_to_sf_obj_id_map = attachment_parameters.get('cf_page_id_to_sf_obj_id_map')
+        attachment_dir = attachment_parameters.get("attachment_dir")
+        if attachment_dir and cf_page_id_to_sf_obj_id_map:
+            upload_parameter.update({  
+                "exist_attachment_dir": exist_attachment_dir,
+                "cf_page_id_to_sf_obj_id_map": cf_page_id_to_sf_obj_id_map,
+                "attachment_dir": attachment_dir,
+            })            
+    try:
+        task_id = event_export_task_manager.add_upload_confluence_attachment(upload_parameter)
+    except Exception as e:
+        logger.error(e)
+        return make_response((e, 500))
+
+    return {'task_id': task_id}, 200

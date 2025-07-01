@@ -2,6 +2,7 @@ import os
 import ast
 import logging
 import time
+import shutil
 
 import openpyxl
 import datetime
@@ -12,18 +13,19 @@ import uuid
 import posixpath
 import random
 import hashlib
-
+import requests
+from pathlib import Path
 from sqlalchemy import desc, select, text
 
 from seafevents.events.models import FileAudit, FileUpdate, PermAudit, UserLogin
-from seafevents.app.config import TIME_ZONE
+from seafevents.app.config import TIME_ZONE, FILE_SERVER_ROOT
 from seafevents.utils.ccnet_db import CcnetDB
 from seafevents.utils.seafile_db import SeafileDB
 from seafevents.repo_metadata.constants import ZERO_OBJ_ID
 from seafevents.repo_data import repo_data
 from seafevents.utils.md2sdoc import md2sdoc
 from seafevents.utils.constants import WIKI_PAGES_DIR, WIKI_CONFIG_PATH, \
-    WIKI_CONFIG_FILE_NAME
+    WIKI_CONFIG_FILE_NAME, PREVIEW_FILEEXT
 
 from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
@@ -665,3 +667,116 @@ def convert_wiki(old_repo_id, new_repo_id, username, db_session_class):
     wiki_config = {'version': 1, 'pages': pages, 'navigation': navigation}
     wiki_config = json.dumps(wiki_config)
     save_wiki_config(new_repo_id, username, wiki_config)
+
+
+def upload_confluence_attachment(upload_parameter):
+    exist_dir = []
+    exist_attachment_dir = upload_parameter.get("exist_attachment_dir")
+    exist_image_dir = upload_parameter.get("exist_image_dir")
+    space_dir = upload_parameter.get("space_dir")
+    if exist_image_dir:
+        wiki_id = upload_parameter.get("wiki_id")
+        image_dir = upload_parameter.get("image_dir")
+        username = upload_parameter.get("username")
+        upload_cf_images(wiki_id, image_dir, username, exist_dir)
+    if exist_attachment_dir:
+        cf_page_id_to_sf_obj_id_map = upload_parameter.get('cf_page_id_to_sf_obj_id_map')
+        attachment_dir = upload_parameter.get("attachment_dir")
+        wiki_id = upload_parameter.get("wiki_id")
+        username = upload_parameter.get("username")
+        upload_attachment(cf_page_id_to_sf_obj_id_map, attachment_dir, wiki_id, username, exist_dir)
+    if os.path.exists(space_dir):
+        shutil.rmtree(space_dir)
+
+def upload_attachment(cf_page_id_to_sf_obj_id_map, attachment_dir, wiki_id, username, exist_dir):
+    # Image need to be uploaded to the appropriate sdoc directory in seafile
+    attachment_dir = Path(attachment_dir).resolve()
+    # Create the attachment directory in the wiki library
+    wiki_attachment_dir = 'attachments'
+    # Traverse all subdirectories and files in the attachment directory
+    for root, _, files in os.walk(attachment_dir):
+        # Get the relative path as the upload target path
+        rel_path = os.path.relpath(root, attachment_dir)
+        
+        # Process the files in the current directory
+        if files:
+            # Set the target directory
+            if rel_path == '.':
+                target_dir = wiki_attachment_dir
+            else:
+                target_dir = os.path.join(wiki_attachment_dir, rel_path)
+            
+            # Get the obj_id of the page corresponding to the current directory
+            page_name = os.path.basename(rel_path) if rel_path != '.' else None
+            obj_id = cf_page_id_to_sf_obj_id_map.get(page_name)
+            # Upload all files in the current directory
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+                if not os.path.isfile(file_path):
+                    continue
+                file_ext = file_name.split('.')[-1]
+                is_image = file_ext in PREVIEW_FILEEXT.get('IMAGE')
+                if is_image and obj_id:
+                    wiki_page_images_dir = 'images/sdoc/'
+                    sdoc_image_dir = os.path.join(wiki_page_images_dir, obj_id)
+
+                    if sdoc_image_dir not in exist_dir:
+                        seafile_api.mkdir_with_parents(wiki_id, '/', sdoc_image_dir, username)
+                        exist_dir.append(sdoc_image_dir)
+                    upload_attachment_file(wiki_id, sdoc_image_dir, file_path, username)
+                else:   
+                    # other files
+                    if target_dir not in exist_dir:
+                        seafile_api.mkdir_with_parents(wiki_id, '/', target_dir, username)
+                        exist_dir.append(target_dir)
+                    upload_attachment_file(wiki_id, target_dir, file_path, username)
+
+def upload_cf_images(wiki_id, image_dir, username, exist_dir):
+    wiki_images_dir = 'images/'
+    if os.path.exists(image_dir):
+        for root, _, files in os.walk(image_dir):
+            rel_path = os.path.relpath(root, image_dir)
+            if rel_path == '.':
+                target_dir = wiki_images_dir
+            else:
+                target_dir = os.path.join(wiki_images_dir, rel_path)
+            if target_dir not in exist_dir:
+                seafile_api.mkdir_with_parents(wiki_id, '/', target_dir, username)
+                exist_dir.append(target_dir)
+            for file in files:
+                file_path = os.path.join(root, file)
+                upload_attachment_file(wiki_id, target_dir, file_path, username)
+
+def upload_attachment_file(repo_id, parent_dir, file_path, username):
+        try:
+            obj_id = json.dumps({'parent_dir': parent_dir})
+            token = seafile_api.get_fileserver_access_token(repo_id, obj_id, 'upload', username, use_onetime=False)
+            
+            if not token:
+                error_msg = 'Internal Server Error'
+                logger.error(error_msg)
+                return
+            upload_link = gen_file_upload_url(token, 'upload-api')
+            upload_link += '?ret-json=1'
+            
+            filename = os.path.basename(file_path)
+            new_file_path = os.path.join(parent_dir, filename)
+            new_file_path = os.path.normpath(new_file_path)
+            
+            data = {'parent_dir': parent_dir, 'target_file': new_file_path}
+            files = {'file': open(file_path, 'rb')}
+            
+            resp = requests.post(upload_link, files=files, data=data)
+            if not resp.ok:
+                logger.error(f"upload file {filename} failed: {resp.text}")
+        except Exception as e:
+            logger.error(f"upload file {file_path} failed: {e}")
+        finally:
+            if 'files' in locals() and files.get('file') and not files['file'].closed:
+                files['file'].close()
+
+def gen_file_upload_url(token, op, replace=False):
+    url = '%s/%s/%s' % (FILE_SERVER_ROOT, op, token)
+    if replace is True:
+        url += '?replace=1'
+    return url

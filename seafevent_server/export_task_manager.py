@@ -7,7 +7,8 @@ import datetime
 import json
 
 from seafevents.db import init_db_session_class
-from seafevents.seafevent_server.utils import export_event_log_to_excel, export_org_event_log_to_excel, convert_wiki
+from seafevents.seafevent_server.utils import export_event_log_to_excel, export_org_event_log_to_excel, \
+    convert_wiki, upload_confluence_attachment
 from seafevents.app.event_redis import redis_cache
 from seafevents.events.metrics import NODE_NAME, METRIC_CHANNEL_NAME
 
@@ -73,6 +74,14 @@ class EventExportTaskManager(object):
         task_id = str(uuid.uuid4())
         task = (convert_wiki, (old_repo_id, new_repo_id, username, self._db_session_class))
 
+        self.tasks_queue.put(task_id)
+        self.tasks_map[task_id] = task
+        self.publish_io_qsize_metric(self.tasks_queue.qsize())
+        return task_id
+    
+    def add_upload_confluence_attachment(self, upload_parameter):
+        task_id = str(uuid.uuid4())
+        task = (upload_confluence_attachment, (upload_parameter,))
         self.tasks_queue.put(task_id)
         self.tasks_map[task_id] = task
         self.publish_io_qsize_metric(self.tasks_queue.qsize())
