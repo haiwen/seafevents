@@ -7,14 +7,12 @@ import datetime
 import json
 
 from seafevents.db import init_db_session_class
-from seafevents.seafevent_server.utils import export_event_log_to_excel, export_org_event_log_to_excel, convert_wiki
-from seafevents.app.event_redis import redis_cache
-from seafevents.events.metrics import NODE_NAME, METRIC_CHANNEL_NAME
+from seafevents.wiki.confluence2wiki import import_confluence_to_wiki_main
 
 logger = logging.getLogger('seafevents')
 
 
-class EventExportTaskManager(object):
+class EventImportTaskManager(object):
 
     def __init__(self):
         self.app = None
@@ -37,45 +35,13 @@ class EventExportTaskManager(object):
 
     def is_valid_task_id(self, task_id):
         return task_id in (self.tasks_map.keys() | self.task_results_map.keys())
-
-    def publish_io_qsize_metric(self, qsize):
-        publish_metric = {
-            "metric_name": "io_task_queue_size",
-            "metric_type": "gauge",
-            "metric_help": "The size of the io task queue",
-            "component_name": "seafevents",
-            "node_name": NODE_NAME,
-            "metric_value": qsize,
-            "details": {}
-        }
-        redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(publish_metric))
-
-    def add_export_logs_task(self, start_time, end_time, log_type):
+    
+    def add_import_confluence_to_wiki(self, repo_id, space_key, file_path, username, seafile_server_url):
         task_id = str(uuid.uuid4())
-        task = (export_event_log_to_excel, (self._db_session_class, start_time, end_time, log_type, task_id))
-
+        session = self._db_session_class()
+        task = (import_confluence_to_wiki_main, (session, repo_id, space_key, file_path, username, seafile_server_url))
         self.tasks_queue.put(task_id)
         self.tasks_map[task_id] = task
-        self.publish_io_qsize_metric(self.tasks_queue.qsize())
-        return task_id
-
-    def add_org_export_logs_task(self, start_time, end_time, log_type, org_id):
-        task_id = str(uuid.uuid4())
-        task = (export_org_event_log_to_excel, (self._db_session_class, start_time, end_time, log_type, task_id, org_id))
-
-        self.tasks_queue.put(task_id)
-        self.tasks_map[task_id] = task
-        self.publish_io_qsize_metric(self.tasks_queue.qsize())
-        return task_id
-
-    def add_convert_wiki_task(self, old_repo_id, new_repo_id, username):
-
-        task_id = str(uuid.uuid4())
-        task = (convert_wiki, (old_repo_id, new_repo_id, username, self._db_session_class))
-
-        self.tasks_queue.put(task_id)
-        self.tasks_map[task_id] = task
-        self.publish_io_qsize_metric(self.tasks_queue.qsize())
         return task_id
 
     def query_status(self, task_id):
@@ -94,7 +60,6 @@ class EventExportTaskManager(object):
 
     def handle_task(self):
         while True:
-            
             try:
                 task_id = self.tasks_queue.get(timeout=2)
             except queue.Empty:
@@ -116,7 +81,6 @@ class EventExportTaskManager(object):
                 # run
                 task[0](*task[1])
                 self.task_results_map[task_id] = 'success'
-                self.publish_io_qsize_metric(self.tasks_queue.qsize())
                 finish_time = time.time()
                 logging.info('Run task success: %s cost %ds \n' % (task_info, int(finish_time - start_time)))
                 self.current_task_info.pop(task_id, None)
@@ -133,11 +97,11 @@ class EventExportTaskManager(object):
     def run(self):
         thread_num = self.conf['workers']
         for i in range(thread_num):
-            t_name = 'TaskManager Thread-' + str(i)
+            t_name = 'Import-TaskManager Thread-' + str(i)
             t = threading.Thread(target=self.handle_task, name=t_name)
             self.threads.append(t)
             t.setDaemon(True)
             t.start()
 
 
-event_export_task_manager = EventExportTaskManager()
+event_import_task_manager = EventImportTaskManager()
