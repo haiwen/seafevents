@@ -36,6 +36,9 @@ try:
     SEAFILE_AI_SERVER_URL = getattr(seahub_settings, 'SEAFILE_AI_SERVER_URL', '')
     ENABLE_QUOTA_ALERT = getattr(seahub_settings, 'ENABLE_QUOTA_ALERT', False)
     AI_PRICES = getattr(seahub_settings, 'AI_PRICES', {})
+    INNER_FILE_SERVER_ROOT = getattr(seahub_settings, 'INNER_FILE_SERVER_ROOT', '')
+    FILE_CONVERTER_SERVER_URL = getattr(seahub_settings, 'FILE_CONVERTER_SERVER_URL', '')
+    SEADOC_PRIVATE_KEY = getattr(seahub_settings, 'SEADOC_PRIVATE_KEY', '')
 
 except ImportError:
     logger.critical("Can not import seahub settings.")

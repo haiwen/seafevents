@@ -7,6 +7,7 @@ from flask import Flask, request, make_response
 from seafevents.app.config import SEAHUB_SECRET_KEY
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
+from seafevents.seafevent_server.import_task_manager import event_import_task_manager
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
@@ -121,6 +122,26 @@ def query_status():
 
     try:
         is_finished, error = event_export_task_manager.query_status(task_id)
+    except Exception as e:
+        logger.debug(e)
+        return make_response((e, 500))
+
+    if error:
+        return make_response((error, 500))
+    return make_response(({'is_finished': is_finished}, 200))
+
+
+@app.route('/query-import-status', methods=['GET'])
+def query_import_status():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+    task_id = request.args.get('task_id')
+    if not event_import_task_manager.is_valid_task_id(task_id):
+        return make_response(('task_id not found.', 404))
+
+    try:
+        is_finished, error = event_import_task_manager.query_status(task_id)
     except Exception as e:
         logger.debug(e)
         return make_response((e, 500))
@@ -400,3 +421,40 @@ def get_metrics():
         metric_info += '%s{%s} %s\n' % (metric_name, label, str(metric_value))
 
     return metric_info.encode()
+
+
+@app.route('/import-confluence-to-wiki', methods=['POST'])
+def import_confluence_to_wiki():
+    is_valid = check_auth_token(request)
+    if not is_valid:
+        return {'error_msg': 'Permission denied'}, 403
+
+    try:
+        data = json.loads(request.data)
+    except Exception as e:
+        logger.exception(e)
+        return {'error_msg': 'Bad request.'}, 400
+    repo_id = data.get('repo_id')
+    space_key = data.get('space_key')
+    file_path = data.get('file_path')
+    seafile_server_url = data.get('seafile_server_url')
+    username = data.get("username")
+    
+    if not repo_id:
+        return {'error_msg': 'repo_id invalid.'}, 400
+    if not username:
+        return {'error_msg': 'username invalid.'}, 400
+    if not space_key:
+        return {'error_msg': 'space_key invalid.'}, 400
+    if not file_path:
+        return {'error_msg': 'file_path invalid'}, 400
+    if not seafile_server_url:
+        return {'error_msg': 'seafile_server_url invalid'}, 400
+        
+    try:
+        task_id = event_import_task_manager.add_import_confluence_to_wiki(repo_id, space_key, file_path, username, seafile_server_url)
+    except Exception as e:
+        logger.error(e)
+        return make_response((e, 500))
+
+    return {'task_id': task_id}, 200
