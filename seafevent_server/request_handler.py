@@ -131,8 +131,8 @@ def query_status():
     return make_response(({'is_finished': is_finished}, 200))
 
 
-@app.route('/query-import-confluence-status', methods=['GET'])
-def query_import_confluence_status():
+@app.route('/query-import-status', methods=['GET'])
+def query_import_status():
     is_valid, error = check_auth_token(request)
     if not is_valid:
         return make_response((error, 403))
