@@ -14,7 +14,7 @@ from sqlalchemy.sql import text
 from seaserv import seafile_api
 from seafevents.seafevent_server.utils import save_wiki_config, gen_new_page_nav_by_id, gen_unique_id, \
     md5_repo_id_parent_path
-from seafevents.wiki.utils import gen_file_get_url, get_wiki_config, gen_file_upload_url, \
+from seafevents.wiki.utils import gen_file_get_url, gen_inner_file_get_url, get_wiki_config, gen_file_upload_url, \
     get_all_wiki_ids, convert_confluence_to_wiki
 from seafevents.utils.constants import PREVIEW_FILEEXT, WIKI_PAGES_DIR
 
@@ -127,7 +127,7 @@ def download_sdoc_files(repo_id, space_dir, username):
     if not file_id:
         return None
     download_token = seafile_api.get_fileserver_access_token(repo_id, file_id, 'download', username)
-    download_url = gen_file_get_url(download_token, 'sdoc_archive.zip')
+    download_url = gen_inner_file_get_url(download_token, 'sdoc_archive.zip')
         
     response = requests.get(download_url)
     if response.status_code != 200:
@@ -297,7 +297,7 @@ def process_page(wiki_id, item, wiki_config, sdoc_uuid, username, cf_id_to_cf_ti
             upload_file(wiki_id, parent_dir, sdoc_file, obj_id, username, page_name)
         except Exception as e:
             if str(e) == 'Too many files in library.':
-                error_msg = _("The number of files in library exceeds the limit")
+                error_msg = "The number of files in library exceeds the limit"
                 raise Exception(error_msg)
             else:
                 logger.error(e)
@@ -337,16 +337,16 @@ def upload_file(repo_id, parent_dir, sdoc_file, obj_id, username, page_name):
         token = seafile_api.get_fileserver_access_token(repo_id, obj_id, 'upload', username, use_onetime=False)
     except Exception as e:
         if str(e) == 'Too many files in library.':
-            error_msg = _("The number of files in library exceeds the limit")
-            return False
+            error_msg = "The number of files in library exceeds the limit"
+            raise error_msg
         else:
             logger.error(e)
             error_msg = 'Internal Server Error'
-            return False
+            raise error_msg
 
     if not token:
         error_msg = 'Internal Server Error'
-        return False
+        raise error_msg
     
     upload_link = gen_file_upload_url(token, 'upload-api')
     upload_link += '?ret-json=1'
