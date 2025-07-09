@@ -12,6 +12,7 @@ import uuid
 import posixpath
 import random
 import hashlib
+import requests
 
 from sqlalchemy import desc, select, text
 
@@ -28,6 +29,7 @@ from seafevents.utils.constants import WIKI_PAGES_DIR, WIKI_CONFIG_PATH, \
 from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
 from seafobj.exceptions import GetObjectError
+from seafevents.wiki.utils import gen_file_upload_url
 
 logger = logging.getLogger('seafevents')
 
@@ -451,7 +453,28 @@ def save_wiki_config(repo_id, username, wiki_config):
     with open(tmp_content_path, 'wb') as f:
         f.write(wiki_config.encode())
 
-    seafile_api.post_file(repo_id, tmp_content_path, WIKI_CONFIG_PATH, WIKI_CONFIG_FILE_NAME, username)
+    obj_id = json.dumps({'parent_dir': WIKI_CONFIG_PATH})
+
+    dir_id = seafile_api.get_dir_id_by_path(repo_id, WIKI_CONFIG_PATH)
+    if not dir_id:
+        seafile_api.mkdir_with_parents(repo_id, '/', WIKI_CONFIG_PATH, username)
+
+    token = seafile_api.get_fileserver_access_token(
+        repo_id, obj_id, 'upload-link', username, use_onetime=False)
+
+    if not token:
+        raise Exception('upload token invalid')
+
+    upload_link = gen_file_upload_url(token, 'upload-api')
+    upload_link = upload_link + '?replace=1'
+
+    files = {
+        'file': (WIKI_CONFIG_FILE_NAME, wiki_config)
+    }
+    data = {'parent_dir': WIKI_CONFIG_PATH, 'relative_path': '', 'replace': 1}
+    resp = requests.post(upload_link, files=files, data=data)
+    if not resp.ok:
+        raise Exception(resp.text)
     os.remove(tmp_content_path)
 
 

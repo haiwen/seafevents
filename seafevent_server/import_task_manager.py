@@ -8,6 +8,7 @@ import json
 
 from seafevents.db import init_db_session_class
 from seafevents.wiki.confluence2wiki import import_confluence_to_wiki_main
+from seafevents.wiki.wiki2 import import_wiki_page
 
 logger = logging.getLogger('seafevents')
 
@@ -40,6 +41,14 @@ class EventImportTaskManager(object):
         task_id = str(uuid.uuid4())
         session = self._db_session_class()
         task = (import_confluence_to_wiki_main, (session, repo_id, space_key, file_path, username, seafile_server_url))
+        self.tasks_queue.put(task_id)
+        self.tasks_map[task_id] = task
+        return task_id
+    
+    def add_import_wiki_page(self, repo_id, local_file_path, username, page_id, page_name, sdoc_uuid_str):
+        task_id = str(uuid.uuid4())
+        session = self._db_session_class()
+        task = (import_wiki_page, (session, repo_id, local_file_path, username, page_id, page_name, sdoc_uuid_str))
         self.tasks_queue.put(task_id)
         self.tasks_map[task_id] = task
         return task_id

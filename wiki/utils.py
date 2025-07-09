@@ -70,4 +70,17 @@ def convert_confluence_to_wiki(filename, download_url, upload_url, username, sea
     return resp.content
 
 
-
+def convert_file(path, username, doc_uuid, download_url, upload_url, src_type, dst_type):
+    headers = convert_file_gen_headers()
+    params = {
+        'path': path,
+        'username': username,
+        'doc_uuid': doc_uuid,
+        'download_url': download_url,
+        'upload_url': upload_url,
+        'src_type': src_type,
+        'dst_type': dst_type,
+    }
+    url = FILE_CONVERTER_SERVER_URL.rstrip('/') + '/api/v1/file-convert/'
+    resp = requests.post(url, json=params, headers=headers, timeout=30)
+    return resp
