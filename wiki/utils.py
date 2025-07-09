@@ -8,16 +8,19 @@ from urllib.parse import quote
 
 from seaserv import seafile_api
 from seafevents.app.config import FILE_CONVERTER_SERVER_URL, SEADOC_PRIVATE_KEY,  \
-    INNER_FILE_SERVER_ROOT
+    INNER_FILE_SERVER_ROOT, FILE_SERVER_ROOT
 from seafevents.utils.constants import WIKI_CONFIG_PATH, WIKI_CONFIG_FILE_NAME
 
 
 def gen_file_get_url(token, filename):
-    return '%s/files/%s/%s' % (INNER_FILE_SERVER_ROOT, token, quote(filename))
+    return '%s/files/%s/%s' % (FILE_SERVER_ROOT, token, quote(filename))
 
+def gen_inner_file_get_url(token, filename):
+    return '%s/files/%s/%s' % (INNER_FILE_SERVER_ROOT, token,
+                                quote(filename))
 
 def gen_file_upload_url(token, op, replace=False):
-    url = '%s/%s/%s' % (INNER_FILE_SERVER_ROOT, op, token)
+    url = '%s/%s/%s' % (FILE_SERVER_ROOT, op, token)
     if replace is True:
         url += '?replace=1'
     return url
