@@ -474,6 +474,7 @@ def import_wiki_page():
     file_path = data.get('file_path')
     username = data.get("username")
     page_id = data.get('page_id')
+    from_page_id = data.get('from_page_id', None)
     page_name = data.get('page_name')
     sdoc_uuid_str = data.get('sdoc_uuid_str')
 
@@ -491,7 +492,7 @@ def import_wiki_page():
         return {'error_msg': 'sdoc_uuid_str invalid'}, 400
         
     try:
-        task_id = event_import_task_manager.add_import_wiki_page(repo_id, file_path, username, page_id, page_name, sdoc_uuid_str)
+        task_id = event_import_task_manager.add_import_wiki_page(repo_id, file_path, username, page_id, page_name, sdoc_uuid_str, from_page_id)
     except Exception as e:
         logger.error(e)
         return make_response((e, 500))

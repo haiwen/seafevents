@@ -45,10 +45,10 @@ class EventImportTaskManager(object):
         self.tasks_map[task_id] = task
         return task_id
     
-    def add_import_wiki_page(self, repo_id, local_file_path, username, page_id, page_name, sdoc_uuid_str):
+    def add_import_wiki_page(self, repo_id, local_file_path, username, page_id, page_name, sdoc_uuid_str, from_page_id):
         task_id = str(uuid.uuid4())
         session = self._db_session_class()
-        task = (import_wiki_page, (session, repo_id, local_file_path, username, page_id, page_name, sdoc_uuid_str))
+        task = (import_wiki_page, (session, repo_id, local_file_path, username, page_id, page_name, sdoc_uuid_str, from_page_id))
         self.tasks_queue.put(task_id)
         self.tasks_map[task_id] = task
         return task_id

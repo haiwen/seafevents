@@ -7,7 +7,7 @@ from pathlib import Path
 
 from sqlalchemy.sql import text
 from seafevents.wiki.utils import gen_file_get_url, get_wiki_config, gen_file_upload_url, \
-    convert_file
+    convert_file, gen_new_page_nav_by_id, delete_wiki_page_dir
 from seaserv import seafile_api
 from seafevents.seafevent_server.utils import save_wiki_config, md5_repo_id_parent_path
 from seafevents.utils.constants import WIKI_PAGES_DIR
@@ -15,7 +15,7 @@ from seafevents.utils.constants import WIKI_PAGES_DIR
 logger = logging.getLogger(__name__)
 
 
-def import_wiki_page(session, repo_id, local_file_path, username, page_id, page_name, sdoc_uuid_str):
+def import_wiki_page(session, repo_id, local_file_path, username, page_id, page_name, sdoc_uuid_str, from_page_id):
     extension = Path(local_file_path).suffix
     parent_dir = os.path.join(WIKI_PAGES_DIR, sdoc_uuid_str)
     filename = os.path.basename(local_file_path)
@@ -23,42 +23,23 @@ def import_wiki_page(session, repo_id, local_file_path, username, page_id, page_
     
     path_md5 = md5_repo_id_parent_path(repo_id, parent_dir)
     try:
-        if extension == '.docx':
-            sdoc_filename = f'{filename.split(extension)[0]}.sdoc'
-            sql = text('''
-                INSERT INTO tags_fileuuidmap (
-                    `uuid`, `repo_id`, `parent_path`, `filename`, `repo_id_parent_path_md5`, `is_dir`
-                ) VALUES (
-                    :uuid, :repo_id, :parent_path, :filename, :md5, :is_dir
-                )
-            ''')
+        sdoc_filename = f'{filename.split(extension)[0]}.sdoc'
+        sql = text('''
+            INSERT INTO tags_fileuuidmap (
+                `uuid`, `repo_id`, `parent_path`, `filename`, `repo_id_parent_path_md5`, `is_dir`
+            ) VALUES (
+                :uuid, :repo_id, :parent_path, :filename, :md5, :is_dir
+            )
+        ''')
 
-            session.execute(sql, {
-                'uuid': sdoc_uuid_str.replace('-', ''),
-                'repo_id': repo_id,
-                'parent_path': parent_dir,
-                'filename': sdoc_filename,
-                'md5': path_md5,
-                'is_dir': False
-            })
-        elif extension == '.md':
-            sdoc_filename = f'{filename.split(extension)[0]}.sdoc'
-            sql = text('''
-                INSERT INTO tags_fileuuidmap (
-                    `uuid`, `repo_id`, `parent_path`, `filename`, `repo_id_parent_path_md5`, `is_dir`
-                ) VALUES (
-                    :uuid, :repo_id, :parent_path, :filename, :md5, :is_dir
-                )
-            ''')
-
-            session.execute(sql, {
-                'uuid': sdoc_uuid_str.replace('-', ''),
-                'repo_id': repo_id,
-                'parent_path': parent_dir,
-                'filename': sdoc_filename,
-                'md5': path_md5,
-                'is_dir': False
-            })
+        session.execute(sql, {
+            'uuid': sdoc_uuid_str.replace('-', ''),
+            'repo_id': repo_id,
+            'parent_path': parent_dir,
+            'filename': sdoc_filename,
+            'md5': path_md5,
+            'is_dir': False
+        })
         session.commit()
     except Exception as e:
         raise e
@@ -94,10 +75,7 @@ def import_wiki_page(session, repo_id, local_file_path, username, page_id, page_
         resp = convert_file(file_path, username, sdoc_uuid_str, download_url, upload_link, src_type, 'sdoc')
         status_code = resp.status_code
         if status_code != 200:
-            del_parent_dir = os.path.dirname(parent_dir)
-            del_file_name = os.path.basename(parent_dir)
-            seafile_api.del_file(repo_id, del_parent_dir,
-                        json.dumps([del_file_name]), username)
+            delete_wiki_page_dir(repo_id, parent_dir, username)
             raise BaseException('File conversion failed')
 
     wiki_config = get_wiki_config(repo_id, username)
@@ -119,7 +97,15 @@ def import_wiki_page(session, repo_id, local_file_path, username, page_id, page_
         'id': page_id,
         'type': 'page',
     }
-    navigation.append(new_nav)
+    if not from_page_id:
+        navigation.append(new_nav)
+    else:
+        is_find = [False]
+        gen_new_page_nav_by_id(navigation, page_id, from_page_id, 'inner', is_find)
+        if not is_find[0]:
+            error_msg = 'Current page does not exist'
+            delete_wiki_page_dir(repo_id, parent_dir, username)
+            raise Exception(error_msg)
     wiki_config['navigation'] = navigation
     wiki_config['pages'] = pages
     wiki_config = json.dumps(wiki_config)

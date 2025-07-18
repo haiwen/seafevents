@@ -1,3 +1,4 @@
+import os
 import json
 import requests
 import posixpath
@@ -84,3 +85,48 @@ def convert_file(path, username, doc_uuid, download_url, upload_url, src_type, d
     url = FILE_CONVERTER_SERVER_URL.rstrip('/') + '/api/v1/file-convert/'
     resp = requests.post(url, json=params, headers=headers, timeout=30)
     return resp
+
+
+def gen_new_page_nav_by_id(navigation, page_id, current_id, insert_position, is_find):
+    new_nav = {
+        'id': page_id,
+        'type': 'page',
+    }
+    if current_id:
+        if insert_position == 'inner':
+            for nav in navigation:
+                if nav.get('type') == 'page' and nav.get('id') == current_id:
+                    sub_nav = nav.get('children', [])
+                    sub_nav.append(new_nav)
+                    nav['children'] = sub_nav
+                    is_find[0] = True
+                    return True
+                else:
+                    gen_new_page_nav_by_id(nav.get('children', []), page_id, current_id, insert_position, is_find)
+        elif insert_position == 'above':
+            for index, nav in enumerate(navigation):
+                if nav.get('type') == 'page' and nav.get('id') == current_id:
+                    navigation.insert(index, new_nav)
+                    is_find[0] = True
+                    return True
+                else:
+                    gen_new_page_nav_by_id(nav.get('children', []), page_id, current_id, insert_position, is_find)
+        elif insert_position == 'below':
+            for index, nav in enumerate(navigation):
+                if nav.get('type') == 'page' and nav.get('id') == current_id:
+                    navigation.insert(index+1, new_nav)
+                    is_find[0] = True
+                    return True
+                else:
+                    gen_new_page_nav_by_id(nav.get('children', []), page_id, current_id, insert_position, is_find)
+    else:
+        navigation.append(new_nav)
+        is_find[0] = True
+        return True
+
+
+def delete_wiki_page_dir(repo_id, parent_dir, username):
+    del_parent_dir = os.path.dirname(parent_dir)
+    del_file_name = os.path.basename(parent_dir)
+    seafile_api.del_file(repo_id, del_parent_dir,
+                json.dumps([del_file_name]), username)
