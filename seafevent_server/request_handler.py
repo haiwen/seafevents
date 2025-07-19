@@ -458,3 +458,43 @@ def import_confluence_to_wiki():
         return make_response((e, 500))
 
     return {'task_id': task_id}, 200
+
+@app.route('/import-wiki-page', methods=['POST'])
+def import_wiki_page():
+    is_valid = check_auth_token(request)
+    if not is_valid:
+        return {'error_msg': 'Permission denied'}, 403
+
+    try:
+        data = json.loads(request.data)
+    except Exception as e:
+        logger.exception(e)
+        return {'error_msg': 'Bad request.'}, 400
+    repo_id = data.get('repo_id')
+    file_path = data.get('file_path')
+    username = data.get("username")
+    page_id = data.get('page_id')
+    from_page_id = data.get('from_page_id', None)
+    page_name = data.get('page_name')
+    sdoc_uuid_str = data.get('sdoc_uuid_str')
+
+    if not repo_id:
+        return {'error_msg': 'repo_id invalid.'}, 400
+    if not username:
+        return {'error_msg': 'username invalid.'}, 400
+    if not file_path:
+        return {'error_msg': 'file_path invalid'}, 400
+    if not page_id:
+        return {'error_msg': 'page_id invalid'}, 400
+    if not page_name:
+        return {'error_msg': 'page_name invalid'}, 400
+    if not sdoc_uuid_str:
+        return {'error_msg': 'sdoc_uuid_str invalid'}, 400
+        
+    try:
+        task_id = event_import_task_manager.add_import_wiki_page(repo_id, file_path, username, page_id, page_name, sdoc_uuid_str, from_page_id)
+    except Exception as e:
+        logger.error(e)
+        return make_response((e, 500))
+
+    return {'task_id': task_id}, 200
