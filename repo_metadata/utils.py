@@ -229,8 +229,8 @@ def get_image_details(content):
                 lng = -lng
 
             location = {
-                'lat': lat,
-                'lng': lng,
+                'lat': round(lat, 6),
+                'lng': round(lng, 6),
             } if lat is not None and lng is not None else {}
             return details, location
 
@@ -277,8 +277,8 @@ def get_video_details(content):
                 details['Encoding software'] = software
 
             location = {
-                'lat': lat,
-                'lng': lng,
+                'lat': round(lat, 6),
+                'lng': round(lng, 6),
             } if lat is not None and lng is not None else {}
             return details, location
 
