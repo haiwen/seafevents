@@ -5,7 +5,7 @@ import datetime
 from datetime import timedelta
 import hashlib
 
-from sqlalchemy import desc, select, update, func, text, and_, delete
+from sqlalchemy import desc, select, update, func, and_, delete, join
 from sqlalchemy.sql import exists
 
 from .models import FileAudit, FileUpdate, PermAudit, \
@@ -202,41 +202,43 @@ def get_file_history_by_day(session, repo_id, path, start, limit, to_tz, history
     
     new_events = []
     if current_item:
-        query_stmt = select(
-                FileHistory.id, FileHistory.op_type, FileHistory.op_user, FileHistory.timestamp, FileHistory.repo_id, FileHistory.commit_id,
-                FileHistory.file_id, FileHistory.file_uuid, FileHistory.path, FileHistory.repo_id_path_md5, FileHistory.size, FileHistory.old_path,
-                func.date_format(func.convert_tz(FileHistory.timestamp, '+00:00', to_tz), '%Y-%m-%d 00:00:00').label('date'),
-                func.count(FileHistory.id).label('count'),
-                func.max(FileHistory.id).label('max_id')
-                )
+        stats_subquery = select(
+            func.date_format(func.convert_tz(FileHistory.timestamp, '+00:00', to_tz), '%Y-%m-%d 00:00:00').label('date'),
+            func.count(FileHistory.id).label('count'),
+            func.max(FileHistory.id).label('max_id')
+        )
 
         if int(history_limit) >= 0:
             present_time = datetime.datetime.utcnow()
             delta = timedelta(days=history_limit)
             history_time = present_time - delta
-            query_stmt = query_stmt.where(FileHistory.file_uuid == current_item.file_uuid, FileHistory.timestamp.between(history_time, present_time))
+            stats_subquery = stats_subquery.where(
+                FileHistory.file_uuid == current_item.file_uuid, 
+                FileHistory.timestamp.between(history_time, present_time)
+            )
         else:
-            query_stmt = query_stmt.where(FileHistory.file_uuid == current_item.file_uuid)
+            stats_subquery = stats_subquery.where(
+                FileHistory.file_uuid == current_item.file_uuid
+            )
 
-        query_stmt = query_stmt.order_by(desc(FileHistory.id)).\
-                                group_by('date').\
-                                slice(start, start + limit + 1)
+        stats_subquery = stats_subquery.group_by('date').subquery()
+        query_stmt = select(
+            FileHistory.id, FileHistory.op_type, FileHistory.op_user, FileHistory.timestamp, FileHistory.repo_id, FileHistory.commit_id,
+            FileHistory.file_id, FileHistory.file_uuid, FileHistory.path, FileHistory.repo_id_path_md5, FileHistory.size, FileHistory.old_path,
+            stats_subquery.c.date,
+            stats_subquery.c.count,
+            stats_subquery.c.max_id
+        ).select_from(
+            join(FileHistory, stats_subquery, FileHistory.id == stats_subquery.c.max_id)
+        ).order_by(desc(stats_subquery.c.date)).slice(start, start + limit + 1)
 
         events = session.execute(query_stmt).all()
         if events and len(events) == limit + 1:
             events = events[:-1]
 
         for event in events:
-            if event.max_id == event.id:
-                new_event = convert_file_history_to_dict(event)
-                new_events.append(new_event)
-            else:
-                max_record_sql = select(FileHistory).where(FileHistory.file_uuid == current_item.file_uuid, FileHistory.id == event.max_id).limit(1)
-                max_id_event = session.scalars(max_record_sql).first()
-                new_event = convert_file_history_to_dict(max_id_event)
-                new_event['count'] = event.count
-                new_event['date'] = event.date
-                new_events.append(new_event)
+            new_event = convert_file_history_to_dict(event)
+            new_events.append(new_event)
 
     return new_events
 
