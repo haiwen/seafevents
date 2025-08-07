@@ -4,10 +4,10 @@ pyjwt==2.10.*
 pymysql==1.1.*
 Flask==3.1.*
 pyexiftool==0.4.*
-beautifulsoup4==4.12.3
+beautifulsoup4==4.13.*
 markdown-it-py==3.0.0
 mdit_py_plugins==0.4.2
 linkify-it-py==2.0.3
-scikit-learn==1.5.*
+scikit-learn==1.7.*
 waitress==3.0.*
 python-memcached==1.62
