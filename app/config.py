@@ -77,7 +77,7 @@ IS_PRO_VERSION = os.environ.get('IS_PRO_VERSION', 'false') == 'true'
 
 
 def get_config(config_file):
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(inline_comment_prefixes=('#', ';'))
     try:
         config.read(config_file)
     except Exception as e:
