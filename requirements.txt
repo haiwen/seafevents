@@ -3,7 +3,7 @@ redis==6.0.*
 pyjwt==2.10.*
 pymysql==1.1.*
 Flask==3.1.*
-pyexiftool==0.4.*
+pyexiftool==0.5.*
 beautifulsoup4==4.13.*
 markdown-it-py==3.0.0
 mdit_py_plugins==0.4.2
