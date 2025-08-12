@@ -1,5 +1,5 @@
 SQLAlchemy==2.0.*
-redis==6.0.*
+redis==6.2.*
 pyjwt==2.10.*
 pymysql==1.1.*
 Flask==3.1.*
