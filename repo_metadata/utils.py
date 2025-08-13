@@ -178,8 +178,8 @@ def get_image_details(content):
         temp_file.write(content)
         temp_file.flush()
         temp_file_path = temp_file.name
-        with exiftool.ExifTool() as et:
-            metadata = et.get_metadata(temp_file_path)
+        with exiftool.ExifToolHelper() as et:
+            metadata = et.get_metadata(temp_file_path)[0]
             time_zone_str = metadata.get('EXIF:OffsetTimeOriginal', '')
             capture_time = metadata.get('EXIF:DateTimeOriginal', '')
             if is_valid_datetime(capture_time, '%Y:%m:%d %H:%M:%S'):
@@ -240,8 +240,8 @@ def get_video_details(content):
         temp_file.write(content)
         temp_file.flush()
         temp_file_path = temp_file.name
-        with exiftool.ExifTool() as et:
-            metadata = et.get_metadata(temp_file_path)
+        with exiftool.ExifToolHelper() as et:
+            metadata = et.get_metadata(temp_file_path)[0]
             lat = metadata.get('Composite:GPSLatitude')
             lng = metadata.get('Composite:GPSLongitude')
             lat_ref = metadata.get('Composite:GPSLatitudeRef')
