@@ -27,7 +27,6 @@ from .change_file_path import ChangeFilePathHandler
 from .models import Activity, FileTrash, OrgLastActivityTime
 from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, save_deleted_files_msg
 from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
-from seafevents.repo_metadata.workflow_executor import on_file_upload_event
 from seafevents.repo_metadata.workflow_task_handler import workflow_task_manager
 
 recent_added_events = {'recent_added_events': []}
@@ -134,7 +133,7 @@ def RepoUpdateEventHandler(config, session, msg):
                                                         modified_files)
                 save_message_to_user_notification(session, records)
                 for record in records:
-                    workflow_task_manager.add_file_upload_workflow_task(on_file_upload_event, record)
+                    workflow_task_manager.add_file_upload_workflow_task(record)
 
 
             enable_collab_server = False

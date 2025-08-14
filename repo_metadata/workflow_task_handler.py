@@ -1,22 +1,17 @@
 import time
 import logging
 import threading
-import json
 import queue
 import uuid
 
-from requests import session
-
-
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
+from seafevents.repo_metadata.workflow_executor import on_file_upload_event
 from seafevents.db import init_db_session_class
 
 logger = logging.getLogger(__name__)
 
 
 class WorkflowTaskManager(object):
-    """ The handler for redis message queue
-    """
 
     def __init__(self):
         self.metadata_server_api = MetadataServerAPI('seafevents')
@@ -28,15 +23,15 @@ class WorkflowTaskManager(object):
         self._db_session_class = init_db_session_class()
 
 
-    def add_file_upload_workflow_task(self, func, record):
+    def add_file_upload_workflow_task(self, record):
         session = self._db_session_class()
         if self.task_queue.full():
             logger.warning('workflow server busy, queue size: %d, current tasks: %s, threads is_alive: %s'
-                            % (self.image_queue.qsize(), self.current_task_info,
+                            % (self.task_queue.qsize(), self.current_task_info,
                             self.threads_is_alive()))
             return False
         task_id = str(uuid.uuid4())
-        task = (func, (session, record))
+        task = (on_file_upload_event, (session, record))
         self.task_queue.put(task_id)
         self.tasks_map[task_id] = task
         return True
