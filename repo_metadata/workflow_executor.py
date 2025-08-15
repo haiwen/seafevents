@@ -328,14 +328,14 @@ class WorkflowExecutor:
                 )
             
             self._record_workflow_run_start(context, graph_data)
-            
+            start_time = time.time()
             success = self._execute_workflow_with_queue(context, graph)
-            
+            elapsed_time = time.time() - start_time
             if success:
-                self._update_workflow_run_status(context, COMPLETED)
+                self._update_workflow_run_status(context, COMPLETED, elapsed_time)
                 logger.info(f"Workflow {context.workflow_id} executed successfully")
             else:
-                self._update_workflow_run_status(context, FAILED)
+                self._update_workflow_run_status(context, FAILED, elapsed_time)
                 logger.error(f"Workflow {context.workflow_id} execution failed")
             
             return success
@@ -401,20 +401,17 @@ class WorkflowExecutor:
         try:
             sql = text("""
                 INSERT INTO workflow_run 
-                (id, workflow_id, repo_id, graph, status, triggered_from, created_by, created_at, total_steps)
-                VALUES (:id, :workflow_id, :repo_id, :graph, :status, :triggered_from, :created_by, :created_at, :total_steps)
+                (id, workflow_id, repo_id, status, created_by, created_at, total_steps)
+                VALUES (:id, :workflow_id, :repo_id, :status, :created_by, :created_at, :total_steps)
             """)
             
-            graph_json = json.dumps(graph_data, ensure_ascii=False)
             total_steps = len(graph_data.get('nodes', []))
             record = context.trigger_data.get('record')
             self.db.execute(sql, {
                 'id': context.run_id,
                 'workflow_id': context.workflow_id,
                 'repo_id': context.repo_id,
-                'graph': graph_json,
                 'status': RUNNING,
-                'triggered_from': 'file_upload',
                 'created_by': record.get('op_user'),
                 'created_at': datetime.now(),
                 'total_steps': total_steps
@@ -424,17 +421,18 @@ class WorkflowExecutor:
         except Exception as e:
             logger.error(f"Failed to record workflow run start: {str(e)}")
     
-    def _update_workflow_run_status(self, context, status):
+    def _update_workflow_run_status(self, context, status, elapsed_time):
         try:
             sql = text("""
                 UPDATE workflow_run 
-                SET status = :status, finished_at = :finished_at
+                SET status = :status, finished_at = :finished_at, elapsed_time = :elapsed_time
                 WHERE id = :id
             """)
             
             self.db.execute(sql, {
                 'status': status,
                 'finished_at': datetime.now(),
+                'elapsed_time': elapsed_time,
                 'id': context.run_id
             })
             self.db.commit()
