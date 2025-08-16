@@ -11,7 +11,7 @@ from datetime import timedelta
 from os.path import splitext
 
 from seafevents.app.cache_provider import cache
-from sqlalchemy import select, text, desc, func
+from sqlalchemy import select, text, desc, func, or_
 from sqlalchemy.exc import NoResultFound
 import pymysql
 
@@ -603,7 +603,7 @@ def save_repo_trashs(session, records):
             restore_repo_trash(session, record)
 
 
-def get_delete_records(session, repo_id, show_day, start, limit):
+def get_delete_records(session, repo_id, show_day, start, limit, keywords, time_from, time_to, op_users, suffixes):
     if show_day == 0:
         return [], 0
     elif show_day == -1:
@@ -611,11 +611,38 @@ def get_delete_records(session, repo_id, show_day, start, limit):
         count_stmt = select(func.count(FileTrash.id)).where(FileTrash.repo_id == repo_id)
 
     else:
-        _timestamp = datetime.datetime.now() - timedelta(days=show_day)
-        stmt = select(FileTrash).where(FileTrash.repo_id == repo_id,
-                                         FileTrash.delete_time > _timestamp,)
-        count_stmt = select(func.count(FileTrash.id)).where(FileTrash.repo_id == repo_id,
-                                                            FileTrash.delete_time > _timestamp,)
+        conditions = [FileTrash.repo_id == repo_id]
+
+        if time_from and time_to:
+            time_from_dt = datetime.datetime.fromtimestamp(time_from)
+            time_to_dt = datetime.datetime.fromtimestamp(time_to)
+            conditions.extend([
+                FileTrash.delete_time > time_from_dt,
+                FileTrash.delete_time < time_to_dt
+            ])
+        else:
+            _timestamp = datetime.datetime.now() - timedelta(days=show_day)
+            conditions.append(FileTrash.delete_time > _timestamp)
+
+        if keywords:
+            file_name_expr = func.substr(
+                FileTrash.obj_name,
+                1,
+                func.instr(FileTrash.obj_name, '.') - 1
+            )
+            conditions.append(file_name_expr.ilike(f"%{keywords}%"))
+
+        if op_users:
+            if isinstance(op_users, str):
+                op_users = [op_users]
+            conditions.append(FileTrash.user.in_(op_users))
+
+        if suffixes:
+            suffix_conditions = [FileTrash.obj_name.endswith(f'.{f_ext}') for f_ext in suffixes]
+            conditions.append(or_(*suffix_conditions))
+
+        stmt = select(FileTrash).where(*conditions)
+        count_stmt = select(func.count(FileTrash.id)).where(*conditions)
 
     stmt = stmt.order_by(desc(FileTrash.delete_time))
     total_count = session.scalar(count_stmt)
