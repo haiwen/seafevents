@@ -47,7 +47,7 @@ def migrate_dn_pairs(settings):
                 continue
             else:
                 uuid = results[0][1][config.group_uuid_attr][0]
-                session = settings.db_session()
+                session = settings.db_session_class()
                 add_group_uuid_pair(session, grp_dn_pair.group_id, uuid)
 
 
