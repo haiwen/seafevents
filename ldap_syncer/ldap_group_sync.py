@@ -55,7 +55,7 @@ class LdapGroupSync(LdapSync):
 
         # remove not exist group's uuid_pair
         group_ids = [int(group.id) for group in groups]
-        session = self.settings.db_session()
+        session = self.settings.db_session_class()
         remove_useless_group_uuid_pairs(session, group_ids)
 
         providers = list()
@@ -455,7 +455,7 @@ class LdapGroupSync(LdapSync):
             logger.warning('create ldap group [%s] failed.' % group.cn)
             return
 
-        session = self.settings.db_session()
+        session = self.settings.db_session_class()
         try:
             add_group_uuid_pair(session, group_id, group_uuid)
         except Exception:
@@ -494,7 +494,7 @@ class LdapGroupSync(LdapSync):
         return group_id
 
     def sync_data(self, data_db, data_ldap):
-        session = self.settings.db_session()
+        session = self.settings.db_session_class()
         uuid_pairs = get_group_uuid_pairs(session)
         if uuid_pairs is None:
             logger.warning('get group uuid pairs from db failed.')
@@ -517,7 +517,7 @@ class LdapGroupSync(LdapSync):
                    (data_db[deleted_group_id].is_department and self.settings.del_department_if_not_found):
                     group_uuid_db.pop(k)
                     ret = remove_group(grp_uuid_pairs[k], '')
-                    session = self.settings.db_session()
+                    session = self.settings.db_session_class()
                     remove_group_uuid_pair_by_id(session, grp_uuid_pairs[k])
                     if ret < 0:
                         logger.warning('remove group %d failed.' % grp_uuid_pairs[k])

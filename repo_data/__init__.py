@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class RepoData(object):
     def __init__(self):
-        self.db_session = init_db_session_class(db='seafile')
+        self._db_session_class = init_db_session_class(db='seafile')
 
     def to_dict(self, result_proxy):
         res = []
@@ -19,7 +19,7 @@ class RepoData(object):
         return res
 
     def _get_repo_id_commit_id(self, start, count):
-        session = self.db_session()
+        session = self._db_session_class()
         try:
             cmd = """SELECT RepoInfo.repo_id, Branch.commit_id, RepoInfo.type
                      FROM RepoInfo
@@ -36,7 +36,7 @@ class RepoData(object):
             session.close()
 
     def _get_wiki_repo_id_commit_id(self, start, count):
-        session = self.db_session()
+        session = self._db_session_class()
         try:
             cmd = """SELECT RepoInfo.repo_id, Branch.commit_id, RepoInfo.type
                      FROM RepoInfo
@@ -55,7 +55,7 @@ class RepoData(object):
             session.close()
 
     def _get_all_trash_repo_list(self):
-        session = self.db_session()
+        session = self._db_session_class()
         try:
             cmd = """SELECT repo_id FROM RepoTrash"""
             res = session.execute(text(cmd)).fetchall()
@@ -66,7 +66,7 @@ class RepoData(object):
             session.close()
 
     def _get_all_repo_list(self):
-        session = self.db_session()
+        session = self._db_session_class()
         try:
             cmd = """SELECT repo_id FROM Repo"""
             res = session.execute(text(cmd)).fetchall()
@@ -77,7 +77,7 @@ class RepoData(object):
             session.close()
 
     def _get_repo_head_commit(self, repo_id):
-        session = self.db_session()
+        session = self._db_session_class()
         try:
             cmd = """SELECT b.commit_id
                      from Branch as b inner join Repo as r
@@ -90,7 +90,7 @@ class RepoData(object):
             session.close()
 
     def _get_repo_name_mtime_size(self, repo_id):
-        session = self.db_session()
+        session = self._db_session_class()
         try:
             cmd = """SELECT RepoInfo.name, RepoInfo.update_time, RepoSize.size
                      FROM RepoInfo INNER JOIN RepoSize ON RepoInfo.repo_id = RepoSize.repo_id
@@ -103,7 +103,7 @@ class RepoData(object):
             session.close()
 
     def _get_virtual_repo_in_repos(self, repo_ids):
-        session = self.db_session()
+        session = self._db_session_class()
         if not repo_ids:
             return []
         try:
@@ -117,7 +117,7 @@ class RepoData(object):
             session.close()
 
     def _get_mtime_by_repo_ids(self, repo_ids):
-        session = self.db_session()
+        session = self._db_session_class()
         if not repo_ids:
             return []
         try:
