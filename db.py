@@ -13,7 +13,7 @@ from sqlalchemy.pool import Pool
 from sqlalchemy.ext.automap import automap_base
 
 from seafevents.app.config import MYSQL_SEAHUB_DB_NAME, MYSQL_SEAFILE_DB_NAME, MYSQL_CCNET_DB_NAME, MYSQL_DB_HOST, \
-    MYSQL_DB_PROT, MYSQL_DB_PWD, MYSQL_DB_USER
+    MYSQL_DB_PORT, MYSQL_DB_PWD, MYSQL_DB_USER
     
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ def create_engine_from_env(db='seahub'):
         db_name = MYSQL_CCNET_DB_NAME
         
     db_host = MYSQL_DB_HOST
-    db_port = MYSQL_DB_PROT
+    db_port = MYSQL_DB_PORT
     db_user = MYSQL_DB_USER
     db_pwd = MYSQL_DB_PWD
     

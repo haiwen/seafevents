@@ -62,7 +62,7 @@ CACHE_PROVIDER = os.environ.get('CACHE_PROVIDER', 'memcached')
 
 # config for mysql
 MYSQL_DB_HOST = os.environ.get('SEAFILE_MYSQL_DB_HOST', 'db')
-MYSQL_DB_PROT = os.environ.get('SEAFILE_MYSQL_DB_PORT', 3306)
+MYSQL_DB_PORT = int(os.environ.get('SEAFILE_MYSQL_DB_PORT', 3306))
 MYSQL_DB_USER = os.environ.get('SEAFILE_MYSQL_DB_USER', 'root')
 MYSQL_DB_PWD = os.environ.get('SEAFILE_MYSQL_DB_PASSWORD', '')
 MYSQL_SEAHUB_DB_NAME = os.environ.get('SEAFILE_MYSQL_DB_SEAHUB_DB_NAME', 'seahub_db')
@@ -71,7 +71,6 @@ MYSQL_CCNET_DB_NAME = os.environ.get('SEAFILE_MYSQL_DB_CCNET_DB_NAME', 'ccnet_db
 
 # config for seafile edition
 IS_PRO_VERSION = os.environ.get('IS_PRO_VERSION', 'false') == 'true'
-
 
 ################## config from env ################################
 
