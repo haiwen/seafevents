@@ -10,7 +10,7 @@ from seafevents.ldap_syncer.utils import bytes2str, add_group_uuid_pair
 from seaserv import get_group_dn_pairs
 
 from seafevents.app.config import get_config, seahub_settings, MYSQL_SEAHUB_DB_NAME, MYSQL_SEAFILE_DB_NAME, MYSQL_CCNET_DB_NAME, MYSQL_DB_HOST, \
-    MYSQL_DB_PROT, MYSQL_DB_PWD, MYSQL_DB_USER
+    MYSQL_DB_PORT, MYSQL_DB_PWD, MYSQL_DB_USER
 
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ class LdapSync(Thread):
             return
 
         db_host = MYSQL_DB_HOST
-        db_port = MYSQL_DB_PROT
+        db_port = MYSQL_DB_PORT
         db_user = MYSQL_DB_USER
         db_passwd = MYSQL_DB_PWD
         db_name = MYSQL_SEAHUB_DB_NAME
@@ -110,7 +110,7 @@ class LdapSync(Thread):
             return
 
         db_host = MYSQL_DB_HOST
-        db_port = MYSQL_DB_PROT
+        db_port = MYSQL_DB_PORT
         db_user = MYSQL_DB_USER
         db_passwd = MYSQL_DB_PWD
         db_name = MYSQL_SEAHUB_DB_NAME
