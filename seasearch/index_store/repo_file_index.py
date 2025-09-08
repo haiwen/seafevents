@@ -241,9 +241,10 @@ class RepoFileIndex(object):
             repo_id = repo[0]
             origin_repo_id = repo[1]
             origin_path = repo[2]
-            query_map = {'bool': {'should': [], 'minimum_should_match': 1}}
-            searches = self._make_query_searches(keyword, search_filename_only)
-            query_map['bool']['should'] = searches
+            query_map = {'bool': {}}
+            if keyword:
+                searches = self._make_query_searches(keyword, search_filename_only)
+                query_map['bool']['should'] = searches
 
             if origin_repo_id:
                 repo_id = origin_repo_id
@@ -258,8 +259,8 @@ class RepoFileIndex(object):
 
             query_map = self._add_time_range_filter(query_map, time_range)
             query_map = self._add_size_range_filter(query_map, size_range)
+
             data = {
-                'query': query_map,
                 'from': start,
                 'size': size,
                 '_source': ['path', 'repo_id', 'filename', 'is_dir', 'mtime', 'size'],
@@ -270,6 +271,10 @@ class RepoFileIndex(object):
                     'fields': {'content': {}},
                 }
             }
+            if query_map.get('bool'):
+                query_map['bool']['minimum_should_match'] = 1
+                data['query'] = query_map
+
             index_name = REPO_FILE_INDEX_PREFIX + repo_id
             repo_query_info = {
                 'index': index_name,
