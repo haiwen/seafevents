@@ -166,7 +166,8 @@ def search():
         logger.exception(e)
         return {'error_msg': 'Bad request.'}, 400
 
-    query = data.get('query').strip()
+    query = data.get('query')
+    query = query.strip() if query else None
     repos = data.get('repos')
     suffixes = data.get('suffixes')
     search_path = data.get('search_path')
@@ -174,9 +175,6 @@ def search():
     time_range = data.get('time_range')
     size_range = data.get('size_range')
     search_filename_only = data.get('search_filename_only')
-
-    if not query:
-        return {'error_msg': 'query invalid.'}, 400
 
     if not repos:
         return {'error_msg': 'repos invalid.'}, 400
