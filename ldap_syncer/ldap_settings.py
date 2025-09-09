@@ -49,6 +49,14 @@ class LdapConfig(object):
         self.sync_group_as_department = False
         self.department_name_attr = None
 
+        # pingan-custom: extra config
+        # duplicated_user_filter: 用于过滤即在组A又在组B诸如此类的用户
+        self.duplicated_user_filter = None
+        # employee_type_attr: AD 中的一个自定义属性，标识账号类型
+        self.employee_type_attr = 'employeeType'
+        # external_user_filter: 用于过滤外部资料库权限的用户
+        self.external_user_filter = None
+
 
 class Settings(object):
     def __init__(self, config, is_test=False):
@@ -104,23 +112,23 @@ class Settings(object):
         self.import_new_user = self.get_option('IMPORT_NEW_USER', True)
 
     def read_multi_server_configs(self, is_test):
-        for i in range(2):
+        for i in range(10):
             enable_multi_ldap = False
-            if i == 1:
+            if i >= 1:
                 if not self.get_option('ENABLE_MULTI_LDAP', False):
                     return
                 enable_multi_ldap = True
 
             ldap_config = LdapConfig()
-            if self.read_base_config(ldap_config, is_test, enable_multi_ldap) == -1:
+            if self.read_base_config(ldap_config, is_test, enable_multi_ldap, setting_prefix="MULTI_LDAP_%s" % i, provider_num=i) == -1:
                 return
 
             if ldap_config.enable_user_sync:
-                self.read_sync_user_config(ldap_config, enable_multi_ldap)
+                self.read_sync_user_config(ldap_config, enable_multi_ldap, setting_prefix="MULTI_LDAP_%s" % i)
                 self.enable_user_sync = True
 
             if ldap_config.enable_group_sync or ldap_config.sync_department_from_ou:
-                self.read_sync_group_config(ldap_config, enable_multi_ldap)
+                self.read_sync_group_config(ldap_config, enable_multi_ldap, setting_prefix="MULTI_LDAP_%s" % i)
                 if ldap_config.enable_group_sync:
                     self.enable_group_sync = True
                 if ldap_config.sync_department_from_ou:
@@ -128,18 +136,21 @@ class Settings(object):
 
             self.ldap_configs.append(ldap_config)
 
-    def read_base_config(self, ldap_config, is_test, enable_multi_ldap=False):
-        setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else 'LDAP'
+    def read_base_config(self, ldap_config, is_test, enable_multi_ldap=False, setting_prefix='LDAP', provider_num=1):
+        setting_prefix = setting_prefix if enable_multi_ldap else 'LDAP'
         ldap_config.host = self.get_option('LDAP_SERVER_URL'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.base_dn = self.get_option('LDAP_BASE_DN'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.user_dn = self.get_option('LDAP_ADMIN_DN'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.passwd = self.get_option('LDAP_ADMIN_PASSWORD'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.login_attr = self.get_option('LDAP_LOGIN_ATTR'.replace('LDAP', setting_prefix, 1), 'mail')
         ldap_config.ldap_provider = self.get_option('LDAP_PROVIDER'.replace('LDAP', setting_prefix, 1),
-                                                    'ldap1' if enable_multi_ldap else 'ldap')
+                                                    'ldap%s' % provider_num if enable_multi_ldap else 'ldap')
         ldap_config.user_filter = self.get_option('LDAP_FILTER'.replace('LDAP', setting_prefix, 1), '')
         ldap_config.use_page_result = self.get_option('LDAP_USE_PAGED_RESULT'.replace('LDAP', setting_prefix, 1), False)
         ldap_config.follow_referrals = self.get_option('LDAP_FOLLOW_REFERRALS'.replace('LDAP', setting_prefix, 1), True)
+
+        ldap_config.duplicated_user_filter = self.get_option('LDAP_DUPLICATED_USER_FILTER'.replace('LDAP', setting_prefix, 1), '')
+        ldap_config.external_user_filter = self.get_option('LDAP_EXTERNAL_USER_FILTER'.replace('LDAP', setting_prefix, 1), '')
 
         if ldap_config.host == '' or ldap_config.user_dn == '' or ldap_config.passwd == '' or ldap_config.base_dn == '':
             if is_test:
@@ -162,8 +173,8 @@ class Settings(object):
         ldap_config.sync_department_from_ou = self.get_option(
             'LDAP_SYNC_DEPARTMENT_FROM_OU'.replace('LDAP', setting_prefix, 1), False)
 
-    def read_sync_group_config(self, ldap_config, enable_multi_ldap=False):
-        setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else 'LDAP'
+    def read_sync_group_config(self, ldap_config, enable_multi_ldap=False, setting_prefix='LDAP'):
+        setting_prefix = setting_prefix if enable_multi_ldap else 'LDAP'
         ldap_config.group_object_class = self.get_option(
             'LDAP_GROUP_OBJECT_CLASS'.replace('LDAP', setting_prefix, 1), 'group')
         ldap_config.group_filter = self.get_option(
@@ -191,8 +202,8 @@ class Settings(object):
         ldap_config.department_name_attr = self.get_option(
             'LDAP_DEPT_NAME_ATTR'.replace('LDAP', setting_prefix, 1), '')
 
-    def read_sync_user_config(self, ldap_config, enable_multi_ldap=False):
-        setting_prefix = MULTI_LDAP_SETTING_PREFIX if enable_multi_ldap else 'LDAP'
+    def read_sync_user_config(self, ldap_config, enable_multi_ldap=False, setting_prefix='LDAP'):
+        setting_prefix = setting_prefix if enable_multi_ldap else 'LDAP'
         ldap_config.user_object_class = self.get_option(
             'LDAP_USER_OBJECT_CLASS'.replace('LDAP', setting_prefix, 1), 'person')
         if not enable_multi_ldap:
