@@ -19,7 +19,7 @@ from seafobj import CommitDiffer, commit_mgr, fs_mgr
 from seafobj.commit_differ import DiffEntry
 from seafevents.events.db import save_file_audit_event, save_file_update_event, \
         save_perm_audit_event, save_user_activity, save_filehistory, update_user_activity_timestamp, \
-        save_repo_trash, restore_repo_trash
+        save_repo_trash, restore_repo_trash, save_external_file_download_log
 from seafevents.app.config import TIME_ZONE
 from seafevents.utils import get_opt_from_conf_or_env
 from .change_file_path import ChangeFilePathHandler
@@ -29,6 +29,9 @@ from seafevents.batch_delete_files_notice.db import get_deleted_files_total_coun
 
 recent_added_events = {'recent_added_events': []}
 EXCLUDED_PATHS = ['/_Internal', '/images/sdoc', '/images/auto-upload']
+
+logger = logging.getLogger('seafevents')
+
 
 def _check_ignored_path(path):
     for p in EXCLUDED_PATHS:
@@ -997,6 +1000,28 @@ def PermAuditEventHandler(config, session, msg):
                           org_id, repo_id, file_path, perm)
 
 
+def ExternalFileAuditEventHandler(session, msg):
+    elements = msg['content'].split('\t')
+    if len(elements) != 6:
+        logging.warning("got bad message: %s", elements)
+        return
+
+    timestamp = datetime.datetime.utcfromtimestamp(msg['ctime'])
+    user_name = elements[1]
+    ip = elements[2]
+    repo_id = elements[4]
+    file_path = elements[5]
+
+    repo = seafile_api.get_repo(repo_id)
+    if repo.repo_type != 'external':
+        return
+    dirent = seafile_api.get_dirent_by_path(repo_id, file_path)
+    logging.warning(dirent.__dict__)
+    if not file_path.startswith('/'):
+        file_path = '/' + file_path
+    save_external_file_download_log(session, timestamp, user_name, ip, repo_id, file_path, dirent.size)
+
+
 def register_handlers(handlers, enable_audit):
     handlers.add_handler('seaf_server.event:repo-update', RepoUpdateEventHandler)
     if enable_audit:
@@ -1009,3 +1034,7 @@ def register_handlers(handlers, enable_audit):
         handlers.add_handler('seahub.audit:file-download-api', FileAuditEventHandler)
         handlers.add_handler('seahub.audit:file-download-share-link', FileAuditEventHandler)
         handlers.add_handler('seahub.audit:perm-change', PermAuditEventHandler)
+
+        handlers.add_handler('seahub.audit:file-download-web', ExternalFileAuditEventHandler)
+        handlers.add_handler('seahub.audit:file-download-api', ExternalFileAuditEventHandler)
+        handlers.add_handler('seahub.audit:file-download-share-link', ExternalFileAuditEventHandler)
