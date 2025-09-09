@@ -276,3 +276,32 @@ class FileTrash(Base):
     def __str__(self):
         return 'FileTrash<id: %s, type: %s, repo_id: %s>' % \
             (self.id, self.obj_type, self.repo_id)
+
+
+class ExternalFileDownloadLog(Base):
+    __tablename__ = 'ex_repo_download_log'
+
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    timestamp = mapped_column(DateTime, nullable=False, index=True)
+    user = mapped_column(String(length=255), nullable=False, index=True)
+    ip = mapped_column(String(length=45), nullable=False)
+    repo_id = mapped_column(String(length=36), nullable=False, index=True)
+    file_path = mapped_column(Text, nullable=False)
+    size = mapped_column(BigInteger, nullable=False)
+    created_time = mapped_column(DateTime, nullable=False)
+    created_by = mapped_column(String(length=255), nullable=False)
+    updated_time = mapped_column(DateTime, nullable=False)
+    updated_by = mapped_column(String(length=255), nullable=False)
+
+    def __init__(self, timestamp, user, ip, repo_id, file_path, size,
+                 created_at, created_by, updated_at, updated_by):
+        self.timestamp = timestamp
+        self.user = user
+        self.ip = ip
+        self.repo_id = repo_id
+        self.file_path = file_path
+        self.size = size
+        self.created_time = created_at
+        self.updated_time = updated_at
+        self.created_by = created_by
+        self.updated_by = updated_by
