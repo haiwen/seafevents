@@ -80,9 +80,12 @@ def get_image_face(path, download_token, seafile_ai_api, center=None):
 
     if len(faces) == 1:
         return base64.b64decode(faces[0]['face'])
+    
+    if center:
+        sim = [feature_distance(center, face['embedding']) for face in faces]
+        return base64.b64decode(faces[sim.index(min(sim))]['face'])
 
-    sim = [feature_distance(center, face['embedding']) for face in faces]
-    return base64.b64decode(faces[sim.index(min(sim))]['face'])
+    return base64.b64decode(faces[0]['face'])
 
 
 def save_cluster_face(repo_id, related_row_ids, row_ids, id_to_record, cluster_center, face_row_id, seafile_ai_api):
