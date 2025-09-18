@@ -113,7 +113,7 @@ class LdapSync(Thread):
         db_port = MYSQL_DB_PORT
         db_user = MYSQL_DB_USER
         db_passwd = MYSQL_DB_PWD
-        db_name = MYSQL_SEAHUB_DB_NAME
+        db_name = MYSQL_CCNET_DB_NAME
         if not (db_host and db_port and db_user and db_name):
             logger.warning('Failed to init ccnet db')
             return
