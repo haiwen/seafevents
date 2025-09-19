@@ -133,7 +133,8 @@ def RepoUpdateEventHandler(config, session, msg):
                                                         modified_files)
                 save_message_to_user_notification(session, records)
                 for record in records:
-                    workflow_task_manager.add_file_upload_workflow_task(record)
+                    if 'Added' in record.get('commit_desc'):
+                        workflow_task_manager.add_file_upload_workflow_task(record)
 
 
             enable_collab_server = False

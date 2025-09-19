@@ -11,7 +11,6 @@ from collections import deque, defaultdict
 from sqlalchemy import text
 
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
-from seafevents.repo_metadata.utils import get_metadata_by_obj_ids
 from seafevents.repo_workflow.constants import NodeStatus, NodeType, ActionType
 
 logger = logging.getLogger(__name__)
@@ -246,29 +245,32 @@ class NodeExecutor:
     def _set_file_status(self, repo_id, record, status):
         try:
             from seafevents.repo_metadata.constants import METADATA_TABLE
-            
             commit_diff = record.get('commit_diff', [])
             if not commit_diff:
                 logger.error("Missing commit_diff data")
                 return False
-                
-            commit = commit_diff[0]
-            obj_id = commit.get('obj_id')
-            if not obj_id:
-                logger.error("Missing obj_id")
-                return False
             
-            time.sleep(0.1)
-            query_result = get_metadata_by_obj_ids(repo_id, [obj_id], self.metadata_server_api)
+            commit = commit_diff[0]
+            file_path = commit.get('path')
+            parent_dir = os.path.dirname(file_path)
+            file_name = os.path.basename(file_path)
+            sql = f'SELECT * FROM `{METADATA_TABLE.name}` WHERE \
+                `{METADATA_TABLE.columns.parent_dir.name}`=? AND `{METADATA_TABLE.columns.file_name.name}`=?;'
+            parameters = [parent_dir, file_name]
+            try:
+                time.sleep(0.2)
+                query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters)
+            except Exception as e:
+                logger.error(e)
+                return False
             rows = []
-            for row in query_result:
+            for row in query_result.get('results', []):
                 record_id = row.get(METADATA_TABLE.columns.id.name)
                 if record_id:
                     rows.append({
                         METADATA_TABLE.columns.id.name: record_id,
                         '_status': status
                     })
-            
             if rows:
                 self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, rows)
                 return True
