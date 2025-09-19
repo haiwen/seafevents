@@ -27,7 +27,7 @@ from .change_file_path import ChangeFilePathHandler
 from .models import Activity, FileTrash, OrgLastActivityTime
 from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, save_deleted_files_msg
 from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
-from seafevents.repo_metadata.workflow_task_handler import workflow_task_manager
+from seafevents.repo_workflow.workflow_task_handler import workflow_task_manager
 
 recent_added_events = {'recent_added_events': []}
 EXCLUDED_PATHS = ['/_Internal', '/images/sdoc', '/images/auto-upload']

@@ -5,7 +5,7 @@ import queue
 import uuid
 
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
-from seafevents.repo_metadata.workflow_executor import on_file_upload_event
+from seafevents.repo_workflow.workflow_executor import on_file_upload_event
 from seafevents.db import init_db_session_class
 
 logger = logging.getLogger(__name__)

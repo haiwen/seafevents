@@ -10,25 +10,17 @@ import uuid
 from collections import deque, defaultdict
 from sqlalchemy import text
 
-
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import get_metadata_by_obj_ids
+from seafevents.repo_workflow.constants import NodeStatus, NodeType, ActionType
 
 logger = logging.getLogger(__name__)
 
-PENDING = 'pending'
-RUNNING = 'running'
-COMPLETED = 'completed'
-FAILED = 'failed'
-
-TRIGGER = 'trigger'
-CONDITION = 'condition'
-ACTION = 'action'
 
 @dataclass
 class NodeExecution:
     node_id: str
-    status: PENDING
+    status: str = NodeStatus.PENDING
     inputs: Dict[str, Any] = None
     outputs: Dict[str, Any] = None
     start_time: Optional[datetime] = None
@@ -47,9 +39,8 @@ class ExecutionContext:
     workflow_id: str
     run_id: str
     trigger_data: Dict[str, Any]
-    global_variables: Dict[str, Any]
-    node_executions: Dict[str, NodeExecution]
-
+    global_variables: Dict[str, Any] = None
+    node_executions: Dict[str, NodeExecution] = None
 
     def __post_init__(self):
         if self.global_variables is None:
@@ -71,8 +62,8 @@ class WorkflowGraph:
         for edge in self.edges:
             adj_list[edge['source']].append({
                 'target': edge['target'],
+                'sourceHandle': edge.get('sourceHandle', ''),
                 'label': edge.get('label', ''),
-                'animated': edge.get('animated')
             })
         return dict(adj_list)
     
@@ -84,7 +75,7 @@ class WorkflowGraph:
     
     def get_start_nodes(self):
         return [node_id for node_id, node in self.nodes.items() 
-                if node.get('type') == 'trigger']
+                if node.get('type') == NodeType.TRIGGER]
     
     def get_next_nodes(self, node_id, outputs):
         if node_id not in self.adjacency_list:
@@ -92,14 +83,13 @@ class WorkflowGraph:
         
         next_nodes = []
         node = self.nodes[node_id]
-        
         for edge in self.adjacency_list[node_id]:
             target_id = edge['target']
-            if node.get('type') == 'condition':
+            if node.get('type') == NodeType.CONDITION:
                 condition_result = outputs.get('condition_result', False) if outputs else False
-                edge_label = edge.get('label', '').lower()
-                if (condition_result and edge_label == 'true') or \
-                   (not condition_result and edge_label == 'false'):
+                source_handle = edge.get('sourceHandle', '')
+                if (condition_result and source_handle == 'if') or \
+                   (not condition_result and source_handle == 'else'):
                     next_nodes.append(target_id)
             else:
                 next_nodes.append(target_id)
@@ -118,39 +108,39 @@ class NodeExecutor:
     
     def execute_node(self, context, node_id, graph):
         node = graph.nodes[node_id]
-        execution = context.node_executions.get(node_id, NodeExecution(node_id, RUNNING))
+        execution = context.node_executions.get(node_id, NodeExecution(node_id, NodeStatus.RUNNING))
         
         try:
-            execution.status = RUNNING
+            execution.status = NodeStatus.RUNNING
             execution.start_time = datetime.now()
             
             inputs = self._prepare_node_inputs(context, node_id, graph)
             execution.inputs = inputs
             
             node_type = node.get('type')
-            if node_type == 'trigger':
+            if node_type == NodeType.TRIGGER:
                 success, outputs = self._execute_trigger_node(context, node)
-            elif node_type == 'condition':
+            elif node_type == NodeType.CONDITION:
                 success, outputs = self._execute_condition_node(context, node, inputs)
-            elif node_type == 'action':
+            elif node_type == NodeType.ACTION:
                 success, outputs = self._execute_action_node(context, node, inputs)
             else:
                 logger.warning(f"Unknown node type: {node_type}")
                 success, outputs = True, {}
             
             if success:
-                execution.status = COMPLETED
+                execution.status = NodeStatus.COMPLETED
                 execution.outputs = outputs
                 if outputs:
                     context.global_variables.update(outputs)
             else:
-                execution.status = FAILED
+                execution.status = NodeStatus.FAILED
             
             execution.end_time = datetime.now()
             
             return execution
         except Exception as e:
-            execution.status = FAILED
+            execution.status = NodeStatus.FAILED
             execution.end_time = datetime.now()
             logger.error(f"Error executing node {node_id}: {str(e)}")
             return execution
@@ -169,17 +159,9 @@ class NodeExecutor:
         return inputs
 
     def _execute_trigger_node(self, context, node_data):
-        config_id = node_data.get('configId')
+        config_id = node_data.get('data', {}).get('config_id')
+        #TODO: handle other trigger types
         if config_id == 'file_upload':
-            # file_info = context.trigger_data.record.file_info
-            # outputs = {
-            #     'file_info': file_info,
-            #     'trigger_type': 'file_upload',
-            #     'file_name': file_info.get('name', ''),
-            #     'file_size': file_info.get('size', 0),
-            #     'file_path': file_info.get('path', '')
-            # }
-            
             return True, {}
         
         return True, {}
@@ -187,122 +169,116 @@ class NodeExecutor:
 
     def _execute_condition_node(self, context, node, inputs):
         node_data = node.get('data', {})
-        config_id = node_data.get('configId')
+        config_id = node_data.get('config_id')
         params = node_data.get('params', {})
         record = inputs.get('record', {})
+        
         if config_id == 'if_else':
-            for key, value in params.items():
-                if key == 'file_type':
-                    commit = record.get('commit_diff')[0]
-                    file_name = os.path.basename(commit.get('path'))
-                    file_type = file_name.split('.')[-1]
-                    result = file_type == value
-
-                outputs = {
-                    'condition_result': result,
-                    'condition_key': key,
-                    'condition_value': value
-                }
+            basic_filters = params.get('basic_filters', [])
+            
+            all_conditions_met = True
+            
+            for filter_config in basic_filters:
+                column_key = filter_config.get('column_key')
+                filter_predicate = filter_config.get('filter_predicate')
+                filter_term = filter_config.get('filter_term', [])
                 
-                return True, outputs
+                condition_met = False
+                
+                if column_key == '_suffix':
+                    commit = record.get('commit_diff', [{}])[0]
+                    file_name = os.path.basename(commit.get('path', ''))
+                    file_suffix = file_name.split('.')[-1] if '.' in file_name else ''
+                    
+                    if filter_predicate == 'is_any_of':
+                        condition_met = file_suffix in filter_term
+                    elif filter_predicate == 'is_not_any_of':
+                        condition_met = file_suffix not in filter_term
+                    elif filter_predicate == 'equals':
+                        condition_met = file_suffix == filter_term[0] if filter_term else False
+                    elif filter_predicate == 'not_equals':
+                        condition_met = file_suffix != filter_term[0] if filter_term else True
+                
+                if not condition_met:
+                    all_conditions_met = False
+                    break
+            
+            outputs = {
+                'condition_result': all_conditions_met,
+                'filters_applied': basic_filters
+            }
+            
+            return True, outputs
         
         return True, {'condition_result': False}
-
+    
 
     def _execute_action_node(self, context, node, inputs):
         node_data = node.get('data', {})
-        config_id = node_data.get('configId')
+        config_id = node_data.get('config_id')
         params = node_data.get('params', {})
         
-        if config_id == 'set_status':
-            status = params.get('status', '_in_progress')
-            record = inputs.get('record', {})
-            success = self._set_file_status(
-                context.repo_id,
-                record,
-                status
-            )
-            
-            outputs = {
-                'status_set': status,
-                'success': success
-            }
-            
-            return success, outputs
+        if config_id == ActionType.SET_STATUS:
+            return self._execute_set_status_action(context, params, inputs)
         
+        logger.warning(f"Unknown action type: {config_id}")
         return True, {}
+    
+    def _execute_set_status_action(self, context, params, inputs):
+        status = params.get('status', '_in_progress')
+        record = inputs.get('record', {})
+        
+        if not record:
+            logger.error("Missing record data, cannot set status")
+            return False, {'error': 'Missing record data'}
+        
+        success = self._set_file_status(context.repo_id, record, status)
+        
+        outputs = {
+            'status_set': status,
+            'success': success,
+            'action_type': ActionType.SET_STATUS
+        }
+        
+        return success, outputs
 
     
     def _set_file_status(self, repo_id, record, status):
         try:
             from seafevents.repo_metadata.constants import METADATA_TABLE
             
-            commit = record.get('commit_diff')[0]
+            commit_diff = record.get('commit_diff', [])
+            if not commit_diff:
+                logger.error("Missing commit_diff data")
+                return False
+                
+            commit = commit_diff[0]
             obj_id = commit.get('obj_id')
+            if not obj_id:
+                logger.error("Missing obj_id")
+                return False
             
             time.sleep(0.1)
             query_result = get_metadata_by_obj_ids(repo_id, [obj_id], self.metadata_server_api)
             rows = []
             for row in query_result:
                 record_id = row.get(METADATA_TABLE.columns.id.name)
-                rows.append({
-                    METADATA_TABLE.columns.id.name: record_id,
-                    '_status': status
-                })
+                if record_id:
+                    rows.append({
+                        METADATA_TABLE.columns.id.name: record_id,
+                        '_status': status
+                    })
             
-            self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, rows)
-            return True
+            if rows:
+                self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, rows)
+                return True
+            else:
+                return False
             
         except Exception as e:
             logger.error(f"Failed to set file status: {str(e)}")
             return False
     
-
-    def _record_node_execution_start(self, context, node, execution):
-        try:
-            sql = text("""
-                INSERT INTO workflow_node_executions
-                (repo_id, workflow_id, workflow_run_id, node_type, node_id, title, status, created_at, inputs)
-                VALUES (:repo_id, :workflow_id, :workflow_run_id, :node_type, :node_id, :title, :status, :created_at, :inputs)
-            """)
-            
-            self.db.execute(sql, {
-                'repo_id': context.repo_id,
-                'workflow_id': context.workflow_id,
-                'workflow_run_id': context.run_id,
-                'node_type': node['type'],
-                'node_id': node['id'],
-                'title': node.get('data', {}).get('label', 'Unnamed Node'),
-                'status': 'running',
-                'created_at': datetime.now(),
-                'inputs': json.dumps(execution.inputs, ensure_ascii=False)
-            })
-            self.db.commit()
-            
-        except Exception as e:
-            logger.error(f"Failed to record node execution start: {str(e)}")
-    
-    def _record_node_execution_completion(self, context, node, execution):
-        
-        try:
-            sql = text("""
-                UPDATE workflow_node_executions 
-                SET status = :status, finished_at = :finished_at, outputs = :outputs
-                WHERE workflow_run_id = :workflow_run_id AND node_id = :node_id
-            """)
-            
-            self.db.execute(sql, {
-                'status': execution.status,
-                'finished_at': execution.end_time,
-                'outputs': json.dumps(execution.outputs, ensure_ascii=False),
-                'workflow_run_id': context.run_id,
-                'node_id': execution.node_id
-            })
-            self.db.commit()
-            
-        except Exception as e:
-            logger.error(f"Failed to record node execution completion: {str(e)}")
-
 
 class WorkflowExecutor:
     
@@ -332,11 +308,9 @@ class WorkflowExecutor:
             success = self._execute_workflow_with_queue(context, graph)
             elapsed_time = time.time() - start_time
             if success:
-                self._update_workflow_run_status(context, COMPLETED, elapsed_time)
-                logger.info(f"Workflow {context.workflow_id} executed successfully")
+                self._update_workflow_run_status(context, NodeStatus.COMPLETED, elapsed_time)
             else:
-                self._update_workflow_run_status(context, FAILED, elapsed_time)
-                logger.error(f"Workflow {context.workflow_id} execution failed")
+                self._update_workflow_run_status(context, NodeStatus.FAILED, elapsed_time)
             
             return success
             
@@ -356,17 +330,16 @@ class WorkflowExecutor:
         
         while execution_queue:
             node_id = execution_queue.popleft()
-            dependencies = graph.get_node_dependencies(node_id)
-            if not all(dep in completed_nodes for dep in dependencies):
-                # 如果前置节点未执行完，则将节点放回队列中
-                execution_queue.append(node_id)
-                continue
+            # dependencies = graph.get_node_dependencies(node_id)
+            # if not all(dep in completed_nodes for dep in dependencies):
+            #     execution_queue.append(node_id)
+            #     continue
             
             try:
                 execution_result = self.node_executor.execute_node(context, node_id, graph)
                 context.node_executions[node_id] = execution_result
                 
-                if execution_result.status == COMPLETED:
+                if execution_result.status == NodeStatus.COMPLETED:
                     completed_nodes.add(node_id)
                     next_nodes = graph.get_next_nodes(node_id, execution_result.outputs)
                     for next_node in next_nodes:
@@ -382,10 +355,10 @@ class WorkflowExecutor:
                 logger.exception(f"Error executing node {node_id}: {str(e)}")
         
         if failed_nodes:
-            logger.error(f"Workflow failed - failed nodes: {failed_nodes}")
+            logger.error(f"Workflow {context.workflow_id} failed - failed nodes: {failed_nodes}")
             return False
         
-        logger.info(f"Workflow completed successfully - executed {len(completed_nodes)} nodes")
+        logger.info(f"Workflow {context.workflow_id} completed successfully - executed {len(completed_nodes)} nodes")
         return True
     
     def _parse_graph(self, graph_str: str) -> Optional[Dict[str, Any]]:
@@ -411,7 +384,7 @@ class WorkflowExecutor:
                 'id': context.run_id,
                 'workflow_id': context.workflow_id,
                 'repo_id': context.repo_id,
-                'status': RUNNING,
+                'status': NodeStatus.RUNNING,
                 'created_by': record.get('op_user'),
                 'created_at': datetime.now(),
                 'total_steps': total_steps
