@@ -224,12 +224,12 @@ class NodeExecutor:
         return True, {}
     
     def _execute_set_status_action(self, context, params, inputs):
-        status = params.get('status', '_in_progress')
+        status = params.get('status')
         record = inputs.get('record', {})
         
-        if not record:
-            logger.error("Missing record data, cannot set status")
-            return False, {'error': 'Missing record data'}
+        if not status or not record:
+            logger.error("Missing status or record data, cannot set status")
+            return False, {'error': 'Missing status or record data'}
         
         success = self._set_file_status(context.repo_id, record, status)
         
