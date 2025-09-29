@@ -188,7 +188,6 @@ def process_zip_file(session, wiki_id, space_dir, sdoc_files, cf_id_to_cf_title_
             'is_dir': False
         })
     session.commit()
-
     for sdoc_uuid, item in file_uuid_map_data.items():
         page_name_to_id_map, page_name_to_obj_id_map, wiki_config = process_page(wiki_id, item, wiki_config, sdoc_uuid, username, cf_id_to_cf_title_map)
         if page_name_to_id_map:
@@ -239,7 +238,7 @@ def parse_ul_structure(ul_element, cf_page_id_to_sf_page_id_map):
     li = ul_element.find_all('li', recursive=False)[0]
     a_tag = li.find('a')
     if not a_tag:
-        return
+        return []
     href = a_tag.get('href', '')
     page_name = a_tag.get_text().strip()
     page_key = href.split('.')[0] if href else None
@@ -249,12 +248,7 @@ def parse_ul_structure(ul_element, cf_page_id_to_sf_page_id_map):
         page_id = cf_page_id_to_sf_page_id_map.get(page_name)
         if not page_id:
             logger.warning(f"not found page id: {page_name}, href: {href}")
-            return
     
-    page_node = {
-        "id": page_id,
-        "type": "page"
-    }
     sub_uls = li.find_all('ul', recursive=False)
     if sub_uls:
         children = []
@@ -263,9 +257,21 @@ def parse_ul_structure(ul_element, cf_page_id_to_sf_page_id_map):
             sub_result = parse_ul_structure(sub_ul, cf_page_id_to_sf_page_id_map)
             if sub_result:
                 children.extend(sub_result)
-        if children:
+        if not page_id and children:
+            result.extend(children)
+            return result
+    if page_id:
+        page_node = {
+            "id": page_id,
+            "type": "page"
+        }
+        if sub_uls and 'children' not in locals():
+            children = []
+        if sub_uls and children:
             page_node["children"] = children
-    result.append(page_node)
+        result.append(page_node)
+    else:
+        return []
     
     return result
 
