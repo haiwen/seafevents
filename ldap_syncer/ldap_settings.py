@@ -2,7 +2,8 @@
 import logging
 
 from seafevents.db import init_db_session_class
-from seafevents.app.config import seahub_settings
+from seafevents.app.config import seahub_settings, IS_PRO_VERSION
+
 
 MULTI_LDAP_SETTING_PREFIX = 'MULTI_LDAP_1'
 
@@ -107,6 +108,8 @@ class Settings(object):
         for i in range(2):
             enable_multi_ldap = False
             if i == 1:
+                if not IS_PRO_VERSION:
+                    return
                 if not self.get_option('ENABLE_MULTI_LDAP', False):
                     return
                 enable_multi_ldap = True
@@ -157,9 +160,9 @@ class Settings(object):
 
         ldap_config.enable_user_sync = self.get_option(
             'ENABLE_LDAP_USER_SYNC'.replace('LDAP', setting_prefix, 1), False)
-        ldap_config.enable_group_sync = self.get_option(
+        ldap_config.enable_group_sync = IS_PRO_VERSION and self.get_option(
             'ENABLE_LDAP_GROUP_SYNC'.replace('LDAP', setting_prefix, 1), False)
-        ldap_config.sync_department_from_ou = self.get_option(
+        ldap_config.sync_department_from_ou = IS_PRO_VERSION and self.get_option(
             'LDAP_SYNC_DEPARTMENT_FROM_OU'.replace('LDAP', setting_prefix, 1), False)
 
     def read_sync_group_config(self, ldap_config, enable_multi_ldap=False):
