@@ -188,7 +188,6 @@ def process_zip_file(session, wiki_id, space_dir, sdoc_files, cf_id_to_cf_title_
             'is_dir': False
         })
     session.commit()
-
     for sdoc_uuid, item in file_uuid_map_data.items():
         page_name_to_id_map, page_name_to_obj_id_map, wiki_config = process_page(wiki_id, item, wiki_config, sdoc_uuid, username, cf_id_to_cf_title_map)
         if page_name_to_id_map:
@@ -239,7 +238,7 @@ def parse_ul_structure(ul_element, cf_page_id_to_sf_page_id_map):
     li = ul_element.find_all('li', recursive=False)[0]
     a_tag = li.find('a')
     if not a_tag:
-        return
+        return []
     href = a_tag.get('href', '')
     page_name = a_tag.get_text().strip()
     page_key = href.split('.')[0] if href else None
@@ -249,23 +248,28 @@ def parse_ul_structure(ul_element, cf_page_id_to_sf_page_id_map):
         page_id = cf_page_id_to_sf_page_id_map.get(page_name)
         if not page_id:
             logger.warning(f"not found page id: {page_name}, href: {href}")
-            return
     
-    page_node = {
-        "id": page_id,
-        "type": "page"
-    }
     sub_uls = li.find_all('ul', recursive=False)
+    children = []
     if sub_uls:
-        children = []
         for sub_ul in sub_uls:
             # recursively process sub ul
             sub_result = parse_ul_structure(sub_ul, cf_page_id_to_sf_page_id_map)
             if sub_result:
                 children.extend(sub_result)
-        if children:
+        if not page_id and children:
+            result.extend(children)
+            return result
+    if page_id:
+        page_node = {
+            "id": page_id,
+            "type": "page"
+        }
+        if sub_uls and children:
             page_node["children"] = children
-    result.append(page_node)
+        result.append(page_node)
+    else:
+        return []
     
     return result
 
@@ -284,25 +288,32 @@ def process_page(wiki_id, item, wiki_config, sdoc_uuid, username, cf_id_to_cf_ti
     page_name = cf_page_title
 
     file_path = os.path.join(parent_dir, filename)
-    try:
-        # update wiki_config
-        id_set = get_all_wiki_ids(navigation)
-        new_page_id = gen_unique_id(id_set)
-        gen_new_page_nav_by_id(navigation, new_page_id, None)
 
+    # update wiki_config
+    id_set = get_all_wiki_ids(navigation)
+    new_page_id = gen_unique_id(id_set)
+    gen_new_page_nav_by_id(navigation, new_page_id, None)
+
+    try:
         seafile_api.mkdir_with_parents(wiki_id, '/', parent_dir.strip('/'), username)
-        # upload file
-        try:
-            obj_id = json.dumps({'parent_dir': parent_dir})
-            upload_file(wiki_id, parent_dir, sdoc_file, obj_id, username, page_name)
-        except Exception as e:
-            if str(e) == 'Too many files in library.':
-                error_msg = "The number of files in library exceeds the limit"
-                raise Exception(error_msg)
-            else:
-                logger.error(e)
-                error_msg = 'Internal Server Error'
-                raise Exception(error_msg)
+    except Exception as e:
+        logger.error(e)
+        error_msg = 'Internal Server Error'
+        raise Exception(error_msg)
+    
+    # upload file
+    try:
+        obj_id = json.dumps({'parent_dir': parent_dir})
+        upload_file(wiki_id, parent_dir, sdoc_file, obj_id, username, page_name)
+    except Exception as e:
+        if str(e) == 'Too many files in library.':
+            error_msg = "The number of files in library exceeds the limit"
+            raise Exception(error_msg)
+        else:
+            logger.error(e)
+            error_msg = 'Internal Server Error'
+            raise Exception(error_msg)
+    try:
         page_name_to_id_map = {
             page_name: new_page_id
         }
@@ -327,10 +338,11 @@ def process_page(wiki_id, item, wiki_config, sdoc_uuid, username, cf_id_to_cf_ti
 
         wiki_config['navigation'] = navigation
         wiki_config['pages'] = pages
+        return page_name_to_id_map, page_name_to_obj_id_map, wiki_config
     except Exception as e:
         logger.error(e)
+        return None, None, wiki_config
 
-    return page_name_to_id_map, page_name_to_obj_id_map, wiki_config
 
 def upload_file(repo_id, parent_dir, sdoc_file, obj_id, username, page_name):
     try:
