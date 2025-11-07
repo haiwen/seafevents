@@ -6,7 +6,7 @@ from seafevents.db import Base
 
 
 class ContentScanRecord(Base):
-    __tablename__ = 'ContentScanRecord'
+    __tablename__ = 'CONTENTSCANRECORD'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
     repo_id = mapped_column(String(length=36), nullable=False, index=True)
@@ -21,7 +21,7 @@ class ContentScanRecord(Base):
 
 
 class ContentScanResult(Base):
-    __tablename__ = 'ContentScanResult'
+    __tablename__ = 'CONTENTSCANRESULT'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
     repo_id = mapped_column(String(length=36), nullable=False, index=True)

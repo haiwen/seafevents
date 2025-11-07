@@ -1,5 +1,5 @@
 import logging
-from sqlalchemy import desc, func, distinct, select
+from sqlalchemy import desc, func, distinct, select, text
 from datetime import datetime
 
 from .models import UserActivityStat, UserTraffic, SysTraffic, \
@@ -9,6 +9,22 @@ from seaserv import seafile_api, get_org_id_by_repo_id
 
 repo_org = {}
 is_org = -1
+
+import pytz
+from seafevents.app.config import TIME_ZONE
+
+def convert_timezone(dt, from_tz, to_tz):
+    if not isinstance(dt, datetime):
+        raise TypeError('Expected a datetime object')
+
+    if from_tz is None:
+        from_tz = pytz.timezone('UTC')
+    if to_tz is None:
+        to_tz = pytz.timezone('UTC')
+
+    aware_datetime = from_tz.normalize(dt.astimezone(pytz.UTC))
+    return aware_datetime.astimezone(to_tz)
+
 
 def get_org_id(repo_id):
     global is_org
@@ -40,13 +56,11 @@ def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
 
     # offset is not supported for now
     offset='+00:00'
-
-    stmt = select(func.date(func.convert_tz(UserActivityStat.timestamp, '+00:00', offset)).label("timestamp"),
+    stmt = select(func.TO_DATE(UserActivityStat.timestamp).label("timestamp"),
                   func.count(distinct(UserActivityStat.username)).label("number")).where(
-                  UserActivityStat.timestamp.between(
-                      func.convert_tz(start_at_0, offset, '+00:00'),
-                      func.convert_tz(end_at_23, offset, '+00:00'))).group_by(
-                      func.date(func.convert_tz(UserActivityStat.timestamp, '+00:00', offset))).order_by("timestamp")
+        UserActivityStat.timestamp.between(start_at_0, end_at_23)).group_by(
+        func.TO_DATE(UserActivityStat.timestamp)).order_by("timestamp")
+
     rows = session.execute(stmt).all()
     ret = []
 
@@ -79,20 +93,18 @@ def get_org_user_activity_stats_by_day(session, org_id, start, end):
 
 def _get_total_storage_stats(session, start, end, offset='+00:00', org_id=0):
     ret = []
+
+    off_hour = int(offset[0:3])
     try:
-        stmt = select(func.convert_tz(TotalStorageStat.timestamp, '+00:00', offset).label("timestamp"),
-                      func.sum(TotalStorageStat.total_size).label("total_size"))
-        if org_id == 0:
-            stmt = stmt.where(TotalStorageStat.timestamp.between(
-                         func.convert_tz(start, offset, '+00:00'),
-                         func.convert_tz(end, offset, '+00:00')))
-        else:
-            stmt = stmt.where(TotalStorageStat.timestamp.between(
-                         func.convert_tz(start, offset, '+00:00'),
-                         func.convert_tz(end, offset, '+00:00')),
-                         TotalStorageStat.org_id == org_id)
-        stmt = stmt.group_by("timestamp").order_by("timestamp")
-        rows = session.execute(stmt).all()
+        sql = f"""SELECT DATEADD(HH, {off_hour}, timestamp) as timestamp, sum(total_size) as total_size FROM TotalStorageStat 
+        WHERE timestamp between DATEADD(HH, {-off_hour}, '{start}') AND DATEADD(HH, {-off_hour}, '{end}')
+        """
+
+        if org_id != 0:
+            sql += f" AND org_id={org_id}"
+
+        sql += "GROUP BY timestamp ORDER BY timestamp"
+        rows = session.execute(text(sql)).all()
 
         for row in rows:
             ret.append((row[0], row[1]))
@@ -156,26 +168,27 @@ def get_org_storage_stats_by_day(session, org_id, start, end, offset='+00:00'):
 
     return ret
 
+
 def get_file_ops_stats_by_day(session, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
     end_str = end.strftime('%Y-%m-%d 23:59:59')
     start_at_0 = datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
     end_at_23 = datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
 
-    stmt = select(func.date(func.convert_tz(FileOpsStat.timestamp, '+00:00', offset)).label("timestamp"),
-                  func.sum(FileOpsStat.number).label("number"),
-                  FileOpsStat.op_type).where(FileOpsStat.timestamp.between(
-                      func.convert_tz(start_at_0, offset, '+00:00'),
-                      func.convert_tz(end_at_23, offset, '+00:00'))).group_by(
-                      func.date(func.convert_tz(FileOpsStat.timestamp, '+00:00', offset)),
-                      FileOpsStat.op_type).order_by("timestamp")
+    off_hour = int(offset[0:3])
+    sql = f"""SELECT TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS') as timestamp, sum("number") as "number", op_type 
+        FROM FileOpsStat WHERE timestamp between DATEADD(HH, {-off_hour}, '{start_at_0}') AND DATEADD(HH, {-off_hour}, '{end_at_23}')
+        GROUP BY YEAR(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')),
+        MONTH(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')), 
+        DAY(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')), op_type """
 
-    rows = session.execute(stmt).all()
+    rows = session.execute(text(sql)).fetchall()
     ret = []
-
     for row in rows:
-        ret.append((datetime.strptime(str(row[0]), '%Y-%m-%d'), row[2], int(row[1])))
+        ret.append((datetime.strptime(str(datetime.date(row[0])), '%Y-%m-%d'), row[2], int(row[1])))
+
     return ret
+
 
 def get_org_file_ops_stats_by_day(session, org_id, start, end, offset='+00:00'):
     start_str = start.strftime('%Y-%m-%d 00:00:00')
@@ -185,16 +198,15 @@ def get_org_file_ops_stats_by_day(session, org_id, start, end, offset='+00:00'):
     ret = []
 
     try:
-        stmt = select(func.date(func.convert_tz(FileOpsStat.timestamp, '+00:00', offset)).label("timestamp"),
-                      func.sum(FileOpsStat.number).label("number"), FileOpsStat.op_type).where(
-                      FileOpsStat.timestamp.between(
-                          func.convert_tz(start_at_0, offset, '+00:00'),
-                          func.convert_tz(end_at_23, offset, '+00:00')),
-                      FileOpsStat.org_id == org_id).group_by(
-                          func.date(func.convert_tz(FileOpsStat.timestamp, '+00:00', offset)),
-                          FileOpsStat.op_type).order_by("timestamp")
+        off_hour = int(offset[0:3])
+        sql = f"""SELECT TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS') as timestamp, sum("number") as "number", op_type 
+                FROM FileOpsStat WHERE timestamp between DATEADD(HH, {-off_hour}, '{start_at_0}') AND DATEADD(HH, {-off_hour}, '{end_at_23}') AND org_id={org_id}
+                GROUP BY YEAR(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')),
+                MONTH(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')), 
+                DAY(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')), op_type 
+                ORDER BY timestamp"""
 
-        rows = session.execute(stmt).all()
+        rows = session.execute(text(sql)).fetchall()
 
         for row in rows:
             timestamp = datetime.strptime(str(row[0]), '%Y-%m-%d')
@@ -294,33 +306,32 @@ def get_org_traffic_by_day(session, org_id, start, end, offset='+00:00', op_type
 
     # offset is not supported for now
     offset='+00:00'
+    off_hour = int(offset[0:3])
 
     if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
        or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':
-        stmt = select(func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)).label("timestamp"),
-                      func.sum(SysTraffic.size).label("size"),
-                      SysTraffic.op_type).where(SysTraffic.timestamp.between(
-                          func.convert_tz(start_at_0, offset, '+00:00'),
-                          func.convert_tz(end_at_23, offset, '+00:00')),
-                          SysTraffic.org_id == org_id,
-                          SysTraffic.op_type == op_type).group_by(
-                          SysTraffic.org_id,
-                          func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)),
-                          SysTraffic.op_type).order_by("timestamp")
+
+        sql = f"""SELECT TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS') as timestamp, sum("size") as "size", op_type 
+                        FROM SysTraffic WHERE timestamp between DATEADD(HH, {-off_hour}, '{start_at_0}') AND DATEADD(HH, {-off_hour}, '{end_at_23}') 
+                        AND org_id={org_id} AND op_type={op_type}
+                        GROUP BY org_id, YEAR(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')),
+                        MONTH(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')), 
+                        DAY(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')), op_type 
+                        ORDER BY timestamp """
+
     elif op_type == 'all':
-        stmt = select(func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)).label("timestamp"),
-                      func.sum(SysTraffic.size).label("size"),
-                      SysTraffic.op_type).where(SysTraffic.timestamp.between(
-                          func.convert_tz(start_at_0, offset, '+00:00'),
-                          func.convert_tz(end_at_23, offset, '+00:00')),
-                          SysTraffic.org_id == org_id).group_by(
-                          SysTraffic.org_id,
-                          func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)),
-                          SysTraffic.op_type).order_by("timestamp")
+        sql = f"""SELECT TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS') as timestamp, sum("size") as "size", op_type 
+                                FROM SysTraffic WHERE timestamp between DATEADD(HH, {-off_hour}, '{start_at_0}') AND DATEADD(HH, {-off_hour}, '{end_at_23}') 
+                                AND org_id={org_id}
+                                GROUP BY org_id, YEAR(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')),
+                                MONTH(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')), 
+                                DAY(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')), op_type 
+                                ORDER BY timestamp """
     else:
         return []
 
-    rows = session.execute(stmt).all()
+    # rows = session.execute(stmt).all()
+    rows = session.execute(text(sql)).fetchall()
     ret = []
 
     for row in rows:
@@ -335,29 +346,29 @@ def get_system_traffic_by_day(session, start, end, offset='+00:00', op_type='all
 
     # offset is not supported for now
     offset='+00:00'
+    off_hour = int(offset[0:3])
 
     if op_type == 'web-file-upload' or op_type == 'web-file-download' or op_type == 'sync-file-download' \
        or op_type == 'sync-file-upload' or op_type == 'link-file-upload' or op_type == 'link-file-download':
-        stmt = select(func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)).label("timestamp"),
-                      func.sum(SysTraffic.size).label("size"),
-                      SysTraffic.op_type).where(SysTraffic.timestamp.between(
-                          func.convert_tz(start_at_0, offset, '+00:00'),
-                          func.convert_tz(end_at_23, offset, '+00:00')),
-                          SysTraffic.op_type == op_type).group_by(
-                          func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)),
-                          SysTraffic.op_type).order_by("timestamp")
+        sql = f"""SELECT TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS') as timestamp, sum("size") as "size", op_type 
+                                FROM SysTraffic WHERE timestamp between DATEADD(HH, {-off_hour}, '{start_at_0}') AND DATEADD(HH, {-off_hour}, '{end_at_23}') 
+                                AND op_type={op_type}
+                                GROUP BY YEAR(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')),
+                                MONTH(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')), 
+                                DAY(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')), op_type 
+                                ORDER BY timestamp """
     elif op_type == 'all':
-        stmt = select(func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)).label("timestamp"),
-                      func.sum(SysTraffic.size).label("size"),
-                      SysTraffic.op_type).where(SysTraffic.timestamp.between(
-                          func.convert_tz(start_at_0, offset, '+00:00'),
-                          func.convert_tz(end_at_23, offset, '+00:00'))).group_by(
-                          func.date(func.convert_tz(SysTraffic.timestamp, '+00:00', offset)),
-                          SysTraffic.op_type).order_by("timestamp")
+
+        sql = f"""SELECT TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS') as timestamp, sum("size") as "size", op_type 
+                                        FROM SysTraffic WHERE timestamp between DATEADD(HH, {-off_hour}, '{start_at_0}') AND DATEADD(HH, {-off_hour}, '{end_at_23}') 
+                                        GROUP BY org_id, YEAR(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')),
+                                        MONTH(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')), 
+                                        DAY(TO_DATE(DATEADD(HH, {off_hour}, timestamp), 'YYYY-MM-DD HH24:MI:SS')), op_type 
+                                        ORDER BY timestamp """
     else:
         return []
 
-    rows = session.execute(stmt).all()
+    rows = session.execute(text(sql)).fetchall()
     ret = []
 
     for row in rows:

@@ -1,6 +1,7 @@
 import logging
 from seafevents.db import init_db_session_class
-from sqlalchemy import text
+from sqlalchemy.sql import text
+
 
 logger = logging.getLogger('seafevents')
 
@@ -34,25 +35,23 @@ class CcnetDB(object):
 
         group_ids = [str(id) for id in group_ids]
         if len(group_ids) == 1:
-            sql = "SELECT * FROM `Group` WHERE group_id = :group_id"
-            params = {'group_id': group_ids[0]}
+            sql = f'SELECT * FROM "Group" WHERE group_id = {group_ids[0]}'
         else:
-            sql = "SELECT * FROM `Group` WHERE group_id IN :group_ids"
-            params = {'group_ids': tuple(group_ids)}
+            sql = f'SELECT * FROM "Group" WHERE group_id IN {tuple(group_ids)}'
 
-        result = self.session.execute(text(sql), params)
+        result = self.session.execute(text(sql))
         groups_map = {}
         for item in result.fetchall():
             groups_map[item[0]] = self.get_group_info(item)
         return groups_map
 
     def get_org_user_count(self, org_id):
-        sql = "SELECT COUNT(1) FROM OrgUser WHERE org_id = :org_id"
-        result = self.session.execute(text(sql), {'org_id': org_id})
+        sql = f"SELECT COUNT(1) FROM OrgUser WHERE org_id = {org_id}"
+        result = self.session.execute(text(sql))
         return result.fetchone()[0]
 
     def get_user_role(self, email):
-        sql = "SELECT role FROM UserRole WHERE email = :email"
-        result = self.session.execute(text(sql), {'email': email})
+        sql = f"SELECT role FROM UserRole WHERE email = '{email}'"
+        result = self.session.execute(text(sql))
         row = result.fetchone()
         return row[0] if row else 'default'

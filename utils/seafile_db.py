@@ -32,41 +32,39 @@ class SeafileDB(object):
         repo_ids = [str(repo_id) for repo_id in repo_ids]
     
         if len(repo_ids) == 1:
-            sql1 = """
+            sql1 = f"""
             SELECT r.repo_id, name, owner_id
             FROM RepoInfo r
             LEFT JOIN RepoOwner o
             ON o.repo_id = r.repo_id
-            WHERE r.repo_id = :repo_id
+            WHERE r.repo_id = '{repo_ids[0]}'
             """
-            sql2 = """
-            SELECT r.repo_id, name, user
+            sql2 = f"""
+            SELECT r.repo_id, name, "user"
             FROM RepoInfo r
             LEFT JOIN OrgRepo o
             ON o.repo_id = r.repo_id
-            WHERE r.repo_id = :repo_id
+            WHERE r.repo_id = '{repo_ids[0]}'
             """
-            params = {'repo_id': repo_ids[0]}
         else:
-            sql1 = """
+            sql1 = f"""
             SELECT r.repo_id, name, owner_id
             FROM RepoInfo r
             LEFT JOIN RepoOwner o
             ON o.repo_id = r.repo_id
-            WHERE r.repo_id IN :repo_ids
+            WHERE r.repo_id IN {tuple(repo_ids)}
             """
-            sql2 = """
-            SELECT r.repo_id, name, user
+            sql2 = f"""
+            SELECT r.repo_id, name, "user"
             FROM RepoInfo r
             LEFT JOIN OrgRepo o
             ON o.repo_id = r.repo_id
-            WHERE r.repo_id IN :repo_ids
+            WHERE r.repo_id IN {tuple(repo_ids)}
             """
-            params = {'repo_ids': tuple(repo_ids)}
     
-        result1 = self.session.execute(text(sql1), params)
+        result1 = self.session.execute(text(sql1))
         rows1 = result1.fetchall()
-        result2 = self.session.execute(text(sql2), params)
+        result2 = self.session.execute(text(sql2))
         rows2 = result2.fetchall()
     
         rows = rows1 + rows2
@@ -76,21 +74,21 @@ class SeafileDB(object):
                 repos_map[row[0]] = self.repo_info(row)
     
         return repos_map
-
+    
     def reset_download_rate_limit(self):
         self.session.execute(text("TRUNCATE TABLE UserDownloadRateLimit"))
         self.session.execute(text("TRUNCATE TABLE OrgDownloadRateLimit"))
-        
+    
     def get_repo_owner(self, repo_id):
-        sql = "SELECT owner_id FROM RepoOwner WHERE repo_id = :repo_id"
-        result = self.session.execute(text(sql), {'repo_id': repo_id})
+        sql = f"SELECT owner_id FROM RepoOwner WHERE repo_id = '{repo_id}'"
+        result = self.session.execute(text(sql))
         rows = result.fetchone()
         if not rows:
             return None
         return rows[0]
         
     def get_org_repo_owner(self, repo_id):
-        sql = "SELECT user FROM OrgRepo WHERE repo_id = :repo_id"
+        sql = 'SELECT "user" FROM OrgRepo WHERE repo_id = :repo_id'
         result = self.session.execute(text(sql), {'repo_id': repo_id})
         rows = result.fetchone()
         if not rows:
@@ -98,31 +96,31 @@ class SeafileDB(object):
         return rows[0]
         
     def get_user_self_usage(self, email):
-        sql = """
+        sql = f"""
                 SELECT SUM(size)
                 FROM RepoOwner o
                 LEFT JOIN VirtualRepo v ON o.repo_id = v.repo_id
                 JOIN RepoSize rs ON o.repo_id = rs.repo_id
-                WHERE owner_id = :email
+                WHERE owner_id = '{email}'
                 AND v.repo_id IS NULL
                 """
-        result = self.session.execute(text(sql), {'email': email})
+        result = self.session.execute(text(sql))
         rows = result.fetchone()
         if not rows:
             return None
         return rows[0]
     
     def get_org_user_quota_usage(self, org_id, email):
-        sql = """
+        sql = f"""
                 SELECT SUM(size)
                 FROM OrgRepo o
                 LEFT JOIN VirtualRepo v ON o.repo_id = v.repo_id
                 JOIN RepoSize rs ON o.repo_id = rs.repo_id
-                WHERE org_id = :org_id
-                AND user = :email
+                WHERE org_id = {org_id}
+                AND "user" = '{email}'
                 AND v.repo_id IS NULL
                 """
-        result = self.session.execute(text(sql), {'org_id': org_id, 'email': email})
+        result = self.session.execute(text(sql))
         rows = result.fetchone()
         if not rows:
             return None
@@ -130,7 +128,7 @@ class SeafileDB(object):
         return rows[0]
 
     def get_org_id_by_repo_id(self, repo_id):
-        sql = "SELECT org_id FROM OrgRepo WHERE repo_id = :repo_id"
+        sql = f"SELECT org_id FROM OrgRepo WHERE repo_id = '{repo_id}'"
         result = self.session.execute(text(sql), {'repo_id': repo_id})
         rows = result.fetchone()
         if not rows:
@@ -138,15 +136,15 @@ class SeafileDB(object):
         return rows[0]
     
     def get_org_quota_usage(self, org_id):
-        sql = """
+        sql = f"""
                 SELECT SUM(size)
                 FROM OrgRepo o
                 LEFT JOIN VirtualRepo v ON o.repo_id = v.repo_id
                 JOIN RepoSize rs ON o.repo_id = rs.repo_id
-                WHERE org_id = :org_id
+                WHERE org_id = {org_id}
                 AND v.repo_id IS NULL
                 """
-        result = self.session.execute(text(sql), {'org_id': org_id})
+        result = self.session.execute(text(sql))
         rows = result.fetchone()
         if not rows:
             return None
@@ -161,15 +159,15 @@ class SeafileDB(object):
         instead of directly searching in the database.
 
         '''
-    
+
         return seafile_api.get_user_quota(email)
     
-
+    
     def get_org_user_quota(self, org_id, email):
-    
+        
         return seafile_api.get_org_user_quota(org_id, email)
-    
+
 
     def get_org_quota(self, org_id):
-    
+
         return seafile_api.get_org_quota(org_id)

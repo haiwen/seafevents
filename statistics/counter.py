@@ -61,7 +61,7 @@ def save_traffic_info(session, timestamp, user_name, repo_id, oper, size):
         traffic_info[time_str][(org_id, user_name, oper)] = size
     else:
         traffic_info[time_str][(org_id, user_name, oper)] += size
-        
+
 def get_role_download_rate_limit_info():
     if not ENABLED_ROLE_PERMISSIONS:
         return None
@@ -76,8 +76,8 @@ def get_role_download_rate_limit_info():
             rate_limit[MONTHLY_RATE_LIMIT_PER_USER] = monthly_rate_limit_per_user
         traffic_info_dict[role] = rate_limit
     return traffic_info_dict
-    
-    
+
+
 
 class FileOpsCounter(object):
     def __init__(self):
@@ -151,20 +151,32 @@ class FileOpsCounter(object):
             return
 
         for k, v in org_added.items():
-            new_record = FileOpsStat(k, s_timestamp, 'Added', v)
-            self.edb_session.add(new_record)
+            sql = f"""INSERT INTO FileOpsStat (timestamp, op_type, "number", org_id) VALUES 
+                    ('{s_timestamp}', 'Added', '{v}', '{k}')"""
+
+            self.edb_session.execute(text(sql))
+            self.edb_session.commit()
 
         for k, v in org_deleted.items():
-            new_record = FileOpsStat(k, s_timestamp, 'Deleted', v)
-            self.edb_session.add(new_record)
+            sql = f"""INSERT INTO FileOpsStat (timestamp, op_type, "number", org_id) VALUES 
+                                ('{s_timestamp}', 'Deleted', '{v}', '{k}')"""
+
+            self.edb_session.execute(text(sql))
+            self.edb_session.commit()
 
         for k, v in org_visited.items():
-            new_record = FileOpsStat(k, s_timestamp, 'Visited', v)
-            self.edb_session.add(new_record)
+            sql = f"""INSERT INTO FileOpsStat (timestamp, op_type, "number", org_id) VALUES 
+                                ('{s_timestamp}', 'Visited', '{v}', '{k}')"""
+
+            self.edb_session.execute(text(sql))
+            self.edb_session.commit()
 
         for k, v in org_modified.items():
-            new_record = FileOpsStat(k, s_timestamp, 'Modified', v)
-            self.edb_session.add(new_record)
+            sql = f"""INSERT INTO FileOpsStat (timestamp, op_type, "number", org_id) VALUES 
+                                ('{s_timestamp}', 'Modified', '{v}', '{k}')"""
+
+            self.edb_session.execute(text(sql))
+            self.edb_session.commit()
 
         logging.info('[FileOpsCounter] Finish counting file operations in %s seconds, %d added, %d deleted, %d visited,'
                      ' %d modified',
@@ -182,11 +194,11 @@ class TotalStorageCounter(object):
         logging.info('Start counting total storage..')
         time_start = time.time()
         try:
-            RepoSize = SeafBase.classes.RepoSize
-            VirtualRepo = SeafBase.classes.VirtualRepo
-            OrgRepo = SeafBase.classes.OrgRepo
+            RepoSize = SeafBase.classes.reposize
+            VirtualRepo = SeafBase.classes.virtualrepo
+            OrgRepo = SeafBase.classes.orgrepo
 
-            stmt = select(func.sum(RepoSize.size).label("size"), OrgRepo.org_id).outerjoin(
+            stmt = select(func.sum(RepoSize.SIZE).label("size"), OrgRepo.org_id).outerjoin(
                           VirtualRepo, RepoSize.repo_id == VirtualRepo.repo_id).outerjoin(
                           OrgRepo, RepoSize.repo_id == OrgRepo.repo_id).where(
                           VirtualRepo.repo_id == null()).group_by(OrgRepo.org_id)
@@ -293,7 +305,7 @@ class TrafficInfoCounter(object):
             size = local_traffic_info[date_str][row]
             if size == 0:
                 continue
-            
+
             traffic_threshold = None
             if traffic_info_dict and oper in self.download_type_list:
                 with CcnetDB() as ccnet_db:
