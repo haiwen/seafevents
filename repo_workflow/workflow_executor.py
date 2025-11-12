@@ -9,7 +9,7 @@ import uuid
 
 from collections import deque, defaultdict
 from sqlalchemy import text
-
+from sqlalchemy.exc import SQLAlchemyError, ProgrammingError
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_workflow.constants import NodeStatus, NodeType, ActionType
 
@@ -33,7 +33,7 @@ class NodeExecution:
             self.outputs = {}
 
 @dataclass
-class ExecutionContext:
+class WorkflowRunContext:
     repo_id: str
     workflow_id: str
     run_id: str
@@ -41,11 +41,11 @@ class ExecutionContext:
     global_variables: Dict[str, Any] = None
     node_executions: Dict[str, NodeExecution] = None
 
-    def __post_init__(self):
-        if self.global_variables is None:
-            self.global_variables = {}
-        if self.node_executions is None:
-            self.node_executions = {}
+    # def __post_init__(self):
+    #     if self.global_variables is None:
+    #         self.global_variables = {}
+    #     if self.node_executions is None:
+    #         self.node_executions = {}
 
 
 class WorkflowGraph:
@@ -62,7 +62,6 @@ class WorkflowGraph:
             adj_list[edge['source']].append({
                 'target': edge['target'],
                 'sourceHandle': edge.get('sourceHandle', ''),
-                'label': edge.get('label', ''),
             })
         return dict(adj_list)
     
@@ -283,7 +282,6 @@ class NodeExecutor:
     
 
 class WorkflowExecutor:
-    
     def __init__(self, db_connection=None):
         self.db = db_connection
         self.node_executor = NodeExecutor(db_connection)
@@ -296,7 +294,7 @@ class WorkflowExecutor:
                 return False
             
             graph = WorkflowGraph(graph_data)
-            context = ExecutionContext(
+            context = WorkflowRunContext(
                 repo_id=repo_id,
                 workflow_id=workflow_data.get('id'),
                 run_id=str(uuid.uuid4()),
@@ -307,7 +305,7 @@ class WorkflowExecutor:
             
             self._record_workflow_run_start(context, graph_data)
             start_time = time.time()
-            success = self._execute_workflow_with_queue(context, graph)
+            success = self._execute_graph_with_node_queue(context, graph)
             elapsed_time = time.time() - start_time
             if success:
                 self._update_workflow_run_status(context, NodeStatus.COMPLETED, elapsed_time)
@@ -320,7 +318,7 @@ class WorkflowExecutor:
             logger.error(f"Error executing workflow: {str(e)}")
             return False
     
-    def _execute_workflow_with_queue(self, context, graph):
+    def _execute_graph_with_node_queue(self, context, graph):
         start_nodes = graph.get_start_nodes()
         if not start_nodes:
             logger.error("No start nodes found")
@@ -416,15 +414,15 @@ class WorkflowExecutor:
             logger.error(f"Failed to record workflow run completion: {str(e)}")
 
 
-
 class WorkflowTriggerHandler:
     
     def __init__(self, db_connection=None):
         self.db = db_connection
         self.executor = WorkflowExecutor(db_connection)
     
-    def handle_file_upload_workflow(self, repo_id, record):
-        """file upload trigger"""
+    def handle_add_file_event(self, record):
+        """add file trigger"""
+        repo_id = record.get('repo_id')
         workflows = self._get_active_workflows(repo_id)
         
         if not workflows:
@@ -475,17 +473,17 @@ class WorkflowTriggerHandler:
                 })
             
             return workflows
-            
+        except ProgrammingError as e:
+            logger.error(e)
+            return []
         except Exception as e:
             logger.error(f"Failed to get active workflows: {str(e)}")
             return []
 
-def on_file_upload_event(session, record):
+def on_add_file_event(session, record):
     try:
-        repo_id = record.get('repo_id')
         trigger_handler = WorkflowTriggerHandler(db_connection=session)
-        trigger_handler.handle_file_upload_workflow(repo_id, record)
-        
+        trigger_handler.handle_add_file_event(record)
     except Exception as e:
         logger.error(f"Error in file upload workflow event handler: {str(e)}")
 

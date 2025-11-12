@@ -5,7 +5,7 @@ import queue
 import uuid
 
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
-from seafevents.repo_workflow.workflow_executor import on_file_upload_event
+from seafevents.repo_workflow.workflow_executor import on_add_file_event
 from seafevents.db import init_db_session_class
 
 logger = logging.getLogger(__name__)
@@ -19,6 +19,7 @@ class WorkflowTaskManager(object):
         self.tasks_map = {}
         self.task_queue = queue.Queue()
         self.threads = []
+        self.current_task_info = {}
         self.worker_num = 3
         self._db_session_class = init_db_session_class()
 
@@ -31,10 +32,16 @@ class WorkflowTaskManager(object):
                             self.threads_is_alive()))
             return False
         task_id = str(uuid.uuid4())
-        task = (on_file_upload_event, (session, record))
+        task = (on_add_file_event, (session, record))
         self.task_queue.put(task_id)
         self.tasks_map[task_id] = task
         return True
+    
+    def threads_is_alive(self):
+        info = {}
+        for t in self.threads:
+            info[t.name] = t.is_alive()
+        return info
 
     def handle_workflow_task(self):
         while True:
@@ -50,6 +57,7 @@ class WorkflowTaskManager(object):
                 continue
             task_info = task_id + ' ' + str(task[0])
             try:
+                self.current_task_info[task_id] = task_info
                 logging.info('Run task: %s' % task_info)
                 start_time = time.time()
                 # run
@@ -57,8 +65,10 @@ class WorkflowTaskManager(object):
 
                 finish_time = time.time()
                 logging.info('Run workflow task success: %s cost %ds \n' % (task_info, int(finish_time - start_time)))
+                self.current_task_info.pop(task_id, None)
             except Exception as e:
                 logger.error('Failed to handle workflow task %s, error: %s \n' % (task_info, e))
+                self.current_task_info.pop(task_id, None)
             finally:
                 self.tasks_map.pop(task_id, None)
     
