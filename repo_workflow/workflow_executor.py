@@ -8,10 +8,11 @@ from dataclasses import dataclass
 import uuid
 
 from collections import deque, defaultdict
-from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError, ProgrammingError
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
-from seafevents.repo_workflow.constants import NodeStatus, NodeType, ActionType
+from seafevents.repo_workflow.constants import NodeStatus, NodeType, ActionType, TriggerType, ConditionType
+
+from seafevents.repo_workflow.utils import get_active_workflows, set_workflow_valid, set_file_status, \
+    record_workflow_run_start, update_workflow_run_status
 
 logger = logging.getLogger(__name__)
 
@@ -26,27 +27,15 @@ class NodeExecution:
     end_time: Optional[datetime] = None
     retry_count: int = 0
     
-    def __post_init__(self):
-        if self.inputs is None:
-            self.inputs = {}
-        if self.outputs is None:
-            self.outputs = {}
 
 @dataclass
 class WorkflowRunContext:
     repo_id: str
     workflow_id: str
     run_id: str
-    trigger_data: Dict[str, Any]
-    global_variables: Dict[str, Any] = None
-    node_executions: Dict[str, NodeExecution] = None
-
-    # def __post_init__(self):
-    #     if self.global_variables is None:
-    #         self.global_variables = {}
-    #     if self.node_executions is None:
-    #         self.node_executions = {}
-
+    trigger_data: Dict[str, Any] # trigger file data and trigger information
+    global_variables: Dict[str, Any] = None # global variables for the entire workflow run
+    node_executions: Dict[str, NodeExecution] = None # execution status for each node in the workflow
 
 class WorkflowGraph:
     def __init__(self, graph_data):
@@ -57,6 +46,15 @@ class WorkflowGraph:
     
 
     def _build_adjacency_list(self):
+        """
+          {
+            <:source id>: [
+                {'target': <:target_id>, 'sourceHandle': ''}
+                {'target': <:target_id>, 'sourceHandle': ''}
+            ],
+            ...
+        }
+        """
         adj_list = defaultdict(list)
         for edge in self.edges:
             adj_list[edge['source']].append({
@@ -94,12 +92,11 @@ class WorkflowGraph:
         
         return next_nodes
     
-    def get_node_dependencies(self, node_id: str) -> List[str]:
+    def get_node_dependencies(self, node_id: str):
         return self.reverse_adjacency_list.get(node_id, [])
     
 
 class NodeExecutor:
-
     def __init__(self, db_connection=None):
         self.db = db_connection
         self.metadata_server_api = MetadataServerAPI('seafevents')
@@ -117,7 +114,7 @@ class NodeExecutor:
             
             node_type = node.get('type')
             if node_type == NodeType.TRIGGER:
-                success, outputs = self._execute_trigger_node(context, node)
+                success, outputs = self._execute_trigger_node(node)
             elif node_type == NodeType.CONDITION:
                 success, outputs = self._execute_condition_node(context, node, inputs)
             elif node_type == NodeType.ACTION:
@@ -151,15 +148,13 @@ class NodeExecutor:
             dep_execution = context.node_executions.get(dep_node_id)
             if dep_execution and dep_execution.outputs:
                 inputs.update(dep_execution.outputs)
-        inputs.update(context.global_variables)
-        inputs.update(context.trigger_data)
         
         return inputs
 
-    def _execute_trigger_node(self, context, node_data):
+    def _execute_trigger_node(self, node_data):
         config_id = node_data.get('data', {}).get('config_id')
         #TODO: handle other trigger types
-        if config_id == 'file_upload':
+        if config_id == TriggerType.FILE_ADDED:
             return True, {}
         
         return True, {}
@@ -169,9 +164,9 @@ class NodeExecutor:
         node_data = node.get('data', {})
         config_id = node_data.get('config_id')
         params = node_data.get('params', {})
-        record = inputs.get('record', {})
+        record = context.trigger_data.get('record', {})
         
-        if config_id == 'if_else':
+        if config_id == ConditionType.IF_ELSE:
             basic_filters = params.get('basic_filters', [])
             
             all_conditions_met = True
@@ -187,7 +182,6 @@ class NodeExecutor:
                     commit = record.get('commit_diff', [{}])[0]
                     file_name = os.path.basename(commit.get('path', ''))
                     file_suffix = file_name.split('.')[-1] if '.' in file_name else ''
-                    
                     if filter_predicate == 'is_any_of':
                         condition_met = file_suffix in filter_term
                     elif filter_predicate == 'is_not_any_of':
@@ -224,14 +218,13 @@ class NodeExecutor:
     
     def _execute_set_status_action(self, context, params, inputs):
         status = params.get('status')
-        record = inputs.get('record', {})
+        record = context.trigger_data.get('record')
         
         if not status or not record:
             logger.error("Missing status or record data, cannot set status")
             return False, {'error': 'Missing status or record data'}
         
-        success = self._set_file_status(context.repo_id, record, status)
-        
+        success = set_file_status(self.metadata_server_api, context.repo_id, record, status)
         outputs = {
             'status_set': status,
             'success': success,
@@ -240,46 +233,6 @@ class NodeExecutor:
         
         return success, outputs
 
-    
-    def _set_file_status(self, repo_id, record, status):
-        try:
-            from seafevents.repo_metadata.constants import METADATA_TABLE
-            commit_diff = record.get('commit_diff', [])
-            if not commit_diff:
-                logger.error("Missing commit_diff data")
-                return False
-            
-            commit = commit_diff[0]
-            file_path = commit.get('path')
-            parent_dir = os.path.dirname(file_path)
-            file_name = os.path.basename(file_path)
-            sql = f'SELECT * FROM `{METADATA_TABLE.name}` WHERE \
-                `{METADATA_TABLE.columns.parent_dir.name}`=? AND `{METADATA_TABLE.columns.file_name.name}`=?;'
-            parameters = [parent_dir, file_name]
-            try:
-                time.sleep(0.2)
-                query_result = self.metadata_server_api.query_rows(repo_id, sql, parameters)
-            except Exception as e:
-                logger.error(e)
-                return False
-            rows = []
-            for row in query_result.get('results', []):
-                record_id = row.get(METADATA_TABLE.columns.id.name)
-                if record_id:
-                    rows.append({
-                        METADATA_TABLE.columns.id.name: record_id,
-                        '_status': status
-                    })
-            if rows:
-                self.metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, rows)
-                return True
-            else:
-                return False
-            
-        except Exception as e:
-            logger.error(f"Failed to set file status: {str(e)}")
-            return False
-    
 
 class WorkflowExecutor:
     def __init__(self, db_connection=None):
@@ -288,7 +241,7 @@ class WorkflowExecutor:
     
     def execute_workflow(self, repo_id, workflow_data, trigger_data):
         try:
-            graph_data = self._parse_graph(workflow_data.get('graph'))
+            graph_data = json.loads(workflow_data.get('graph'))
             if not graph_data:
                 logger.error(f"Invalid workflow graph for workflow {workflow_data.get('id')}")
                 return False
@@ -303,14 +256,14 @@ class WorkflowExecutor:
                 node_executions={}
                 )
             
-            self._record_workflow_run_start(context, graph_data)
+            record_workflow_run_start(self.db, context, graph_data)
             start_time = time.time()
             success = self._execute_graph_with_node_queue(context, graph)
             elapsed_time = time.time() - start_time
             if success:
-                self._update_workflow_run_status(context, NodeStatus.COMPLETED, elapsed_time)
+                update_workflow_run_status(self.db, context, NodeStatus.COMPLETED, elapsed_time)
             else:
-                self._update_workflow_run_status(context, NodeStatus.FAILED, elapsed_time)
+                update_workflow_run_status(self.db, context, NodeStatus.FAILED, elapsed_time)
             
             return success
             
@@ -330,11 +283,10 @@ class WorkflowExecutor:
         
         while execution_queue:
             node_id = execution_queue.popleft()
-            # dependencies = graph.get_node_dependencies(node_id)
-            # if not all(dep in completed_nodes for dep in dependencies):
-            #     execution_queue.append(node_id)
-            #     continue
-            
+            dependencies = graph.get_node_dependencies(node_id)
+            if not all(dep in completed_nodes for dep in dependencies):
+                execution_queue.append(node_id)
+                continue
             try:
                 execution_result = self.node_executor.execute_node(context, node_id, graph)
                 context.node_executions[node_id] = execution_result
@@ -360,58 +312,6 @@ class WorkflowExecutor:
         
         logger.info(f"Workflow {context.workflow_id} completed successfully - executed {len(completed_nodes)} nodes")
         return True
-    
-    def _parse_graph(self, graph_str: str) -> Optional[Dict[str, Any]]:
-        if not graph_str:
-            return None
-        try:
-            return json.loads(graph_str)
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse graph JSON: {str(e)}")
-            return None
-    
-    def _record_workflow_run_start(self, context, graph_data):
-        try:
-            sql = text("""
-                INSERT INTO workflow_run 
-                (id, workflow_id, repo_id, status, created_by, created_at, total_steps)
-                VALUES (:id, :workflow_id, :repo_id, :status, :created_by, :created_at, :total_steps)
-            """)
-            
-            total_steps = len(graph_data.get('nodes', []))
-            record = context.trigger_data.get('record')
-            self.db.execute(sql, {
-                'id': context.run_id,
-                'workflow_id': context.workflow_id,
-                'repo_id': context.repo_id,
-                'status': NodeStatus.RUNNING,
-                'created_by': record.get('op_user'),
-                'created_at': datetime.now(),
-                'total_steps': total_steps
-            })
-            self.db.commit()
-            
-        except Exception as e:
-            logger.error(f"Failed to record workflow run start: {str(e)}")
-    
-    def _update_workflow_run_status(self, context, status, elapsed_time):
-        try:
-            sql = text("""
-                UPDATE workflow_run 
-                SET status = :status, finished_at = :finished_at, elapsed_time = :elapsed_time
-                WHERE id = :id
-            """)
-            
-            self.db.execute(sql, {
-                'status': status,
-                'finished_at': datetime.now(),
-                'elapsed_time': elapsed_time,
-                'id': context.run_id
-            })
-            self.db.commit()
-            
-        except Exception as e:
-            logger.error(f"Failed to record workflow run completion: {str(e)}")
 
 
 class WorkflowTriggerHandler:
@@ -423,18 +323,17 @@ class WorkflowTriggerHandler:
     def handle_add_file_event(self, record):
         """add file trigger"""
         repo_id = record.get('repo_id')
-        workflows = self._get_active_workflows(repo_id)
-        
+        workflows = get_active_workflows(self.db, repo_id)
         if not workflows:
             logger.info(f"No active workflows found for repo {repo_id}")
             return
         
         for workflow in workflows:
-            if workflow.get('trigger_from') == 'file_upload':
+            if workflow.get('trigger_from') == TriggerType.FILE_ADDED:
                 logger.info(f"Triggering workflow {workflow['id']} for file upload in repo {repo_id}")
                 
                 trigger_data = {
-                    'trigger_type': 'file_upload',
+                    'trigger_type': TriggerType.FILE_ADDED,
                     'record': record,
                     'timestamp': datetime.now().isoformat()
                 }
@@ -442,43 +341,8 @@ class WorkflowTriggerHandler:
                 success = self.executor.execute_workflow(repo_id, workflow, trigger_data)
                 if not success:
                     logger.error(f"Workflow {workflow['id']} execution failed")
+                    set_workflow_valid(self.db, workflow['id'], False)
 
-    
-    def _get_active_workflows(self, repo_id):
-        if not self.db:
-            return []
-        
-        try:
-            sql = text("""
-                SELECT id, name, graph, is_valid, created_by, updated_by, created_at, updated_at, trigger_from
-                FROM workflows 
-                WHERE repo_id = :repo_id AND is_valid = 1
-            """)
-            
-            cursor = self.db.execute(sql, {'repo_id': repo_id})
-            rows = cursor.fetchall()
-            workflows = []
-            
-            for row in rows:
-                workflows.append({
-                    'id': row[0],
-                    'name': row[1],
-                    'graph': row[2],
-                    'is_valid': row[3],
-                    'created_by': row[4],
-                    'updated_by': row[5],
-                    'created_at': row[6],
-                    'updated_at': row[7],
-                    'trigger_from': row[8]
-                })
-            
-            return workflows
-        except ProgrammingError as e:
-            logger.error(e)
-            return []
-        except Exception as e:
-            logger.error(f"Failed to get active workflows: {str(e)}")
-            return []
 
 def on_add_file_event(session, record):
     try:
@@ -486,4 +350,3 @@ def on_add_file_event(session, record):
         trigger_handler.handle_add_file_event(record)
     except Exception as e:
         logger.error(f"Error in file upload workflow event handler: {str(e)}")
-

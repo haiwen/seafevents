@@ -260,7 +260,7 @@ def trigger_wf_activity_event(repo_id, commit,
 
             added_files_record["commit_diff"].append(commit_diff)
     if commit.description.find('Added') != -1 and added_files_record:
-        workflow_task_manager.add_file_upload_workflow_task(added_files_record)
+        workflow_task_manager.add_file_added_workflow_task(added_files_record)
 
 
 def generate_repo_monitor_records(repo_id, commit,

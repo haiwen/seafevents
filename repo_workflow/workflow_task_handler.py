@@ -24,7 +24,7 @@ class WorkflowTaskManager(object):
         self._db_session_class = init_db_session_class()
 
 
-    def add_file_upload_workflow_task(self, record):
+    def add_file_added_workflow_task(self, record):
         session = self._db_session_class()
         if self.task_queue.full():
             logger.warning('workflow server busy, queue size: %d, current tasks: %s, threads is_alive: %s'

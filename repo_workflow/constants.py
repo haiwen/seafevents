@@ -23,3 +23,15 @@ class FilterPredicate:
 
 class ActionType:
     SET_STATUS = 'set_status'
+
+
+class TriggerType:
+    FILE_ADDED = 'file_added'
+    FILE_DELETED = 'file_deleted'
+    FILE_RENAMED = 'file_renamed'
+    FILE_MOVED = 'file_moved'
+    FILE_COPIED = 'file_copied'
+
+
+class ConditionType:
+    IF_ELSE = 'if_else'
