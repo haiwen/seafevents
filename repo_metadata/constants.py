@@ -142,6 +142,16 @@ class ViewType(object):
     KANBAN = 'kanban'
 
 
+class FileStatusOptions(object):
+    IN_PROGRESS = '_in_progress'
+    IN_REVIEW = '_in_review'
+    DONE = '_done'
+    OUTDATED = '_outdated'
+
+    @classmethod
+    def keys(cls):
+        return [cls.IN_PROGRESS, cls.IN_REVIEW, cls.DONE, cls.OUTDATED]
+
 METADATA_OP_LIMIT = 1000
 
 
@@ -157,6 +167,14 @@ class MetadataTable(object):
 
 
 def gen_file_type_options(option_ids):
+    options = []
+
+    for option_id in option_ids:
+        options.append({'id': option_id, 'name': option_id})
+    return options
+
+
+def gen_file_status_options(option_ids):
     options = []
 
     for option_id in option_ids:
@@ -185,6 +203,8 @@ class MetadataColumns(object):
 
         self.collaborator = MetadataColumn(PrivatePropertyKeys.FILE_COLLABORATORS, '_collaborators', PropertyTypes.COLLABORATOR)
         self.owner = MetadataColumn(PrivatePropertyKeys.OWNER, '_owner', PropertyTypes.COLLABORATOR)
+        self.status = MetadataColumn(PrivatePropertyKeys.FILE_STATUS, '_status', PropertyTypes.SINGLE_SELECT,
+                                    {'options': gen_file_status_options(FileStatusOptions.keys())})
 
         # face
         self.face_vectors = MetadataColumn(PrivatePropertyKeys.FACE_VECTORS, '_face_vectors', PropertyTypes.LONG_TEXT)
@@ -283,6 +303,7 @@ METADATA_TABLE_SYS_COLUMNS = [
     METADATA_TABLE.columns.file_details.to_dict(),
     METADATA_TABLE.columns.description.to_dict(),
     METADATA_TABLE.columns.location_translated.to_dict(),
+    METADATA_TABLE.columns.status.to_dict(),
 ]
 
 
