@@ -7,6 +7,7 @@ from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
 
 from seafevents.repo_metadata.index_master import RepoMetadataIndexMaster
 from seafevents.repo_metadata.slow_task_handler import SlowMetadataTaskHandler
+from seafevents.repo_workflow.workflow_task_handler import workflow_task_manager
 from seafevents.seafevent_server.seafevent_server import SeafEventServer
 from seafevents.seasearch.index_task.file_index_updater import RepoFileIndexUpdater
 from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_QUOTA_ALERT, ENABLE_SEAFILE_AI
@@ -78,6 +79,7 @@ class App(object):
                 self._face_cluster_updater.start()
                 self._slow_md_task_handler.start()
                 self._face_cluster_task_publisher.start()
+                workflow_task_manager.run()
 
             self._metrics_manager.start()
             self._repo_file_index_updater.start()
