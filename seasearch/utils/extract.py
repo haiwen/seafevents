@@ -9,7 +9,7 @@ import json
 from zipfile import ZipFile
 from io import BytesIO
 
-from seafevents.utils import run
+from seafevents.utils import run_and_wait
 from seafevents.seasearch.utils.constants import text_suffixes, office_suffixes, ZERO_OBJ_ID
 
 from seafobj import fs_mgr
@@ -31,7 +31,7 @@ def extract_pdf_text(content):
             output.write(content)
 
         cmd = ['timeout', str(5 * 60), 'pdftotext', pdf_name, txt_name]
-        if run(cmd) != 0:
+        if run_and_wait(cmd) != 0:
             content = None
         else:
             with open(txt_name, 'rb') as fp:
