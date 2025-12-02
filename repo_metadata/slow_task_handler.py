@@ -11,6 +11,7 @@ from seafevents.face_recognition.face_recognition_manager import FaceRecognition
 from seafevents.repo_metadata.utils import add_file_details
 from seafevents.db import init_db_session_class
 from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
+from seafevents.utils import get_opt_from_conf_or_env
 
 logger = logging.getLogger(__name__)
 
