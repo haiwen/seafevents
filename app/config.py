@@ -45,7 +45,9 @@ def get_config(config_file):
 
 
 def is_cluster_enabled(seafile_config):
-    if seafile_config.has_option('cluster', 'enabled'):
+    if os.environ.get('CLUSTER_SERVER', 'false') == 'true':
+        return True
+    elif seafile_config.has_option('cluster', 'enabled'):
         return seafile_config.getboolean('cluster', 'enabled')
     else:
         return False
