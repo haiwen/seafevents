@@ -15,7 +15,7 @@ from sqlalchemy import select, text, desc, func
 from sqlalchemy.exc import NoResultFound
 import pymysql
 
-from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
+from seaserv import get_org_id_by_repo_id, seafile_api, get_commit, seafserv_threaded_rpc
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
 from seafobj.commit_differ import DiffEntry
 from seafevents.events.db import save_file_audit_event, save_file_update_event, \
@@ -23,6 +23,7 @@ from seafevents.events.db import save_file_audit_event, save_file_update_event, 
         save_repo_trash, restore_repo_trash
 from seafevents.app.config import TIME_ZONE
 from seafevents.utils import get_opt_from_conf_or_env
+from seafevents.utils.seahub_db import SeahubDB
 from .change_file_path import ChangeFilePathHandler
 from .models import Activity, FileTrash, OrgLastActivityTime
 from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, save_deleted_files_msg
@@ -962,6 +963,17 @@ def FileUpdateEventHandler(config, session, msg):
         creator_name = ''
     save_file_update_event(session, time, creator_name, org_id,
                            repo_id, commit_id, commit.desc)
+
+    # update wps file version
+    diff_result = seafserv_threaded_rpc.get_diff(repo_id, '', commit_id)
+    with SeahubDB() as seahub_db:
+        for item in diff_result:
+            # {'status': 'mod', 'name': 'abc/iii/test.txt', 'new_name': None}
+            if item.status != 'mod':
+                continue
+            file_path = '/' + item.name
+            seahub_db.set_wps_file_version(repo_id, file_path)
+
 
 def FileAuditEventHandler(config, session, msg):
     try:
