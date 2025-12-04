@@ -303,7 +303,7 @@ class TrafficInfoCounter(object):
                 if org_id > 0:
                     monthly_rate_limit_per_user = traffic_info_dict[role].get(MONTHLY_RATE_LIMIT_PER_USER) or None
                     traffic_threshold = monthly_rate_limit_per_user * org_user_count_dict[org_id] if monthly_rate_limit_per_user else None
-                if (org_id, oper) not in org_delta:
+                if (org_id, oper, traffic_threshold) not in org_delta:
                     org_delta[(org_id, oper, traffic_threshold)] = size
                 else:
                     org_delta[(org_id, oper, traffic_threshold)] += size
