@@ -61,6 +61,9 @@ class RedisClient(object):
             except redis.AuthenticationError as e:
                 logger.critical('connect to redis auth error: %s', e)
                 raise e
+            except redis.exceptions.ConnectionError as e:
+                logger.critical('redis pubsub failed. connection failed: {}'.format(e))
+                raise e
             except Exception as e:
                 logger.error('redis pubsub failed. {} retry after 10s'.format(e))
                 time.sleep(10)
