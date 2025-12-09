@@ -163,6 +163,8 @@ class RepoChangeInfoCollector(Thread):
         if not self._redis_client.connection:
             logging.warning('Can not start repo change collector: redis connection is not initialized')
             return
+        if not self.mq:
+            return
         
         while not self._finished.is_set():
             try:
