@@ -16,6 +16,7 @@ def get_mq(server, port, password):
     except Exception as e:
         logger.error("Redis server can't be connected: host %s, port %s, error %s",
                      server, port, e)
+        mq = None
     finally:
         # python redis is a client, each operation tries to connect and retry exec
         return mq
