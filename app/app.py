@@ -36,7 +36,7 @@ class App(object):
             self._statistics = Statistics(config, seafile_config)
             self._content_scanner = ContentScanner(config)
             self._work_weixin_notice_sender = WorkWinxinNoticeSender(config)
-            self._file_updates_sender = FileUpdatesSender()
+            self._file_updates_sender = FileUpdatesSender(config)
             self._repo_old_file_auto_del_scanner = RepoOldFileAutoDelScanner(config)
             self._deleted_files_count_cleaner = DeletedFilesCountCleaner()
             self._metrics_manager = MetricsManager()

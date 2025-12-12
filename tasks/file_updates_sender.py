@@ -14,15 +14,25 @@ __all__ = [
 
 class FileUpdatesSender(object):
 
-    def __init__(self):
+    def __init__(self, config):
         self._interval = 300
         self._logfile = None
         self._timer = None
+        self.config = config
+
+    def is_enabled(self):
+        enabled = False
+        if self.config.has_option('FILE UPDATES SENDER', 'enabled'):
+            enabled = self.config.getboolean('FILE UPDATES SENDER', 'enabled')
+        return enabled
 
     def start(self):
-        logging.info('Start file updates sender, interval = %s sec', self._interval)
-
-        FileUpdatesSenderTimer(self._interval).start()
+        if self.is_enabled():
+            logging.info('Start file updates sender, interval = %s sec', self._interval)
+            FileUpdatesSenderTimer(self._interval).start()
+        else:
+            logging.info('Can not start file updates sender: it is not enabled!')
+            return
 
 
 class FileUpdatesSenderTimer(Thread):
