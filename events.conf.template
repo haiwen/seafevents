@@ -15,3 +15,6 @@ seafesdir=/data/github/seafes/
 
 [STATISTICS]
 enabled = true
+
+[FILE UPDATES SENDER]
+enabled = true
