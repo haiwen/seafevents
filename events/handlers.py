@@ -27,6 +27,7 @@ from .change_file_path import ChangeFilePathHandler
 from .models import Activity, FileTrash, OrgLastActivityTime
 from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, save_deleted_files_msg
 from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
+from seafevents.repo_workflow.workflow_task_handler import workflow_task_manager
 
 recent_added_events = {'recent_added_events': []}
 EXCLUDED_PATHS = ['/_Internal', '/images/sdoc', '/images/auto-upload']
@@ -131,6 +132,13 @@ def RepoUpdateEventHandler(config, session, msg):
                                                         moved_files, moved_dirs,
                                                         modified_files)
                 save_message_to_user_notification(session, records)
+                trigger_wf_activity_event(repo_id, commit,
+                                        added_files, deleted_files,
+                                        added_dirs, deleted_dirs,
+                                        renamed_files, renamed_dirs,
+                                        moved_files, moved_dirs,
+                                        modified_files)
+                
 
 
             enable_collab_server = False
@@ -200,6 +208,59 @@ def send_message_to_collab_server(config, repo_id):
     ret_code = resp.getcode()
     if ret_code != 200:
         logging.warning('Failed to send message to collab_server %s', collab_server)
+
+
+def trigger_wf_activity_event(repo_id, commit,
+                            added_files, deleted_files,
+                            added_dirs, deleted_dirs,
+                            renamed_files, renamed_dirs,
+                            moved_files, moved_dirs,
+                            modified_files):
+
+    OP_CREATE = 'create'
+    OP_RECOVER = 'recover'
+    OP_DELETE = 'delete'
+    OP_RENAME = 'rename'
+    OP_MOVE = 'move'
+    OP_EDIT = 'edit'
+
+    OBJ_FILE = 'file'
+    OBJ_DIR = 'dir'
+
+    repo = seafile_api.get_repo(repo_id)
+    if repo.repo_type == 'wiki':
+        return
+    base_record = {
+        'op_user': getattr(commit, 'creator_name', ''),
+        'repo_id': repo_id,
+        'repo_name': repo.repo_name,
+        'commit_id': commit.commit_id,
+        'timestamp': commit.ctime,
+        'commit_desc': commit.description,
+    }
+    added_files_record = None
+    if added_files:
+
+        added_files_record = copy.copy(base_record)
+        added_files_record["commit_diff"] = []
+        for de in added_files:
+            if _check_ignored_path(de.path):
+                continue
+            if commit.description.startswith('Reverted'):
+                op_type = OP_RECOVER
+            else:
+                op_type = OP_CREATE
+
+            commit_diff = dict()
+            commit_diff['op_type'] = op_type
+            commit_diff['obj_type'] = OBJ_FILE
+            commit_diff['obj_id'] = de.obj_id
+            commit_diff['path'] = de.path
+            commit_diff['size'] = de.size
+
+            added_files_record["commit_diff"].append(commit_diff)
+    if commit.description.find('Added') != -1 and added_files_record:
+        workflow_task_manager.add_file_added_workflow_task(added_files_record)
 
 
 def generate_repo_monitor_records(repo_id, commit,
