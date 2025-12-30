@@ -37,7 +37,6 @@ class Webhooker(object):
         self.job_queue = Queue()
 
     def start(self):
-        print('ccccWebhook start called')
         logger.info('Starting handle webhook jobs...')
         tds = [Thread(target=self.add_jobs)]
         tds.extend([Thread(target=self.trigger_jobs, name='trigger_%s' % i) for i in range(2)])
