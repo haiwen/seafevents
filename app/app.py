@@ -13,6 +13,7 @@ from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_QUOTA_ALERT
 from seafevents.seasearch.index_task.wiki_index_updater import SeasearchWikiIndexUpdater
 from seafevents.events.metrics import MetricsManager
 from seafevents.statistics.quota_usage_manager import QuotaUsageManager
+from seafevents.webhook.webhook import Webhooker
 
 class App(object):
     def __init__(self, config, seafile_config,
@@ -27,6 +28,7 @@ class App(object):
             self._count_traffic_task = CountTrafficInfo(config)
             self._update_login_record_task = CountUserActivity(config)
             self._seafevent_server = SeafEventServer(self, config)
+            self._webhooker = Webhooker(config)
 
         if self._bg_tasks_enabled:
             self._index_updater = IndexUpdater(config)
@@ -61,6 +63,7 @@ class App(object):
             self._update_login_record_task.start()
             self._count_traffic_task.start()
             self._seafevent_server.start()
+            self._webhooker.start()
 
         if self._bg_tasks_enabled:
             self._file_updates_sender.start()
