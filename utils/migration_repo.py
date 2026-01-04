@@ -1,4 +1,3 @@
-
 import os
 import re
 import sys
@@ -8,7 +7,6 @@ import logging
 import queue
 import threading
 import configparser
-import json
 from threading import Thread
 from uuid import UUID
 from sqlalchemy import create_engine, text
