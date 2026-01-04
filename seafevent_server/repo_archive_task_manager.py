@@ -1,4 +1,3 @@
-
 import queue
 import threading
 import logging
@@ -7,7 +6,7 @@ import uuid
 import os
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from seafevents.utils.migration_utils import migrate_repo, remove_repo_objs, parse_seafile_db_config
+from seafevents.utils.migration_repo import migrate_repo, remove_repo_objs
 from seafevents.events.metrics import NODE_NAME, METRIC_CHANNEL_NAME
 from seafevents.app.event_redis import redis_cache
 from seafevents.db import create_engine_from_env
