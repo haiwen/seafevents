@@ -80,7 +80,7 @@ class RepoArchiveTaskManager(object):
             logger.error("Failed to update archive status for repo %s: %s", repo_id, e)
             raise e
 
-    def send_notification(self, repo_id, op_type, username):
+    def send_notification(self, repo_id, op_type, username, success=True):
         try:
             # We need to get repo name first, from seafile_db
             engine = create_engine_from_env('seafile')
@@ -94,7 +94,12 @@ class RepoArchiveTaskManager(object):
             engine = create_engine_from_env('seahub')
             session = sessionmaker(engine)()
             
-            msg_type = 'repo_archived' if op_type == 'archive' else 'repo_unarchived'
+            # Determine message type based on op_type and success
+            if success:
+                msg_type = 'repo_archived' if op_type == 'archive' else 'repo_unarchived'
+            else:
+                msg_type = 'repo_archive_failed' if op_type == 'archive' else 'repo_unarchive_failed'
+            
             detail = json.dumps({'repo_id': repo_id, 'repo_name': repo_name})
             
             sql = "INSERT INTO notifications_usernotification (to_user, msg_type, detail, timestamp, seen) VALUES ('{}', '{}', '{}', NOW(), 0)".format(username, msg_type, detail)
@@ -107,6 +112,12 @@ class RepoArchiveTaskManager(object):
 
     def do_archive(self, repo_id, orig_storage_id, dest_storage_id, op_type, task_id, username):
         logger.info("Starting %s for repo %s from %s to %s", op_type, repo_id, orig_storage_id, dest_storage_id)
+        
+        # Determine rollback status (what to restore if failed)
+        # archive: was NULL -> if failed, restore to NULL
+        # unarchive: was 'archived' -> if failed, restore to 'archived'
+        rollback_status = None if op_type == 'archive' else 'archived'
+        
         try:
             # 1. Migrate
             migrate_repo(repo_id, orig_storage_id, dest_storage_id, list_src_by_commit=True)
@@ -118,13 +129,27 @@ class RepoArchiveTaskManager(object):
             # 3. Cleanup Old Objects
             remove_repo_objs(repo_id, orig_storage_id)
             
-            # 4. Notification
-            self.send_notification(repo_id, op_type, username)
+            # 4. Success Notification
+            self.send_notification(repo_id, op_type, username, success=True)
 
             logger.info("Successfully completed %s for repo %s", op_type, repo_id)
             
         except Exception as e:
             logger.exception("Failed to %s repo %s: %s", op_type, repo_id, e)
+            
+            # Rollback: restore archive_status to previous state
+            try:
+                self.update_archive_status(repo_id, rollback_status)
+                logger.info("Rolled back archive_status for repo %s to %s", repo_id, rollback_status)
+            except Exception as rollback_e:
+                logger.error("Failed to rollback archive_status for repo %s: %s", repo_id, rollback_e)
+            
+            # Send failure notification
+            try:
+                self.send_notification(repo_id, op_type, username, success=False)
+            except Exception as notify_e:
+                logger.error("Failed to send failure notification for repo %s: %s", repo_id, notify_e)
+            
             raise e
 
 
