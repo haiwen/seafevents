@@ -421,7 +421,7 @@ class RepoObjects(object):
                 obj = [self.repo_id, key, 0]
                 yield obj
 
-def migrate_repo(repo_id, orig_storage_id, dest_storage_id, list_src_by_commit=False):
+def migrate_repo(repo_id, orig_storage_id, dest_storage_id, list_src_by_commit=False, initial_status=REPO_STATUS_NORMAL, final_status=REPO_STATUS_NORMAL):
     api.set_repo_status (repo_id, REPO_STATUS_READ_ONLY)
     dtypes = ['commits', 'fs', 'blocks']
     workers = []
@@ -432,14 +432,14 @@ def migrate_repo(repo_id, orig_storage_id, dest_storage_id, list_src_by_commit=F
             repo_objs.traverse()
         except Exception as e:
             logger.warning('Failed to traverse repo objects %s: %s.\n', repo_id, e)
-            api.set_repo_status (repo_id, REPO_STATUS_NORMAL)
+            api.set_repo_status (repo_id, initial_status)
             raise e
     for dtype in dtypes:
         obj_stores = objstore_factory.get_obj_stores(dtype)
         #If these storage ids passed in do not exist in conf, stop migrate this repo.
         if orig_storage_id not in obj_stores or dest_storage_id not in obj_stores:
             logger.warning('Storage id passed in does not exist in configuration.\n')
-            api.set_repo_status (repo_id, REPO_STATUS_NORMAL)
+            api.set_repo_status (repo_id, initial_status)
             return
 
         orig_store = obj_stores[orig_storage_id]
@@ -451,20 +451,20 @@ def migrate_repo(repo_id, orig_storage_id, dest_storage_id, list_src_by_commit=F
             workers.append(worker)
         except:
             logger.warning('Failed to migrate repo %s.', repo_id)
-            api.set_repo_status (repo_id, REPO_STATUS_NORMAL)
+            api.set_repo_status (repo_id, initial_status)
             raise
     
     try:
         for w in workers:
             w.join()
     except:
-        api.set_repo_status (repo_id, REPO_STATUS_NORMAL)
+        api.set_repo_status (repo_id, initial_status)
         raise
     
     for w in workers:
         if w.exception:
             logger.warning(w.exception)
-            api.set_repo_status (repo_id, REPO_STATUS_NORMAL)
+            api.set_repo_status (repo_id, initial_status)
             raise w.exception
 
     if list_src_by_commit:
@@ -475,8 +475,8 @@ def migrate_repo(repo_id, orig_storage_id, dest_storage_id, list_src_by_commit=F
 
     if api.update_repo_storage_id(repo_id, dest_storage_id) < 0:
         logger.warning('Failed to update repo [%s] storage_id.\n', repo_id)
-        api.set_repo_status (repo_id, REPO_STATUS_NORMAL)
+        api.set_repo_status (repo_id, initial_status)
         raise Exception('Failed to update repo storage_id')
 
-    api.set_repo_status (repo_id, REPO_STATUS_NORMAL)
+    api.set_repo_status (repo_id, final_status)
     logger.info('The process of migrating repo [%s] is over.\n', repo_id)

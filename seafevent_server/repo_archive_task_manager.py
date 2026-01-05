@@ -10,6 +10,7 @@ from seafevents.utils.migration_repo import migrate_repo, remove_repo_objs
 from seafevents.events.metrics import NODE_NAME, METRIC_CHANNEL_NAME
 from seafevents.app.event_redis import redis_cache
 from seafevents.db import create_engine_from_env
+from seaserv import REPO_STATUS_READ_ONLY, REPO_STATUS_NORMAL
 import json
 
 logger = logging.getLogger('seafevents')
@@ -120,8 +121,13 @@ class RepoArchiveTaskManager(object):
         
         try:
             # 1. Migrate
-            migrate_repo(repo_id, orig_storage_id, dest_storage_id, list_src_by_commit=True)
+            initial_status = REPO_STATUS_NORMAL if op_type == 'archive' else REPO_STATUS_READ_ONLY
+            final_status = REPO_STATUS_READ_ONLY if op_type == 'archive' else REPO_STATUS_NORMAL
+            migrate_repo(repo_id, orig_storage_id, dest_storage_id, list_src_by_commit=True, initial_status=initial_status, final_status=final_status)
             
+            # test rollback
+            # raise Exception("Test failure for rollback verification")
+
             # 2. Update Status
             new_status = 'archived' if op_type == 'archive' else None
             self.update_archive_status(repo_id, new_status)
@@ -143,6 +149,15 @@ class RepoArchiveTaskManager(object):
                 logger.info("Rolled back archive_status for repo %s to %s", repo_id, rollback_status)
             except Exception as rollback_e:
                 logger.error("Failed to rollback archive_status for repo %s: %s", repo_id, rollback_e)
+            
+            # Rollback storage_id and repo status
+            try:
+                from seaserv import seafile_api
+                seafile_api.update_repo_storage_id(repo_id, orig_storage_id)
+                seafile_api.set_repo_status(repo_id, initial_status)
+                logger.info("Rolled back storage_id to %s and repo status to %s for repo %s", orig_storage_id, initial_status, repo_id)
+            except Exception as se_e:
+                logger.error("Failed to rollback repository properties for repo %s: %s", repo_id, se_e)
             
             # Send failure notification
             try:
