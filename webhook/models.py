@@ -66,7 +66,7 @@ class Webhooks(Base):
         msg = json.dumps(request_body)
         signature = 'sha256=' + hmac.new(
             secret.encode('utf8'), msg.encode('utf8'), digestmod='sha256').hexdigest()
-        return {'X-SeaTable-Signature': signature}
+        return {'X-Seafile-Signature': signature}
 
 
 class WebhookJobs(Base):
