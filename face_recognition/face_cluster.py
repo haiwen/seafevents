@@ -119,8 +119,9 @@ class FaceCluster(object):
         try:
             self.face_recognition_manager.update_face_cluster(repo_id, username=username)
         except Exception as e:
+            self.face_recognition_manager.close_face_recognition(repo_id)
             logger.exception('update face cluster repo: %s, error: %s', repo_id, e)
-
+    
     def refresh_lock(self):
         logger.info('%s Starting refresh locks', self.tname)
         while not self.should_stop.is_set():

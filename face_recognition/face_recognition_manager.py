@@ -260,6 +260,12 @@ class FaceRecognitionManager(object):
             session.execute(text(cmd), {'update_time': start_update_time, 'repo_id': repo_id})
             session.commit()
 
+    def close_face_recognition(self, repo_id):
+        with self._db_session_class() as session:
+            cmd = """UPDATE repo_metadata SET face_recognition_enabled = False WHERE repo_id = :repo_id"""
+            session.execute(text(cmd), {'repo_id': repo_id})
+            session.commit()
+
     def save_face_cluster_message_to_user_notification(self, repo_id, username):
         values = []
         repo = seafile_api.get_repo(repo_id)
