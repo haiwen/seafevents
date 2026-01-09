@@ -70,11 +70,12 @@ class RepoArchiveTaskManager(object):
             session = sessionmaker(engine)()
             
             if status is None:
-                sql = "UPDATE RepoInfo SET archive_status=NULL WHERE repo_id='{}'".format(repo_id)
+                sql = text("UPDATE RepoInfo SET archive_status=NULL WHERE repo_id=:repo_id")
+                session.execute(sql, {'repo_id': repo_id})
             else:
-                sql = "UPDATE RepoInfo SET archive_status='{}' WHERE repo_id='{}'".format(status, repo_id)
+                sql = text("UPDATE RepoInfo SET archive_status=:status WHERE repo_id=:repo_id")
+                session.execute(sql, {'status': status, 'repo_id': repo_id})
             
-            session.execute(text(sql))
             session.commit()
             session.close()
         except Exception as e:
@@ -86,8 +87,8 @@ class RepoArchiveTaskManager(object):
             # We need to get repo name first, from seafile_db
             engine = create_engine_from_env('seafile')
             session = sessionmaker(engine)()
-            sql = "SELECT name FROM RepoInfo WHERE repo_id='{}'".format(repo_id)
-            result = session.execute(text(sql)).fetchone()
+            sql = text("SELECT name FROM RepoInfo WHERE repo_id=:repo_id")
+            result = session.execute(sql, {'repo_id': repo_id}).fetchone()
             session.close()
             repo_name = result[0] if result else 'Unknown'
             
@@ -103,9 +104,9 @@ class RepoArchiveTaskManager(object):
             
             detail = json.dumps({'repo_id': repo_id, 'repo_name': repo_name})
             
-            sql = "INSERT INTO notifications_usernotification (to_user, msg_type, detail, timestamp, seen) VALUES ('{}', '{}', '{}', NOW(), 0)".format(username, msg_type, detail)
+            sql = text("INSERT INTO notifications_usernotification (to_user, msg_type, detail, timestamp, seen) VALUES (:username, :msg_type, :detail, NOW(), 0)")
             
-            session.execute(text(sql))
+            session.execute(sql, {'username': username, 'msg_type': msg_type, 'detail': detail})
             session.commit()
             session.close()
         except Exception as e:
