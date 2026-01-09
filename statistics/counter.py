@@ -14,6 +14,7 @@ from seafevents.db import SeafBase, init_db_session_class
 from seaserv import seafile_api
 from seafevents.utils.seafile_db import SeafileDB
 from seafevents.utils.ccnet_db import CcnetDB
+from seafevents.utils.seahub_db import SeahubDB
 from seafevents.utils import get_quota_from_string
 from seafevents.app.config import DOWNLOAD_LIMIT_WHEN_THROTTLE, ENABLED_ROLE_PERMISSIONS
 from .db import get_org_id
@@ -61,7 +62,7 @@ def save_traffic_info(session, timestamp, user_name, repo_id, oper, size):
         traffic_info[time_str][(org_id, user_name, oper)] = size
     else:
         traffic_info[time_str][(org_id, user_name, oper)] += size
-        
+
 def get_role_download_rate_limit_info():
     if not ENABLED_ROLE_PERMISSIONS:
         return None
@@ -76,8 +77,8 @@ def get_role_download_rate_limit_info():
             rate_limit[MONTHLY_RATE_LIMIT_PER_USER] = monthly_rate_limit_per_user
         traffic_info_dict[role] = rate_limit
     return traffic_info_dict
-    
-    
+
+
 
 class FileOpsCounter(object):
     def __init__(self):
@@ -293,16 +294,25 @@ class TrafficInfoCounter(object):
             size = local_traffic_info[date_str][row]
             if size == 0:
                 continue
-            
+
             traffic_threshold = None
             if traffic_info_dict and oper in self.download_type_list:
+
                 with CcnetDB() as ccnet_db:
                     user_role = ccnet_db.get_user_role(user)
                     role = DEFAULT_USER if (user_role == '' or user_role == DEFAULT_USER) else user_role
+
                 traffic_threshold = traffic_info_dict[role].get(MONTHLY_RATE_LIMIT) or None
+
                 if org_id > 0:
                     monthly_rate_limit_per_user = traffic_info_dict[role].get(MONTHLY_RATE_LIMIT_PER_USER) or None
                     traffic_threshold = monthly_rate_limit_per_user * org_user_count_dict[org_id] if monthly_rate_limit_per_user else None
+
+                    with SeahubDB() as seahub_db:
+                        monthly_traffic_limit = seahub_db.get_org_monthly_traffic_limit(org_id)
+                        if monthly_traffic_limit:
+                            traffic_threshold = monthly_traffic_limit
+
                 if (org_id, oper, traffic_threshold) not in org_delta:
                     org_delta[(org_id, oper, traffic_threshold)] = size
                 else:
