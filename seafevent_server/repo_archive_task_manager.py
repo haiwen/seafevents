@@ -3,38 +3,39 @@ import threading
 import logging
 import time
 import uuid
-import os
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from seafevents.utils.migration_repo import migrate_repo, remove_repo_objs
-from seafevents.events.metrics import NODE_NAME, METRIC_CHANNEL_NAME
-from seafevents.app.event_redis import redis_cache
-from seafevents.db import create_engine_from_env
-from seaserv import REPO_STATUS_READ_ONLY, REPO_STATUS_NORMAL
 import json
 
+from seafevents.db import init_db_session_class
+from seafevents.seafevent_server.utils import do_archive
+from seafevents.app.event_redis import redis_cache
+from seafevents.events.metrics import NODE_NAME, METRIC_CHANNEL_NAME
+
 logger = logging.getLogger('seafevents')
+
 
 class RepoArchiveTaskManager(object):
 
     def __init__(self):
         self.app = None
+        self._seahub_db_session_class = None
+        self._seafile_db_session_class = None
         self.tasks_map = {}
         self.task_results_map = {}
         self.tasks_queue = queue.Queue(10)
         self.current_task_info = {}
         self.threads = []
         self.conf = {
-            'workers': 1, # Archive operations are heavy, maybe limit to 1 or small number
+            'workers': 1,  # Archive operations are heavy, limit to small number
             'expire_time': 30 * 60
         }
 
     def init(self, app, workers, task_expire_time):
         self.app = app
         self.conf['expire_time'] = task_expire_time
-        # self.conf['workers'] = workers # Use config or default
         if workers > 1:
-             self.conf['workers'] = workers
+            self.conf['workers'] = workers
+        self._seahub_db_session_class = init_db_session_class('seahub')
+        self._seafile_db_session_class = init_db_session_class('seafile')
 
     def is_valid_task_id(self, task_id):
         return task_id in (self.tasks_map.keys() | self.task_results_map.keys())
@@ -54,120 +55,14 @@ class RepoArchiveTaskManager(object):
         except Exception as e:
             logger.warning("Failed to publish metrics: %s", e)
 
-
     def add_repo_archive_task(self, repo_id, orig_storage_id, dest_storage_id, op_type, username):
         task_id = str(uuid.uuid4())
-        task = (self.do_archive, (repo_id, orig_storage_id, dest_storage_id, op_type, task_id, username))
+        task = (do_archive, (self._seahub_db_session_class, self._seafile_db_session_class, repo_id, orig_storage_id, dest_storage_id, op_type, task_id, username))
 
         self.tasks_queue.put(task_id)
         self.tasks_map[task_id] = task
         self.publish_io_qsize_metric(self.tasks_queue.qsize())
         return task_id
-
-    def update_archive_status(self, repo_id, status):
-        try:
-            engine = create_engine_from_env('seafile')
-            session = sessionmaker(engine)()
-            
-            if status is None:
-                sql = text("UPDATE RepoInfo SET archive_status=NULL WHERE repo_id=:repo_id")
-                session.execute(sql, {'repo_id': repo_id})
-            else:
-                sql = text("UPDATE RepoInfo SET archive_status=:status WHERE repo_id=:repo_id")
-                session.execute(sql, {'status': status, 'repo_id': repo_id})
-            
-            session.commit()
-            session.close()
-        except Exception as e:
-            logger.error("Failed to update archive status for repo %s: %s", repo_id, e)
-            raise e
-
-    def send_notification(self, repo_id, op_type, username, success=True):
-        try:
-            # We need to get repo name first, from seafile_db
-            engine = create_engine_from_env('seafile')
-            session = sessionmaker(engine)()
-            sql = text("SELECT name FROM RepoInfo WHERE repo_id=:repo_id")
-            result = session.execute(sql, {'repo_id': repo_id}).fetchone()
-            session.close()
-            repo_name = result[0] if result else 'Unknown'
-            
-            # Insert notification
-            engine = create_engine_from_env('seahub')
-            session = sessionmaker(engine)()
-            
-            # Determine message type based on op_type and success
-            if success:
-                msg_type = 'repo_archived' if op_type == 'archive' else 'repo_unarchived'
-            else:
-                msg_type = 'repo_archive_failed' if op_type == 'archive' else 'repo_unarchive_failed'
-            
-            detail = json.dumps({'repo_id': repo_id, 'repo_name': repo_name})
-            
-            sql = text("INSERT INTO notifications_usernotification (to_user, msg_type, detail, timestamp, seen) VALUES (:username, :msg_type, :detail, NOW(), 0)")
-            
-            session.execute(sql, {'username': username, 'msg_type': msg_type, 'detail': detail})
-            session.commit()
-            session.close()
-        except Exception as e:
-            logger.error("Failed to send notification for repo %s: %s", repo_id, e)
-
-    def do_archive(self, repo_id, orig_storage_id, dest_storage_id, op_type, task_id, username):
-        logger.info("Starting %s for repo %s from %s to %s", op_type, repo_id, orig_storage_id, dest_storage_id)
-        
-        # Determine rollback status (what to restore if failed)
-        # archive: was NULL -> if failed, restore to NULL
-        # unarchive: was 'archived' -> if failed, restore to 'archived'
-        rollback_status = None if op_type == 'archive' else 'archived'
-        
-        try:
-            # 1. Migrate
-            initial_status = REPO_STATUS_NORMAL if op_type == 'archive' else REPO_STATUS_READ_ONLY
-            final_status = REPO_STATUS_READ_ONLY if op_type == 'archive' else REPO_STATUS_NORMAL
-            migrate_repo(repo_id, orig_storage_id, dest_storage_id, list_src_by_commit=True, initial_status=initial_status, final_status=final_status)
-            
-            # test rollback
-            # raise Exception("Test failure for rollback verification")
-
-            # 2. Update Status
-            new_status = 'archived' if op_type == 'archive' else None
-            self.update_archive_status(repo_id, new_status)
-            
-            # 3. Cleanup Old Objects
-            remove_repo_objs(repo_id, orig_storage_id)
-            
-            # 4. Success Notification
-            self.send_notification(repo_id, op_type, username, success=True)
-
-            logger.info("Successfully completed %s for repo %s", op_type, repo_id)
-            
-        except Exception as e:
-            logger.exception("Failed to %s repo %s: %s", op_type, repo_id, e)
-            
-            # Rollback: restore archive_status to previous state
-            try:
-                self.update_archive_status(repo_id, rollback_status)
-                logger.info("Rolled back archive_status for repo %s to %s", repo_id, rollback_status)
-            except Exception as rollback_e:
-                logger.error("Failed to rollback archive_status for repo %s: %s", repo_id, rollback_e)
-            
-            # Rollback storage_id and repo status
-            try:
-                from seaserv import seafile_api
-                seafile_api.update_repo_storage_id(repo_id, orig_storage_id)
-                seafile_api.set_repo_status(repo_id, initial_status)
-                logger.info("Rolled back storage_id to %s and repo status to %s for repo %s", orig_storage_id, initial_status, repo_id)
-            except Exception as se_e:
-                logger.error("Failed to rollback repository properties for repo %s: %s", repo_id, se_e)
-            
-            # Send failure notification
-            try:
-                self.send_notification(repo_id, op_type, username, success=False)
-            except Exception as notify_e:
-                logger.error("Failed to send failure notification for repo %s: %s", repo_id, notify_e)
-            
-            raise e
-
 
     def query_status(self, task_id):
         task_result = self.task_results_map.pop(task_id, None)
@@ -185,6 +80,7 @@ class RepoArchiveTaskManager(object):
 
     def handle_task(self):
         while True:
+            
             try:
                 task_id = self.tasks_queue.get(timeout=2)
             except queue.Empty:
@@ -192,13 +88,11 @@ class RepoArchiveTaskManager(object):
             except Exception as e:
                 logger.error(e)
                 continue
-            
             task = self.tasks_map.get(task_id)
             if type(task) != tuple or len(task) < 1:
                 continue
-            if not callable(task[0]):
+            if type(task[0]).__name__ != 'function':
                 continue
-                
             task_info = task_id + ' ' + str(task[0])
             try:
                 self.current_task_info[task_id] = task_info
