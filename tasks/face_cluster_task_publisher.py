@@ -3,7 +3,7 @@ import logging
 from threading import Thread, Event
 
 from seafevents.face_recognition.face_cluster_publisher import FaceClusterPublisher
-from seafevents.app.config import ENABLE_SEAFILE_AI
+from seafevents.app.config import ENABLE_FACE_RECOGNITION
 
 logger = logging.getLogger('face_recognition')
 
@@ -11,7 +11,7 @@ logger = logging.getLogger('face_recognition')
 class FaceClusterTaskPublisher(object):
     def __init__(self):
         self._interval = 60 * 60
-        self._enabled = ENABLE_SEAFILE_AI
+        self._enabled = ENABLE_FACE_RECOGNITION
 
     def start(self):
         if not self.is_enabled():

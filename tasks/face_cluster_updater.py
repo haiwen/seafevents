@@ -5,7 +5,7 @@ import time
 from threading import Thread, Event
 
 from seafevents.utils import get_python_executable, run
-from seafevents.app.config import ENABLE_SEAFILE_AI
+from seafevents.app.config import ENABLE_SEAFILE_AI, ENABLE_FACE_RECOGNITION
 
 
 __all__ = [
@@ -15,7 +15,7 @@ __all__ = [
 
 class FaceClusterUpdater(object):
     def __init__(self, config):
-        self._enabled = ENABLE_SEAFILE_AI
+        self._enabled = ENABLE_FACE_RECOGNITION
         self._logfile = None
         self._loglevel = None
 

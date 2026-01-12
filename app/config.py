@@ -40,6 +40,7 @@ try:
     FILE_SERVER_ROOT = getattr(seahub_settings, 'FILE_SERVER_ROOT', '')
     FILE_CONVERTER_SERVER_URL = getattr(seahub_settings, 'FILE_CONVERTER_SERVER_URL', '')
     SEADOC_PRIVATE_KEY = getattr(seahub_settings, 'SEADOC_PRIVATE_KEY', '')
+    ENABLE_FACE_RECOGNITION = getattr(seahub_settings, 'ENABLE_FACE_RECOGNITION', False)
 
 except ImportError:
     logger.critical("Can not import seahub settings.")
