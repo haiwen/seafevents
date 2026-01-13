@@ -692,14 +692,25 @@ def convert_wiki(old_repo_id, new_repo_id, username, db_session_class):
     save_wiki_config(new_repo_id, username, wiki_config)
 
 
-def update_archive_status(db_session_class, repo_id, status):
-    with db_session_class() as session:
-        if status is None:
-            sql = text("UPDATE RepoInfo SET archive_status=NULL WHERE repo_id=:repo_id")
-            session.execute(sql, {'repo_id': repo_id})
+def update_archive_status(seahub_db_session_class, repo_id, status):
+    with seahub_db_session_class() as session:
+        # First check if record exists
+        check_sql = text("SELECT id FROM repo_archive_status WHERE repo_id=:repo_id")
+        result = session.execute(check_sql, {'repo_id': repo_id}).fetchone()
+        
+        if result:
+            # Update existing record
+            if status is None:
+                sql = text("UPDATE repo_archive_status SET status=NULL WHERE repo_id=:repo_id")
+                session.execute(sql, {'repo_id': repo_id})
+            else:
+                sql = text("UPDATE repo_archive_status SET status=:status WHERE repo_id=:repo_id")
+                session.execute(sql, {'status': status, 'repo_id': repo_id})
         else:
-            sql = text("UPDATE RepoInfo SET archive_status=:status WHERE repo_id=:repo_id")
-            session.execute(sql, {'status': status, 'repo_id': repo_id})
+            # Insert new record (only if status is not None)
+            if status is not None:
+                sql = text("INSERT INTO repo_archive_status (repo_id, status) VALUES (:repo_id, :status)")
+                session.execute(sql, {'repo_id': repo_id, 'status': status})
         
         session.commit()
 
@@ -740,12 +751,16 @@ def do_archive(seahub_db_session_class, seafile_db_session_class, repo_id, orig_
     final_status = REPO_STATUS_READ_ONLY if op_type == 'archive' else REPO_STATUS_NORMAL
     
     try:
+        # 0. Update ing Status
+        new_status = 'in_archiving' if op_type == 'archive' else 'in_unarchiving'
+        update_archive_status(seahub_db_session_class, repo_id, new_status)
+        
         # 1. Migrate
         migrate_repo(repo_id, orig_storage_id, dest_storage_id, list_src_by_commit=True, initial_status=initial_status, final_status=final_status)
         
         # 2. Update Status
         new_status = 'archived' if op_type == 'archive' else None
-        update_archive_status(seafile_db_session_class, repo_id, new_status)
+        update_archive_status(seahub_db_session_class, repo_id, new_status)
         
         # 3. Cleanup Old Objects
         remove_repo_objs(repo_id, orig_storage_id)
@@ -758,7 +773,7 @@ def do_archive(seahub_db_session_class, seafile_db_session_class, repo_id, orig_
         
         # Rollback: restore archive_status to previous state
         try:
-            update_archive_status(seafile_db_session_class, repo_id, rollback_status)
+            update_archive_status(seahub_db_session_class, repo_id, rollback_status)
         except Exception as rollback_e:
             logger.error("Failed to rollback archive_status for repo %s: %s", repo_id, rollback_e)
         
