@@ -22,6 +22,7 @@ class ChangeFilePathHandler(object):
         self.change_file_uuid_map(dst_repo_id, path, new_path, is_dir, src_repo_id)
         self.change_share_file_path(dst_repo_id, path, new_path, is_dir, src_repo_id)
         self.change_upload_share_file_path(dst_repo_id, path, new_path, is_dir, src_repo_id)
+        self.change_starred_file_path(dst_repo_id, path, new_path, is_dir, src_repo_id)
 
     def change_share_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
         try:
@@ -159,4 +160,42 @@ class ChangeFilePathHandler(object):
                                      'where repo_id=:repo_id and path=:path'),
                                 {'new_repo_id': repo_id, 'new_path': new_path_value,
                                  'repo_id': src_repo_id if src_repo_id else repo_id, 'path': row[0]})
+                self.session.commit()
+
+    def change_starred_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
+        try:
+            self._change_starred_file_path(repo_id, path, new_path, is_dir, src_repo_id)
+        except Exception as e:
+            logger.warning('Failed to change starred file path for repo %s, path:%s, new_path: %s, %s.' % (repo_id, path, new_path, e))
+
+    def _change_starred_file_path(self, repo_id, path, new_path, is_dir, src_repo_id=None):
+        result = self.session.execute(text('select path from base_userstarredfiles where repo_id=:repo_id and path like :path'),
+                                 {'repo_id': src_repo_id if src_repo_id else repo_id, 'path': path + '%'})
+        if result.rowcount == 0:
+            return
+
+        # For multi-layer dirs, divide orig_path into orig_parent_path and orig_sub_path
+        # new_path_value = new_path + orig_sub_path
+        results = result.fetchall()
+        # get all records that path starts with old path
+        # e.g
+        # old_path: /old_path/t
+        # get all results: /old_path/t /old_path/t1  /old_path/t/q
+        for row in results:
+            # row[0]: old path in db
+            # path: old path
+            # new_path_value: new path
+
+            # pass only oldpath and subdir path
+            if row[0] == path or row[0].startswith(path + '/'):
+                if row[0] == path:
+                    new_path_value = new_path
+                else:
+                    new_path_value = new_path + row[0].split(path, 1)[1]
+
+                # update old path and subdir record
+                self.session.execute(text('update base_userstarredfiles set repo_id=:new_repo_id, path=:new_path '
+                                     'where repo_id=:old_repo_id and path=:old_path'),
+                                {'new_repo_id': repo_id, 'new_path': new_path_value,
+                                 'old_repo_id': src_repo_id if src_repo_id else repo_id, 'old_path': row[0]})
                 self.session.commit()
