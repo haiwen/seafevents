@@ -1,6 +1,7 @@
 import logging
 from sqlalchemy import text
 
+from seafevents.app.config import ORG_MEMBER_QUOTA_DEFAULT, ORG_MEMBER_QUOTA_ENABLED
 from seafevents.db import init_db_session_class
 
 logger = logging.getLogger('seafevents')
@@ -28,4 +29,18 @@ class SeahubDB(object):
         rows = result.fetchone()
         if not rows:
             return None
+        return rows[0]
+    
+    def get_org_member_quota(self, org_id):
+        if not ORG_MEMBER_QUOTA_ENABLED:
+            return None
+        sql = """
+                SELECT quota
+                FROM organizations_orgmemberquota
+                WHERE org_id = :org_id
+                """
+        result = self.session.execute(text(sql), {'org_id': org_id})
+        rows = result.fetchone()
+        if not rows:
+            return ORG_MEMBER_QUOTA_DEFAULT
         return rows[0]

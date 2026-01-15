@@ -36,13 +36,13 @@ MONTHLY_RATE_LIMIT_PER_USER = 'monthly_rate_limit_per_user'
 MONTHLY_RATE_LIMIT = 'monthly_rate_limit'
 
 
-def get_org_user_count(local_traffic_info, date_str):
+def get_org_user_quota(local_traffic_info, date_str):
     org_user_dict = {}
     for row in local_traffic_info[date_str]:
         org_id = row[0]
         if org_id > 0 and org_id not in org_user_dict:
-            with CcnetDB() as ccnet_db:
-                user_count = ccnet_db.get_org_user_count(org_id)
+            with SeahubDB() as seahub_db:
+                user_count = seahub_db.get_org_member_quota(org_id)
                 org_user_dict[org_id] = user_count
     return org_user_dict
 
@@ -279,7 +279,7 @@ class TrafficInfoCounter(object):
         trans_count = 0
         first_day_of_month = datetime(datetime.now().year, datetime.now().month, 1)
         traffic_info_dict = None
-        org_user_count_dict = get_org_user_count(local_traffic_info, date_str)
+        org_user_quota_dict = get_org_user_quota(local_traffic_info, date_str)
         try:
             # list role traffic info
             traffic_info_dict = get_role_download_rate_limit_info()
@@ -296,18 +296,18 @@ class TrafficInfoCounter(object):
                 continue
 
             traffic_threshold = None
-            if traffic_info_dict and oper in self.download_type_list:
+            if oper in self.download_type_list:
 
                 with CcnetDB() as ccnet_db:
                     user_role = ccnet_db.get_user_role(user)
                     role = DEFAULT_USER if (user_role == '' or user_role == DEFAULT_USER) else user_role
 
-                traffic_threshold = traffic_info_dict[role].get(MONTHLY_RATE_LIMIT) or None
+                traffic_threshold = traffic_info_dict and traffic_info_dict[role].get(MONTHLY_RATE_LIMIT) or None
 
                 if org_id > 0:
-                    monthly_rate_limit_per_user = traffic_info_dict[role].get(MONTHLY_RATE_LIMIT_PER_USER) or None
-                    traffic_threshold = monthly_rate_limit_per_user * org_user_count_dict[org_id] if monthly_rate_limit_per_user else None
-
+                    org_user_quota = org_user_quota_dict.get(org_id)
+                    monthly_rate_limit_per_user = traffic_info_dict and traffic_info_dict[role].get(MONTHLY_RATE_LIMIT_PER_USER) or None
+                    traffic_threshold = org_user_quota and monthly_rate_limit_per_user and monthly_rate_limit_per_user * org_user_quota or None
                     with SeahubDB() as seahub_db:
                         monthly_traffic_limit = seahub_db.get_org_monthly_traffic_limit(org_id)
                         if monthly_traffic_limit > 0:
@@ -371,7 +371,7 @@ class TrafficInfoCounter(object):
             size = org_delta[row]
             try:
                 # Check org download traffic for current month.
-                if traffic_info_dict and org_id > 0 and oper in self.download_type_list and not rate_limit_orgs.get(org_id):
+                if org_id > 0 and oper in self.download_type_list and not rate_limit_orgs.get(org_id):
                     traffic_threshold = row[2]
                     stmt2 = select(func.sum(SysTraffic.size).label("size")).where(
                         SysTraffic.timestamp.between(first_day_of_month, date),
