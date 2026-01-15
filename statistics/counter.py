@@ -310,7 +310,7 @@ class TrafficInfoCounter(object):
 
                     with SeahubDB() as seahub_db:
                         monthly_traffic_limit = seahub_db.get_org_monthly_traffic_limit(org_id)
-                        if monthly_traffic_limit:
+                        if monthly_traffic_limit > 0:
                             traffic_threshold = monthly_traffic_limit
 
                 if (org_id, oper, traffic_threshold) not in org_delta:
