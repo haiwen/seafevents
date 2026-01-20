@@ -1,17 +1,10 @@
-"""
-Metadata fixer module for fixing metadata consistency issues.
-This module handles:
-1. Scanning repository to get all objects (files and directories)
-2. Comparing with existing metadata records
-3. Deleting obsolete metadata records
-4. Adding missing metadata records
-"""
 import hashlib
 import logging
 import posixpath
+import stat
+
 from sqlalchemy.sql import text
 
-from seafobj import fs_mgr, commit_mgr
 from seaserv import seafile_api
 
 from seafevents.utils import timestamp_to_isoformat_timestr
@@ -29,9 +22,9 @@ def get_obj_path_hash(repo_id, path):
     return hashlib.md5((repo_id + path).encode()).hexdigest()
 
 
-def get_repo_obj_infos(repo_id, commit_id):
+def get_repo_obj_infos(repo_id):
     """
-    Recursively scan the repository to get all objects info.
+    Recursively scan the repository to get all objects info using seafile_api.
     
     Returns:
         dict: {
@@ -57,72 +50,57 @@ def get_repo_obj_infos(repo_id, commit_id):
         'dir_count': 0,
         'items': {}
     }
-    
-    try:
-        commit = commit_mgr.load_commit(repo_id, 1, commit_id)
-        if not commit:
-            logger.error(f'Failed to load commit {commit_id} for repo {repo_id}')
-            return result
-        
-        root = fs_mgr.load_seafdir(repo_id, 1, commit.root_id)
-        if not root:
-            logger.error(f'Failed to load root dir for repo {repo_id}')
-            return result
-    except Exception as e:
-        logger.error(f'Error loading repo {repo_id}: {e}')
-        return result
 
-    def scan_dir(seafdir, parent_path):
-        """Recursively scan directory."""
+    def scan_dir(parent_path):
         try:
-            # Process files
-            for entry in seafdir.get_files_list():
-                file_path = posixpath.join(parent_path, entry.name)
-                result['file_count'] += 1
-                path_hash = get_obj_path_hash(repo_id, file_path)
-                result['items'][path_hash] = {
-                    'path': file_path,
-                    'parent_dir': parent_path,
-                    'name': entry.name,
-                    'obj_id': entry.id,
-                    'size': entry.size,
-                    'mtime': entry.mtime,
-                    'modifier': getattr(entry, 'modifier', ''),
-                    'is_dir': False
-                }
+            dirents = seafile_api.list_dir_by_path(repo_id, parent_path)
+            if not dirents:
+                return
             
-            # Process directories
-            for entry in seafdir.get_subdirs_list():
-                dir_name = entry.name
-                dir_path = posixpath.join(parent_path, dir_name)
+            for dirent in dirents:
+                name = dirent.obj_name
+                obj_path = posixpath.join(parent_path, name) if parent_path != '/' else '/' + name
                 
-                # Skip specified directories
-                if dir_path in SKIP_DIRS:
-                    continue
-                
-                result['dir_count'] += 1
-                path_hash = get_obj_path_hash(repo_id, dir_path)
-                result['items'][path_hash] = {
-                    'path': dir_path,
-                    'parent_dir': parent_path,
-                    'name': dir_name,
-                    'obj_id': entry.id,
-                    'mtime': getattr(entry, 'mtime', 0),
-                    'modifier': '',
-                    'is_dir': True
-                }
-                
-                # Recursively scan subdirectory
-                try:
-                    subdir = fs_mgr.load_seafdir(repo_id, 1, entry.id)
-                    if subdir:
-                        scan_dir(subdir, dir_path)
-                except Exception as e:
-                    logger.error(f'Error scanning subdir {dir_path}: {e}')
+                if stat.S_ISDIR(dirent.mode):
+                    # Skip specified directories
+                    if obj_path in SKIP_DIRS:
+                        continue
+                    
+                    result['dir_count'] += 1
+                    path_hash = get_obj_path_hash(repo_id, obj_path)
+                    result['items'][path_hash] = {
+                        'path': obj_path,
+                        'parent_dir': parent_path,
+                        'name': name,
+                        'obj_id': dirent.obj_id,
+                        'mtime': dirent.mtime,
+                        'modifier': '',
+                        'is_dir': True
+                    }
+                    
+                    # Recursively scan subdirectory
+                    scan_dir(obj_path)
+                else:
+                    result['file_count'] += 1
+                    path_hash = get_obj_path_hash(repo_id, obj_path)
+                    result['items'][path_hash] = {
+                        'path': obj_path,
+                        'parent_dir': parent_path,
+                        'name': name,
+                        'obj_id': dirent.obj_id,
+                        'size': dirent.size,
+                        'mtime': dirent.mtime,
+                        'modifier': getattr(dirent, 'modifier', ''),
+                        'is_dir': False
+                    }
         except Exception as e:
             logger.error(f'Error scanning directory {parent_path}: {e}')
     
-    scan_dir(root, '/')
+    try:
+        scan_dir('/')
+    except Exception as e:
+        logger.error(f'Error scanning repo {repo_id}: {e}')
+    
     return result
 
 
@@ -177,9 +155,7 @@ def fix_repo_metadata(repo_id, metadata_server_api, db_session_class):
     3. Delete obsolete metadata
     4. Add missing metadata
     5. Reset is_fixing status
-    """
-    logger.info(f'Starting metadata fix for repo {repo_id}')
-    
+    """    
     try:
         # Get current head commit
         repo = seafile_api.get_repo(repo_id)
@@ -188,10 +164,8 @@ def fix_repo_metadata(repo_id, metadata_server_api, db_session_class):
             reset_is_fixing_status(repo_id, db_session_class)
             return
         
-        commit_id = repo.head_cmmt_id
-        
         # 1. Get repository object info
-        repo_obj_infos = get_repo_obj_infos(repo_id, commit_id)
+        repo_obj_infos = get_repo_obj_infos(repo_id)
         
         logger.info(f'Repo {repo_id}: {repo_obj_infos["file_count"]} files, {repo_obj_infos["dir_count"]} dirs')
         
@@ -239,7 +213,6 @@ def fix_repo_metadata(repo_id, metadata_server_api, db_session_class):
         # 3. Batch delete obsolete metadata
         deleted_count = len(records_to_delete)
         if records_to_delete:
-            logger.info(f'Deleting {deleted_count} obsolete metadata records for repo {repo_id}')
             for i in range(0, len(records_to_delete), METADATA_OP_LIMIT):
                 batch = records_to_delete[i:i + METADATA_OP_LIMIT]
                 try:
@@ -250,7 +223,6 @@ def fix_repo_metadata(repo_id, metadata_server_api, db_session_class):
         # 4. Batch add missing metadata
         added_count = len(repo_obj_infos['items'])
         if repo_obj_infos['items']:
-            logger.info(f'Adding {added_count} missing metadata records for repo {repo_id}')
             rows_to_add = []
             for path_hash, item in repo_obj_infos['items'].items():
                 row = build_metadata_row(item)
