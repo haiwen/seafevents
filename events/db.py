@@ -263,7 +263,125 @@ def get_file_daily_history_detail(session, repo_id, path, start_time, end_time, 
 def not_include_all_keys(record, keys):
     return any(record.get(k, None) is None for k in keys)
 
+
+BATCH_AGGREGATE_TIME_THRESHOLD = 5
+BATCH_AGGREGATE_OP_TYPES = ('create', 'delete')
+
+
+def _find_recent_batch_activity(session, repo_id, op_user, obj_type, op_type):
+    """Find aggregatable Activity records within 5 minutes"""
+    time_limit = datetime.datetime.utcnow() - timedelta(minutes=BATCH_AGGREGATE_TIME_THRESHOLD)
+    
+    batch_op_type = f'batch_{op_type}'
+    
+    stmt = (
+        select(Activity)
+        .where(
+            Activity.repo_id == repo_id,
+            Activity.op_user == op_user,
+            Activity.obj_type == obj_type,
+            Activity.op_type.in_([op_type, batch_op_type]),
+            Activity.timestamp > time_limit
+        )
+        .order_by(desc(Activity.timestamp))
+        .limit(1)
+    )
+    
+    return session.scalars(stmt).first()
+
+
+def _extract_detail_item(activity, detail_dict):
+    """Extract array item from single Activity and detail dict"""
+    item = {
+        'path': activity.path,
+    }
+    
+    if detail_dict.get('obj_id'):
+        item['obj_id'] = detail_dict['obj_id']
+    if detail_dict.get('size') is not None:
+        item['size'] = detail_dict['size']
+    if detail_dict.get('old_path'):
+        item['old_path'] = detail_dict['old_path']
+    if detail_dict.get('repo_name'):
+        item['repo_name'] = detail_dict['repo_name']
+    
+    return item
+
+
+def _update_batch_activity(session, activity, new_record):
+    """Append new operation to existing aggregated record"""
+    # 1. Determine op_type (convert to batch type if not already)
+    base_op_type = new_record['op_type']
+    new_op_type = f'batch_{base_op_type}' if not activity.op_type.startswith('batch_') else activity.op_type
+    
+    # 2. Parse existing detail field
+    current_detail = json.loads(activity.detail)
+    
+    # 3. Convert to array format (if not already)
+    if isinstance(current_detail, dict):
+        detail_array = [_extract_detail_item(activity, current_detail)]
+    else:
+        detail_array = current_detail
+    
+    # 4. Extract new record details and append
+    new_detail_item = {
+        'path': new_record['path'],
+    }
+    
+    if new_record.get('obj_id'):
+        new_detail_item['obj_id'] = new_record['obj_id']
+    if new_record.get('size') is not None:
+        new_detail_item['size'] = new_record['size']
+    if new_record.get('old_path'):
+        new_detail_item['old_path'] = new_record['old_path']
+    if new_record.get('repo_name'):
+        new_detail_item['repo_name'] = new_record['repo_name']
+    
+    detail_array.append(new_detail_item)
+    
+    # 5. Update database record
+    stmt = (
+        update(Activity)
+        .where(Activity.id == activity.id)
+        .values(
+            op_type=new_op_type,
+            timestamp=new_record['timestamp'],
+            detail=json.dumps(detail_array)
+        )
+    )
+    session.execute(stmt)
+    
+    # 6. Synchronously update UserActivity timestamp
+    user_activity_stmt = (
+        update(UserActivity)
+        .where(UserActivity.activity_id == activity.id)
+        .values(timestamp=new_record['timestamp'])
+    )
+    session.execute(user_activity_stmt)
+    
+    session.commit()
+
+
 def save_user_activity(session, record):
+    """Save or aggregate user activity record"""
+    op_type = record.get('op_type', '')
+    
+    if op_type in BATCH_AGGREGATE_OP_TYPES:
+        try:
+            recent_activity = _find_recent_batch_activity(
+                session,
+                record['repo_id'],
+                record['op_user'],
+                record['obj_type'],
+                op_type
+            )
+            
+            if recent_activity:
+                _update_batch_activity(session, recent_activity, record)
+                return
+        except Exception as e:
+            logger.warning('Failed to aggregate activity, creating new record: %s', e)
+    
     activity = Activity(record)
     session.add(activity)
     session.commit()
