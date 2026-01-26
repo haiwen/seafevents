@@ -46,8 +46,23 @@ class UserActivityDetail(object):
         self.path = event.path
 
         dt = json.loads(event.detail)
-        for key in dt:
-            self.__dict__[key] = dt[key]
+        
+        # Handle batch operations (detail is an array)
+        if isinstance(dt, list):
+            self.details = dt
+            self.count = len(dt)
+            if dt:
+                first_item = dt[0]
+                if isinstance(first_item, dict):
+                    for key in first_item:
+                        if key not in self.__dict__:
+                            self.__dict__[key] = first_item[key]
+        else:
+            # Single operation (detail is a dict)
+            self.details = [dt] if dt else []
+            self.count = 1
+            for key in dt:
+                self.__dict__[key] = dt[key]
 
     def __getitem__(self, key):
         return self.__dict__[key]
