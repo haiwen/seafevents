@@ -469,7 +469,7 @@ class RepoFileIndex(object):
         dsl = {
             "query": {
                 "bool": {
-                    "must": [
+                    "filter": [
                         {"prefix": {"path": directory}}
                     ]
                 }
@@ -487,7 +487,7 @@ class RepoFileIndex(object):
         dsl = {
             "query": {
                 "bool": {
-                    "must": [
+                    "filter": [
                         {
                             "terms": {
                                 "path": paths
