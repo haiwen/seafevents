@@ -267,8 +267,8 @@ def extract_file_details():
     return {'details': details}, 200
 
 
-@app.route('/wiki-search', methods=['POST'])
-def search_wiki():
+@app.route('/search-wikis', methods=['POST'])
+def search_wikis():
     is_valid = check_auth_token(request)
     if not is_valid:
         return {'error_msg': 'Permission denied'}, 403
@@ -282,20 +282,27 @@ def search_wiki():
         logger.exception(e)
         return {'error_msg': 'Bad request.'}, 400
 
-    query = data.get('query').strip()
-    wiki = data.get('wiki')
+    query = data.get('query', '').strip()
+    wiki_ids = data.get('wiki_ids')
 
     if not query:
         return {'error_msg': 'query invalid.'}, 400
-    if not wiki:
-        return {'error_msg': 'wiki invalid.'}, 400
+    if not wiki_ids:
+        return {'error_msg': 'wiki_ids invalid.'}, 400
+
+    # Normalize to list format (supports single wiki_id string or list)
+    if isinstance(wiki_ids, str):
+        wiki_ids = [wiki_ids]
+
+    if not isinstance(wiki_ids, list):
+        return {'error_msg': 'wiki_ids invalid.'}, 400
 
     try:
         count = int(data.get('count'))
     except:
         count = 20
 
-    results, total = index_task_manager.wiki_search(query, wiki, count)
+    results, total = index_task_manager.search_wikis(query, wiki_ids, count)
 
     return {'results': results, 'total': total}, 200
 

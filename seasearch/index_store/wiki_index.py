@@ -342,7 +342,14 @@ class WikiIndex(object):
             title_info
         )
 
-    def search_wiki(self, wiki, keyword, start=0, size=10):
+    def search_wikis(self, wiki_ids, keyword, start=0, size=10):
+        # Normalize to list format
+        if isinstance(wiki_ids, str):
+            wiki_ids = [wiki_ids]
+
+        if not wiki_ids:
+            return [], 0
+
         bulk_search_params = []
 
         query_map = {'bool': {'should': [], 'minimum_should_match': 1}}
@@ -361,8 +368,11 @@ class WikiIndex(object):
                 "fields": {"content": {}, "title": {}},
             },
         }
-        index_name = WIKI_INDEX_PREFIX + wiki
-        bulk_search_params.append({'index': index_name, 'query': data})
+
+        # Add query for each wiki index
+        for wiki_id in wiki_ids:
+            index_name = WIKI_INDEX_PREFIX + wiki_id
+            bulk_search_params.append({'index': index_name, 'query': data})
 
         query_body = json.dumps({
             'index_queries': bulk_search_params
