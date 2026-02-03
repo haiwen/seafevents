@@ -365,7 +365,8 @@ class WikiIndex(object):
             "highlight": {
                 "pre_tags": ["<mark>"],
                 "post_tags": ["</mark>"],
-                "fields": {"content": {}, "title": {}},
+                "require_field_match": False,
+                "fields": {"content": {}, "title": {}, "content.ngram": {}, "title.ngram": {}},
             },
         }
 
@@ -397,9 +398,12 @@ class WikiIndex(object):
                 'score': score,
                 '_id': _id,
             }
-            if highlight_content := hit.get('highlight', {}).get('content', [None])[0]:
+            highlight = hit.get('highlight', {})
+            highlight_content = (highlight.get('content') or [None])[0] or (highlight.get('content.ngram') or [None])[0]
+            if highlight_content:
                 r.update(content=highlight_content)
-            if highlight_title := hit.get('highlight', {}).get('title', [None])[0]:
+            highlight_title = (highlight.get('title') or [None])[0] or (highlight.get('title.ngram') or [None])[0]
+            if highlight_title:
                 r.update(title=highlight_title)
             wikis.append(r)
 
