@@ -87,8 +87,8 @@ class IndexManager(object):
         wiki_index.delete_index_by_index_name(wiki_index_name)
         wiki_status_index.delete_documents_by_repo(wiki_id)
 
-    def wiki_search(self, query, wiki, wiki_index, count):
-        return wiki_index.search_wiki(wiki, query, 0, count)
+    def search_wikis(self, query, wiki_ids, wiki_index, count):
+        return wiki_index.search_wikis(wiki_ids, query, 0, count)
 
     def update_wiki_index(self, wiki_id, commit_id, wiki_index, wiki_status_index):
         try:
