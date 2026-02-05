@@ -315,8 +315,6 @@ def _extract_detail_item(activity, detail_dict):
             item[key] = detail_dict[key]
     return item
     
-
-
 def _update_batch_activity(session, activity, new_record):
     """Append new operation to existing aggregated record"""
     # 1. Determine op_type (convert to batch type if not already)
@@ -334,20 +332,16 @@ def _update_batch_activity(session, activity, new_record):
     if len(detail_array) >= ACTIVITY_MAX_AGGREGATE_ITEMS:
         raise Exception(f"Too many items aggregated in Activity.detail")
     
-    
-    # 4. Extract new record details and append
     new_detail_item = {
-        'path': new_record['path'],
-    }
-    
-    if new_record.get('obj_id'):
-        new_detail_item['obj_id'] = new_record['obj_id']
-    if new_record.get('size') is not None:
-        new_detail_item['size'] = new_record['size']
-    if new_record.get('old_path'):
-        new_detail_item['old_path'] = new_record['old_path']
-    if new_record.get('repo_name'):
-        new_detail_item['repo_name'] = new_record['repo_name']
+        key: new_record[key] for key in [
+            'size', 
+            'old_path', 
+            'days', 
+            'repo_name', 
+            'obj_id', 
+            'old_repo_name', 
+            'path'
+            ] if key in new_record}
     
     detail_array.append(new_detail_item)
     
