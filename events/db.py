@@ -306,11 +306,11 @@ def _find_recent_batch_activity(session, repo_id, op_user, obj_type, op_type):
     
     return session.scalars(stmt).first()
 
-def _extract_detail_item(activity, detail_dict):
+def _extract_detail_item(detail_dict):
     """Extract array item from single Activity and detail dict"""
 
-    item = {'path': detail_dict.get('path', activity.path if activity else '')}
-    for key in ['obj_id', 'size', 'old_path', 'repo_name']:
+    item = {}
+    for key in ['obj_id', 'size', 'old_path', 'repo_name', 'obj_id', 'old_repo_name', 'path']:
         if key in detail_dict and detail_dict[key] is not None:
             item[key] = detail_dict[key]
     return item
@@ -328,21 +328,10 @@ def _update_batch_activity(session, activity, new_record):
         raise Exception(f'Invalid JSON in Activity.detail: {e}')
 
     # 3. Convert to array format (if not already)
-    detail_array = [_extract_detail_item(activity, current_detail)] if isinstance(current_detail, dict) else current_detail
+    detail_array = [_extract_detail_item(current_detail)] if isinstance(current_detail, dict) else current_detail
     if len(detail_array) >= ACTIVITY_MAX_AGGREGATE_ITEMS:
         raise Exception(f"Too many items aggregated in Activity.detail")
-    
-    new_detail_item = {
-        key: new_record[key] for key in [
-            'size', 
-            'old_path', 
-            'days', 
-            'repo_name', 
-            'obj_id', 
-            'old_repo_name', 
-            'path'
-            ] if key in new_record}
-    
+    new_detail_item = _extract_detail_item(new_record)
     detail_array.append(new_detail_item)
     
     # 5. Update database record
