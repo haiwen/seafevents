@@ -14,6 +14,7 @@ from seafevents.seasearch.index_task.wiki_index_updater import SeasearchWikiInde
 from seafevents.events.metrics import MetricsManager
 from seafevents.statistics.quota_usage_manager import QuotaUsageManager
 from seafevents.webhook.webhook import Webhooker
+from tasks.repo_storage_task import RepoStorageTask
 
 class App(object):
     def __init__(self, config, seafile_config,
@@ -43,6 +44,7 @@ class App(object):
             self._deleted_files_count_cleaner = DeletedFilesCountCleaner()
             self._metrics_manager = MetricsManager()
             self._quota_usage_manager = QuotaUsageManager()
+            self._repo_storage_task = RepoStorageTask()
 
             if ENABLE_METADATA_MANAGEMENT:
                 self._index_master = RepoMetadataIndexMaster(config)
@@ -76,6 +78,7 @@ class App(object):
             self._content_scanner.start()
             self._repo_old_file_auto_del_scanner.start()
             self._deleted_files_count_cleaner.start()
+            self._repo_storage_task.start()
             if ENABLE_METADATA_MANAGEMENT:
                 self._index_master.start()
                 self._face_cluster_updater.start()
