@@ -16,6 +16,8 @@ logger = logging.getLogger('seafevents')
 
 USER_ACTIVITIES_GENERATE_LIMIT = 50
 
+ACTIVITY_MAX_AGGREGATE_ITEMS = 200
+
 
 class UserEventDetail(object):
     """Regular objects which can be used by seahub without worrying about ORM"""
@@ -304,23 +306,15 @@ def _find_recent_batch_activity(session, repo_id, op_user, obj_type, op_type):
     
     return session.scalars(stmt).first()
 
-
 def _extract_detail_item(activity, detail_dict):
     """Extract array item from single Activity and detail dict"""
-    item = {
-        'path': activity.path,
-    }
-    
-    if detail_dict.get('obj_id'):
-        item['obj_id'] = detail_dict['obj_id']
-    if detail_dict.get('size') is not None:
-        item['size'] = detail_dict['size']
-    if detail_dict.get('old_path'):
-        item['old_path'] = detail_dict['old_path']
-    if detail_dict.get('repo_name'):
-        item['repo_name'] = detail_dict['repo_name']
-    
+
+    item = {'path': detail_dict.get('path', activity.path if activity else '')}
+    for key in ['obj_id', 'size', 'old_path', 'repo_name']:
+        if key in detail_dict and detail_dict[key] is not None:
+            item[key] = detail_dict[key]
     return item
+    
 
 
 def _update_batch_activity(session, activity, new_record):
@@ -330,13 +324,16 @@ def _update_batch_activity(session, activity, new_record):
     new_op_type = f'batch_{base_op_type}' if not activity.op_type.startswith('batch_') else activity.op_type
     
     # 2. Parse existing detail field
-    current_detail = json.loads(activity.detail)
-    
+    try:
+        current_detail = json.loads(activity.detail)
+    except json.JSONDecodeError as e:
+        raise Exception(f'Invalid JSON in Activity.detail: {e}')
+
     # 3. Convert to array format (if not already)
-    if isinstance(current_detail, dict):
-        detail_array = [_extract_detail_item(activity, current_detail)]
-    else:
-        detail_array = current_detail
+    detail_array = [_extract_detail_item(activity, current_detail)] if isinstance(current_detail, dict) else current_detail
+    if len(detail_array) >= ACTIVITY_MAX_AGGREGATE_ITEMS:
+        raise Exception(f"Too many items aggregated in Activity.detail")
+    
     
     # 4. Extract new record details and append
     new_detail_item = {
