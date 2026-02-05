@@ -328,7 +328,12 @@ def _update_batch_activity(session, activity, new_record):
         raise Exception(f'Invalid JSON in Activity.detail: {e}')
 
     # 3. Convert to array format (if not already)
-    detail_array = [_extract_detail_item(current_detail)] if isinstance(current_detail, dict) else current_detail
+    if isinstance(current_detail, dict):
+        first_item = _extract_detail_item(current_detail)
+        first_item['path'] = activity.path
+        detail_array = [first_item]
+    else:
+        detail_array = current_detail
     if len(detail_array) >= ACTIVITY_MAX_AGGREGATE_ITEMS:
         raise Exception(f"Too many items aggregated in Activity.detail")
     new_detail_item = _extract_detail_item(new_record)
