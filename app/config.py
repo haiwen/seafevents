@@ -26,6 +26,7 @@ try:
     ENABLE_METADATA_MANAGEMENT = getattr(seahub_settings, 'ENABLE_METADATA_MANAGEMENT', False)
     METADATA_FILE_TYPES = getattr(seahub_settings, 'METADATA_FILE_TYPES', {})
     DOWNLOAD_LIMIT_WHEN_THROTTLE = getattr(seahub_settings, 'DOWNLOAD_LIMIT_WHEN_THROTTLE', '1k')
+    UPLOAD_LIMIT_WHEN_THROTTLE = getattr(seahub_settings, 'UPLOAD_LIMIT_WHEN_THROTTLE', '1k')
     ENABLED_ROLE_PERMISSIONS = getattr(seahub_settings, 'ENABLED_ROLE_PERMISSIONS', {})
     BAIDU_MAP_KEY = getattr(seahub_settings, 'BAIDU_MAP_KEY', '')
     BAIDU_MAP_URL = getattr(seahub_settings, 'BAIDU_MAP_URL', '')

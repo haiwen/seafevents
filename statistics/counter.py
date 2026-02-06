@@ -6,8 +6,8 @@ from datetime import datetime
 from sqlalchemy import func, select, update, null
 from sqlalchemy.sql import text
 
-from .models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic,\
-                   MonthlyUserTraffic, MonthlySysTraffic
+from .models import FileOpsStat, TotalStorageStat, UserTraffic, SysTraffic, \
+        MonthlyUserTraffic, MonthlySysTraffic
 from seafevents.events.models import FileUpdate
 from seafevents.events.models import FileAudit
 from seafevents.db import SeafBase, init_db_session_class
@@ -16,7 +16,8 @@ from seafevents.utils.seafile_db import SeafileDB
 from seafevents.utils.ccnet_db import CcnetDB
 from seafevents.utils.seahub_db import SeahubDB
 from seafevents.utils import get_quota_from_string
-from seafevents.app.config import DOWNLOAD_LIMIT_WHEN_THROTTLE, ENABLED_ROLE_PERMISSIONS
+from seafevents.app.config import ENABLED_ROLE_PERMISSIONS, \
+        DOWNLOAD_LIMIT_WHEN_THROTTLE, UPLOAD_LIMIT_WHEN_THROTTLE
 from .db import get_org_id
 
 # This is a throwaway variable to deal with a python bug
@@ -26,14 +27,22 @@ login_records = {}
 traffic_info = {}
 
 
-rate_limit_users = {}
-rate_limit_orgs = {}
+download_rate_limit_users = {}
+upload_rate_limit_users = {}
+
+download_rate_limit_orgs = {}
+upload_rate_limit_orgs = {}
+
 reset_rate_limit_dates = []
 
 DEFAULT_USER = 'default'
 GUEST_USER = 'guest'
-MONTHLY_RATE_LIMIT_PER_USER = 'monthly_rate_limit_per_user'
-MONTHLY_RATE_LIMIT = 'monthly_rate_limit'
+
+MONTHLY_DOWNLOAD_TRAFFIC_LIMIT = 'monthly_rate_limit'
+MONTHLY_DOWNLOAD_TRAFFIC_LIMIT_PER_USER = 'monthly_rate_limit_per_user'
+
+MONTHLY_UPLOAD_TRAFFIC_LIMIT = 'monthly_upload_traffic_limit'
+MONTHLY_UPLOAD_TRAFFIC_LIMIT_PER_USER = 'monthly_upload_traffic_limit_per_user'
 
 
 def get_org_user_quota(local_traffic_info, date_str):
@@ -63,21 +72,32 @@ def save_traffic_info(session, timestamp, user_name, repo_id, oper, size):
     else:
         traffic_info[time_str][(org_id, user_name, oper)] += size
 
-def get_role_download_rate_limit_info():
+
+def get_role_traffic_limit_dict():
+
     if not ENABLED_ROLE_PERMISSIONS:
         return None
-    traffic_info_dict = {}
-    for role, v in ENABLED_ROLE_PERMISSIONS.items():
-        rate_limit = {}
-        if MONTHLY_RATE_LIMIT in v:
-            monthly_rate_limit = get_quota_from_string(v[MONTHLY_RATE_LIMIT])
-            rate_limit[MONTHLY_RATE_LIMIT] = monthly_rate_limit
-        if MONTHLY_RATE_LIMIT_PER_USER in v:
-            monthly_rate_limit_per_user = get_quota_from_string(v[MONTHLY_RATE_LIMIT_PER_USER])
-            rate_limit[MONTHLY_RATE_LIMIT_PER_USER] = monthly_rate_limit_per_user
-        traffic_info_dict[role] = rate_limit
-    return traffic_info_dict
 
+    role_traffic_limit_dict = {}
+    for role, v in ENABLED_ROLE_PERMISSIONS.items():
+
+        traffic_limit = {}
+
+        LIMIT_CONFIGS = [
+            MONTHLY_DOWNLOAD_TRAFFIC_LIMIT,
+            MONTHLY_DOWNLOAD_TRAFFIC_LIMIT_PER_USER,
+            MONTHLY_UPLOAD_TRAFFIC_LIMIT,
+            MONTHLY_UPLOAD_TRAFFIC_LIMIT_PER_USER
+        ]
+
+        for limit_key in LIMIT_CONFIGS:
+            if limit_key in v:
+                limit_value = get_quota_from_string(v[limit_key])
+                traffic_limit[limit_key] = limit_value
+
+        role_traffic_limit_dict[role] = traffic_limit
+
+    return role_traffic_limit_dict
 
 
 class FileOpsCounter(object):
@@ -231,12 +251,16 @@ class TotalStorageCounter(object):
         self.seafdb_session.close()
         self.edb_session.close()
 
+
 class TrafficInfoCounter(object):
+
     def __init__(self):
         self.edb_session = init_db_session_class()()
         self.download_type_list = ['web-file-download', 'link-file-download', 'sync-file-download']
+        self.upload_type_list = ['web-file-upload', 'link-file-upload', 'sync-file-upload']
 
     def start_count(self):
+
         time_start = time.time()
         logging.info('Start counting traffic info..')
 
@@ -244,100 +268,215 @@ class TrafficInfoCounter(object):
         delta = timedelta(days=1)
         yesterday = (dt - delta).date()
         yesterday_str = yesterday.strftime('%Y-%m-%d')
+
         today = dt.date()
         today_str = today.strftime('%Y-%m-%d')
+
         local_traffic_info = traffic_info.copy()
         traffic_info.clear()
 
         if yesterday_str in local_traffic_info:
             s_time = time.time()
             self.update_record(local_traffic_info, yesterday, yesterday_str)
-            logging.info('Traffic Counter: %d items has been recorded on %s, time: %s seconds.' %\
-                        (len(local_traffic_info[yesterday_str]), yesterday_str, str(time.time() - s_time)))
+            logging.info(
+                'Traffic Counter: %d items has been recorded on %s, time: %s seconds.' % (
+                    len(local_traffic_info[yesterday_str]),
+                    yesterday_str,
+                    str(time.time() - s_time)
+                )
+            )
 
         if today_str in local_traffic_info:
             s_time = time.time()
             self.update_record(local_traffic_info, today, today_str)
-            logging.info('Traffic Counter: %d items has been updated on %s, time: %s seconds.' %\
-                        (len(local_traffic_info[today_str]), today_str, str(time.time() - s_time)))
+            logging.info(
+                'Traffic Counter: %d items has been updated on %s, time: %s seconds.' % (
+                    len(local_traffic_info[today_str]),
+                    today_str,
+                    str(time.time() - s_time)
+                )
+            )
 
         try:
             self.edb_session.commit()
         except Exception as e:
             logging.warning('Failed to update traffic info: %s.', e)
         finally:
-            logging.info('Traffic counter finished, total time: %s seconds.' %\
-                        (str(time.time() - time_start)))
+            logging.info(
+                'Traffic counter finished, total time: %s seconds.' % (
+                    str(time.time() - time_start)
+                )
+            )
             self.edb_session.close()
             del local_traffic_info
 
     def update_record(self, local_traffic_info, date, date_str):
+
         # org_delta format: org_delta[(org_id, oper)] = size
         # Calculate each org traffic into org_delta, then update SysTraffic.
         org_delta = {}
 
         trans_count = 0
         first_day_of_month = datetime(datetime.now().year, datetime.now().month, 1)
-        traffic_info_dict = None
         org_user_quota_dict = get_org_user_quota(local_traffic_info, date_str)
+
         try:
-            # list role traffic info
-            traffic_info_dict = get_role_download_rate_limit_info()
+            # get role traffic limit config
+            role_traffic_limit_dict = get_role_traffic_limit_dict()
         except Exception as e:
             logging.warning('Failed get download rate limit info: %s.', e)
+            role_traffic_limit_dict = None
+
         # Update UserTraffic
         for row in local_traffic_info[date_str]:
+
             trans_count += 1
             org_id = row[0]
             user = row[1]
             oper = row[2]
+
             size = local_traffic_info[date_str][row]
             if size == 0:
                 continue
 
-            traffic_threshold = None
+            download_traffic_threshold = None
+            upload_traffic_threshold = None
+
             if oper in self.download_type_list:
 
                 with CcnetDB() as ccnet_db:
                     user_role = ccnet_db.get_user_role(user)
-                    role = DEFAULT_USER if (user_role == '' or user_role == DEFAULT_USER) else user_role
+                    role = DEFAULT_USER if user_role == '' else user_role
 
-                traffic_threshold = traffic_info_dict and traffic_info_dict[role].get(MONTHLY_RATE_LIMIT) or None
+                # get common user download traffic limit
+                if role_traffic_limit_dict and role in role_traffic_limit_dict:
+                    download_traffic_threshold = role_traffic_limit_dict[role].get(
+                        MONTHLY_DOWNLOAD_TRAFFIC_LIMIT
+                    )
+                else:
+                    download_traffic_threshold = None
 
+                # get org download traffic limit
                 if org_id > 0:
+
+                    with SeahubDB() as seahub_db:
+                        org_role = seahub_db.get_org_role(org_id)
+                        role = DEFAULT_USER if org_role == '' else org_role
+
+                    if role_traffic_limit_dict and role in role_traffic_limit_dict:
+                        limit_per_user = role_traffic_limit_dict[role].get(
+                            MONTHLY_DOWNLOAD_TRAFFIC_LIMIT_PER_USER
+                        )
+                    else:
+                        limit_per_user = None
+
                     org_user_quota = org_user_quota_dict.get(org_id)
-                    monthly_rate_limit_per_user = traffic_info_dict and traffic_info_dict[role].get(MONTHLY_RATE_LIMIT_PER_USER) or None
-                    traffic_threshold = org_user_quota and monthly_rate_limit_per_user and monthly_rate_limit_per_user * org_user_quota or None
+                    if org_user_quota and limit_per_user:
+                        download_traffic_threshold = org_user_quota * limit_per_user
+                    else:
+                        download_traffic_threshold = None
+
                     with SeahubDB() as seahub_db:
                         monthly_traffic_limit = seahub_db.get_org_monthly_traffic_limit(org_id)
                         if monthly_traffic_limit > 0:
-                            traffic_threshold = monthly_traffic_limit
+                            download_traffic_threshold = monthly_traffic_limit
 
-                if (org_id, oper, traffic_threshold) not in org_delta:
-                    org_delta[(org_id, oper, traffic_threshold)] = size
+                if (org_id, oper, download_traffic_threshold) not in org_delta:
+                    org_delta[(org_id, oper, download_traffic_threshold)] = size
                 else:
-                    org_delta[(org_id, oper, traffic_threshold)] += size
+                    org_delta[(org_id, oper, download_traffic_threshold)] += size
+
+            elif oper in self.upload_type_list:
+
+                with CcnetDB() as ccnet_db:
+                    user_role = ccnet_db.get_user_role(user)
+                    role = DEFAULT_USER if user_role == '' else user_role
+
+                # get common user upload traffic limit
+                if role_traffic_limit_dict and role in role_traffic_limit_dict:
+                    upload_traffic_threshold = role_traffic_limit_dict[role].get(
+                        MONTHLY_UPLOAD_TRAFFIC_LIMIT
+                    )
+                else:
+                    upload_traffic_threshold = None
+
+                # get org upload traffic limit
+                if org_id > 0:
+
+                    with SeahubDB() as seahub_db:
+                        org_role = seahub_db.get_org_role(org_id)
+                        role = DEFAULT_USER if org_role == '' else org_role
+
+                    if role_traffic_limit_dict and role in role_traffic_limit_dict:
+                        limit_per_user = role_traffic_limit_dict[role].get(
+                            MONTHLY_UPLOAD_TRAFFIC_LIMIT_PER_USER
+                        )
+                    else:
+                        limit_per_user = None
+
+                    org_user_quota = org_user_quota_dict.get(org_id)
+                    if org_user_quota and limit_per_user:
+                        upload_traffic_threshold = org_user_quota * limit_per_user
+                    else:
+                        upload_traffic_threshold = None
+
+                if (org_id, oper, upload_traffic_threshold) not in org_delta:
+                    org_delta[(org_id, oper, upload_traffic_threshold)] = size
+                else:
+                    org_delta[(org_id, oper, upload_traffic_threshold)] += size
+
             else:
                 if (org_id, oper) not in org_delta:
                     org_delta[(org_id, oper)] = size
                 else:
                     org_delta[(org_id, oper)] += size
+
             try:
                 # Check the download traffic for the current month.
-                if traffic_threshold and (org_id < 0 and oper in self.download_type_list
-                                          and not rate_limit_users.get(user, False)):
+                if (
+                    download_traffic_threshold
+                    and org_id < 0
+                    and oper in self.download_type_list
+                    and not download_rate_limit_users.get(user, False)
+                ):
+
                     stmt2 = select(func.sum(UserTraffic.size).label("size")).where(
                         UserTraffic.timestamp.between(first_day_of_month, date),
                         UserTraffic.user == user,
                         UserTraffic.org_id == org_id,
                         UserTraffic.op_type.in_(self.download_type_list)
                     )
-                    user_monthly_traffic_size = self.edb_session.scalars(stmt2).first()
-                    # not org user rate limit
-                    if user_monthly_traffic_size and user_monthly_traffic_size > traffic_threshold:
+                    user_monthly_download_traffic_size = self.edb_session.scalars(stmt2).first()
+
+                    # common user download tarffic limit
+                    if user_monthly_download_traffic_size and \
+                            user_monthly_download_traffic_size > download_traffic_threshold:
                         download_limit_format = get_quota_from_string(DOWNLOAD_LIMIT_WHEN_THROTTLE)
                         seafile_api.set_user_download_rate_limit(user, download_limit_format)
-                        rate_limit_users[user] = True
+                        download_rate_limit_users[user] = True
+
+                # Check upload traffic for the current month.
+                if (
+                    upload_traffic_threshold
+                    and org_id < 0
+                    and oper in self.upload_type_list
+                    and not upload_rate_limit_users.get(user, False)
+                ):
+
+                    stmt2 = select(func.sum(UserTraffic.size).label("size")).where(
+                        UserTraffic.timestamp.between(first_day_of_month, date),
+                        UserTraffic.user == user,
+                        UserTraffic.org_id == org_id,
+                        UserTraffic.op_type.in_(self.upload_type_list)
+                    )
+                    user_monthly_upload_traffic_size = self.edb_session.scalars(stmt2).first()
+
+                    # common user upload tarffic limit
+                    if user_monthly_upload_traffic_size and \
+                            user_monthly_upload_traffic_size > upload_traffic_threshold:
+                        upload_limit_format = get_quota_from_string(UPLOAD_LIMIT_WHEN_THROTTLE)
+                        seafile_api.set_user_upload_rate_limit(user, upload_limit_format)
+                        upload_rate_limit_users[user] = True
 
                 stmt = select(UserTraffic.size).where(
                                            UserTraffic.timestamp == date,
@@ -345,6 +484,7 @@ class TrafficInfoCounter(object):
                                            UserTraffic.org_id == org_id,
                                            UserTraffic.op_type == oper).limit(1)
                 result = self.edb_session.scalars(stmt).first()
+
                 if result is not None:
                     size_in_db = result
                     stmt = update(UserTraffic).where(UserTraffic.timestamp == date,
@@ -366,24 +506,65 @@ class TrafficInfoCounter(object):
 
         # Update SysTraffic
         for row in org_delta:
+
             org_id = row[0]
             oper = row[1]
             size = org_delta[row]
+
             try:
                 # Check org download traffic for current month.
-                if org_id > 0 and oper in self.download_type_list and not rate_limit_orgs.get(org_id):
-                    traffic_threshold = row[2]
+                if (
+                    org_id > 0
+                    and oper in self.download_type_list
+                    and not download_rate_limit_orgs.get(org_id)
+                ):
+
                     stmt2 = select(func.sum(SysTraffic.size).label("size")).where(
                         SysTraffic.timestamp.between(first_day_of_month, date),
                         SysTraffic.org_id == org_id,
                         SysTraffic.op_type.in_(self.download_type_list)
                     )
-                    org_monthly_traffic_size = self.edb_session.scalars(stmt2).first()
-                    # org rate limit
-                    if org_monthly_traffic_size and traffic_threshold and org_monthly_traffic_size > traffic_threshold:
+                    org_monthly_download_traffic_size = self.edb_session.scalars(stmt2).first()
+
+                    download_traffic_threshold = row[2]
+
+                    # org download rate limit
+                    if (
+                        org_monthly_download_traffic_size
+                        and download_traffic_threshold
+                        and org_monthly_download_traffic_size > download_traffic_threshold
+                    ):
+
                         download_limit_format = get_quota_from_string(DOWNLOAD_LIMIT_WHEN_THROTTLE)
                         seafile_api.org_set_download_rate_limit(org_id, download_limit_format)
-                        rate_limit_orgs[org_id] = True
+                        download_rate_limit_orgs[org_id] = True
+
+                # Check org upload traffic for current month.
+                if (
+                    org_id > 0
+                    and oper in self.upload_type_list
+                    and not upload_rate_limit_orgs.get(org_id)
+                ):
+
+                    stmt2 = select(func.sum(SysTraffic.size).label("size")).where(
+                        SysTraffic.timestamp.between(first_day_of_month, date),
+                        SysTraffic.org_id == org_id,
+                        SysTraffic.op_type.in_(self.upload_type_list)
+                    )
+                    org_monthly_upload_traffic_size = self.edb_session.scalars(stmt2).first()
+
+                    upload_traffic_threshold = row[2]
+
+                    # org upload rate limit
+                    if (
+                        org_monthly_upload_traffic_size
+                        and upload_traffic_threshold
+                        and org_monthly_upload_traffic_size > upload_traffic_threshold
+                    ):
+
+                        upload_limit_format = get_quota_from_string(UPLOAD_LIMIT_WHEN_THROTTLE)
+                        seafile_api.org_set_upload_rate_limit(org_id, upload_limit_format)
+                        upload_rate_limit_orgs[org_id] = True
 
                 stmt = select(SysTraffic.size).where(
                                            SysTraffic.timestamp == date,
@@ -394,8 +575,8 @@ class TrafficInfoCounter(object):
                 if result is not None:
                     size_in_db = result
                     stmt = update(SysTraffic).where(SysTraffic.timestamp == date,
-                                                     SysTraffic.org_id == org_id,
-                                                     SysTraffic.op_type == oper).values(size=size + size_in_db)
+                                                    SysTraffic.org_id == org_id,
+                                                    SysTraffic.op_type == oper).values(size=size + size_in_db)
                     self.edb_session.execute(stmt)
                 else:
                     new_record = SysTraffic(date, oper, size, org_id)
@@ -403,6 +584,7 @@ class TrafficInfoCounter(object):
 
             except Exception as e:
                 logging.warning('Failed to update traffic info: %s.', e)
+
 
 class MonthlyTrafficCounter(object):
     def __init__(self):
@@ -427,8 +609,10 @@ class MonthlyTrafficCounter(object):
             with SeafileDB() as seafile_db:
                 seafile_db.reset_download_rate_limit()
                 reset_rate_limit_dates.append(first_day)
-                rate_limit_orgs.clear()
-                rate_limit_users.clear()
+                download_rate_limit_orgs.clear()
+                upload_rate_limit_orgs.clear()
+                download_rate_limit_users.clear()
+                upload_rate_limit_users.clear()
 
         try:
             # Get raw data from UserTraffic, then update MonthlyUserTraffic and MonthlySysTraffic.
