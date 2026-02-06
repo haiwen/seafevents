@@ -30,7 +30,7 @@ class SeahubDB(object):
         if not rows:
             return None
         return rows[0]
-    
+
     def get_org_member_quota(self, org_id):
         if not ORG_MEMBER_QUOTA_ENABLED:
             return None
@@ -43,4 +43,16 @@ class SeahubDB(object):
         rows = result.fetchone()
         if not rows:
             return ORG_MEMBER_QUOTA_DEFAULT
+        return rows[0]
+
+    def get_org_role(self, org_id):
+        sql = """
+                SELECT role
+                FROM organizations_orgsettings
+                WHERE org_id = :org_id
+                """
+        result = self.session.execute(text(sql), {'org_id': org_id})
+        rows = result.fetchone()
+        if not rows:
+            return 'default'
         return rows[0]
