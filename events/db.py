@@ -16,6 +16,8 @@ logger = logging.getLogger('seafevents')
 
 USER_ACTIVITIES_GENERATE_LIMIT = 50
 
+ACTIVITY_MAX_AGGREGATE_ITEMS = 200
+
 
 class UserEventDetail(object):
     """Regular objects which can be used by seahub without worrying about ORM"""
@@ -46,8 +48,23 @@ class UserActivityDetail(object):
         self.path = event.path
 
         dt = json.loads(event.detail)
-        for key in dt:
-            self.__dict__[key] = dt[key]
+        
+        # Handle batch operations (detail is an array)
+        if isinstance(dt, list):
+            self.details = dt
+            self.count = len(dt)
+            if dt:
+                first_item = dt[0]
+                if isinstance(first_item, dict):
+                    for key in first_item:
+                        if key not in self.__dict__:
+                            self.__dict__[key] = first_item[key]
+        else:
+            # Single operation (detail is a dict)
+            self.details = [dt] if dt else []
+            self.count = 1
+            for key in dt:
+                self.__dict__[key] = dt[key]
 
     def __getitem__(self, key):
         return self.__dict__[key]
@@ -263,7 +280,103 @@ def get_file_daily_history_detail(session, repo_id, path, start_time, end_time, 
 def not_include_all_keys(record, keys):
     return any(record.get(k, None) is None for k in keys)
 
+
+BATCH_AGGREGATE_TIME_THRESHOLD = 5
+BATCH_AGGREGATE_OP_TYPES = ('create', 'delete')
+
+
+def _find_recent_batch_activity(session, repo_id, op_user, obj_type, op_type):
+    """Find aggregatable Activity records within 5 minutes"""
+    time_limit = datetime.datetime.utcnow() - timedelta(minutes=BATCH_AGGREGATE_TIME_THRESHOLD)
+    
+    batch_op_type = f'batch_{op_type}'
+    
+    stmt = (
+        select(Activity)
+        .where(
+            Activity.repo_id == repo_id,
+            Activity.op_user == op_user,
+            Activity.obj_type == obj_type,
+            Activity.op_type.in_([op_type, batch_op_type]),
+            Activity.timestamp > time_limit
+        )
+        .order_by(desc(Activity.timestamp))
+        .limit(1)
+    )
+    
+    return session.scalars(stmt).first()
+
+def _extract_detail_item(detail_dict):
+    """Extract array item from single Activity and detail dict"""
+
+    item = {}
+    for key in ['obj_id', 'size', 'old_path', 'repo_name', 'obj_id', 'old_repo_name', 'path']:
+        if key in detail_dict and detail_dict[key] is not None:
+            item[key] = detail_dict[key]
+    return item
+    
+def _update_batch_activity(session, activity, new_record):
+    """Append new operation to existing aggregated record"""
+    # 1. Determine op_type (convert to batch type if not already)
+    base_op_type = new_record['op_type']
+    new_op_type = f'batch_{base_op_type}' if not activity.op_type.startswith('batch_') else activity.op_type
+    
+    # 2. Parse existing detail field
+    try:
+        current_detail = json.loads(activity.detail)
+    except json.JSONDecodeError as e:
+        raise Exception(f'Invalid JSON in Activity.detail: {e}')
+
+    # 3. Convert to array format (if not already)
+    detail_array = [_extract_detail_item(current_detail)] if isinstance(current_detail, dict) else current_detail
+    if len(detail_array) >= ACTIVITY_MAX_AGGREGATE_ITEMS:
+        raise Exception(f"Too many items aggregated in Activity.detail")
+    new_detail_item = _extract_detail_item(new_record)
+    detail_array.append(new_detail_item)
+    
+    # 5. Update database record
+    stmt = (
+        update(Activity)
+        .where(Activity.id == activity.id)
+        .values(
+            op_type=new_op_type,
+            timestamp=new_record['timestamp'],
+            detail=json.dumps(detail_array)
+        )
+    )
+    session.execute(stmt)
+    
+    # 6. Synchronously update UserActivity timestamp
+    user_activity_stmt = (
+        update(UserActivity)
+        .where(UserActivity.activity_id == activity.id)
+        .values(timestamp=new_record['timestamp'])
+    )
+    session.execute(user_activity_stmt)
+    
+    session.commit()
+
+
 def save_user_activity(session, record):
+    """Save or aggregate user activity record"""
+    op_type = record.get('op_type', '')
+    
+    if op_type in BATCH_AGGREGATE_OP_TYPES:
+        try:
+            recent_activity = _find_recent_batch_activity(
+                session,
+                record['repo_id'],
+                record['op_user'],
+                record['obj_type'],
+                op_type
+            )
+            
+            if recent_activity:
+                _update_batch_activity(session, recent_activity, record)
+                return
+        except Exception as e:
+            logger.warning('Failed to aggregate activity, creating new record: %s', e)
+    
     activity = Activity(record)
     session.add(activity)
     session.commit()

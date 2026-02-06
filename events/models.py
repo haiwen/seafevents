@@ -36,7 +36,7 @@ class Activity(Base):
         self.commit_id = record.get('commit_id', None)
 
         detail = {}
-        detail_keys = ['size', 'old_path', 'days', 'repo_name', 'obj_id', 'old_repo_name']
+        detail_keys = ['size', 'old_path', 'days', 'repo_name', 'obj_id', 'old_repo_name', 'path']
         for k in detail_keys:
             if k in record and record.get(k, None) is not None:
                 detail[k] = record.get(k, None)
