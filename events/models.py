@@ -25,6 +25,9 @@ class Activity(Base):
     path = mapped_column(Text, nullable=False)
     detail = mapped_column(Text, nullable=False)
 
+    __table_args__ = (Index('idx_activity_repo_timestamp',
+                            'repo_id', 'timestamp'),)
+
     def __init__(self, record):
         super().__init__()
         self.op_type = record['op_type']
