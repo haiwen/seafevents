@@ -110,11 +110,11 @@ class FileAudit(Base):
     eid = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     timestamp = mapped_column(DateTime, nullable=False, index=True)
     etype = mapped_column(String(length=128), nullable=False)
-    user = mapped_column(String(length=255), nullable=False, index=True)
+    user = mapped_column(String(length=255), nullable=False)
     ip = mapped_column(String(length=45), nullable=False)
     device = mapped_column(Text, nullable=False)
     org_id = mapped_column(Integer, nullable=False)
-    repo_id = mapped_column(String(length=36), nullable=False, index=True)
+    repo_id = mapped_column(String(length=36), nullable=False)
     file_path = mapped_column(Text, nullable=False)
     __table_args__ = (Index('idx_file_audit_orgid_eid',
                             'org_id', 'eid'),
