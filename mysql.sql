@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS `Activity` (
   `path` text NOT NULL,
   `detail` text NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `ix_Activity_timestamp` (`timestamp`)
+  KEY `ix_Activity_timestamp` (`timestamp`),
+  KEY `idx_activity_repo_timestamp` (`repo_id`, `timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `UserActivity` (
@@ -71,11 +72,9 @@ CREATE TABLE IF NOT EXISTS `FileAudit` (
   `repo_id` varchar(36) NOT NULL,
   `file_path` text NOT NULL,
   PRIMARY KEY (`eid`),
-  KEY `ix_FileAudit_user` (`user`),
   KEY `idx_file_audit_user_orgid_eid` (`user`,`org_id`,`eid`),
   KEY `idx_file_audit_repo_org_eid` (`repo_id`,`org_id`,`eid`),
-  KEY `ix_FileAudit_timestamp` (`timestamp`),
-  KEY `ix_FileAudit_repo_id` (`repo_id`)
+  KEY `ix_FileAudit_timestamp` (`timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `FileUpdate` (
