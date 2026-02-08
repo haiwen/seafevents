@@ -87,6 +87,8 @@ class FileHistory(Base):
     path = mapped_column(Text, nullable=False)
     repo_id_path_md5 = mapped_column(String(length=32), index=True)
     size = mapped_column(BigInteger, nullable=False)
+    __table_args__ = (Index('idx_filetrash_repo_delete_time',
+                            'repo_id', 'delete_time'),)
     old_path = mapped_column(Text, nullable=False)
 
     def __init__(self, record):
@@ -259,6 +261,8 @@ class FileTrash(Base):
     commit_id = mapped_column(String(length=40))
     path = mapped_column(Text, nullable=False)
     size = mapped_column(BigInteger, nullable=False)
+    __table_args__ = (Index('idx_filetrash_repo_delete_time',
+                            'repo_id', 'delete_time'),)
 
     def __init__(self, record):
         super().__init__()
