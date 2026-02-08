@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS `Activity` (
   `path` text NOT NULL,
   `detail` text NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `ix_Activity_timestamp` (`timestamp`)
+  KEY `ix_Activity_timestamp` (`timestamp`),
+  KEY `idx_activity_repo_timestamp` (`repo_id`, `timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `UserActivity` (
