@@ -43,7 +43,6 @@ try:
     ENABLE_FACE_RECOGNITION = getattr(seahub_settings, 'ENABLE_FACE_RECOGNITION', False)
     ORG_MEMBER_QUOTA_ENABLED = getattr(seahub_settings, 'ORG_MEMBER_QUOTA_ENABLED', False)
     ORG_MEMBER_QUOTA_DEFAULT = getattr(seahub_settings, 'ORG_MEMBER_QUOTA_DEFAULT', 10)
-    ENABLE_STORAGE_CLASSES = getattr(seahub_settings, 'ENABLE_STORAGE_CLASSES', False)
 except ImportError:
     logger.critical("Can not import seahub settings.")
     raise RuntimeError("Can not import seahub settings.")
@@ -74,6 +73,9 @@ MYSQL_CCNET_DB_NAME = os.environ.get('SEAFILE_MYSQL_DB_CCNET_DB_NAME', 'ccnet_db
 
 # config for seafile edition
 IS_PRO_VERSION = os.environ.get('IS_PRO_VERSION', 'false') == 'true'
+
+# config for multiple storage
+ENABLE_MULTI_STORAGE = os.environ.get('SEAF_SERVER_STORAGE_TYPE', '') == 'multiple'
 
 ################## config from env ################################
 
