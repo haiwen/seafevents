@@ -1,11 +1,9 @@
 import json
 import time
 import logging
-from threading import Thread, Event
-from mq import NoMessageException
-from seafevents.mq import get_mq
+from threading import Thread
+from seafevents.mq import get_mq, NoMessageException
 from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
-from seafevents.app.event_redis import RedisClient
 from seafobj import storage_cache_clear
 
 # Redis subscribe channel for repository storage tasks
@@ -19,8 +17,7 @@ RECONNECT_SLEEP = 1
 class RepoStorageTask(Thread):
     """
     Collect repo storage tasks from Redis pub/sub channel and process cache clearing logic.
-    Additions: Auto recreate Redis connection when no message received for a long time, 
-    provide a graceful stop interface for external calls.
+    Additions: Auto recreate Redis connection when no message received for a long time
     """
     def __init__(self):
         Thread.__init__(self)
@@ -43,7 +40,7 @@ class RepoStorageTask(Thread):
                 if repo_id:
                     try:
                         storage_cache_clear(repo_id)
-                        logging.debug(f'Successfully cleared storage cache for repo: {repo_id}')  # Short ID for concise log
+                        logging.info(f'Successfully cleared storage cache for repo: {repo_id}')  # Short ID for concise log
                     except Exception as e:
                         logging.error(f'Failed to handle repo storage task for repo {repo_id}: {str(e)}')
 
@@ -55,7 +52,7 @@ class RepoStorageTask(Thread):
                         f'attempting to recreate redis connection'
                     )
                     raise NoMessageException('No message received for a long time, trigger redis reconnection')
-                time.sleep(1)  # Short sleep to avoid CPU idle loop when no timeout
+                time.sleep(RECONNECT_SLEEP)  # Short sleep to avoid CPU idle loop when no timeout
 
     def run(self):
         logging.info('Starting to handle repo storage task from redis channel')
@@ -70,4 +67,4 @@ class RepoStorageTask(Thread):
             except Exception as e:
                 logging.error(f'Error in repo storage task handler: {str(e)}', exc_info=True)
             # Sleep before next reconnection attempt to avoid tight loop in case of persistent connection issues
-            time.sleep(1)    
+            time.sleep(RECONNECT_SLEEP)    
