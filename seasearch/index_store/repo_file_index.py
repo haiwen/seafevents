@@ -107,7 +107,6 @@ class RepoFileIndex(object):
         self.office_file_size_limit = 10 * 1024 * 1024  # 10M
         self.index_office_pdf = False
 
-        # By default, use word based tokenizer designed for English/German/French language.
         self.config = config
 
         self._parse_config()
