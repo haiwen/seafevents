@@ -124,8 +124,8 @@ class RepoFileIndex(object):
     def create_index_if_missing(self, index_name):
         if self.lang != 'chinese':
             self.mapping['properties']['content']['analyzer'] = 'standard'
-            self.index_settings['analysis'].pop('char_filter')
-            self.index_settings['analysis']['analyzer'].pop('gse_standard_analyzer')
+            self.index_settings['analysis'].pop('char_filter', None)
+            self.index_settings['analysis']['analyzer'].pop('gse_standard_analyzer', None)
         if not self.seasearch_api.check_index_mapping(index_name).get('is_exist'):
             data = {
                 'shard_num': self.shard_num,
