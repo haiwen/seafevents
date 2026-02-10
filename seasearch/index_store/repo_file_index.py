@@ -106,7 +106,9 @@ class RepoFileIndex(object):
         self.text_size_limit = 1 * 1024 * 1024  # 1M
         self.office_file_size_limit = 10 * 1024 * 1024  # 10M
         self.index_office_pdf = False
-        self.lang = 'chinese'
+
+        # By default, use word based tokenizer designed for English/German/French language.
+        self.lang = 'english'
         self.config = config
 
         self._parse_config()
@@ -119,7 +121,7 @@ class RepoFileIndex(object):
 
         index_office_pdf = get_opt_from_conf_or_env(self.config, section_name, 'index_office_pdf', default=False)
         self.index_office_pdf = parse_bool(index_office_pdf)
-        self.lang = get_opt_from_conf_or_env(self.config, section_name, 'lang', default='chinese')
+        self.lang = get_opt_from_conf_or_env(self.config, section_name, 'lang', default='english')
 
     def create_index_if_missing(self, index_name):
         if self.lang != 'chinese':
