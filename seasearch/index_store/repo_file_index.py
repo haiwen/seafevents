@@ -107,8 +107,6 @@ class RepoFileIndex(object):
         self.office_file_size_limit = 10 * 1024 * 1024  # 10M
         self.index_office_pdf = False
 
-        # By default, use word based tokenizer designed for English/German/French language.
-        self.lang = 'english'
         self.config = config
 
         self._parse_config()
@@ -121,13 +119,8 @@ class RepoFileIndex(object):
 
         index_office_pdf = get_opt_from_conf_or_env(self.config, section_name, 'index_office_pdf', default=False)
         self.index_office_pdf = parse_bool(index_office_pdf)
-        self.lang = get_opt_from_conf_or_env(self.config, section_name, 'lang', default='english')
 
     def create_index_if_missing(self, index_name):
-        if self.lang != 'chinese':
-            self.mapping['properties']['content']['analyzer'] = 'standard'
-            self.index_settings['analysis'].pop('char_filter', None)
-            self.index_settings['analysis']['analyzer'].pop('gse_standard_analyzer', None)
         if not self.seasearch_api.check_index_mapping(index_name).get('is_exist'):
             data = {
                 'shard_num': self.shard_num,
