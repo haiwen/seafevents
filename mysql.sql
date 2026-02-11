@@ -108,7 +108,8 @@ CREATE TABLE IF NOT EXISTS `PermAudit` (
   PRIMARY KEY (`eid`),
   KEY `idx_perm_audit_repo_org_eid` (`repo_id`,`org_id`,`eid`),
   KEY `idx_perm_audit_user_orgid_eid` (`from_user`,`org_id`,`eid`),
-  KEY `idx_perm_audit_orgid_eid` (`org_id`,`eid`)
+  KEY `idx_perm_audit_orgid_eid` (`org_id`,`eid`),
+  KEY `ix_PermAudit_timestamp` (`timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `TotalStorageStat` (
