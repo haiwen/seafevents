@@ -8,6 +8,7 @@ from seafevents.app.config import SEAHUB_SECRET_KEY
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seafevents.seafevent_server.import_task_manager import event_import_task_manager
+from seafevents.seafevent_server.repo_archive_task_manager import repo_archive_task_manager
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
@@ -496,3 +497,60 @@ def import_wiki_page():
         return make_response((e, 500))
 
     return {'task_id': task_id}, 200
+    
+@app.route('/add-repo-archive-task', methods=['POST'])
+def add_repo_archive_task():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return {'error_msg': 'Permission denied'}, 403
+
+    try:
+        data = json.loads(request.data)
+    except Exception as e:
+        logger.exception(e)
+        return {'error_msg': 'Bad request.'}, 400
+
+    repo_id = data.get('repo_id')
+    orig_storage_id = data.get('orig_storage_id')
+    dest_storage_id = data.get('dest_storage_id')
+    op_type = data.get('op_type')
+    username = data.get('username')
+
+    if not repo_id:
+        return {'error_msg': 'repo_id invalid.'}, 400
+    if not orig_storage_id:
+        return {'error_msg': 'orig_storage_id invalid.'}, 400
+    if not dest_storage_id:
+        return {'error_msg': 'dest_storage_id invalid.'}, 400
+    if not op_type:
+        return {'error_msg': 'op_type invalid.'}, 400
+    if not username:
+        return {'error_msg': 'username invalid.'}, 400
+        
+    try:
+        task_id = repo_archive_task_manager.add_repo_archive_task(repo_id, orig_storage_id, dest_storage_id, op_type, username)
+    except Exception as e:
+        logger.error(e)
+        return make_response((e, 500))
+
+    return {'task_id': task_id}, 200
+
+@app.route('/query-archive-status', methods=['GET'])
+def query_archive_status():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+
+    task_id = request.args.get('task_id')
+    if not repo_archive_task_manager.is_valid_task_id(task_id):
+        return make_response(('task_id not found.', 404))
+
+    try:
+        is_finished, error = repo_archive_task_manager.query_status(task_id)
+    except Exception as e:
+        logger.debug(e)
+        return make_response((e, 500))
+
+    if error:
+        return make_response((error, 500))
+    return make_response(({'is_finished': is_finished}, 200))
