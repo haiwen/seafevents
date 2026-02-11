@@ -8,8 +8,8 @@ from seafobj import storage_cache_clear
 
 # Redis subscribe channel for repository storage tasks
 REPO_STORAGE_TASK_CHANNEL = "repo_storage_task"
-# No message timeout threshold: 30 seconds (adjustable by business, recommended to configure in the config file)
-NO_MSG_TIMEOUT = 5 * 60
+# 1 day in seconds, if no message received for this duration, trigger redis reconnection logic
+NO_MSG_TIMEOUT = 60 * 60 * 24 
 # Redis reconnection sleep time: 1 second to avoid frequent reconnection attempts
 RECONNECT_SLEEP = 1
 
