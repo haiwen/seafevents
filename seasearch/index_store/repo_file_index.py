@@ -60,8 +60,8 @@ class RepoFileIndex(object):
         }
     }
     """
-    gse_standard_analyzer is primarily designed for Chinese text indexing, but it also supports basic tokenization for English:
-    1. It splits English sentences by spaces/punctuation (no semantic analysis, only basic splitting)
+    gse_standard_analyzer is for support Chinese text tokenization, but it supports tokenization for English/German/French as well:
+    1. It splits English sentences by spaces/punctuation
     2. Example: The sentence "Hello world" will be tokenized into ["hello", "world"]
     3. This meets the basic retrieval needs for English content (e.g., search "hello" can match the text containing "hello")
     """
