@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS `FileOpsStat` (
   `number` int(11) NOT NULL,
   `org_id` int(11) NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_file_ops_time_org` (`timestamp`,`org_id`)
+  KEY `idx_file_ops_org_time` (`org_id`,`timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `UserActivityStat` (
