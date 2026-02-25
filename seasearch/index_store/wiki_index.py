@@ -343,13 +343,6 @@ class WikiIndex(object):
         )
 
     def search_wikis(self, wiki_ids, keyword, start=0, size=10):
-        # Normalize to list format
-        if isinstance(wiki_ids, str):
-            wiki_ids = [wiki_ids]
-
-        if not wiki_ids:
-            return [], 0
-
         bulk_search_params = []
 
         query_map = {'bool': {'should': [], 'minimum_should_match': 1}}
