@@ -396,7 +396,7 @@ class WikiIndex(object):
                 'wiki_id': source['wiki_id'],
                 'score': score,
                 '_id': _id,
-                'title': source.get('title', ''),
+                'title': source['title'],
             }
             if highlight_content := hit.get('highlight', {}).get('content', [None])[0]:
                 r.update(content=highlight_content)
