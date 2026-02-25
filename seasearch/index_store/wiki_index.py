@@ -360,7 +360,7 @@ class WikiIndex(object):
             'query': query_map,
             'from': start,
             'size': size,
-            '_source': ['wiki_id', 'doc_uuid'],
+            '_source': ['wiki_id', 'doc_uuid', 'title'],
             'sort': ['_score'],
             "highlight": {
                 "pre_tags": ["<mark>"],
@@ -396,6 +396,7 @@ class WikiIndex(object):
                 'wiki_id': source['wiki_id'],
                 'score': score,
                 '_id': _id,
+                'title': source.get('title', ''),
             }
             if highlight_content := hit.get('highlight', {}).get('content', [None])[0]:
                 r.update(content=highlight_content)
