@@ -61,6 +61,25 @@ def add_init_metadata_task():
     return make_response(({'task_id': task_id}, 200))
 
 
+@app.route('/add-fix-metadata-task', methods=['GET'])
+def add_fix_metadata_task():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+
+    repo_id = request.args.get('repo_id')
+    if not repo_id:
+        return make_response(({'error_msg': 'repo_id invalid.'}, 400))
+
+    try:
+        task_manager.add_fix_metadata_task(repo_id)
+    except Exception as e:
+        logger.error(e)
+        return make_response((e, 500))
+
+    return make_response(({'success': True}, 200))
+
+
 @app.route('/add-export-log-task', methods=['GET'])
 def get_sys_logs_task():
     is_valid, error = check_auth_token(request)

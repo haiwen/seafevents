@@ -9,6 +9,7 @@ from seafevents.mq import get_mq
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 from seafevents.repo_metadata.utils import add_file_details
+from seafevents.repo_metadata.metadata_fixer import fix_repo_metadata
 from seafevents.db import init_db_session_class
 from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 from seafevents.utils import get_opt_from_conf_or_env
@@ -80,6 +81,8 @@ class SlowMetadataTaskHandler(object):
         task_type = data.get('task_type')
         if task_type == 'file_info_extract':
             self.extract_file_info(repo_id, data)
+        elif task_type == 'fix-metadata':
+            self.fix_metadata(repo_id)
 
     def extract_file_info(self, repo_id, data):
         logger.info('%s start extract file info repo %s' % (threading.current_thread().name, repo_id))
@@ -91,3 +94,14 @@ class SlowMetadataTaskHandler(object):
             logger.exception('repo: %s, update metadata file info error: %s', repo_id, e)
 
         logger.info('%s finish extract file info repo %s' % (threading.current_thread().name, repo_id))
+
+    def fix_metadata(self, repo_id):
+        logger.info('%s start fix metadata for repo %s' % (threading.current_thread().name, repo_id))
+
+        try:
+            fix_repo_metadata(repo_id, self.metadata_server_api, self.session)
+        except Exception as e:
+            logger.exception('repo: %s, fix metadata error: %s', repo_id, e)
+
+        logger.info('%s finish fix metadata for repo %s' % (threading.current_thread().name, repo_id))
+
