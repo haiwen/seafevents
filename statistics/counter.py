@@ -604,15 +604,21 @@ class MonthlyTrafficCounter(object):
 
         # reset rate limit
         if today == first_day and first_day not in reset_rate_limit_dates:
+
             if len(reset_rate_limit_dates) > 2:
                 reset_rate_limit_dates.pop(0)
+
             with SeafileDB() as seafile_db:
+
                 seafile_db.reset_download_rate_limit()
-                reset_rate_limit_dates.append(first_day)
                 download_rate_limit_orgs.clear()
-                upload_rate_limit_orgs.clear()
                 download_rate_limit_users.clear()
+
+                seafile_db.reset_upload_rate_limit()
+                upload_rate_limit_orgs.clear()
                 upload_rate_limit_users.clear()
+
+                reset_rate_limit_dates.append(first_day)
 
         try:
             # Get raw data from UserTraffic, then update MonthlyUserTraffic and MonthlySysTraffic.
