@@ -62,16 +62,19 @@ def _get_user_activities(session, username, start, limit):
         logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
     
-    sub_query = (
+    # Optimize: Use two-step query to leverage idx_username_timestamp index
+    # MariaDB doesn't support LIMIT in IN subquery
+    activity_ids = session.scalars(
         select(UserActivity.activity_id)
         .where(UserActivity.username == username)
-    )
+        .order_by(desc(UserActivity.timestamp))
+        .slice(start, start + limit)
+    ).all()
 
     stmt = (
         select(Activity)
-        .where(Activity.id.in_(sub_query))
+        .where(Activity.id.in_(activity_ids))
         .order_by(desc(Activity.timestamp))
-        .slice(start, start + limit)
     )
     events = session.scalars(stmt).all()
 
@@ -86,16 +89,19 @@ def _get_user_activities_by_op_user(session, username, op_user, start, limit):
         logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
     
-    sub_query = (
+    # Optimize: Use two-step query to leverage idx_username_timestamp index
+    # MariaDB doesn't support LIMIT in IN subquery
+    activity_ids = session.scalars(
         select(UserActivity.activity_id)
         .where(UserActivity.username == username)
-    )
+        .order_by(desc(UserActivity.timestamp))
+        .slice(start, start + limit)
+    ).all()
 
     stmt = (
         select(Activity)
-        .where(Activity.id.in_(sub_query) & (Activity.op_user == op_user))
+        .where(Activity.id.in_(activity_ids) & (Activity.op_user == op_user))
         .order_by(desc(Activity.timestamp))
-        .slice(start, start + limit)
     )
     events = session.scalars(stmt).all()
 
