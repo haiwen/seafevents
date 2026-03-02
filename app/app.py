@@ -29,7 +29,7 @@ class App(object):
             self._count_traffic_task = CountTrafficInfo(config)
             self._update_login_record_task = CountUserActivity(config)
             self._seafevent_server = SeafEventServer(self, config)
-            self._webhooker = Webhooker(config)
+            
 
         if self._bg_tasks_enabled:
             self._index_updater = IndexUpdater(config)
@@ -45,6 +45,8 @@ class App(object):
             self._metrics_manager = MetricsManager()
             self._quota_usage_manager = QuotaUsageManager()
             self._repo_storage_task = RepoStorageTask()
+
+            self._webhooker = Webhooker(config)
 
             if ENABLE_METADATA_MANAGEMENT:
                 self._index_master = RepoMetadataIndexMaster(config)
@@ -68,7 +70,7 @@ class App(object):
             self._update_login_record_task.start()
             self._count_traffic_task.start()
             self._seafevent_server.start()
-            self._webhooker.start()
+            
 
         if self._bg_tasks_enabled:
             self._file_updates_sender.start()
@@ -86,6 +88,8 @@ class App(object):
                 self._face_cluster_updater.start()
                 self._slow_md_task_handler.start()
                 self._face_cluster_task_publisher.start()
+
+            self._webhooker.start()
 
             self._metrics_manager.start()
             self._repo_file_index_updater.start()
