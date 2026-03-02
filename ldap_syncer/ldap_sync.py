@@ -4,7 +4,7 @@ import logging
 from threading import Thread
 
 from ldap import SCOPE_BASE
-from seafevents.ldap_syncer.ldap_conn import LdapConn
+from seafevents.ldap_syncer.ldap_conn import LdapConn, LdapSearchError
 from seafevents.ldap_syncer.utils import bytes2str, add_group_uuid_pair
 
 from seaserv import get_group_dn_pairs
@@ -145,7 +145,15 @@ class LdapSync(Thread):
         pass
 
     def start_sync(self):
-        data_ldap = self.get_data_from_ldap()
+        try:
+            data_ldap = self.get_data_from_ldap()
+        except LdapSearchError as e:
+            logger.warning('Failed to search data from ldap: %s.' % e)
+            return
+        except Exception as e:
+            logger.warning('Failed to get data from ldap: %s.' % e)
+            return
+        
         if data_ldap is None:
             return
 
