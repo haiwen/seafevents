@@ -74,6 +74,9 @@ MYSQL_CCNET_DB_NAME = os.environ.get('SEAFILE_MYSQL_DB_CCNET_DB_NAME', 'ccnet_db
 # config for seafile edition
 IS_PRO_VERSION = os.environ.get('IS_PRO_VERSION', 'false') == 'true'
 
+# config for multiple storage
+ENABLE_MULTI_STORAGE = os.environ.get('SEAF_SERVER_STORAGE_TYPE', '') == 'multiple'
+
 ################## config from env ################################
 
 

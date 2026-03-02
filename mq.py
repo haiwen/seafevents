@@ -20,3 +20,7 @@ def get_mq(server, port, password):
     finally:
         # python redis is a client, each operation tries to connect and retry exec
         return mq
+    
+
+class NoMessageException(Exception):    
+    pass

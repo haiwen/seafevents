@@ -9,7 +9,7 @@ from seafevents.repo_metadata.index_master import RepoMetadataIndexMaster
 from seafevents.repo_metadata.slow_task_handler import SlowMetadataTaskHandler
 from seafevents.seafevent_server.seafevent_server import SeafEventServer
 from seafevents.seasearch.index_task.file_index_updater import RepoFileIndexUpdater
-from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_QUOTA_ALERT, ENABLE_SEAFILE_AI, ENABLE_FACE_RECOGNITION
+from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_QUOTA_ALERT, ENABLE_SEAFILE_AI, ENABLE_MULTI_STORAGE
 from seafevents.seasearch.index_task.wiki_index_updater import SeasearchWikiIndexUpdater
 from seafevents.events.metrics import MetricsManager
 from seafevents.statistics.quota_usage_manager import QuotaUsageManager
@@ -59,6 +59,9 @@ class App(object):
             if ENABLE_SEAFILE_AI:
                 self.ai_stats_manager = AIStatsManager()
 
+            if ENABLE_MULTI_STORAGE:
+                self._repo_storage_task = RepoStorageTask()
+
     def serve_forever(self):
         if self._fg_tasks_enabled:
             self._events_handler.start()
@@ -78,7 +81,6 @@ class App(object):
             self._content_scanner.start()
             self._repo_old_file_auto_del_scanner.start()
             self._deleted_files_count_cleaner.start()
-            self._repo_storage_task.start()
             if ENABLE_METADATA_MANAGEMENT:
                 self._index_master.start()
                 self._face_cluster_updater.start()
@@ -93,4 +95,7 @@ class App(object):
             if ENABLE_QUOTA_ALERT:
                 self._quota_alert_email_sender.start()
             if ENABLE_SEAFILE_AI:
-                self.ai_stats_manager.start()   
+                self.ai_stats_manager.start() 
+
+            if ENABLE_MULTI_STORAGE:
+                self._repo_storage_task.start()
