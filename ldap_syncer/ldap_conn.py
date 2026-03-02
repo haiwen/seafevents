@@ -4,6 +4,10 @@ import logging
 import ldap
 from ldap.controls.libldap import SimplePagedResultsControl
 
+
+class LdapSearchError(Exception):
+    pass
+
 class LdapConn(object):
 
     PAGE_SIZE = 100
@@ -33,6 +37,11 @@ class LdapConn(object):
             logging.warning('Connect ldap server %s failed, error: %s' %
                             (self.host, e))
 
+        except Exception as e:
+            self.conn = None
+            logging.warning('Handle ldap server connection %s failed, error: %s' %
+                            (self.host, e))
+
     def search(self, base_dn, scope, search_filter, attr_list):
         if not self.conn:
             return None
@@ -46,7 +55,10 @@ class LdapConn(object):
             logging.warning('Search failed for base dn(%s), filter(%s) '
                             'on server %s error: %s' % (base_dn, search_filter,
                                                         self.host, e))
-            return None
+            raise LdapSearchError(e)
+        except Exception as e:
+            logging.warning('Handle ldap search result failed, error: %s' % e)
+            raise LdapSearchError(e)
 
         return result
 
@@ -66,10 +78,13 @@ class LdapConn(object):
                 if isinstance(e, dict) and e.get('desc', '') == 'No such object':
                     pass
                 else:
-                    logging.warning('Search failed for base dn(%s), filter(%s) '
+                    logging.warning('Page search failed for base dn(%s), filter(%s) '
                                     'on server %s error: %s' % (base_dn, search_filter,
                                                                 self.host, e))
-                return None
+                raise LdapSearchError(e)
+            except Exception as e:
+                logging.warning('Handle ldap page search result failed, error: %s' % e)
+                raise LdapSearchError(e)
 
             total_result.extend(rdata)
 
