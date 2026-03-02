@@ -28,9 +28,9 @@ class SeafileDB(object):
     def get_repo_info_by_ids(self, repo_ids):
         if not repo_ids:
             return {}
-    
+
         repo_ids = [str(repo_id) for repo_id in repo_ids]
-    
+
         if len(repo_ids) == 1:
             sql1 = """
             SELECT r.repo_id, name, owner_id
@@ -63,24 +63,28 @@ class SeafileDB(object):
             WHERE r.repo_id IN :repo_ids
             """
             params = {'repo_ids': tuple(repo_ids)}
-    
+
         result1 = self.session.execute(text(sql1), params)
         rows1 = result1.fetchall()
         result2 = self.session.execute(text(sql2), params)
         rows2 = result2.fetchall()
-    
+
         rows = rows1 + rows2
         repos_map = {}
         for row in rows:
             if row[0] not in repos_map or repos_map[row[0]]['owner'] is None:
                 repos_map[row[0]] = self.repo_info(row)
-    
+
         return repos_map
 
     def reset_download_rate_limit(self):
         self.session.execute(text("TRUNCATE TABLE UserDownloadRateLimit"))
         self.session.execute(text("TRUNCATE TABLE OrgDownloadRateLimit"))
-        
+
+    def reset_upload_rate_limit(self):
+        self.session.execute(text("TRUNCATE TABLE UserUploadRateLimit"))
+        self.session.execute(text("TRUNCATE TABLE OrgUploadRateLimit"))
+
     def get_repo_owner(self, repo_id):
         sql = "SELECT owner_id FROM RepoOwner WHERE repo_id = :repo_id"
         result = self.session.execute(text(sql), {'repo_id': repo_id})
@@ -88,7 +92,7 @@ class SeafileDB(object):
         if not rows:
             return None
         return rows[0]
-        
+
     def get_org_repo_owner(self, repo_id):
         sql = "SELECT user FROM OrgRepo WHERE repo_id = :repo_id"
         result = self.session.execute(text(sql), {'repo_id': repo_id})
@@ -96,7 +100,7 @@ class SeafileDB(object):
         if not rows:
             return None
         return rows[0]
-        
+
     def get_user_self_usage(self, email):
         sql = """
                 SELECT SUM(size)
@@ -111,7 +115,7 @@ class SeafileDB(object):
         if not rows:
             return None
         return rows[0]
-    
+
     def get_org_user_quota_usage(self, org_id, email):
         sql = """
                 SELECT SUM(size)
@@ -126,7 +130,7 @@ class SeafileDB(object):
         rows = result.fetchone()
         if not rows:
             return None
-        
+
         return rows[0]
 
     def get_org_id_by_repo_id(self, repo_id):
@@ -136,7 +140,7 @@ class SeafileDB(object):
         if not rows:
             return -1
         return rows[0]
-    
+
     def get_org_quota_usage(self, org_id):
         sql = """
                 SELECT SUM(size)
@@ -151,7 +155,7 @@ class SeafileDB(object):
         if not rows:
             return None
         return rows[0]
-        
+
     def get_user_quota(self, email):
         '''
         Geting user / org_user / org quota is related not only to the records in the database，
@@ -161,15 +165,15 @@ class SeafileDB(object):
         instead of directly searching in the database.
 
         '''
-    
+
         return seafile_api.get_user_quota(email)
-    
+
 
     def get_org_user_quota(self, org_id, email):
-    
+
         return seafile_api.get_org_user_quota(org_id, email)
-    
+
 
     def get_org_quota(self, org_id):
-    
+
         return seafile_api.get_org_quota(org_id)
