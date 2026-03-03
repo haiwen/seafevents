@@ -73,7 +73,7 @@ class IndexTaskManager:
             query, repos, self._repo_file_index, count, suffixes, search_path, obj_type, time_range, size_range, search_filename_only
         )
 
-    def wiki_search(self, query, wiki, count):
-        return self.index_manager.wiki_search(query, wiki, self._wiki_index, count)
+    def search_wikis(self, query, wiki_ids, count):
+        return self.index_manager.search_wikis(query, wiki_ids, self._wiki_index, count)
 
 index_task_manager = IndexTaskManager()

@@ -342,7 +342,7 @@ class WikiIndex(object):
             title_info
         )
 
-    def search_wiki(self, wiki, keyword, start=0, size=10):
+    def search_wikis(self, wiki_ids, keyword, start=0, size=10):
         bulk_search_params = []
 
         query_map = {'bool': {'should': [], 'minimum_should_match': 1}}
@@ -353,7 +353,7 @@ class WikiIndex(object):
             'query': query_map,
             'from': start,
             'size': size,
-            '_source': ['wiki_id', 'doc_uuid'],
+            '_source': ['wiki_id', 'doc_uuid', 'title'],
             'sort': ['_score'],
             "highlight": {
                 "pre_tags": ["<mark>"],
@@ -361,8 +361,11 @@ class WikiIndex(object):
                 "fields": {"content": {}, "title": {}},
             },
         }
-        index_name = WIKI_INDEX_PREFIX + wiki
-        bulk_search_params.append({'index': index_name, 'query': data})
+
+        # Add query for each wiki index
+        for wiki_id in wiki_ids:
+            index_name = WIKI_INDEX_PREFIX + wiki_id
+            bulk_search_params.append({'index': index_name, 'query': data})
 
         query_body = json.dumps({
             'index_queries': bulk_search_params
@@ -386,6 +389,7 @@ class WikiIndex(object):
                 'wiki_id': source['wiki_id'],
                 'score': score,
                 '_id': _id,
+                'title': source['title'],
             }
             if highlight_content := hit.get('highlight', {}).get('content', [None])[0]:
                 r.update(content=highlight_content)
