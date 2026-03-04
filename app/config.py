@@ -22,8 +22,6 @@ try:
     ENABLE_DINGTALK = getattr(seahub_settings, 'ENABLE_DINGTALK', False)
     SEAHUB_SECRET_KEY = getattr(seahub_settings, 'SECRET_KEY', '')
     JWT_PRIVATE_KEY = getattr(seahub_settings, 'JWT_PRIVATE_KEY', '')
-    METADATA_SERVER_URL = getattr(seahub_settings, 'METADATA_SERVER_URL', '')
-    ENABLE_METADATA_MANAGEMENT = getattr(seahub_settings, 'ENABLE_METADATA_MANAGEMENT', False)
     METADATA_FILE_TYPES = getattr(seahub_settings, 'METADATA_FILE_TYPES', {})
     DOWNLOAD_LIMIT_WHEN_THROTTLE = getattr(seahub_settings, 'DOWNLOAD_LIMIT_WHEN_THROTTLE', '1k')
     UPLOAD_LIMIT_WHEN_THROTTLE = getattr(seahub_settings, 'UPLOAD_LIMIT_WHEN_THROTTLE', '1k')
@@ -49,6 +47,10 @@ except ImportError:
     raise RuntimeError("Can not import seahub settings.")
 
 ################## config from env ################################
+
+## config for metadata
+METADATA_SERVER_URL = os.environ.get('METADATA_SERVER_URL', '')
+ENABLE_METADATA_MANAGEMENT = os.environ.get('ENABLE_METADATA_MANAGEMENT', 'false').lower() == 'true'
 
 ## config for redis
 REDIS_HOST = os.environ.get('REDIS_HOST', '')
