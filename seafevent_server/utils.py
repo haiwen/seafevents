@@ -25,8 +25,10 @@ from seafevents.repo_data import repo_data
 from seafevents.utils.md2sdoc import md2sdoc
 from seafevents.utils.constants import WIKI_PAGES_DIR, WIKI_CONFIG_PATH, \
     WIKI_CONFIG_FILE_NAME
+from seafevents.utils.migration_repo import migrate_repo, remove_repo_objs
 
-from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
+from seaserv import get_org_id_by_repo_id, seafile_api, get_commit, \
+    REPO_STATUS_READ_ONLY, REPO_STATUS_NORMAL
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
 from seafobj.exceptions import GetObjectError
 from seafevents.wiki.utils import gen_file_upload_url
@@ -688,3 +690,104 @@ def convert_wiki(old_repo_id, new_repo_id, username, db_session_class):
     wiki_config = {'version': 1, 'pages': pages, 'navigation': navigation}
     wiki_config = json.dumps(wiki_config)
     save_wiki_config(new_repo_id, username, wiki_config)
+
+
+def update_archive_status(seahub_db_session_class, repo_id, status):
+    with seahub_db_session_class() as session:
+        # First check if record exists
+        check_sql = text("SELECT id FROM repo_archive_status WHERE repo_id=:repo_id")
+        result = session.execute(check_sql, {'repo_id': repo_id}).fetchone()
+        
+        if result:
+            # Update existing record
+            if status is None:
+                sql = text("UPDATE repo_archive_status SET status=NULL WHERE repo_id=:repo_id")
+                session.execute(sql, {'repo_id': repo_id})
+            else:
+                sql = text("UPDATE repo_archive_status SET status=:status WHERE repo_id=:repo_id")
+                session.execute(sql, {'status': status, 'repo_id': repo_id})
+        else:
+            # Insert new record (only if status is not None)
+            if status is not None:
+                sql = text("INSERT INTO repo_archive_status (repo_id, status) VALUES (:repo_id, :status)")
+                session.execute(sql, {'repo_id': repo_id, 'status': status})
+        
+        session.commit()
+
+
+def send_archive_notification(seahub_db_session_class, seafile_db_session_class, repo_id, op_type, username, success=True):
+    try:
+        # Get repo name from seafile_db
+        with seafile_db_session_class() as session:
+            sql = text("SELECT name FROM RepoInfo WHERE repo_id=:repo_id")
+            result = session.execute(sql, {'repo_id': repo_id}).fetchone()
+            repo_name = result[0] if result else 'Unknown'
+        
+        # Determine message type based on op_type and success
+        if success:
+            msg_type = 'repo_archived' if op_type == 'archive' else 'repo_unarchived'
+        else:
+            msg_type = 'repo_archive_failed' if op_type == 'archive' else 'repo_unarchive_failed'
+        
+        detail = json.dumps({'repo_id': repo_id, 'repo_name': repo_name})
+        
+        # Insert notification into seahub_db
+        with seahub_db_session_class() as session:
+            sql = text("INSERT INTO notifications_usernotification (to_user, msg_type, detail, timestamp, seen) VALUES (:username, :msg_type, :detail, NOW(), 0)")
+            session.execute(sql, {'username': username, 'msg_type': msg_type, 'detail': detail})
+            session.commit()
+    except Exception as e:
+        logger.error("Failed to send notification for repo %s: %s", repo_id, e)
+
+
+def do_archive(seahub_db_session_class, seafile_db_session_class, repo_id, orig_storage_id, dest_storage_id, op_type, task_id, username):
+    # Determine rollback status (what to restore if failed)
+    # archive: was NULL -> if failed, restore to NULL
+    # unarchive: was 'archived' -> if failed, restore to 'archived'
+    rollback_status = None if op_type == 'archive' else 'archived'
+    
+    # Determine initial and final status
+    initial_status = REPO_STATUS_NORMAL if op_type == 'archive' else REPO_STATUS_READ_ONLY
+    final_status = REPO_STATUS_READ_ONLY if op_type == 'archive' else REPO_STATUS_NORMAL
+    
+    try:
+        # 0. Update ing Status
+        new_status = 'in_archiving' if op_type == 'archive' else 'in_unarchiving'
+        update_archive_status(seahub_db_session_class, repo_id, new_status)
+        
+        # 1. Migrate
+        migrate_repo(repo_id, orig_storage_id, dest_storage_id, list_src_by_commit=True, initial_status=initial_status, final_status=final_status)
+        
+        # 2. Update Status
+        new_status = 'archived' if op_type == 'archive' else None
+        update_archive_status(seahub_db_session_class, repo_id, new_status)
+        
+        # 3. Cleanup Old Objects
+        remove_repo_objs(repo_id, orig_storage_id)
+        
+        # 4. Success Notification
+        send_archive_notification(seahub_db_session_class, seafile_db_session_class, repo_id, op_type, username, success=True)
+        
+    except Exception as e:
+        logger.exception("Failed to %s repo %s: %s", op_type, repo_id, e)
+        
+        # Rollback: restore archive_status to previous state
+        try:
+            update_archive_status(seahub_db_session_class, repo_id, rollback_status)
+        except Exception as rollback_e:
+            logger.error("Failed to rollback archive_status for repo %s: %s", repo_id, rollback_e)
+        
+        # Rollback storage_id and repo status
+        try:
+            seafile_api.update_repo_storage_id(repo_id, orig_storage_id)
+            seafile_api.set_repo_status(repo_id, initial_status)
+        except Exception as se_e:
+            logger.error("Failed to rollback repository properties for repo %s: %s", repo_id, se_e)
+        
+        # Send failure notification
+        try:
+            send_archive_notification(seahub_db_session_class, seafile_db_session_class, repo_id, op_type, username, success=False)
+        except Exception as notify_e:
+            logger.error("Failed to send failure notification for repo %s: %s", repo_id, notify_e)
+        
+        raise e

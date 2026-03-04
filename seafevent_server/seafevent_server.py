@@ -5,6 +5,7 @@ from seafevents.seafevent_server.request_handler import app as application
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seafevents.seafevent_server.import_task_manager import event_import_task_manager
+from seafevents.seafevent_server.repo_archive_task_manager import repo_archive_task_manager
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 
@@ -18,9 +19,11 @@ class SeafEventServer(Thread):
         task_manager.init(self.app, self._workers, self._task_expire_time)
         event_export_task_manager.init(self.app, self._workers, self._task_expire_time)
         event_import_task_manager.init(self.app, self._workers, self._task_expire_time)
+        repo_archive_task_manager.init(self.app, self._workers, self._task_expire_time)
         task_manager.run()
         event_export_task_manager.run()
         event_import_task_manager.run()
+        repo_archive_task_manager.run()
         application.face_recognition_manager = FaceRecognitionManager()
 
         index_task_manager.init(config)
