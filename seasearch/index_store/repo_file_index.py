@@ -304,7 +304,7 @@ class RepoFileIndex(object):
             r = {
                 'repo_id': source['repo_id'],
                 'fullpath': source['path'],
-                'name': source['filename'],
+                'name': os.path.basename(source['path']),
                 'is_dir': source['is_dir'],
                 'score': score,
                 '_id': _id,
