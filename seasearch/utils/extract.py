@@ -65,6 +65,20 @@ def extract_pptx_text(content):
     return cleaned.encode()
 
 
+def extract_xlsx_text(content):
+    doc = ZipString(content)
+    unpacked = doc.infolist()
+    slides = []
+    for item in unpacked:
+        if item.orig_filename.startswith('xl/worksheets') or item.orig_filename.startswith('xl/sharedStrings.xml'):
+            if item.orig_filename.endswith('xml'):
+                slides.append(doc.read(item.orig_filename).decode())
+
+    content = ''.join(slides)
+    cleaned = re.sub('<(.|\n)*?>', ' ', content)
+    return cleaned.encode()
+
+
 def extract_odf_text(content):
     doc = ZipString(content)
     content = doc.read('content.xml')
@@ -95,6 +109,7 @@ def extract_sdoc_text(content):
 EXTRACT_TEXT_FUNCS = {
     'docx': extract_docx_text,
     'pptx': extract_pptx_text,
+    'xlsx': extract_xlsx_text,
     'pdf': extract_pdf_text,
     'odt': extract_odf_text,
     'ods': extract_odf_text,
