@@ -152,7 +152,9 @@ def get_file_history(session, repo_id, path, start, limit, history_limit=-1):
         count_stmt = select(func.count(FileHistory.id)).where(FileHistory.file_uuid == current_item.file_uuid)
         query_stmt = select(FileHistory).where(FileHistory.file_uuid == current_item.file_uuid)\
             .order_by(desc(FileHistory.id)).slice(start, start + limit + 1)
-
+        
+        history_time = None
+        
         if int(history_limit) >= 0:
             present_time = datetime.datetime.utcnow()
             delta = timedelta(days=history_limit)
@@ -168,8 +170,22 @@ def get_file_history(session, repo_id, path, start, limit, history_limit=-1):
 
         total_count = session.scalar(count_stmt)
         events = session.scalars(query_stmt).all()
+        has_more = False
         if events and len(events) == limit + 1:
             events = events[:-1]
+            has_more = True
+        if not has_more and int(history_limit) > 0 and history_time is not None:
+            extra_event = session.scalars(
+                select(FileHistory)
+                    .where(
+                    FileHistory.file_uuid == current_item.file_uuid,
+                    FileHistory.timestamp < history_time
+                )
+                    .order_by(desc(FileHistory.id))
+                    .limit(1)
+            ).first()
+            if extra_event:
+                events.append(extra_event)
 
     return events, total_count
 
