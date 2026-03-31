@@ -88,24 +88,20 @@ def _get_user_activities_by_op_user(session, username, op_user, start, limit):
     if limit <= 0:
         logger.error('limit must be positive')
         raise RuntimeError('limit must be positive')
-    
-    # Optimize: Use two-step query to leverage idx_username_timestamp index
-    # MariaDB doesn't support LIMIT in IN subquery
-    activity_ids = session.scalars(
-        select(UserActivity.activity_id)
-        .where(UserActivity.username == username)
-        .order_by(desc(UserActivity.timestamp))
-        .slice(start, start + limit)
-    ).all()
 
     stmt = (
         select(Activity)
-        .where(Activity.id.in_(activity_ids) & (Activity.op_user == op_user))
-        .order_by(desc(Activity.timestamp))
+        .join(UserActivity, UserActivity.activity_id == Activity.id)
+        .where(
+            UserActivity.username == username,
+            Activity.op_user == op_user
+        )
+        .order_by(desc(UserActivity.timestamp))
+        .slice(start, start + limit)
     )
     events = session.scalars(stmt).all()
 
-    return [ UserActivityDetail(ev, username=username) for ev in events ]
+    return [UserActivityDetail(ev, username=username) for ev in events]
 
 
 def get_user_activities(session, username, start, limit):
