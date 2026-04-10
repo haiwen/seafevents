@@ -31,15 +31,20 @@ def migrate_dn_pairs(settings):
             if not ldap_conn.conn:
                 logger.warning('connect ldap server [%s] failed.' % config.user_dn)
                 return
-
-            if config.use_page_result:
-                results = ldap_conn.paged_search(grp_dn_pair.dn, SCOPE_BASE,
-                                                 search_filter,
-                                                 [config.group_uuid_attr])
-            else:
-                results = ldap_conn.search(grp_dn_pair.dn, SCOPE_BASE,
-                                           search_filter,
-                                           [config.group_uuid_attr])
+            try:
+                if config.use_page_result:
+                    results = ldap_conn.paged_search(grp_dn_pair.dn, SCOPE_BASE,
+                                                    search_filter,
+                                                    [config.group_uuid_attr])
+                else:
+                    results = ldap_conn.search(grp_dn_pair.dn, SCOPE_BASE,
+                                            search_filter,
+                                            [config.group_uuid_attr])
+            except LdapSearchError as e:
+                logger.warning('Failed to migrate_dn_pairs for group dn(%s) from ldap server %s: %s.' %
+                               (grp_dn_pair.dn, config.host, e))
+                continue
+            
             ldap_conn.unbind_conn()
             results = bytes2str(results)
 
