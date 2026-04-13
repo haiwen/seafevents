@@ -4,8 +4,9 @@ import logging
 from threading import Thread
 from collections import OrderedDict
 from copy import deepcopy
+from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 
-from seafevents.mq import get_mq
+from seafevents.mq import get_mq, NoMessageException
 from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ class RepoMetadataIndexMaster(Thread):
 
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
         self.pending_tasks = OrderedDict()  # repo_id: commit_id
+        self.no_message_check_interval = 5 * 60
 
     def now(self):
         return time.time()
@@ -33,58 +35,66 @@ class RepoMetadataIndexMaster(Thread):
         while True:
             try:
                 self.master_handler()
+            except NoMessageException:
+                logger.warning('long time no message, reconnect to redis.')
+            except (ResponseError, NoMQAvailable, TimeoutError) as e:
+                logger.error('The connection to the redis server failed: %s' % e)
             except Exception as e:
                 logger.error('Error handing master task: %s' % e)
                 #prevent waste resource if redis or others didn't connectioned
                 time.sleep(0.2)
 
     def master_handler(self):
-        p = self.mq.pubsub(ignore_subscribe_messages=True)
-        try:
-            p.subscribe('metadata_update')
-        except Exception as e:
-            logger.error('The connection to the redis server failed: %s' % e)
-        else:
-            logger.info('metadata master starting listen')
+        with self.mq.pubsub(ignore_subscribe_messages=True) as p:  # ensure pubsub connection is closed
+            try:
+                p.subscribe('metadata_update')
+            except Exception as e:
+                logger.error('The connection to the redis server failed: %s' % e)
+            else:
+                logger.info('metadata master starting listen')
 
-        while True:
-            # get all messages
+            message_check_time = time.time()
             while True:
-                message = p.get_message()
-                if not message:
-                    break
+                # get all messages
+                while True:
+                    message = p.get_message()
+                    if not message:
+                        break
 
-                try:
-                    data = json.loads(message['data'])
-                except:
-                    logger.warning('index master message: invalid.', message)
-                    data = None
+                    try:
+                        data = json.loads(message['data'])
+                    except:
+                        logger.warning('index master message: invalid.', message)
+                        data = None
 
-                if data:
-                    op_type = data.get('msg_type')
-                    repo_id = data.get('repo_id')
-                    commit_id = data.get('commit_id')
-                    if op_type == 'init-metadata':
+                    if data:
+                        op_type = data.get('msg_type')
+                        repo_id = data.get('repo_id')
+                        commit_id = data.get('commit_id')
+                        if op_type == 'init-metadata':
+                            data = op_type + '\t' + repo_id
+                            self.mq.lpush('metadata_task', data)
+                            logger.debug('init metadata: %s has been add to metadata task queue' % message['data'])
+                        elif op_type == 'repo-update':
+                            self.pending_tasks[repo_id] = commit_id
+                        elif op_type == 'update_face_recognition':
+                            username = data.get('username', '')
+                            data = op_type + '\t' + repo_id + '\t' + username
+                            self.mq.lpush('face_cluster_task', data)
+                            logger.debug('update face_recognition: %s has been add to metadata task queue' % message['data'])
+                        else:
+                            logger.warning('op_type invalid, repo_id: %s, op_type: %s' % (repo_id, op_type))
+
+                # check task
+                if len(self.pending_tasks) > 0:
+                    copied_pending_tasks = deepcopy(self.pending_tasks)
+                    for repo_id, commit_id in copied_pending_tasks.items():
+                        op_type = 'update-metadata'
                         data = op_type + '\t' + repo_id
                         self.mq.lpush('metadata_task', data)
-                        logger.debug('init metadata: %s has been add to metadata task queue' % message['data'])
-                    elif op_type == 'repo-update':
-                        self.pending_tasks[repo_id] = commit_id
-                    elif op_type == 'update_face_recognition':
-                        username = data.get('username', '')
-                        data = op_type + '\t' + repo_id + '\t' + username
-                        self.mq.lpush('face_cluster_task', data)
-                        logger.debug('update face_recognition: %s has been add to metadata task queue' % message['data'])
-                    else:
-                        logger.warning('op_type invalid, repo_id: %s, op_type: %s' % (repo_id, op_type))
+                        self.pending_tasks.pop(repo_id)
 
-            # check task
-            if len(self.pending_tasks) > 0:
-                copied_pending_tasks = deepcopy(self.pending_tasks)
-                for repo_id, commit_id in copied_pending_tasks.items():
-                    op_type = 'update-metadata'
-                    data = op_type + '\t' + repo_id
-                    self.mq.lpush('metadata_task', data)
-                    self.pending_tasks.pop(repo_id)
-
-            time.sleep(0.1)
+                if (time.time() - message_check_time) > self.no_message_check_interval:
+                    raise NoMessageException
+                # prevent waste resource when no message has been send
+                time.sleep(0.5)

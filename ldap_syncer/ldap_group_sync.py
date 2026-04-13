@@ -118,6 +118,10 @@ class LdapGroupSync(LdapSync):
         ret_data_ldap = department_data_ldap.copy()
         ret_data_ldap.update(group_data_ldap)
 
+        for group_uuid, group_obj in self.sort_list:
+            if not hasattr(group_obj, 'config'):
+                group_obj.config = config
+
         ldap_conn.unbind_conn()
 
         return ret_data_ldap

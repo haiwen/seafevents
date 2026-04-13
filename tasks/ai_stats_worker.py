@@ -26,7 +26,8 @@ class AIStatsReceiver(Thread):
         self._finished = Event()
         self._redis_client = RedisClient()
         self.stats_lock = Lock()
-    
+        self.no_message_check_interval = 5 * 60
+
     def save_to_memory(self, usage_info):
         if not usage_info.get('model'):
             return
@@ -61,6 +62,7 @@ class AIStatsReceiver(Thread):
             logger.warning('Can not start ai stats receiver: redis connection is not initialized')
             return
         subscriber = self._redis_client.get_subscriber(AI_STATS_CHANNEL)
+        message_check_time = time.time()
         while not self._finished.is_set():
             try:
                 message = subscriber.get_message()
@@ -77,6 +79,9 @@ class AIStatsReceiver(Thread):
                     except Exception as e:
                         logger.exception('save usage_info %s to memory error %s', usage_info, e)
                 else:
+                    if (time.time() - message_check_time) > self.no_message_check_interval:
+                        subscriber = self._redis_client.get_subscriber(AI_STATS_CHANNEL)
+                        message_check_time = time.time()
                     time.sleep(0.5)
             except Exception as e:
                 logger.error('Failed get message from redis: %s' % e)
@@ -92,7 +97,7 @@ class AIStatsSaver(Thread):
                             `cost`=`cost`+VALUES(`cost`),
                             `updated_at`=VALUES(`updated_at`)
     '''
-    
+
     OWNER_SQL = '''
     INSERT INTO `stats_ai_by_owner`(`username`, `month`, `model`, `input_tokens`, `output_tokens`, `cost`, `created_at`, `updated_at`) 
     VALUES (:username, :month, :model, :input_tokens, :output_tokens, :cost, :created_at, :updated_at)
@@ -101,7 +106,7 @@ class AIStatsSaver(Thread):
                             `cost`=`cost`+VALUES(`cost`),
                             `updated_at`=VALUES(`updated_at`)
     '''
-    
+
     RESET_OWNER_AI_CREDIT_SQL = 'TRUNCATE TABLE stats_ai_by_owner'
     RESET_TEAM_AI_CREDIT_SQL = 'TRUNCATE TABLE stats_ai_by_team'
 
