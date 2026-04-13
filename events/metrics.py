@@ -42,6 +42,7 @@ class MetricReceiver(Thread):
         Thread.__init__(self)
         self._finished = Event()
         self._redis_client = RedisClient()
+        self.no_message_check_interval = 5 * 60
 
     def run(self):
         logging.info('Starting handle redis channel')
@@ -49,6 +50,7 @@ class MetricReceiver(Thread):
             logging.warning('Can not start seafevents metrics handler: redis connection is not initialized')
             return
         subscriber = self._redis_client.get_subscriber(METRIC_CHANNEL_NAME)
+        message_check_time = time.time()
 
         while not self._finished.is_set():
             try:
@@ -69,7 +71,11 @@ class MetricReceiver(Thread):
                     except Exception as e:
                         logging.error('Handle metrics failed: %s' % e)
                 else:
+                    if (time.time() - message_check_time) > self.no_message_check_interval:
+                        subscriber = self._redis_client.get_subscriber(METRIC_CHANNEL_NAME)
+                        message_check_time = time.time()
                     time.sleep(0.5)
+
             except Exception as e:
                 logging.error('Failed handle metrics: %s' % e)
                 subscriber = self._redis_client.get_subscriber(METRIC_CHANNEL_NAME)
