@@ -173,6 +173,29 @@ class TextOperator(Operator):
     def __init__(self, column, filter_item):
         super(TextOperator, self).__init__(column, filter_item)
 
+    def _escape(self, v):
+        return str(v).replace("'", "''")
+
+    def _is_parent_dir(self):
+        return self.column_name == PrivatePropertyKeys.PARENT_DIR
+
+    def op_is(self):
+        if not self.filter_term:
+            return ""
+
+        if self._is_parent_dir() and isinstance(self.filter_term, list):
+            conditions = []
+
+            for t in self.filter_term:
+                t = self._escape(t)
+
+                conditions.append(
+                    f"(`{self.column_name}` = '{t}' OR `{self.column_name}` LIKE '{t}/%')"
+                )
+
+            return "(%s)" % " OR ".join(conditions)
+
+        return f"`{self.column_name}` = '{self._escape(self.filter_term)}'"
 
 class NumberOperator(Operator):
     SUPPORT_FILTER_PREDICATE = [
@@ -1233,6 +1256,16 @@ class SQLGenerator(object):
                     else:
                         filter_item['filter_predicate'] = 'is_any_of'
                         filter_item['filter_term'] = ['_picture', '_video']
+                filters.append(filter_item)
+            elif column_key == PrivatePropertyKeys.PARENT_DIR:
+                filter_term = filter_item.get('filter_term')
+
+                if isinstance(filter_term, list):
+                    if '/' in filter_term:
+                        continue
+                    if len(filter_term) == 0:
+                        continue
+                filter_item['filter_term'] = filter_term
                 filters.append(filter_item)
             else:
                 filters.append(filter_item)
