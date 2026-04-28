@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS `Activity` (
   `path` text NOT NULL,
   `detail` text NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `ix_Activity_timestamp` (`timestamp`)
+  KEY `ix_Activity_timestamp` (`timestamp`),
+  KEY `idx_activity_repo_timestamp` (`repo_id`, `timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `UserActivity` (
@@ -57,6 +58,7 @@ CREATE TABLE IF NOT EXISTS `FileHistory` (
   `old_path` text NOT NULL,
   PRIMARY KEY (`id`),
   KEY `ix_FileHistory_file_uuid` (`file_uuid`),
+  KEY `ix_FileHistory_repo_id_path_md5` (`repo_id_path_md5`),
   KEY `ix_FileHistory_timestamp` (`timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -71,11 +73,10 @@ CREATE TABLE IF NOT EXISTS `FileAudit` (
   `repo_id` varchar(36) NOT NULL,
   `file_path` text NOT NULL,
   PRIMARY KEY (`eid`),
-  KEY `ix_FileAudit_user` (`user`),
   KEY `idx_file_audit_user_orgid_eid` (`user`,`org_id`,`eid`),
   KEY `idx_file_audit_repo_org_eid` (`repo_id`,`org_id`,`eid`),
-  KEY `ix_FileAudit_timestamp` (`timestamp`),
-  KEY `ix_FileAudit_repo_id` (`repo_id`)
+  KEY `idx_file_audit_orgid_eid` (`org_id`,`eid`),
+  KEY `ix_FileAudit_timestamp` (`timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `FileUpdate` (
@@ -88,6 +89,7 @@ CREATE TABLE IF NOT EXISTS `FileUpdate` (
   `file_oper` text NOT NULL,
   PRIMARY KEY (`eid`),
   KEY `idx_file_update_user_orgid_eid` (`user`,`org_id`,`eid`),
+  KEY `idx_file_update_orgid_eid` (`org_id`,`eid`),
   KEY `ix_FileUpdate_timestamp` (`timestamp`),
   KEY `idx_file_update_repo_org_eid` (`repo_id`,`org_id`,`eid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -104,6 +106,8 @@ CREATE TABLE IF NOT EXISTS `PermAudit` (
   `permission` varchar(15) NOT NULL,
   PRIMARY KEY (`eid`),
   KEY `idx_perm_audit_repo_org_eid` (`repo_id`,`org_id`,`eid`),
+  KEY `idx_perm_audit_orgid_eid` (`org_id`,`eid`),
+  KEY `ix_perm_audit_timestamp` (`timestamp`),
   KEY `idx_perm_audit_user_orgid_eid` (`from_user`,`org_id`,`eid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -123,7 +127,7 @@ CREATE TABLE IF NOT EXISTS `FileOpsStat` (
   `number` int(11) NOT NULL,
   `org_id` int(11) NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_file_ops_time_org` (`timestamp`,`org_id`)
+  KEY `idx_file_ops_org_time` (`org_id`,`timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `UserActivityStat` (
@@ -200,6 +204,7 @@ CREATE TABLE IF NOT EXISTS `VirusFile` (
   `has_deleted` tinyint(1) NOT NULL,
   `has_ignored` tinyint(1) NOT NULL,
   PRIMARY KEY (`vid`),
+  KEY `ix_VirusFile_repo_id` (`repo_id`),
   KEY `ix_VirusFile_has_ignored` (`has_ignored`),
   KEY `ix_VirusFile_has_deleted` (`has_deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
