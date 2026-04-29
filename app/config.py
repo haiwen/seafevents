@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 import configparser
+from seaserv import ccnet_api
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ try:
     FILE_CONVERTER_SERVER_URL = getattr(seahub_settings, 'FILE_CONVERTER_SERVER_URL', '')
     SEADOC_PRIVATE_KEY = getattr(seahub_settings, 'SEADOC_PRIVATE_KEY', '')
     ENABLE_FACE_RECOGNITION = getattr(seahub_settings, 'ENABLE_FACE_RECOGNITION', False)
-
+    LICENSE_PATH = getattr(seahub_settings, 'LICENSE_PATH', '/opt/seafile/seafile-license.txt')
 except ImportError:
     logger.critical("Can not import seahub settings.")
     raise RuntimeError("Can not import seahub settings.")
@@ -142,3 +143,62 @@ def is_audit_enabled(config):
         except ValueError:
             return False
     return False
+
+def parse_license():
+    """Parse license file and return dict.
+
+    Arguments:
+    - `license_path`:
+
+    Returns:
+    e.g.
+
+    {'Hash': 'fdasfjl',
+    'Name': 'seafile official',
+    'Licencetype': 'User',
+    'LicenceKEY': '123',
+    'Expiration': '2016-3-2',
+    'MaxUsers': '1000000',
+    'ProductID': 'Seafile server for Windows'
+    }
+
+    """
+    ret = {}
+    lines = []
+    try:
+        with open(LICENSE_PATH, encoding='utf-8') as f:
+            lines = f.readlines()
+    except Exception as e:
+        logger.warning(e)
+        return {}
+
+    for line in lines:
+        if len(line.split('=')) == 2:
+            k, v = line.split('=')
+            ret[k.strip()] = v.strip().strip('"')
+
+    return ret
+
+def user_number_over_limit(new_users=0):
+    if IS_PRO_VERSION:
+        try:
+            # get license user limit
+            license_dict = parse_license()
+            max_users = int(license_dict.get('MaxUsers', 3))
+
+            # get active user number
+            active_users = ccnet_api.count_emailusers('DB')
+
+            if new_users < 0:
+                logger.debug('`new_users` must be greater or equal to 0.')
+                return False
+            elif new_users == 0:
+                return active_users >= max_users
+            else:
+                return active_users + new_users > max_users
+
+        except Exception as e:
+            logger.error(e)
+            return False
+    else:
+        return False

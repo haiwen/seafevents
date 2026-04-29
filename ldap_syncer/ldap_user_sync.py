@@ -2,6 +2,7 @@
 import uuid
 import logging
 
+from seafevents.app.config import user_number_over_limit
 from seaserv import seafile_api, ccnet_api
 from .ldap_conn import LdapConn
 from .ldap_sync import LdapSync
@@ -78,7 +79,6 @@ class LdapUserSync(LdapSync):
         self.ddept = 0
 
         self.login_attr_email_map = dict()
-
     def show_sync_result(self):
         logger.info('''LDAP user sync result: add [%d]user, update [%d]user, deactive [%d]user, add [%d]role, update [%d]role''' %
                      (self.auser, self.uuser, self.duser, self.arole, self.urole))
@@ -507,6 +507,9 @@ class LdapUserSync(LdapSync):
                 self.update_dept(email, ldap_user.dept)
 
         if not db_user.is_active and ldap_user.config.auto_reactivate_users:
+            if user_number_over_limit():
+                logger.warning(f'Reactivate user [{email}] failed, the number of active users has reached the license limit.' )
+                return
             try:
                 ret = ccnet_api.update_emailuser('DB', db_user.id, '!', db_user.is_staff, 1)
             except Exception as e:
@@ -554,6 +557,7 @@ class LdapUserSync(LdapSync):
 
         # sync undeleted user in ldap to db
         email_is_manual_set_map = {}
+        users_for_add = []
         for login_attr, ldap_user in data_ldap.items():
             if login_attr in self.login_attr_email_map:
                 email = self.login_attr_email_map[login_attr]
@@ -583,7 +587,15 @@ class LdapUserSync(LdapSync):
 
                 # if not exists, create a new user
                 elif self.settings.import_new_user:
-                    self.sync_add_user(ldap_user, login_attr)
-
+                    users_for_add.append((ldap_user, login_attr))
+        
+        if users_for_add:
+            new_users_count = len(users_for_add)
+            if self.settings.activate_user and user_number_over_limit(new_users_count):
+                logger.warning(f'Add users failed, the number of new users will exceed the license limit..' )
+                return
+            for ldap_user, login_attr in users_for_add:
+                self.sync_add_user(ldap_user, login_attr)
+            
         self.close_seahub_db()
         self.close_ccnet_db()
