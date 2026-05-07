@@ -270,15 +270,11 @@ def remove_repo_objs(repo_id, orig_storage_id):
     logger.info('The process of remove repo [%s] is over.\n', repo_id)
 
 def parse_seafile_db_config():
-    env = os.environ
-    seafile_conf = os.path.join(env['SEAFILE_CENTRAL_CONF_DIR'], 'seafile.conf')
-    cp = configparser.ConfigParser()
-    cp.read(seafile_conf)
-    host = cp.get('database', 'host')
-    port = cp.get('database', 'port')
-    user = cp.get('database', 'user')
-    passwd = cp.get('database', 'password')
-    db_name = cp.get('database', 'db_name')
+    host = os.environ.get('SEAFILE_MYSQL_DB_HOST', 'db')
+    port = os.environ.get('SEAFILE_MYSQL_DB_PORT', '3306')
+    user = os.environ.get('SEAFILE_MYSQL_DB_USER', 'seafile')
+    passwd = os.environ.get('SEAFILE_MYSQL_DB_PASSWORD')
+    db_name = os.environ.get('SEAFILE_MYSQL_DB_SEAFILE_DB_NAME', 'seafile_db')
 
     return host, port, user, passwd, db_name
 
