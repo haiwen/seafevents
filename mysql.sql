@@ -91,8 +91,7 @@ CREATE TABLE IF NOT EXISTS `FileUpdate` (
   KEY `idx_file_update_user_orgid_eid` (`user`,`org_id`,`eid`),
   KEY `idx_file_update_orgid_eid` (`org_id`,`eid`),
   KEY `ix_FileUpdate_timestamp` (`timestamp`),
-  KEY `idx_file_update_repo_org_eid` (`repo_id`,`org_id`,`eid`),
-  KEY `idx_file_update_orgid_eid` (`org_id`,`eid`)
+  KEY `idx_file_update_repo_org_eid` (`repo_id`,`org_id`,`eid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `PermAudit` (
@@ -211,8 +210,7 @@ CREATE TABLE IF NOT EXISTS `VirusFile` (
   PRIMARY KEY (`vid`),
   KEY `ix_VirusFile_repo_id` (`repo_id`),
   KEY `ix_VirusFile_has_ignored` (`has_ignored`),
-  KEY `ix_VirusFile_has_deleted` (`has_deleted`),
-  KEY `ix_VirusFile_repo_id` (`repo_id`)
+  KEY `ix_VirusFile_has_deleted` (`has_deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `GroupIdLDAPUuidPair` (
