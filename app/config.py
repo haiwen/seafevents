@@ -49,7 +49,7 @@ except ImportError:
 ################## config from env ################################
 
 ## config for metadata
-METADATA_SERVER_URL = os.environ.get('INNER_METADATA_SERVER_URL', 'http://127.0.0.1:8084')
+METADATA_SERVER_URL = os.environ.get('INNER_METADATA_SERVER_URL', '') or 'http://127.0.0.1:8084'
 ENABLE_METADATA_MANAGEMENT = os.environ.get('ENABLE_METADATA_MANAGEMENT', 'false').lower() == 'true'
 
 ## config for redis
