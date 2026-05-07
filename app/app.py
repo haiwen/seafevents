@@ -14,7 +14,7 @@ from seafevents.seasearch.index_task.wiki_index_updater import SeasearchWikiInde
 from seafevents.events.metrics import MetricsManager
 from seafevents.statistics.quota_usage_manager import QuotaUsageManager
 from seafevents.webhook.webhook import Webhooker
-from tasks.repo_storage_task import RepoStorageTask
+from seafevents.tasks.repo_storage_task import RepoStorageTask
 
 class App(object):
     def __init__(self, config, seafile_config,
