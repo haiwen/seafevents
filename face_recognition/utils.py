@@ -9,4 +9,3 @@ def recognize_faces_by_obj_ids(repo_id, obj_ids):
     seafile_ai_api = SeafileAIAPI(SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY)
     seafile_ai_api.recognize_faces(repo_id, obj_ids)
     return
-    

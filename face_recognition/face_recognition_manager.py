@@ -7,7 +7,6 @@ import json
 from sqlalchemy.sql import text
 
 from seafevents.db import init_db_session_class
-from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.seafile_ai_api import SeafileAIAPI
 from seafevents.face_recognition.utils import SUPPORTED_IMAGE_FORMATS
 from seafevents.app.config import SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
@@ -23,7 +22,6 @@ class FaceRecognitionManager(object):
 
     def __init__(self):
         self._db_session_class = init_db_session_class()
-        self.metadata_server_api = MetadataServerAPI('seafevents')
         self.seafile_ai_api = SeafileAIAPI(SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY)
 
     def check_face_recognition_status(self, repo_id):
