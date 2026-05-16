@@ -12,7 +12,7 @@ from seafevents.app.signal_handler import set_signal
 
 
 
-def main(background_tasks_only=False):
+def main():
     parser = argparse.ArgumentParser(description='seafevents main program')
     parser.add_argument('--config-file', default=os.path.join(os.getcwd(), 'events.conf'), help='config file')
     parser.add_argument('--logfile', help='log file')
@@ -63,7 +63,7 @@ def main(background_tasks_only=False):
 
 
 def run_background_tasks():
-    main(background_tasks_only=True)
+    main()
 
 
 if __name__ == '__main__':
