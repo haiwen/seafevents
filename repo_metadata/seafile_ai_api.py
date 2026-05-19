@@ -32,3 +32,45 @@ class SeafileAIAPI:
         }
         response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response)
+    
+    def face_cluster(self, repo_id):
+        headers = self.gen_headers()
+        url = f'{self.server_url}/api/v1/face-cluster'
+        data = {
+            'repo_id': repo_id,
+        }
+        response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
+        return parse_response(response)
+    
+    def face_batch_embeddings(self, repo_id, obj_ids, need_classify=False):
+        headers = self.gen_headers()
+        url = f'{self.server_url}/api/v1/face-batch-embeddings'
+        data = {
+            'repo_id': repo_id,
+            'obj_ids': obj_ids,
+            'need_classify': need_classify
+        }
+        response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
+        return parse_response(response)
+    
+    def update_people_cover_photo(self, repo_id, people_id, path, download_token):
+        headers = self.gen_headers()
+        url = f'{self.server_url}/api/v1/update-people-cover-photo'
+        data = {
+            'repo_id': repo_id,
+            'people_id': people_id,
+            'path': path,
+            'download_token': download_token
+        }
+        response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
+        return parse_response(response)
+    
+    def recognize_faces(self, repo_id, obj_ids):
+        headers = self.gen_headers()
+        url = f'{self.server_url}/api/v1/recognize-faces'
+        data = {
+            'repo_id': repo_id,
+            'obj_ids': obj_ids,
+        }
+        response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
+        return parse_response(response)
