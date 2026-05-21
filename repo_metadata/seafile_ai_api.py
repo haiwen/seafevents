@@ -53,14 +53,13 @@ class SeafileAIAPI:
         response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response)
     
-    def update_people_cover_photo(self, repo_id, people_id, path, download_token):
+    def update_people_cover_photo(self, repo_id, people_id, obj_id):
         headers = self.gen_headers()
         url = f'{self.server_url}/api/v1/update-people-cover-photo'
         data = {
             'repo_id': repo_id,
             'people_id': people_id,
-            'path': path,
-            'download_token': download_token
+            'obj_id': obj_id,
         }
         response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response)
