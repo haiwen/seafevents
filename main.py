@@ -7,12 +7,12 @@ from seafevents.db import create_db_tables, prepare_db_tables
 from seafevents.utils import write_pidfile
 from seafevents.app.log import LogConfigurator
 from seafevents.app.app import App
-from seafevents.app.config import get_config, is_cluster_enabled, is_syslog_enabled
+from seafevents.app.config import get_config, is_syslog_enabled
 from seafevents.app.signal_handler import set_signal
 
 
 
-def main(background_tasks_only=False):
+def main():
     parser = argparse.ArgumentParser(description='seafevents main program')
     parser.add_argument('--config-file', default=os.path.join(os.getcwd(), 'events.conf'), help='config file')
     parser.add_argument('--logfile', help='log file')
@@ -55,26 +55,15 @@ def main(background_tasks_only=False):
     seasearch_log_path = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'seasearch_index.log')
     app_logger.add_seasearch_logger(seasearch_log_path)
 
-    foreground_tasks_enabled = True
-    background_tasks_enabled = True
-
-    if background_tasks_only:
-        foreground_tasks_enabled = False
-        background_tasks_enabled = True
-    elif is_cluster_enabled(seafile_config):
-        foreground_tasks_enabled = True
-        background_tasks_enabled = False
-
     set_signal()
 
-    app = App(config, seafile_config, foreground_tasks_enabled=foreground_tasks_enabled,
-              background_tasks_enabled=background_tasks_enabled)
+    app = App(config, seafile_config)
 
     app.serve_forever()
 
 
 def run_background_tasks():
-    main(background_tasks_only=True)
+    main()
 
 
 if __name__ == '__main__':
