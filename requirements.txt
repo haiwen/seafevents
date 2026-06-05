@@ -9,4 +9,4 @@ beautifulsoup4==4.14.*
 mdit_py_plugins==0.5.*
 linkify-it-py==2.0.*
 python-memcached==1.62
-pyjwt==2.11.*
+pyjwt==2.13.*
