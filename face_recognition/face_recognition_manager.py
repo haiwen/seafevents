@@ -93,6 +93,6 @@ class FaceRecognitionManager(object):
             session.execute(text(sql))
             session.commit()
 
-    def update_people_cover_photo(self, repo_id, people_id, path, download_token):
-        self.seafile_ai_api.update_people_cover_photo(repo_id, people_id, path, download_token)
+    def update_people_cover_photo(self, repo_id, people_id, obj_id):
+        self.seafile_ai_api.update_people_cover_photo(repo_id, people_id, obj_id)
         return 
