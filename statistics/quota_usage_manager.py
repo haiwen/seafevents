@@ -131,7 +131,7 @@ class QuotaUsageCounter(object):
             session.commit()
     
     def start_count(self):
-        repos = storage_changed_repo_ids.keys()
+        repos = list(storage_changed_repo_ids.keys())
         if len(repos) > 0:
             logging.info('Start counting quota usage by repos, current %s repos waiting to count' % len(repos))
         for repo_id in repos:
