@@ -117,8 +117,6 @@ class EventsHandler(object):
                     logger.error(e)
                 finally:
                     session.close()
-                    if redis_connection:
-                        redis_connection.close()
             else:
                 time.sleep(0.5)
 
