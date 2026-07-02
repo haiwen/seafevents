@@ -44,6 +44,8 @@ try:
     ORG_MEMBER_QUOTA_ENABLED = getattr(seahub_settings, 'ORG_MEMBER_QUOTA_ENABLED', False)
     ORG_MEMBER_QUOTA_DEFAULT = getattr(seahub_settings, 'ORG_MEMBER_QUOTA_DEFAULT', 10)
     LICENSE_PATH = getattr(seahub_settings, 'LICENSE_PATH', '/opt/seafile/seafile-license.txt')
+    ENABLE_RISK_CONTROL = getattr(seahub_settings, 'ENABLE_RISK_CONTROL', False)
+    RISK_CONTROL_SERVER_URL = getattr(seahub_settings, 'RISK_CONTROL_SERVER_URL', '')
 except ImportError:
     logger.critical("Can not import seahub settings.")
     raise RuntimeError("Can not import seahub settings.")
