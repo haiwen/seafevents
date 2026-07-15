@@ -8,9 +8,10 @@ from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, Ti
 from seafevents.mq import get_mq
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
-from seafevents.repo_metadata.utils import add_file_details
+from seafevents.repo_metadata.seafile_ai_api import SeafileAIAPI
+from seafevents.repo_metadata.utils import add_ai_summary, add_file_details
 from seafevents.db import init_db_session_class
-from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
+from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY
 from seafevents.utils import get_opt_from_conf_or_env
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,9 @@ class SlowMetadataTaskHandler(object):
     def __init__(self, config):
         self.metadata_server_api = MetadataServerAPI('seafevents')
         self.face_recognition_manager = FaceRecognitionManager()
+        self.seafile_ai_api = None
+        if SEAFILE_AI_SERVER_URL and SEAFILE_AI_SECRET_KEY:
+            self.seafile_ai_api = SeafileAIAPI(SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY)
 
         self.should_stop = threading.Event()
         self.mq_server = REDIS_HOST
@@ -84,10 +88,15 @@ class SlowMetadataTaskHandler(object):
     def extract_file_info(self, repo_id, data):
         logger.info('%s start extract file info repo %s' % (threading.current_thread().name, repo_id))
 
+        obj_ids = data.get('obj_ids')
         try:
-            obj_ids = data.get('obj_ids')
             add_file_details(repo_id, obj_ids, self.metadata_server_api, self.face_recognition_manager)
         except Exception as e:
             logger.exception('repo: %s, update metadata file info error: %s', repo_id, e)
+
+        try:
+            add_ai_summary(repo_id, obj_ids, self.metadata_server_api, self.seafile_ai_api)
+        except Exception as e:
+            logger.exception('repo: %s, update metadata ai summary error: %s', repo_id, e)
 
         logger.info('%s finish extract file info repo %s' % (threading.current_thread().name, repo_id))

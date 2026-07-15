@@ -57,6 +57,8 @@ class PrivatePropertyKeys:
     SIZE = '_size'
     SUFFIX = '_suffix'
     FILE_DETAILS = '_file_details'
+    AI_SUMMARY = '_ai_summary'
+    AI_SUMMARY_MTIME = '_ai_summary_mtime'
     CAPTURE_TIME = '_capture_time'
     OWNER = '_owner'
     FACE_VECTORS = '_face_vectors'
@@ -199,6 +201,8 @@ class MetadataColumns(object):
         self.size = MetadataColumn(PrivatePropertyKeys.SIZE, '_size', PropertyTypes.NUMBER)
         self.suffix = MetadataColumn(PrivatePropertyKeys.SUFFIX, '_suffix', PropertyTypes.TEXT)
         self.file_details = MetadataColumn(PrivatePropertyKeys.FILE_DETAILS, '_file_details', PropertyTypes.LONG_TEXT)
+        self.ai_summary = MetadataColumn(PrivatePropertyKeys.AI_SUMMARY, '_ai_summary', PropertyTypes.TEXT)
+        self.ai_summary_mtime = MetadataColumn(PrivatePropertyKeys.AI_SUMMARY_MTIME, '_ai_summary_mtime', PropertyTypes.DATE)
         self.description = MetadataColumn(PrivatePropertyKeys.FILE_DESCRIPTION, '_description', PropertyTypes.LONG_TEXT)
 
         self.collaborator = MetadataColumn(PrivatePropertyKeys.FILE_COLLABORATORS, '_collaborators', PropertyTypes.COLLABORATOR)
@@ -312,6 +316,8 @@ FACES_TABLE = FacesTable('faces', '0001', '0004', '0005')
 TAGS_TABLE = TagsTable('tags', '0002', '0003')
 
 ZERO_OBJ_ID = '0000000000000000000000000000000000000000'
+
+SUMMARY_SUPPORTED_FILE_EXTENSIONS = ['sdoc', 'md', 'markdown', 'docx', 'pdf', 'pptx']
 
 
 FILE_DETAIL_EXTRACT_CONTENT_LIMIT = 20 * 1024 * 1024
