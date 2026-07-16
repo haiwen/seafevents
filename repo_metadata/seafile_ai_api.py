@@ -76,7 +76,7 @@ class SeafileAIAPI:
 
     def generate_ai_summary(self, repo_id, obj_id, path, username='system', org_id=None):
         headers = self.gen_headers()
-        url = f'{self.server_url}/api/v1/generate-ai-summary'
+        url = f'{self.server_url}/api/v1/generate-summary'
         data = {
             'repo_id': repo_id,
             'obj_id': obj_id,
