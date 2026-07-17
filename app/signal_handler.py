@@ -24,8 +24,16 @@ def kill_face_cluster():
     run(cmd)
 
 
+def kill_ai_summary():
+    cmd = [
+        'pkill', '-f', 'seafevents.ai_summary.ai_summary'
+    ]
+    run(cmd)
+
+
 def signal_term_handler(signal, frame):
     kill_face_cluster()
+    kill_ai_summary()
     os._exit(0)
 
 

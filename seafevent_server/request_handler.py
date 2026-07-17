@@ -5,7 +5,6 @@ import datetime
 
 from flask import Flask, request, make_response
 from seafevents.app.config import SEAHUB_SECRET_KEY
-from seafevents.mq import get_mq
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seafevents.seafevent_server.import_task_manager import event_import_task_manager
@@ -16,7 +15,6 @@ from seafevents.repo_metadata.utils import add_file_details
 from seafevents.app.cache_provider import cache
 from seafevents.app.event_redis import redis_cache, REDIS_METRIC_KEY
 from seafevents.face_recognition.utils import recognize_faces_by_obj_ids
-from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 
 
 app = Flask(__name__)
@@ -215,6 +213,28 @@ def add_init_face_recognition_task():
     return make_response(({'task_id': task_id}, 200))
 
 
+@app.route('/add-init-ai-summary-task', methods=['GET'])
+def add_init_ai_summary_task():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+
+    if task_manager.tasks_queue.full():
+        logger.warning('seafevent server busy, queue size: %d' % (task_manager.tasks_queue.qsize(),))
+        return make_response(('seafevent server busy.', 400))
+
+    username = request.args.get('username')
+    repo_id = request.args.get('repo_id')
+
+    try:
+        task_id = task_manager.add_init_ai_summary_task(username, repo_id)
+    except Exception as e:
+        logger.error(e)
+        return make_response((e, 500))
+
+    return make_response(({'task_id': task_id}, 200))
+
+
 @app.route('/recognize-faces', methods=['POST'])
 def recognize_faces():
     is_valid = check_auth_token(request)
@@ -268,42 +288,6 @@ def extract_file_details():
     details = add_file_details(repo_id, obj_ids, metadata_server_api)
 
     return {'details': details}, 200
-
-
-@app.route('/generate-ai-summary', methods=['POST'])
-def generate_ai_summary():
-    '''
-    Initial AI summary backfill for existing repo files.
-    '''
-    is_valid, error = check_auth_token(request)
-    if not is_valid:
-        return {'error_msg': str(error or 'Permission denied')}, 403
-
-    try:
-        data = json.loads(request.data)
-    except Exception as e:
-        logger.exception(e)
-        return {'error_msg': 'Bad request.'}, 400
-
-    obj_ids = data.get('obj_ids')
-    repo_id = data.get('repo_id')
-    if not obj_ids or not isinstance(obj_ids, list):
-        return {'error_msg': 'obj_ids invalid.'}, 400
-    if not repo_id:
-        return {'error_msg': 'repo_id invalid.'}, 400
-
-    mq = get_mq(REDIS_HOST, REDIS_PORT, REDIS_PASSWORD)
-    if not mq:
-        return {'error_msg': 'Redis server unavailable.'}, 500
-
-    task = {
-        'repo_id': repo_id,
-        'task_type': 'file_info_extract',
-        'obj_ids': obj_ids,
-    }
-    mq.lpush('metadata_slow_task', json.dumps(task))
-    return {'success': True}, 200
-
 
 @app.route('/search-wikis', methods=['POST'])
 def search_wikis():

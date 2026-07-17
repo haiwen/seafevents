@@ -82,6 +82,11 @@ class RepoMetadataIndexMaster(Thread):
                             data = op_type + '\t' + repo_id + '\t' + username
                             self.mq.lpush('face_cluster_task', data)
                             logger.debug('update face_recognition: %s has been add to metadata task queue' % message['data'])
+                        elif op_type == 'init_ai_summary':
+                            username = data.get('username', '')
+                            data = op_type + '\t' + repo_id + '\t' + username
+                            self.mq.lpush('init_ai_summary_task', data)
+                            logger.debug('init ai_summary: %s has been add to metadata task queue' % message['data'])
                         else:
                             logger.warning('op_type invalid, repo_id: %s, op_type: %s' % (repo_id, op_type))
 
