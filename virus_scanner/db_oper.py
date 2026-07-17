@@ -73,8 +73,10 @@ class DBOper(object):
     def add_virus_record(self, records):
         session = self.edb_session()
         try:
-            session.add_all(VirusFile(repo_id, commit_id, file_path, 0, 0)
-                            for repo_id, commit_id, file_path in records)
+            session.add_all(
+                VirusFile(repo_id, commit_id, file_path, 0, 0, virus_signature)
+                for repo_id, commit_id, file_path, virus_signature in records
+            )
             session.commit()
             return 0
         except Exception as e:
