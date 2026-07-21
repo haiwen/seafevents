@@ -109,9 +109,9 @@ class AISummaryTaskWorker(object):
         lock_key = self._get_lock_key(repo_id)
         if not self.mq.set(lock_key, time.time(), ex=self.lock_timeout, nx=True):
             self.mq.rpush(self._get_task_queue(is_init), self._build_task_payload(repo_id, obj_ids, is_init=is_init))
-            logger.info('repo: %s ai summary is running, requeue this batch', repo_id)
+            logger.debug('repo: %s ai summary is running, requeue this batch', repo_id)
             logger.debug('Requeued ai summary task repo=%s, queue=%s, obj_count=%d, retry_interval=%s',
-                         repo_id, self._get_task_queue(is_init), len(obj_ids), self.lock_busy_retry_interval)
+                          repo_id, self._get_task_queue(is_init), len(obj_ids), self.lock_busy_retry_interval)
             time.sleep(self.lock_busy_retry_interval)
             return
 
