@@ -11,7 +11,7 @@ from seafevents.ai_summary.ai_summary_manager import AISummaryManager
 from seafevents.ai_summary.ai_summary_worker import AISummaryTaskWorker
 from seafevents.app.config import get_config
 from seafevents.app.log import LogConfigurator
-from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
+from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, AI_SUMMARY_INIT_WORKERS, AI_SUMMARY_BATCH_SIZE
 
 logger = logging.getLogger('ai_summary')
 
@@ -40,8 +40,8 @@ class AISummary(object):
         self.worker_list = []
 
     def _parse_config(self, config):
-        self.init_worker_num = int(os.environ.get('AI_SUMMARY_INIT_WORKERS', 1))
-        self.batch_size = int(os.environ.get('AI_SUMMARY_BATCH_SIZE', 50))
+        self.init_worker_num = AI_SUMMARY_INIT_WORKERS
+        self.batch_size = AI_SUMMARY_BATCH_SIZE
 
     def _get_init_ai_summary_lock_key(self, repo_id):
         return 'init_ai_summary_' + repo_id

@@ -13,14 +13,14 @@ __all__ = [
 
 
 class AISummaryUpdater(object):
-    def __init__(self, config):
+    def __init__(self):
         self._enabled = ENABLE_SEAFILE_AI
         self._logfile = None
         self._loglevel = None
 
-        self._parse_config(config)
+        self._parse_config()
 
-    def _parse_config(self, config):
+    def _parse_config(self):
         logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'ai_summary.log')
         self._logfile = os.path.abspath(logfile)
         self._loglevel = 'info'

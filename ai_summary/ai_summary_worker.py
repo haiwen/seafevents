@@ -1,13 +1,13 @@
 import json
 import logging
-import os
 import threading
 import time
 
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 
 from seafevents.mq import get_mq
-from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY
+from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY, \
+    AI_SUMMARY_WORKERS, AI_SUMMARY_LOCK_BUSY_RETRY_INTERVAL
 from seafevents.ai_summary.ai_summary_manager import AISummaryManager
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.seafile_ai_api import SeafileAIAPI
@@ -19,7 +19,6 @@ logger = logging.getLogger('ai_summary')
 class AISummaryTaskWorker(object):
     HIGH_PRIORITY_TASK_QUEUE = 'ai_summary_task_high'
     LOW_PRIORITY_TASK_QUEUE = 'ai_summary_task_low'
-    LOCK_BUSY_RETRY_INTERVAL = 1
 
     def __init__(self, config, should_stop, locked_keys):
         self.should_stop = should_stop
@@ -28,7 +27,8 @@ class AISummaryTaskWorker(object):
         self.mq_server = REDIS_HOST
         self.mq_port = REDIS_PORT
         self.mq_password = REDIS_PASSWORD
-        self.worker_num = 3
+        self.worker_num = AI_SUMMARY_WORKERS
+        self.lock_busy_retry_interval = AI_SUMMARY_LOCK_BUSY_RETRY_INTERVAL
         self._parse_config(config)
 
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
@@ -38,7 +38,7 @@ class AISummaryTaskWorker(object):
         self.worker_list = []
 
     def _parse_config(self, config):
-        self.worker_num = int(os.environ.get('AI_SUMMARY_WORKERS', 3))
+        return
 
     def _get_lock_key(self, repo_id):
         return 'ai_summary_' + repo_id
@@ -108,7 +108,7 @@ class AISummaryTaskWorker(object):
         if not self.mq.set(lock_key, time.time(), ex=self.lock_timeout, nx=True):
             self.mq.rpush(self._get_task_queue(is_init), self._build_task_payload(repo_id, obj_ids, is_init=is_init))
             logger.info('repo: %s ai summary is running, requeue this batch', repo_id)
-            time.sleep(self.LOCK_BUSY_RETRY_INTERVAL)
+            time.sleep(self.lock_busy_retry_interval)
             return
 
         self.locked_keys.add(lock_key)

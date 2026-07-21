@@ -52,7 +52,7 @@ class App(object):
             if ENABLE_METADATA_MANAGEMENT:
                 self._index_master = RepoMetadataIndexMaster(config)
                 self._face_cluster_updater = FaceClusterUpdater(config)
-                self._ai_summary_updater = AISummaryUpdater(config)
+                self._ai_summary_updater = AISummaryUpdater()
                 self._slow_md_task_handler = SlowMetadataTaskHandler(config)
                 self._face_cluster_task_publisher = FaceClusterTaskPublisher()
             self._repo_file_index_updater = RepoFileIndexUpdater(config)
