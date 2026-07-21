@@ -52,6 +52,9 @@ def main(background_tasks_only=False):
     if is_syslog_enabled(config):
         app_logger.add_syslog_handler()
 
+    ai_summary_log_path = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'ai_summary.log')
+    app_logger.add_ai_summary_logger(ai_summary_log_path)
+
     seasearch_log_path = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'seasearch_index.log')
     app_logger.add_seasearch_logger(seasearch_log_path)
 
