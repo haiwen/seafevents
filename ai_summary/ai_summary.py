@@ -7,8 +7,8 @@ import signal
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 
 from seafevents.mq import get_mq
-from seafevents.utils import get_opt_from_conf_or_env
 from seafevents.ai_summary.ai_summary_manager import AISummaryManager
+from seafevents.ai_summary.ai_summary_worker import AISummaryTaskWorker
 from seafevents.app.config import get_config
 from seafevents.app.log import LogConfigurator
 from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
@@ -21,6 +21,7 @@ class AISummary(object):
     """
 
     def __init__(self, config):
+        self.config = config
         self.should_stop = threading.Event()
         self.LOCK_TIMEOUT = 1800
         self.REFRESH_INTERVAL = 600
@@ -28,19 +29,19 @@ class AISummary(object):
         self.mq_server = REDIS_HOST
         self.mq_port = REDIS_PORT
         self.mq_password = REDIS_PASSWORD
-        self.worker_num = 3
+        self.init_worker_num = 1
+        self.batch_size = 50
         self._parse_config(config)
 
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
         self.ai_summary_manager = AISummaryManager()
+        self.ai_summary_task_worker = AISummaryTaskWorker(config, self.should_stop, self.locked_keys)
         self.set_signal()
         self.worker_list = []
 
     def _parse_config(self, config):
-        metadata_section_name = 'METADATA'
-        key_index_workers = 'index_workers'
-        if config.has_section(metadata_section_name):
-            self.worker_num = get_opt_from_conf_or_env(config, metadata_section_name, key_index_workers, default=3)
+        self.init_worker_num = int(os.environ.get('AI_SUMMARY_INIT_WORKERS', 1))
+        self.batch_size = int(os.environ.get('AI_SUMMARY_BATCH_SIZE', 50))
 
     def _get_init_ai_summary_lock_key(self, repo_id):
         return 'init_ai_summary_' + repo_id
@@ -50,6 +51,8 @@ class AISummary(object):
         return threading.current_thread().name
 
     def clear_worker(self):
+        for th in self.ai_summary_task_worker.worker_list:
+            th.join()
         for th in self.worker_list:
             th.join()
         logger.info('All ai summary worker threads has stopped.')
@@ -57,7 +60,10 @@ class AISummary(object):
     def start(self):
         if not self.mq:
             return
-        for i in range(int(self.worker_num)):
+
+        self.ai_summary_task_worker.start()
+
+        for i in range(int(self.init_worker_num)):
             t = threading.Thread(target=self.init_ai_summary_handler, name='init_ai_summary_' + str(i), daemon=True)
             t.start()
             self.worker_list.append(t)
@@ -106,7 +112,7 @@ class AISummary(object):
 
     def init_ai_summary(self, repo_id, username=None):
         try:
-            self.ai_summary_manager.init_ai_summary(repo_id, username=username)
+            self.ai_summary_manager.init_ai_summary(repo_id, username=username, batch_size=self.batch_size)
         except Exception as e:
             logger.exception('init ai summary repo: %s, error: %s', repo_id, e)
 

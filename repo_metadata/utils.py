@@ -374,6 +374,7 @@ def add_ai_summary(repo_id, obj_ids, metadata_server_api, seafile_ai_api):
     if not query_result:
         return []
 
+    logger.info('obj_ids: %s' % ', '.join(obj_ids))
     all_updated_rows = []
     updated_rows = []
     processed_time = datetime.now(timezone.utc).isoformat()
