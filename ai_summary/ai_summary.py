@@ -3,7 +3,6 @@ import time
 import logging
 import argparse
 import threading
-import signal
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 
 from seafevents.mq import get_mq
@@ -36,7 +35,6 @@ class AISummary(object):
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
         self.ai_summary_manager = AISummaryManager()
         self.ai_summary_task_worker = AISummaryTaskWorker(config, self.should_stop, self.locked_keys)
-        self.set_signal()
         self.worker_list = []
 
     def _parse_config(self, config):
@@ -142,14 +140,7 @@ class AISummary(object):
         for key in self.locked_keys:
             self.mq.delete(key)
             logger.info('redis lock key %s has been deleted', key)
-        logger.info('Exit ai summary process')
-        os._exit(0)
-
-    def signal_term_handler(self, signal, frame):
-        self.clear()
-
-    def set_signal(self):
-        signal.signal(signal.SIGTERM, self.signal_term_handler)
+        logger.info('Exit ai summary worker')
 
 
 def start(config):
