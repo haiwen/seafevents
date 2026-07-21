@@ -33,6 +33,8 @@ class AISummaryManager(object):
 
     def init_ai_summary(self, repo_id, username=None, batch_size=50):
         if not self.seafile_ai_api or not self.mq or not is_summary_enabled(repo_id):
+            logger.debug('Skip init ai summary repo=%s, ai_server=%s, mq=%s, summary_enabled=%s',
+                         repo_id, bool(self.seafile_ai_api), bool(self.mq), is_summary_enabled(repo_id))
             return
 
         logger.info('Dispatching ai summary tasks for repo %s', repo_id)
@@ -53,18 +55,25 @@ class AISummaryManager(object):
             query_sql = f'{base_sql} LIMIT {start}, {self.QUERY_PAGE_SIZE}'
             rows = self.metadata_server_api.query_rows(repo_id, query_sql, []).get('results', [])
             if not rows:
+                logger.debug('No more init ai summary rows repo=%s, start=%d', repo_id, start)
                 break
+
+            logger.debug('Fetched init ai summary rows repo=%s, start=%d, row_count=%d',
+                         repo_id, start, len(rows))
 
             obj_ids = []
             for row in rows:
                 obj_id = row.get(METADATA_TABLE.columns.obj_id.name)
                 suffix = (row.get(METADATA_TABLE.columns.suffix.name) or '').lower()
                 if not obj_id or suffix not in support_suffixes:
+                    logger.debug('Skip init ai summary candidate repo=%s, obj_id=%s, suffix=%s', repo_id, obj_id, suffix)
                     continue
 
                 file_mtime = parse_iso_datetime(row.get(METADATA_TABLE.columns.file_mtime.name))
                 ai_summary_mtime = parse_iso_datetime(row.get(METADATA_TABLE.columns.ai_summary_mtime.name))
                 if file_mtime and ai_summary_mtime and ai_summary_mtime >= file_mtime:
+                    logger.debug('Skip up-to-date init ai summary repo=%s, obj_id=%s, file_mtime=%s, ai_summary_mtime=%s',
+                                 repo_id, obj_id, file_mtime, ai_summary_mtime)
                     continue
 
                 obj_ids.append(obj_id)
@@ -99,6 +108,8 @@ class AISummaryManager(object):
 
         queue_name = self.AI_SUMMARY_INIT_TASK_QUEUE if is_init else self.AI_SUMMARY_TASK_QUEUE
         self.mq.lpush(queue_name, json.dumps(msg))
+        logger.debug('Enqueued ai summary task repo=%s, queue=%s, is_init=%s, obj_count=%d',
+                     repo_id, queue_name, is_init, len(obj_ids))
 
     def mark_init_ai_summary_notification(self, repo_id, username, task_count):
         if not self.mq or not repo_id or not username or task_count <= 0:
@@ -106,6 +117,7 @@ class AISummaryManager(object):
 
         self.mq.set(self.NOTIFY_COUNT_KEY_PREFIX + repo_id, task_count, ex=24 * 60 * 60)
         self.mq.set(self.NOTIFY_USER_KEY_PREFIX + repo_id, username, ex=24 * 60 * 60)
+        logger.debug('Marked init ai summary notification repo=%s, username=%s, task_count=%d', repo_id, username, task_count)
 
     def finish_init_ai_summary_batch(self, repo_id):
         if not self.mq or not repo_id:
@@ -114,9 +126,11 @@ class AISummaryManager(object):
         count_key = self.NOTIFY_COUNT_KEY_PREFIX + repo_id
         user_key = self.NOTIFY_USER_KEY_PREFIX + repo_id
         if not self.mq.exists(count_key):
+            logger.debug('Init ai summary notify counter missing repo=%s', repo_id)
             return
 
         remaining = self.mq.decr(count_key)
+        logger.debug('Init ai summary batch finished repo=%s, remaining=%s', repo_id, remaining)
         if remaining > 0:
             return
 

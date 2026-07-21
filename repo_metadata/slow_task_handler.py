@@ -87,6 +87,7 @@ class SlowMetadataTaskHandler(object):
         logger.info('%s start extract file info repo %s' % (threading.current_thread().name, repo_id))
 
         obj_ids = data.get('obj_ids')
+        logger.debug('Extract file info task repo=%s, obj_count=%d', repo_id, len(obj_ids) if isinstance(obj_ids, list) else 0)
         try:
             add_file_details(repo_id, obj_ids, self.metadata_server_api, self.face_recognition_manager)
         except Exception as e:
@@ -94,6 +95,8 @@ class SlowMetadataTaskHandler(object):
 
         try:
             self.ai_summary_manager.add_ai_summary_task(repo_id, obj_ids)
+            logger.debug('Enqueued incremental ai summary task repo=%s, obj_count=%d',
+                         repo_id, len(obj_ids) if isinstance(obj_ids, list) else 0)
         except Exception as e:
             logger.exception('repo: %s, enqueue metadata ai summary task error: %s', repo_id, e)
 

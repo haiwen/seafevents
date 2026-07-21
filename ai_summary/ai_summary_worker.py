@@ -88,6 +88,8 @@ class AISummaryTaskWorker(object):
                     repo_id = data.get('repo_id')
                     obj_ids = data.get('obj_ids')
                     is_init = bool(data.get('is_init'))
+                    logger.debug('%s dequeued ai summary task queue=%s, repo=%s, is_init=%s, obj_count=%d',
+                                 self.tname, key, repo_id, is_init, len(obj_ids) if isinstance(obj_ids, list) else 0)
                     self.handle_task(repo_id, obj_ids, is_init=is_init)
                 except (ResponseError, NoMQAvailable, TimeoutError) as e:
                     logger.error('The connection to the redis server failed: %s', e)
@@ -108,10 +110,13 @@ class AISummaryTaskWorker(object):
         if not self.mq.set(lock_key, time.time(), ex=self.lock_timeout, nx=True):
             self.mq.rpush(self._get_task_queue(is_init), self._build_task_payload(repo_id, obj_ids, is_init=is_init))
             logger.info('repo: %s ai summary is running, requeue this batch', repo_id)
+            logger.debug('Requeued ai summary task repo=%s, queue=%s, obj_count=%d, retry_interval=%s',
+                         repo_id, self._get_task_queue(is_init), len(obj_ids), self.lock_busy_retry_interval)
             time.sleep(self.lock_busy_retry_interval)
             return
 
         self.locked_keys.add(lock_key)
+        logger.debug('%s acquired ai summary lock repo=%s, lock_key=%s', self.tname, repo_id, lock_key)
         try:
             logger.info('%s start ai summary batch repo %s, obj_count=%d', self.tname, repo_id, len(obj_ids))
             add_ai_summary(repo_id, obj_ids, self.metadata_server_api, self.seafile_ai_api)
@@ -126,3 +131,4 @@ class AISummaryTaskWorker(object):
             except KeyError:
                 logger.error('%s is already removed. SHOULD NOT HAPPEN!', lock_key)
             self.mq.delete(lock_key)
+            logger.debug('%s released ai summary lock repo=%s, lock_key=%s', self.tname, repo_id, lock_key)

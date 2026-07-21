@@ -60,8 +60,9 @@ class AISummary(object):
     def start(self):
         if not self.mq:
             return
-
+        
         self.ai_summary_task_worker.start()
+        logger.info('AI summary task worker started with %d threads', len(self.ai_summary_task_worker.worker_list))
 
         for i in range(int(self.init_worker_num)):
             t = threading.Thread(target=self.init_ai_summary_handler, name='init_ai_summary_' + str(i), daemon=True)

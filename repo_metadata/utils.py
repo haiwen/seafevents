@@ -368,13 +368,16 @@ def parse_iso_datetime(value):
 
 def add_ai_summary(repo_id, obj_ids, metadata_server_api, seafile_ai_api):
     if not obj_ids or not seafile_ai_api or not is_summary_enabled(repo_id):
+        logger.debug('Skip add_ai_summary repo=%s, obj_count=%d, ai_server=%s, summary_enabled=%s',
+                     repo_id, len(obj_ids) if obj_ids else 0, bool(seafile_ai_api), is_summary_enabled(repo_id))
         return []
 
     query_result = get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api)
     if not query_result:
+        logger.debug('No metadata rows found for ai summary repo=%s, obj_count=%d', repo_id, len(obj_ids))
         return []
 
-    logger.info('obj_ids: %s' % ', '.join(obj_ids))
+    logger.debug('Preparing ai summary repo=%s, obj_count=%d, row_count=%d', repo_id, len(obj_ids), len(query_result))
     all_updated_rows = []
     updated_rows = []
     processed_time = datetime.now(timezone.utc).isoformat()
@@ -383,9 +386,11 @@ def add_ai_summary(repo_id, obj_ids, metadata_server_api, seafile_ai_api):
         file_name = row.get(METADATA_TABLE.columns.file_name.name) or ''
         suffix = row.get(METADATA_TABLE.columns.suffix.name) or ''
         if not row_id or not file_name:
+            logger.debug('Skip ai summary row without row_id/file_name repo=%s, row_id=%s, file_name=%s', repo_id, row_id, file_name)
             continue
 
         if not is_supported_summary_file(file_name, suffix):
+            logger.debug('Skip unsupported ai summary file repo=%s, row_id=%s, file_name=%s, suffix=%s', repo_id, row_id, file_name, suffix)
             if row.get(METADATA_TABLE.columns.ai_summary.name) or row.get(METADATA_TABLE.columns.ai_summary_mtime.name):
                 updated_rows.append({
                     METADATA_TABLE.columns.id.name: row_id,
@@ -397,6 +402,7 @@ def add_ai_summary(repo_id, obj_ids, metadata_server_api, seafile_ai_api):
         file_mtime = parse_iso_datetime(row.get(METADATA_TABLE.columns.file_mtime.name))
         ai_summary_mtime = parse_iso_datetime(row.get(METADATA_TABLE.columns.ai_summary_mtime.name))
         if file_mtime and ai_summary_mtime and ai_summary_mtime >= file_mtime:
+            logger.debug('Skip up-to-date ai summary repo=%s, row_id=%s, file_name=%s', repo_id, row_id, file_name)
             continue
 
         parent_dir = row.get(METADATA_TABLE.columns.parent_dir.name) or '/'
@@ -408,6 +414,9 @@ def add_ai_summary(repo_id, obj_ids, metadata_server_api, seafile_ai_api):
             logger.warning('repo_id: %s, generate ai summary failed, obj_id: %s, error: %s.', repo_id, obj_id, e)
             continue
 
+        logger.debug('Generated ai summary repo=%s, obj_id=%s, file_path=%s, summary_length=%d',
+                     repo_id, obj_id, file_path, len(summary or ''))
+
         updated_rows.append({
             METADATA_TABLE.columns.id.name: row_id,
             METADATA_TABLE.columns.ai_summary.name: summary or '',
@@ -416,12 +425,16 @@ def add_ai_summary(repo_id, obj_ids, metadata_server_api, seafile_ai_api):
 
         if len(updated_rows) >= METADATA_OP_LIMIT:
             metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
+            logger.debug('Flushed ai summary rows repo=%s, flushed_count=%d', repo_id, len(updated_rows))
             all_updated_rows.extend(updated_rows)
             updated_rows = []
 
     if updated_rows:
         metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
+        logger.debug('Flushed ai summary rows repo=%s, flushed_count=%d', repo_id, len(updated_rows))
         all_updated_rows.extend(updated_rows)
+
+    logger.debug('Finished add_ai_summary repo=%s, updated_row_count=%d', repo_id, len(all_updated_rows))
 
     return all_updated_rows
 
