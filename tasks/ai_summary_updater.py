@@ -12,9 +12,8 @@ __all__ = [
 
 
 class AISummaryUpdater(object):
-    def __init__(self, config):
+    def __init__(self):
         self._enabled = ENABLE_SEAFILE_AI
-        self._config = config
         self._initiator = None
 
     def start(self):
@@ -23,7 +22,7 @@ class AISummaryUpdater(object):
             return
 
         logging.info('ai summary updater is started')
-        self._initiator = AISummaryInitiator(self._config)
+        self._initiator = AISummaryInitiator()
         self._initiator.start()
 
     def is_enabled(self):
@@ -35,16 +34,15 @@ class AISummaryUpdater(object):
 
 
 class AISummaryInitiator(Thread):
-    def __init__(self, config):
+    def __init__(self):
         Thread.__init__(self)
         self.daemon = True
-        self._config = config
-        self._ai_summary = None
         self.finished = Event()
+        self._ai_summary = None
 
     def run(self):
         try:
-            self._ai_summary = AISummary(self._config)
+            self._ai_summary = AISummary()
             self._ai_summary.start()
         except Exception as e:
             logging.exception('error when start ai summary updater: %s', e)

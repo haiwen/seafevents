@@ -1,15 +1,12 @@
 import os
 import time
 import logging
-import argparse
 import threading
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 
 from seafevents.mq import get_mq
 from seafevents.ai_summary.ai_summary_manager import AISummaryManager
 from seafevents.ai_summary.ai_summary_worker import AISummaryTaskWorker
-from seafevents.app.config import get_config
-from seafevents.app.log import LogConfigurator
 from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, AI_SUMMARY_INIT_WORKERS, AI_SUMMARY_BATCH_SIZE
 
 logger = logging.getLogger('ai_summary')
@@ -19,8 +16,7 @@ class AISummary(object):
     """ The handler for ai summary init queue
     """
 
-    def __init__(self, config):
-        self.config = config
+    def __init__(self):
         self.should_stop = threading.Event()
         self.LOCK_TIMEOUT = 1800
         self.REFRESH_INTERVAL = 600
@@ -30,14 +26,14 @@ class AISummary(object):
         self.mq_password = REDIS_PASSWORD
         self.init_worker_num = 1
         self.batch_size = 50
-        self._parse_config(config)
+        self._parse_config()
 
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
         self.ai_summary_manager = AISummaryManager()
-        self.ai_summary_task_worker = AISummaryTaskWorker(config, self.should_stop, self.locked_keys)
+        self.ai_summary_task_worker = AISummaryTaskWorker(self.should_stop, self.locked_keys)
         self.worker_list = []
 
-    def _parse_config(self, config):
+    def _parse_config(self):
         self.init_worker_num = AI_SUMMARY_INIT_WORKERS
         self.batch_size = AI_SUMMARY_BATCH_SIZE
 
@@ -141,33 +137,3 @@ class AISummary(object):
             self.mq.delete(key)
             logger.info('redis lock key %s has been deleted', key)
         logger.info('Exit ai summary worker')
-
-
-def start(config):
-    ai_summary = AISummary(config)
-    logger.info('ai summary worker process initialized.')
-    try:
-        ai_summary.start()
-    except Exception as e:
-        logger.exception(e)
-        ai_summary.clear()
-
-    while True:
-        time.sleep(2)
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config-file', default=os.path.join(os.getcwd(), 'events.conf'), help='config file')
-    parser.add_argument('--logfile', help='log file')
-    parser.add_argument('--loglevel', default='info', help='log level')
-    args = parser.parse_args()
-
-    config_file = args.config_file
-    config = get_config(config_file)
-    LogConfigurator(args.loglevel, args.logfile)
-    start(config)
-
-
-if __name__ == "__main__":
-    main()

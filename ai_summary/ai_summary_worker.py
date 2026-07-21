@@ -20,7 +20,7 @@ class AISummaryTaskWorker(object):
     HIGH_PRIORITY_TASK_QUEUE = 'ai_summary_task_high'
     LOW_PRIORITY_TASK_QUEUE = 'ai_summary_task_low'
 
-    def __init__(self, config, should_stop, locked_keys):
+    def __init__(self, should_stop, locked_keys):
         self.should_stop = should_stop
         self.locked_keys = locked_keys
         self.lock_timeout = 1800
@@ -29,16 +29,12 @@ class AISummaryTaskWorker(object):
         self.mq_password = REDIS_PASSWORD
         self.worker_num = AI_SUMMARY_WORKERS
         self.lock_busy_retry_interval = AI_SUMMARY_LOCK_BUSY_RETRY_INTERVAL
-        self._parse_config(config)
 
         self.mq = get_mq(self.mq_server, self.mq_port, self.mq_password)
         self.metadata_server_api = MetadataServerAPI('seafevents')
         self.seafile_ai_api = SeafileAIAPI(SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY)
         self.ai_summary_manager = AISummaryManager()
         self.worker_list = []
-
-    def _parse_config(self, config):
-        return
 
     def _get_lock_key(self, repo_id):
         return 'ai_summary_' + repo_id
