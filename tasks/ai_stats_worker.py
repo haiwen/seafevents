@@ -139,10 +139,10 @@ class AIStatsWorker:
                 last_message_time = datetime.now()
 
     def _calculate_cost(self, model, input_tokens, output_tokens):
-        input_tokens_price = AI_PRICES[model].get('input_tokens_1k') or 0
-        output_tokens_price = AI_PRICES[model].get('output_tokens_1k') or 0
-        input_cost = input_tokens_price * (input_tokens / 1000)
-        output_cost = output_tokens_price * (output_tokens / 1000)
+        input_tokens_price = AI_PRICES[model].get('input_tokens') or 0
+        output_tokens_price = AI_PRICES[model].get('output_tokens') or 0
+        input_cost = input_tokens_price * (input_tokens / 1e6)
+        output_cost = output_tokens_price * (output_tokens / 1e6)
         return input_cost + output_cost
 
     def stats_worker(self):
