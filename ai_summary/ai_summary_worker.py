@@ -20,6 +20,7 @@ class AISummaryTaskWorker(object):
     HIGH_PRIORITY_TASK_QUEUE = 'ai_summary_task_high'
     LOW_PRIORITY_TASK_QUEUE = 'ai_summary_task_low'
     INIT_TASK_QUEUE = 'init_ai_summary_task'
+    INIT_WORKER_NUM = 1
 
     def __init__(self, should_stop):
         self.should_stop = should_stop
@@ -63,8 +64,13 @@ class AISummaryTaskWorker(object):
         if not self.mq:
             return
 
+        for i in range(self.INIT_WORKER_NUM):
+            t = threading.Thread(target=self.init_worker_handler, name='ai_summary_init_worker_' + str(i), daemon=True)
+            t.start()
+            self.worker_list.append(t)
+
         for i in range(int(self.worker_num)):
-            t = threading.Thread(target=self.worker_handler, name='ai_summary_worker_' + str(i), daemon=True)
+            t = threading.Thread(target=self.batch_worker_handler, name='ai_summary_worker_' + str(i), daemon=True)
             t.start()
             self.worker_list.append(t)
 
@@ -72,22 +78,34 @@ class AISummaryTaskWorker(object):
         t.start()
         self.worker_list.append(t)
 
-    def worker_handler(self):
-        logger.info('%s starting ai summary worker', self.tname)
+    def init_worker_handler(self):
+        logger.info('%s starting ai summary init worker', self.tname)
         try:
             while not self.should_stop.is_set():
                 try:
                     init_res = self.mq.brpop(self.INIT_TASK_QUEUE, timeout=1)
-                    if init_res is not None:
-                        key, value = init_res
-                        msg = value.split('\t')
-                        if len(msg) != 3:
-                            logger.info('Bad message: %s' % str(msg))
-                        else:
-                            op_type, repo_id, username = msg[0], msg[1], msg[2]
-                            self.handle_init_task(repo_id, username)
+                    if init_res is None:
                         continue
 
+                    key, value = init_res
+                    msg = value.split('\t')
+                    if len(msg) != 3:
+                        logger.info('Bad message: %s' % str(msg))
+                    else:
+                        op_type, repo_id, username = msg[0], msg[1], msg[2]
+                        self.handle_init_task(repo_id, username)
+                except (ResponseError, NoMQAvailable, TimeoutError) as e:
+                    logger.error('The connection to the redis server failed: %s', e)
+        except Exception as e:
+            logger.error('%s Handle ai summary init worker task error', self.tname)
+            logger.error(e, exc_info=True)
+            time.sleep(0.3)
+
+    def batch_worker_handler(self):
+        logger.info('%s starting ai summary worker', self.tname)
+        try:
+            while not self.should_stop.is_set():
+                try:
                     res = self.mq.brpop([self.HIGH_PRIORITY_TASK_QUEUE, self.LOW_PRIORITY_TASK_QUEUE], timeout=30)
                     if res is None:
                         continue
