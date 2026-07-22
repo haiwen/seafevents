@@ -5,8 +5,7 @@ from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         DeletedFilesCountCleaner, FaceClusterTaskPublisher, ESWikiIndexUpdater, FaceClusterUpdater, AISummaryUpdater, \
         QuotaAlertEmailSender, AIStatsManager, RiskControlStatistics
 
-from seafevents.repo_metadata.index_master import RepoMetadataIndexMaster
-from seafevents.repo_metadata.slow_task_handler import SlowMetadataTaskHandler
+from seafevents.repo_metadata.metadata_manager import MetadataManager
 from seafevents.seafevent_server.seafevent_server import SeafEventServer
 from seafevents.seasearch.index_task.file_index_updater import RepoFileIndexUpdater
 from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_QUOTA_ALERT, \
@@ -50,10 +49,9 @@ class App(object):
             self._webhooker = Webhooker(config)
 
             if ENABLE_METADATA_MANAGEMENT:
-                self._index_master = RepoMetadataIndexMaster(config)
+                self._metadata_manager = MetadataManager(config)
                 self._face_cluster_updater = FaceClusterUpdater(config)
                 self._ai_summary_updater = AISummaryUpdater()
-                self._slow_md_task_handler = SlowMetadataTaskHandler(config)
                 self._face_cluster_task_publisher = FaceClusterTaskPublisher()
             self._repo_file_index_updater = RepoFileIndexUpdater(config)
             self._es_wiki_index_updater = ESWikiIndexUpdater(config)
@@ -87,10 +85,9 @@ class App(object):
             self._repo_old_file_auto_del_scanner.start()
             self._deleted_files_count_cleaner.start()
             if ENABLE_METADATA_MANAGEMENT:
-                self._index_master.start()
+                self._metadata_manager.start()
                 self._face_cluster_updater.start()
                 self._ai_summary_updater.start()
-                self._slow_md_task_handler.start()
                 self._face_cluster_task_publisher.start()
 
             self._webhooker.start()
