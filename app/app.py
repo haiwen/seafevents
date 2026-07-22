@@ -49,7 +49,7 @@ class App(object):
             self._webhooker = Webhooker(config)
 
             if ENABLE_METADATA_MANAGEMENT:
-                self._metadata_manager = MetadataManager(config)
+                self._metadata_manager = MetadataManager()
                 self._face_cluster_updater = FaceClusterUpdater(config)
                 self._ai_summary_updater = AISummaryUpdater()
                 self._face_cluster_task_publisher = FaceClusterTaskPublisher()
