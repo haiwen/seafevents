@@ -144,7 +144,7 @@ class AISummaryWorker(object):
                 file_mtime = parse_iso_datetime(row.get(METADATA_TABLE.columns.file_mtime.name))
                 ai_summary_mtime = parse_iso_datetime(row.get(METADATA_TABLE.columns.ai_summary_mtime.name))
                 if file_mtime and ai_summary_mtime and ai_summary_mtime >= file_mtime:
-                    logger.info('Skip up-to-date ai summary repo=%s, obj_id=%s, file_mtime=%s, ai_summary_mtime=%s',
+                    logger.debug('Skip up-to-date ai summary repo=%s, obj_id=%s, file_mtime=%s, ai_summary_mtime=%s',
                                  repo_id, obj_id, file_mtime, ai_summary_mtime)
                     continue
 
