@@ -156,8 +156,6 @@ class AISummaryTaskWorker(object):
             logger.info('%s start ai summary batch repo %s, obj_count=%d', self.tname, repo_id, len(obj_ids))
             add_ai_summary(repo_id, obj_ids, self.metadata_server_api, self.seafile_ai_api)
             logger.info('%s finish ai summary batch repo %s, obj_count=%d', self.tname, repo_id, len(obj_ids))
-            if is_init:
-                self.ai_summary_manager.finish_init_ai_summary_batch(repo_id)
         except Exception as e:
             logger.exception('repo: %s, update metadata ai summary error: %s', repo_id, e)
         finally:
