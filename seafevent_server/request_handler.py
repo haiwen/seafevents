@@ -213,6 +213,28 @@ def add_init_face_recognition_task():
     return make_response(({'task_id': task_id}, 200))
 
 
+@app.route('/add-init-ai-summary-task', methods=['GET'])
+def add_init_ai_summary_task():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+
+    if task_manager.tasks_queue.full():
+        logger.warning('seafevent server busy, queue size: %d' % (task_manager.tasks_queue.qsize(),))
+        return make_response(('seafevent server busy.', 400))
+
+    username = request.args.get('username')
+    repo_id = request.args.get('repo_id')
+
+    try:
+        task_id = task_manager.add_init_ai_summary_task(username, repo_id)
+    except Exception as e:
+        logger.error(e)
+        return make_response((e, 500))
+
+    return make_response(({'task_id': task_id}, 200))
+
+
 @app.route('/recognize-faces', methods=['POST'])
 def recognize_faces():
     is_valid = check_auth_token(request)
@@ -266,7 +288,6 @@ def extract_file_details():
     details = add_file_details(repo_id, obj_ids, metadata_server_api)
 
     return {'details': details}, 200
-
 
 @app.route('/search-wikis', methods=['POST'])
 def search_wikis():
