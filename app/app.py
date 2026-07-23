@@ -2,7 +2,7 @@ from seafevents.app.mq_handler import EventsHandler, init_message_handlers
 from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
         VirusScanner, Statistics, CountUserActivity, CountTrafficInfo, ContentScanner,\
         WorkWinxinNoticeSender, FileUpdatesSender, RepoOldFileAutoDelScanner,\
-        DeletedFilesCountCleaner, FaceClusterTaskPublisher, ESWikiIndexUpdater, FaceClusterUpdater, AISummaryUpdater, \
+        DeletedFilesCountCleaner, FaceClusterTaskPublisher, ESWikiIndexUpdater, FaceClusterUpdater, \
         QuotaAlertEmailSender, AIStatsManager, RiskControlStatistics
 
 from seafevents.repo_metadata.metadata_manager import MetadataManager
@@ -51,7 +51,6 @@ class App(object):
             if ENABLE_METADATA_MANAGEMENT:
                 self._metadata_manager = MetadataManager()
                 self._face_cluster_updater = FaceClusterUpdater(config)
-                self._ai_summary_updater = AISummaryUpdater()
                 self._face_cluster_task_publisher = FaceClusterTaskPublisher()
             self._repo_file_index_updater = RepoFileIndexUpdater(config)
             self._es_wiki_index_updater = ESWikiIndexUpdater(config)
@@ -87,7 +86,6 @@ class App(object):
             if ENABLE_METADATA_MANAGEMENT:
                 self._metadata_manager.start()
                 self._face_cluster_updater.start()
-                self._ai_summary_updater.start()
                 self._face_cluster_task_publisher.start()
 
             self._webhooker.start()

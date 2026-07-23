@@ -115,7 +115,6 @@ class TaskManager:
         msg_content = {
             'msg_type': 'init_ai_summary',
             'repo_id': repo_id,
-            'username': username
         }
         if self._redis_connection.publish('metadata_update', json.dumps(msg_content)) > 0:
             logging.debug('Publish event: %s' % msg_content)
