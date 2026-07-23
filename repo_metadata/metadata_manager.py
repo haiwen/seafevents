@@ -14,7 +14,6 @@ from seafevents.repo_metadata.utils import add_file_details, parse_iso_datetime,
 from seafevents.db import init_db_session_class
 from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, AI_SUMMARY_WORKERS, ENABLE_SEAFILE_AI, AI_SUMMARY_BATCH_SIZE, SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
 from seafevents.repo_metadata.constants import METADATA_TABLE, SUMMARY_SUPPORTED_FILE_EXTENSIONS
-from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.seafile_ai_api import SeafileAIAPI
 
 
@@ -39,8 +38,7 @@ class MetadataManager(object):
         self.worker_list = []
         self.ai_summary_worker_num = AI_SUMMARY_WORKERS
         self.batch_size = AI_SUMMARY_BATCH_SIZE
-        self.lock_timeout = 1800
-        self.refresh_interval = 600
+        self.lock_timeout = 3600
         self.query_page_size = 1000
 
 
@@ -134,11 +132,8 @@ class MetadataManager(object):
             self.mq.lpush('face_cluster_task', data)
             logger.debug('update face_recognition: %s has been add to metadata task queue' % message['data'])
         elif op_type == 'init_ai_summary':
-            msg = {
-                'repo_id': repo_id,
-            }
-            self.mq.lpush('ai_summary_task', json.dumps(msg))
-            logger.debug('init ai_summary: %s has been add to metadata task queue' % message['data'])
+            self.add_ai_summary_task(repo_id)
+            ai_summary_logger.debug('init ai_summary: %s has been add to metadata task queue' % message['data'])
         else:
             logger.warning('op_type invalid, repo_id: %s, op_type: %s' % (repo_id, op_type))
     ########################### metadata update handler thread ########################
@@ -214,7 +209,7 @@ class MetadataManager(object):
         try:
             ai_summary_logger.info('%s start ai summary repo %s', self.tname, repo_id)
             self.generate_ai_summary(repo_id, batch_size=self.batch_size)
-            logger.info('%s finish ai summary repo %s', self.tname, repo_id)
+            ai_summary_logger.info('%s finish ai summary repo %s', self.tname, repo_id)
         except Exception as e:
             ai_summary_logger.exception('ai summary repo: %s, error: %s', repo_id, e)
         finally:
@@ -302,13 +297,13 @@ class MetadataManager(object):
                 obj_id = row.get(METADATA_TABLE.columns.obj_id.name)
                 suffix = (row.get(METADATA_TABLE.columns.suffix.name) or '').lower()
                 if not obj_id or suffix not in support_suffixes:
-                    logger.debug('Skip ai summary candidate repo=%s, obj_id=%s, suffix=%s', repo_id, obj_id, suffix)
+                    ai_summary_logger.debug('Skip ai summary candidate repo=%s, obj_id=%s, suffix=%s', repo_id, obj_id, suffix)
                     continue
 
                 file_mtime = parse_iso_datetime(row.get(METADATA_TABLE.columns.file_mtime.name))
                 ai_summary_mtime = parse_iso_datetime(row.get(METADATA_TABLE.columns.ai_summary_mtime.name))
                 if file_mtime and ai_summary_mtime and ai_summary_mtime >= file_mtime:
-                    logger.debug('Skip up-to-date init ai summary repo=%s, obj_id=%s, file_mtime=%s, ai_summary_mtime=%s',
+                    ai_summary_logger.debug('Skip up-to-date ai summary repo=%s, obj_id=%s, file_mtime=%s, ai_summary_mtime=%s',
                                  repo_id, obj_id, file_mtime, ai_summary_mtime)
                     continue
 
