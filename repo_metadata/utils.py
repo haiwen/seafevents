@@ -412,7 +412,10 @@ def add_ai_summary(repo_id, obj_ids, metadata_server_api, seafile_ai_api):
             summary = seafile_ai_api.generate_ai_summary(repo_id, obj_id, file_path)
         except Exception as e:
             logger.warning('repo_id: %s, generate ai summary failed, obj_id: %s, path: %s, error: %s.', repo_id, obj_id, file_path, e)
-            continue
+            if file_path.lower().endswith('.pdf'):
+                summary = ''
+            else:
+                continue
 
         logger.debug('Generated ai summary repo=%s, obj_id=%s, file_path=%s, summary_length=%d',
                      repo_id, obj_id, file_path, len(summary or ''))
