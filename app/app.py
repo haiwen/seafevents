@@ -8,6 +8,7 @@ from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
 from seafevents.repo_metadata.metadata_manager import MetadataManager
 from seafevents.seafevent_server.seafevent_server import SeafEventServer
 from seafevents.seasearch.index_task.file_index_updater import RepoFileIndexUpdater
+from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_QUOTA_ALERT, \
     ENABLE_SEAFILE_AI, ENABLE_MULTI_STORAGE, ENABLE_RISK_CONTROL
 from seafevents.seasearch.index_task.wiki_index_updater import SeasearchWikiIndexUpdater
@@ -28,7 +29,8 @@ class App(object):
             self._events_handler = EventsHandler(config)
             self._count_traffic_task = CountTrafficInfo(config)
             self._update_login_record_task = CountUserActivity(config)
-            self._seafevent_server = SeafEventServer(self, config)
+            index_task_manager.init(config)
+            self._seafevent_server = SeafEventServer(self)
             
 
         if self._bg_tasks_enabled:
@@ -46,11 +48,11 @@ class App(object):
             self._quota_usage_manager = QuotaUsageManager()
             self._repo_storage_task = RepoStorageTask()
 
-            self._webhooker = Webhooker(config)
+            self._webhooker = Webhooker()
 
             if ENABLE_METADATA_MANAGEMENT:
                 self._metadata_manager = MetadataManager()
-                self._face_cluster_updater = FaceClusterUpdater(config)
+                self._face_cluster_updater = FaceClusterUpdater()
                 self._face_cluster_task_publisher = FaceClusterTaskPublisher()
             self._repo_file_index_updater = RepoFileIndexUpdater(config)
             self._es_wiki_index_updater = ESWikiIndexUpdater(config)
