@@ -85,7 +85,7 @@ IS_PRO_VERSION = os.environ.get('IS_PRO_VERSION', 'false') == 'true'
 ENABLE_MULTI_STORAGE = os.environ.get('SEAF_SERVER_STORAGE_TYPE', '') == 'multiple'
 
 # config for ai summary worker
-AI_SUMMARY_BATCH_SIZE = int(os.environ.get('AI_SUMMARY_BATCH_SIZE', 50))
+AI_SUMMARY_BATCH_SIZE = int(os.environ.get('AI_SUMMARY_BATCH_SIZE', 10))
 AI_SUMMARY_WORKERS = int(os.environ.get('AI_SUMMARY_WORKERS', 3))
 
 ################## config from env ################################

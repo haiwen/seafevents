@@ -173,12 +173,13 @@ class MetadataManager(object):
         except Exception as e:
             logger.exception('repo: %s, update metadata file info error: %s', repo_id, e)
 
-        try:
-            self.add_ai_summary_task(repo_id)
-            ai_summary_logger.debug('Enqueued incremental ai summary task repo=%s, obj_count=%d',
-                         repo_id, len(obj_ids) if isinstance(obj_ids, list) else 0)
-        except Exception as e:
-            ai_summary_logger.exception('repo: %s, enqueue metadata ai summary task error: %s', repo_id, e)
+        if self.ai_summary_worker.is_summary_enabled(repo_id):
+            try:
+                self.add_ai_summary_task(repo_id)
+                ai_summary_logger.debug('Enqueued incremental ai summary task repo=%s, obj_count=%d',
+                            repo_id, len(obj_ids) if isinstance(obj_ids, list) else 0)
+            except Exception as e:
+                ai_summary_logger.exception('repo: %s, enqueue metadata ai summary task error: %s', repo_id, e)
 
         logger.info('%s finish extract file info repo %s' % (threading.current_thread().name, repo_id))
 
@@ -188,7 +189,6 @@ class MetadataManager(object):
     def add_ai_summary_task(self, repo_id):
         if not repo_id or not self.mq:
             return
-
         lock_key = self.get_repo_lock_key(repo_id)
         if not self.mq.set(lock_key, time.time(), ex=self.lock_timeout, nx=True):
             logger.info('repo: %s ai summary is running, skip repo task', repo_id)
