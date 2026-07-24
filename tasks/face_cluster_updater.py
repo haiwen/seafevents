@@ -14,14 +14,14 @@ __all__ = [
 
 
 class FaceClusterUpdater(object):
-    def __init__(self, config):
+    def __init__(self):
         self._enabled = ENABLE_FACE_RECOGNITION
         self._logfile = None
         self._loglevel = None
 
-        self._parse_config(config)
+        self._parse_config()
 
-    def _parse_config(self, config):
+    def _parse_config(self):
         # default face cluster log file is 'face_recognition.log' in SEAFEVENTS_LOG_DIR
         logfile = os.path.join(os.environ.get('SEAFEVENTS_LOG_DIR', ''), 'face_recognition.log')
         loglevel = 'info'

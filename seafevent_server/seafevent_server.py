@@ -6,15 +6,17 @@ from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seafevents.seafevent_server.import_task_manager import event_import_task_manager
 from seafevents.seafevent_server.repo_archive_task_manager import repo_archive_task_manager
-from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 
 
 class SeafEventServer(Thread):
 
-    def __init__(self, app, config):
+    def __init__(self, app):
         Thread.__init__(self)
-        self._parse_config(config)
+        self._host = '127.0.0.1'
+        self._port = 8889
+        self._workers = 3
+        self._task_expire_time = 30 * 60
         self.app = app
         task_manager.init(self.app, self._workers, self._task_expire_time)
         event_export_task_manager.init(self.app, self._workers, self._task_expire_time)
@@ -25,29 +27,6 @@ class SeafEventServer(Thread):
         event_import_task_manager.run()
         repo_archive_task_manager.run()
         application.face_recognition_manager = FaceRecognitionManager()
-
-        index_task_manager.init(config)
-
-    def _parse_config(self, config):
-        if config.has_option('SEAF-EVENT-SERVER', 'host'):
-            self._host = config.get('SEAF-EVENT-SERVER', 'host')
-        else:
-            self._host = '127.0.0.1'
-
-        if config.has_option('SEAF-EVENT-SERVER', 'port'):
-            self._port = config.getint('SEAF-EVENT-SERVER', 'port')
-        else:
-            self._port = '8889'
-
-        if config.has_option('SEAF-EVENT-SERVER', 'workers'):
-            self._workers = config.getint('SEAF-EVENT-SERVER', 'workers')
-        else:
-            self._workers = 3
-
-        if config.has_option('SEAF-EVENT-SERVER', 'task_expire_time'):
-            self._task_expire_time = config.getint('SEAF-EVENT-SERVER', 'task_expire_time')
-        else:
-            self._task_expire_time = 30 * 60
 
     def run(self):
         serve(application, host=self._host, port=self._port)
