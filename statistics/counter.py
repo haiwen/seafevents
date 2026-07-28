@@ -376,10 +376,13 @@ class TrafficInfoCounter(object):
                     else:
                         download_traffic_threshold = None
 
-                    with SeahubDB() as seahub_db:
-                        monthly_traffic_limit = seahub_db.get_org_monthly_traffic_limit(org_id)
-                        if monthly_traffic_limit > 0:
-                            download_traffic_threshold = monthly_traffic_limit
+                    try:
+                        with SeahubDB() as seahub_db:
+                            monthly_traffic_limit = seahub_db.get_org_monthly_traffic_limit(org_id)
+                            if monthly_traffic_limit > 0:
+                                download_traffic_threshold = monthly_traffic_limit
+                    except Exception as e:
+                        logging.warning('Failed to get org %s monthly download traffic limit: %s.', org_id, e)
 
                 if (org_id, oper, download_traffic_threshold) not in org_delta:
                     org_delta[(org_id, oper, download_traffic_threshold)] = size
