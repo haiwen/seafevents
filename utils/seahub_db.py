@@ -28,8 +28,8 @@ class SeahubDB(object):
         result = self.session.execute(text(sql), {'org_id': org_id})
         rows = result.fetchone()
         if not rows:
-            return None
-        return rows[0]
+            return 0
+        return rows[0] or 0
 
     def get_org_member_quota(self, org_id):
         if not ORG_MEMBER_QUOTA_ENABLED:

@@ -46,7 +46,8 @@ class QuotaUsageCounter(object):
         else:
             repo_owner = self.seafile_api.get_repo_owner(repo_id)
         
-        cache.set(cache_key, repo_owner, CACHE_TIME_OUT)
+        if repo_owner:
+            cache.set(cache_key, repo_owner, CACHE_TIME_OUT)
         return repo_owner
     
     def get_available_user_info_by_repo_id(self, repo_id):
