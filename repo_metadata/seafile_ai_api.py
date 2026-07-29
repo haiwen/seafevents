@@ -74,7 +74,7 @@ class SeafileAIAPI:
         response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response)
 
-    def generate_ai_summary(self, repo_id, obj_id, path, username='system', org_id=None):
+    def generate_ai_summary(self, repo_id, obj_id, path, username='system', org_id=None, group_id=None, repo_owner=None):
         headers = self.gen_headers()
         url = f'{self.server_url}/api/v1/generate-summary'
         data = {
@@ -83,6 +83,8 @@ class SeafileAIAPI:
             'path': path,
             'username': username,
             'org_id': org_id,
+            'group_id': group_id,
+            'repo_owner':repo_owner
         }
         response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response).get('summary', '')

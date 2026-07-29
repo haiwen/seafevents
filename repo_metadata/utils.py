@@ -8,7 +8,7 @@ import exiftool
 import tempfile
 import requests
 import logging
-
+from seaserv import seafile_api
 from datetime import timedelta, timezone, datetime
 from sqlalchemy.sql import text
 
@@ -372,6 +372,16 @@ def add_ai_summary(repo_id, obj_ids, metadata_server_api, seafile_ai_api):
                      repo_id, len(obj_ids) if obj_ids else 0, bool(seafile_ai_api), is_summary_enabled(repo_id))
         return []
 
+    org_id = seafile_api.get_org_id_by_repo_id(repo_id)
+    org_id = int(org_id)
+    group_id = None
+    if org_id > 0:
+        repo_owner = seafile_api.get_org_repo_owner(repo_id)
+    else:
+        repo_owner = seafile_api.get_repo_owner(repo_id)
+    if repo_owner and "@seafile_group" in repo_owner:
+        group_id = int(repo_owner.split('@')[0])
+    
     query_result = get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api)
     if not query_result:
         logger.debug('No metadata rows found for ai summary repo=%s, obj_count=%d', repo_id, len(obj_ids))
@@ -409,7 +419,7 @@ def add_ai_summary(repo_id, obj_ids, metadata_server_api, seafile_ai_api):
         obj_id = row.get(METADATA_TABLE.columns.obj_id.name)
         file_path = os.path.join(parent_dir, file_name)
         try:
-            summary = seafile_ai_api.generate_ai_summary(repo_id, obj_id, file_path)
+            summary = seafile_ai_api.generate_ai_summary(repo_id, obj_id, file_path, org_id=org_id, group_id=group_id, repo_owner=repo_owner)
         except Exception as e:
             logger.warning('repo_id: %s, generate ai summary failed, obj_id: %s, path: %s, error: %s.', repo_id, obj_id, file_path, e)
             if file_path.lower().endswith('.pdf'):
