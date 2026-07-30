@@ -5,6 +5,7 @@ import threading
 
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 from sqlalchemy.sql import text
+from sqlalchemy.exc import IntegrityError
 
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import parse_iso_datetime, add_ai_summary
@@ -18,9 +19,8 @@ logger = logging.getLogger('ai_summary')
 
 
 class AISummaryWorker(object):
-    def __init__(self, mq, lock_timeout):
+    def __init__(self, mq):
         self.mq = mq
-        self.lock_timeout = lock_timeout
         self.metadata_server_api = MetadataServerAPI('seafevents')
         self.seafile_ai_api = SeafileAIAPI(SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY)
 
@@ -79,10 +79,13 @@ class AISummaryWorker(object):
             time.sleep(0.3)
 
     def _handle_ai_summary_task(self, repo_id):
-        if not repo_id or self.should_stop.is_set():
+        if not repo_id:
             return
 
         try:
+            if self.should_stop.is_set():
+                logger.info('%s skip ai summary repo %s due to stop signal', self.tname, repo_id)
+                return
             logger.info('%s start ai summary repo %s', self.tname, repo_id)
             self.generate_ai_summary(repo_id, batch_size=self.batch_size)
             logger.info('%s finish ai summary repo %s', self.tname, repo_id)
@@ -91,18 +94,61 @@ class AISummaryWorker(object):
         finally:
             self.delete_repo_lock(repo_id)
 
-    def get_repo_lock_key(self, repo_id):
-        return 'ai_summary_' + repo_id
-
     def delete_repo_lock(self, repo_id):
-        lock_key = self.get_repo_lock_key(repo_id)
-        self.mq.delete(lock_key)
+        self.release_ai_summary_lock(repo_id)
 
     def is_summary_enabled(self, repo_id):
         with self._db_session_class() as session:
             sql = "SELECT summary_enabled FROM repo_metadata WHERE repo_id=:repo_id LIMIT 1"
             record = session.execute(text(sql), {'repo_id': repo_id}).fetchone()
         return record[0] if record else False
+
+    def acquire_ai_summary_lock(self, repo_id):
+        with self._db_session_class() as session:
+            # Step 1: Try to acquire lock by updating only unlocked rows
+            update_sql = text("""
+                UPDATE repo_metadata_status SET ai_summary_running = 1
+                WHERE repo_id = :repo_id AND ai_summary_running = 0
+            """)
+            result = session.execute(update_sql, {'repo_id': repo_id})
+
+            if result.rowcount > 0:
+                session.commit()
+                logger.info('acquire_ai_summary_lock repo_id=%s, acquired by update', repo_id)
+                return True
+
+            # Step 2: No unlocked row to update — either row doesn't exist or is already locked
+            # Try INSERT directly; IntegrityError covers both "row exists" and concurrent insert
+            try:
+                insert_sql = text("""
+                    INSERT INTO repo_metadata_status (repo_id, ai_summary_running)
+                    VALUES (:repo_id, 1)
+                """)
+                session.execute(insert_sql, {'repo_id': repo_id})
+                session.commit()
+                logger.info('acquire_ai_summary_lock repo_id=%s, acquired by insert', repo_id)
+                return True
+            except IntegrityError:
+                session.rollback()
+                logger.info('acquire_ai_summary_lock repo_id=%s, lock held, skip', repo_id)
+                return False
+
+    def release_ai_summary_lock(self, repo_id):
+        logger.info('Releasing ai summary lock for repo %s', repo_id)
+        with self._db_session_class() as session:
+            sql = text("UPDATE repo_metadata_status SET ai_summary_running = 0 WHERE repo_id = :repo_id")
+            session.execute(sql, {'repo_id': repo_id})
+            session.commit()
+
+    def reset_all_ai_summary_locks(self):
+        """Reset all ai summary locks on startup to prevent deadlocks from crashes."""
+        with self._db_session_class() as session:
+            sql = text("UPDATE repo_metadata_status SET ai_summary_running = 0 WHERE ai_summary_running = 1")
+            result = session.execute(sql)
+            session.commit()
+            if result.rowcount > 0:
+                logger.info('Reset %d ai summary locks on startup', result.rowcount)
+        
 
     def generate_ai_summary(self, repo_id, batch_size=50):
         if not self.seafile_ai_api or not self.mq or not self.is_summary_enabled(repo_id):
