@@ -180,13 +180,15 @@ def update_user_activity_timestamp(session, activity_id, record):
     q = q.update({"timestamp": record["timestamp"]})
     session.commit()
 
-def update_file_history_record(session, history_id, record):
+def update_file_history_record(session, history_id, record, commit=True):
+    """Update a coalesced edit, optionally leaving the transaction to the caller."""
     q = session.query(FileHistory).filter(FileHistory.id==history_id)
     q = q.update({"timestamp": record["timestamp"],
                   "file_id": record["obj_id"],
                   "commit_id": record["commit_id"],
                   "size": record["size"]})
-    session.commit()
+    if commit:
+        session.commit()
 
 def query_prev_record(session, record):
     if record['op_type'] == 'create':
@@ -207,18 +209,20 @@ def query_prev_record(session, record):
 
     return prev_item
 
-def save_filehistory(session, record):
+def save_filehistory(session, record, commit=True):
+    """Save one history record; batch callers own commit when commit is False."""
     # use same file_uuid if prev item already exists, otherwise new one
     prev_item = query_prev_record(session, record)
     if prev_item:
-        # If a file was edited many times in a few minutes, just update timestamp.
-        dt = datetime.datetime.utcnow()
-        delta = timedelta(minutes=appconfig.fh.threshold)
-        if record['op_type'] == 'edit' and prev_item.op_type == 'edit' \
-                                       and prev_item.op_user == record['op_user'] \
-                                       and prev_item.timestamp > dt - delta:
-            update_file_history_record(session, prev_item.id, record)
-            return
+        # Edit coalescing needs fh.threshold; other operations must not depend on it.
+        if record['op_type'] == 'edit':
+            dt = datetime.datetime.utcnow()
+            delta = timedelta(minutes=appconfig.fh.threshold)
+            if prev_item.op_type == 'edit' \
+                    and prev_item.op_user == record['op_user'] \
+                    and prev_item.timestamp > dt - delta:
+                update_file_history_record(session, prev_item.id, record, commit)
+                return
 
         if record['path'] != prev_item.path and record['op_type'] == 'recover':
             pass
@@ -234,7 +238,8 @@ def save_filehistory(session, record):
 
     filehistory = FileHistory(record)
     session.add(filehistory)
-    session.commit()
+    if commit:
+        session.commit()
 
 def _save_user_events(session, org_id, etype, detail, usernames, timestamp):
     if timestamp is None:

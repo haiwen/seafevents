@@ -44,7 +44,8 @@ def query_next_record(session, record):
 
     return next_record
 
-def save_filehistory(session, record):
+def save_filehistory(session, record, commit=True):
+    """Save one restored record while allowing the shared handler to batch commits."""
     if not should_record(record):
         logging.error('invalid activity record: %s' % record)
         return
@@ -66,7 +67,8 @@ def save_filehistory(session, record):
 
     filehistory = FileHistory(record)
     session.add(filehistory)
-    session.commit()
+    if commit:
+        session.commit()
 
 
 class RestoreUnrecordHistory(object):
