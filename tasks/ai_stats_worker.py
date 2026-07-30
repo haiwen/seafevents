@@ -62,7 +62,6 @@ class AIStatsWorker:
         model = usage_info['model']
         usage = usage_info.get('usage') or {}
         repo_id = usage_info.get('repo_id')
-        username = usage_info.get('username')
         repo_owner = usage_info.get('repo_owner')
         group_id = usage_info.get('group_id')
         org_id = usage_info.get('org_id')
@@ -70,9 +69,6 @@ class AIStatsWorker:
 
         if not model or model not in AI_PRICES:
             logger.warning('model %s price not defined', model)
-            return
-        if not username:
-            logger.warning('username is empty when logging ai usage')
             return
 
         input_tokens = usage.get('prompt_tokens') or usage.get('input_tokens') or 0
@@ -98,7 +94,7 @@ class AIStatsWorker:
             if not AIScenario.is_valid(scenario):
                 scenario = AIScenario.UNKNOWN
 
-        key = (username, repo_owner, group_id, org_id, model, scenario)
+        key = (repo_owner, group_id, org_id, model, scenario)
         stats = self.ai_usage_stats[repo_id][key]
         stats['input_tokens'] += input_tokens
         stats['output_tokens'] += output_tokens
@@ -163,7 +159,6 @@ class AIStatsWorker:
         SELECT `id` FROM `ai_usage_statistics`
         WHERE `date`=:date
           AND `repo_id` <=> :repo_id
-          AND `username`=:username
           AND `repo_owner` <=> :repo_owner
           AND `group_id` <=> :group_id
           AND `org_id` <=> :org_id
@@ -180,20 +175,19 @@ class AIStatsWorker:
         WHERE `id`=:id
         '''
         insert_sql = '''
-        INSERT INTO `ai_usage_statistics`(`repo_id`, `date`, `username`, `repo_owner`, `group_id`, `org_id`, `model`, `scenario`, `input_tokens`, `output_tokens`, `cost`, `created_at`, `updated_at`)
-        VALUES (:repo_id, :date, :username, :repo_owner, :group_id, :org_id, :model, :scenario, :input_tokens, :output_tokens, :cost, :created_at, :updated_at)
+        INSERT INTO `ai_usage_statistics`(`repo_id`, `date`, `repo_owner`, `group_id`, `org_id`, `model`, `scenario`, `input_tokens`, `output_tokens`, `cost`, `created_at`, `updated_at`)
+        VALUES (:repo_id, :date, :repo_owner, :group_id, :org_id, :model, :scenario, :input_tokens, :output_tokens, :cost, :created_at, :updated_at)
         '''
 
         records = []
         for repo_id, stats_dict in usage_stats.items():
-            for (username, repo_owner, group_id, org_id, model, scenario), usage in stats_dict.items():
+            for (repo_owner, group_id, org_id, model, scenario), usage in stats_dict.items():
                 input_tokens = usage.get('input_tokens') or 0
                 output_tokens = usage.get('output_tokens') or 0
                 cost = self._calculate_cost(model, input_tokens, output_tokens)
                 logger.info(
-                    'repo %s username %s repo_owner %s group_id %s org_id %s model %s scenario %s input_tokens %s output_tokens %s cost %s',
+                    'repo %s repo_owner %s group_id %s org_id %s model %s scenario %s input_tokens %s output_tokens %s cost %s',
                     repo_id,
-                    username,
                     repo_owner,
                     group_id,
                     org_id,
@@ -206,7 +200,6 @@ class AIStatsWorker:
                 records.append({
                     'repo_id': repo_id,
                     'date': today,
-                    'username': username,
                     'repo_owner': repo_owner,
                     'group_id': group_id,
                     'org_id': org_id,
@@ -225,7 +218,6 @@ class AIStatsWorker:
                 result = session.execute(text(select_sql), {
                     'date': data['date'],
                     'repo_id': data['repo_id'],
-                    'username': data['username'],
                     'repo_owner': data['repo_owner'],
                     'group_id': data['group_id'],
                     'org_id': data['org_id'],
