@@ -45,7 +45,7 @@ class MetadataManager(object):
             return
 
         # Reset all repo metadata statuses on startup to prevent deadlocks from crashes
-        self.ai_summary_worker.reset_metadata_status()
+        self.ai_summary_worker.reset_ai_processing_status()
 
         t = threading.Thread(target=self.index_master_handler, name='metadata_index_master', daemon=True)
         t.start()
@@ -189,7 +189,7 @@ class MetadataManager(object):
         if not repo_id or not self.mq:
             return
 
-        status = self.ai_summary_worker.get_repo_metadata_status(repo_id)
+        status = self.ai_summary_worker.get_ai_processing_status(repo_id)
         if status:
             ai_summary_logger.info('repo: %s ai summary is running, skip repo task', repo_id)
             return
@@ -200,10 +200,10 @@ class MetadataManager(object):
 
         try:
             self.mq.lpush('ai_summary_task', json.dumps(msg))
-            self.ai_summary_worker.set_repo_metadata_status(repo_id, 'in_summary')
+            self.ai_summary_worker.set_ai_processing_status(repo_id, 'in_summary')
         except Exception as e:
             logger.error('Failed to enqueue ai summary task repo=%s: %s', repo_id, e)
-            self.ai_summary_worker.set_repo_metadata_status(repo_id, '')
+            self.ai_summary_worker.set_ai_processing_status(repo_id, '')
             return
 
         logger.debug('Enqueued ai summary repo task repo=%s, queue=%s', repo_id, 'ai_summary_task')

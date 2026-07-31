@@ -91,7 +91,7 @@ class AISummaryWorker(object):
         except Exception as e:
             logger.exception('ai summary repo: %s, error: %s', repo_id, e)
         finally:
-            self.set_repo_metadata_status(repo_id, '')
+            self.set_ai_processing_status(repo_id, '')
 
     def is_summary_enabled(self, repo_id):
         with self._db_session_class() as session:
@@ -99,21 +99,21 @@ class AISummaryWorker(object):
             record = session.execute(text(sql), {'repo_id': repo_id}).fetchone()
         return record[0] if record else False
 
-    def get_repo_metadata_status(self, repo_id):
+    def get_ai_processing_status(self, repo_id):
         with self._db_session_class() as session:
-            sql = text("SELECT status FROM repo_metadata WHERE repo_id = :repo_id LIMIT 1")
+            sql = text("SELECT ai_processing_status FROM repo_metadata WHERE repo_id = :repo_id LIMIT 1")
             record = session.execute(sql, {'repo_id': repo_id}).fetchone()
         return record[0] if record else None
 
-    def set_repo_metadata_status(self, repo_id, status=''):
+    def set_ai_processing_status(self, repo_id, status=''):
         with self._db_session_class() as session:
-            sql = text("UPDATE repo_metadata SET status = :status WHERE repo_id = :repo_id")
+            sql = text("UPDATE repo_metadata SET ai_processing_status = :status WHERE repo_id = :repo_id")
             session.execute(sql, {'repo_id': repo_id, 'status': status})
             session.commit()
 
-    def reset_metadata_status(self):
+    def reset_ai_processing_status(self):
         with self._db_session_class() as session:
-            sql = text("UPDATE repo_metadata SET status = '' WHERE status != ''")
+            sql = text("UPDATE repo_metadata SET ai_processing_status = '' WHERE ai_processing_status != ''")
             result = session.execute(sql)
             session.commit()
             if result.rowcount > 0:
