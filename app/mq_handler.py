@@ -48,6 +48,8 @@ class MessageHandler(object):
             try:
                 func(session, msg)
             except Exception as e:
+                # Clear failed transaction state before another handler uses this session.
+                session.rollback()
                 logger.exception("error when handle msg: %s", e)
 
     def get_channels(self):
@@ -74,7 +76,6 @@ class EventsHandler(object):
         self._db_session_class = init_db_session_class(events_conf)
 
     def handle_event(self, channel):
-        session = self._db_session_class()
         while 1:
             try:
                 msg = seafile_api.pop_event(channel)
@@ -83,6 +84,8 @@ class EventsHandler(object):
                 time.sleep(3)
                 continue
             if msg:
+                # A message-scoped session releases ORM state on every path.
+                session = self._db_session_class()
                 try:
                     message_handler.handle_message(session, channel, msg)
                 except Exception as e:

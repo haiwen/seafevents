@@ -203,7 +203,7 @@ def query_prev_record(session, record):
     prev_item = q.filter(FileHistory.repo_id_path_md5 == repo_id_path_md5).order_by(desc(FileHistory.timestamp)).first()
 
     # The restore operation may not be the last record to be restored, so you need to switch to the last record
-    if record['op_type'] == 'recover':
+    if record['op_type'] == 'recover' and prev_item is not None:
         q = session.query(FileHistory)
         prev_item = q.filter(FileHistory.file_uuid == prev_item.file_uuid).order_by(desc(FileHistory.timestamp)).first()
 

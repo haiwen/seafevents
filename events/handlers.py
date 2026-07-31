@@ -52,15 +52,17 @@ def RepoUpdateEventHandler(session, msg):
 
             if renamed_files or renamed_dirs or moved_files or moved_dirs:
                 changer = ChangeFilePathHandler()
-                for r_file in renamed_files:
-                    changer.update_db_records(repo_id, r_file.path, r_file.new_path, 0)
-                for r_dir in renamed_dirs:
-                    changer.update_db_records(repo_id, r_dir.path, r_dir.new_path, 1)
-                for m_file in moved_files:
-                    changer.update_db_records(repo_id, m_file.path, m_file.new_path, 0)
-                for m_dir in moved_dirs:
-                    changer.update_db_records(repo_id, m_dir.path, m_dir.new_path, 1)
-                changer.close_session()
+                try:
+                    for r_file in renamed_files:
+                        changer.update_db_records(repo_id, r_file.path, r_file.new_path, 0)
+                    for r_dir in renamed_dirs:
+                        changer.update_db_records(repo_id, r_dir.path, r_dir.new_path, 1)
+                    for m_file in moved_files:
+                        changer.update_db_records(repo_id, m_file.path, m_file.new_path, 0)
+                    for m_dir in moved_dirs:
+                        changer.update_db_records(repo_id, m_dir.path, m_dir.new_path, 1)
+                finally:
+                    changer.close_session()
 
             users = []
             org_id = get_org_id_by_repo_id(repo_id)
@@ -201,6 +203,9 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
     OBJ_DIR = 'dir'
 
     repo = seafile_api.get_repo(repo_id)
+    if repo is None:
+        logging.warning('Skip activity records for missing repo %s', repo_id)
+        return []
     base_record = {
         'commit_id': commit.commit_id,
         'timestamp': time,
