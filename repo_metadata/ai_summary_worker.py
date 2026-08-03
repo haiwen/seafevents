@@ -18,9 +18,8 @@ logger = logging.getLogger('ai_summary')
 
 
 class AISummaryWorker(object):
-    def __init__(self, mq, lock_timeout):
+    def __init__(self, mq):
         self.mq = mq
-        self.lock_timeout = lock_timeout
         self.metadata_server_api = MetadataServerAPI('seafevents')
         self.seafile_ai_api = SeafileAIAPI(SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY)
 
@@ -79,30 +78,47 @@ class AISummaryWorker(object):
             time.sleep(0.3)
 
     def _handle_ai_summary_task(self, repo_id):
-        if not repo_id or self.should_stop.is_set():
+        if not repo_id:
             return
 
         try:
+            if self.should_stop.is_set():
+                logger.info('%s skip ai summary repo %s due to stop signal', self.tname, repo_id)
+                return
             logger.info('%s start ai summary repo %s', self.tname, repo_id)
             self.generate_ai_summary(repo_id, batch_size=self.batch_size)
             logger.info('%s finish ai summary repo %s', self.tname, repo_id)
         except Exception as e:
             logger.exception('ai summary repo: %s, error: %s', repo_id, e)
         finally:
-            self.delete_repo_lock(repo_id)
-
-    def get_repo_lock_key(self, repo_id):
-        return 'ai_summary_' + repo_id
-
-    def delete_repo_lock(self, repo_id):
-        lock_key = self.get_repo_lock_key(repo_id)
-        self.mq.delete(lock_key)
+            self.set_ai_processing_status(repo_id, '')
 
     def is_summary_enabled(self, repo_id):
         with self._db_session_class() as session:
             sql = "SELECT summary_enabled FROM repo_metadata WHERE repo_id=:repo_id LIMIT 1"
             record = session.execute(text(sql), {'repo_id': repo_id}).fetchone()
         return record[0] if record else False
+
+    def get_ai_processing_status(self, repo_id):
+        with self._db_session_class() as session:
+            sql = text("SELECT ai_processing_status FROM repo_metadata WHERE repo_id = :repo_id LIMIT 1")
+            record = session.execute(sql, {'repo_id': repo_id}).fetchone()
+        return record[0] if record else None
+
+    def set_ai_processing_status(self, repo_id, status=''):
+        with self._db_session_class() as session:
+            sql = text("UPDATE repo_metadata SET ai_processing_status = :status WHERE repo_id = :repo_id")
+            session.execute(sql, {'repo_id': repo_id, 'status': status})
+            session.commit()
+
+    def reset_ai_processing_status(self):
+        with self._db_session_class() as session:
+            sql = text("UPDATE repo_metadata SET ai_processing_status = '' WHERE ai_processing_status != ''")
+            result = session.execute(sql)
+            session.commit()
+            if result.rowcount > 0:
+                logger.info('Reset %d repo metadata statuses on startup', result.rowcount)
+        
 
     def generate_ai_summary(self, repo_id, batch_size=50):
         if not self.seafile_ai_api or not self.mq or not self.is_summary_enabled(repo_id):
