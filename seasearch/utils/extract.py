@@ -30,7 +30,7 @@ def extract_pdf_text(content):
         with open(pdf_name, 'wb') as output:
             output.write(content)
 
-        cmd = ['timeout', str(5 * 60), 'pdftotext', pdf_name, txt_name]
+        cmd = ['timeout', str(5 * 60), 'pdftotext', '-enc', 'UTF-8', pdf_name, txt_name]
         if run_and_wait(cmd) != 0:
             content = None
         else:
@@ -179,6 +179,13 @@ class Extractor(object):
     def fix_encoding(self, repo_id, path, content):
         if not content:
             return None
+        
+        # Try UTF-8 first — covers modern documents and avoids chardet
+        try:
+            return content.decode('utf-8')
+        except UnicodeDecodeError:
+            pass
+
         enc = chardet.detect(content[:4000]).get('encoding', None)
         if not enc:
             logger.warning('%s %s: encoding is unknown', repo_id, path)
