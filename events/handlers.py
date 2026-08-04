@@ -5,6 +5,7 @@ import copy
 import logging
 import logging.handlers
 import datetime
+from itertools import chain
 from urllib import request, parse
 from datetime import timedelta
 from os.path import splitext
@@ -21,6 +22,8 @@ from seafevents.batch_delete_files_notice.utils import get_deleted_files_count, 
 from seafevents.batch_delete_files_notice.db import get_deleted_files_total_count, save_deleted_files_count
 
 recent_added_events = {'recent_added_events': []}
+# Keep each transaction small enough to release ORM and database state regularly.
+FILE_HISTORY_BATCH_SIZE = 100
 
 
 def RepoUpdateEventHandler(session, msg):
@@ -314,8 +317,8 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
     return records
 
 def list_file_in_dir(repo_id, dirents, op_type):
+    """Yield descendant files without retaining the whole directory tree."""
     _dirents = copy.copy(dirents)
-    files = []
     while True:
         try:
             d = _dirents.pop()
@@ -330,7 +333,7 @@ def list_file_in_dir(repo_id, dirents, op_type):
                 if op_type in ['rename', 'move']:
                     new_path = os.path.join(d.new_path, _file.name)
                 new_file = DiffEntry(os.path.join(d.path, _file.name), _file.id, _file.size, new_path)
-                files.append(new_file)
+                yield new_file
 
             subdir_list = dir_obj.get_subdirs_list()
             for _dir in subdir_list:
@@ -339,11 +342,10 @@ def list_file_in_dir(repo_id, dirents, op_type):
                 new_dir = DiffEntry(os.path.join(d.path, _dir.name), _dir.id, new_path=new_path)
                 _dirents.append(new_dir)
 
-    return files
-
 def generate_filehistory_records(added_files, deleted_files, added_dirs,
         deleted_dirs, modified_files, renamed_files, moved_files, renamed_dirs,
         moved_dirs, commit, repo_id, parent, time):
+    """Generate history records incrementally so large commits stay streamable."""
 
     OP_CREATE = 'create'
     OP_DELETE = 'delete'
@@ -355,18 +357,13 @@ def generate_filehistory_records(added_files, deleted_files, added_dirs,
     OBJ_FILE = 'file'
     OBJ_DIR = 'dir'
 
-    repo = seafile_api.get_repo(repo_id)
     base_record = {
         'commit_id': commit.commit_id,
         'timestamp': time,
         'repo_id': repo_id,
         'op_user': commit.creator_name
     }
-    records = []
-
-    _added_files = copy.copy(added_files)
-    _added_files.extend(list_file_in_dir(repo_id, added_dirs, 'add'))
-    for de in _added_files:
+    for de in chain(added_files, list_file_in_dir(repo_id, added_dirs, 'add')):
         record = copy.copy(base_record)
         if commit.description.startswith('Reverted') or commit.description.startswith('Recovered'):
             op_type = OP_RECOVER
@@ -376,17 +373,15 @@ def generate_filehistory_records(added_files, deleted_files, added_dirs,
         record['obj_id'] = de.obj_id
         record['path'] = de.path.rstrip('/')
         record['size'] = de.size
-        records.append(record)
+        yield record
 
-    _deleted_files = copy.copy(deleted_files)
-    _deleted_files.extend(list_file_in_dir(repo_id, deleted_dirs, 'delete'))
-    for de in _deleted_files:
+    for de in chain(deleted_files, list_file_in_dir(repo_id, deleted_dirs, 'delete')):
         record = copy.copy(base_record)
         record['op_type'] = OP_DELETE
         record['obj_id'] = de.obj_id
         record['size'] = de.size
         record['path'] = de.path.rstrip('/')
-        records.append(record)
+        yield record
 
     for de in modified_files:
         record = copy.copy(base_record)
@@ -399,38 +394,50 @@ def generate_filehistory_records(added_files, deleted_files, added_dirs,
         record['obj_id'] = de.obj_id
         record['path'] = de.path.rstrip('/')
         record['size'] = de.size
-        records.append(record)
+        yield record
 
-    _renamed_files = copy.copy(renamed_files)
-    _renamed_files.extend(list_file_in_dir(repo_id, renamed_dirs, 'rename'))
-    for de in _renamed_files:
+    for de in chain(renamed_files, list_file_in_dir(repo_id, renamed_dirs, 'rename')):
         record = copy.copy(base_record)
         record['op_type'] = OP_RENAME
         record['obj_id'] = de.obj_id
         record['path'] = de.new_path.rstrip('/')
         record['size'] = de.size
         record['old_path'] = de.path.rstrip('/')
-        records.append(record)
+        yield record
 
-    _moved_files = copy.copy(moved_files)
-    _moved_files.extend(list_file_in_dir(repo_id, moved_dirs, 'move'))
-    for de in _moved_files:
+    for de in chain(moved_files, list_file_in_dir(repo_id, moved_dirs, 'move')):
         record = copy.copy(base_record)
         record['op_type'] = OP_MOVE
         record['obj_id'] = de.obj_id
         record['path'] = de.new_path.rstrip('/')
         record['size'] = de.size
         record['old_path'] = de.path.rstrip('/')
-        records.append(record)
-
-    return records
+        yield record
 
 def save_file_histories(session, records):
-    if not isinstance(records, list):
+    """Persist a record stream in bounded transactions.
+
+    Completed batches remain durable on failure, matching the old per-record
+    commit behavior; only the current uncommitted batch is rolled back.
+    """
+    if records is None:
         return
-    for record in records:
-        if should_record(record):
-            save_filehistory(session, record)
+    pending_count = 0
+    try:
+        for record in records:
+            if should_record(record):
+                save_filehistory(session, record, commit=False)
+                pending_count += 1
+                if pending_count == FILE_HISTORY_BATCH_SIZE:
+                    session.commit()
+                    pending_count = 0
+        if pending_count:
+            session.commit()
+    except Exception:
+        # Earlier batches remain durable, matching the previous per-record commits.
+        session.rollback()
+        logging.exception('Failed to save file history')
+        raise
 
 def should_record(record):
     """ return True if record['path'] is a specified office file
