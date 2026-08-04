@@ -35,6 +35,11 @@ def RepoUpdateEventHandler(session, msg):
     repo_id = elements[1]
     commit_id = elements[2]
 
+    repo = seafile_api.get_repo(repo_id)
+    if repo is None:
+        logging.warning('Skip repo update event for missing repo %s', repo_id)
+        return
+
     commit = commit_mgr.load_commit(repo_id, 1, commit_id)
     if commit is None:
         commit = commit_mgr.load_commit(repo_id, 0, commit_id)
@@ -52,15 +57,17 @@ def RepoUpdateEventHandler(session, msg):
 
             if renamed_files or renamed_dirs or moved_files or moved_dirs:
                 changer = ChangeFilePathHandler()
-                for r_file in renamed_files:
-                    changer.update_db_records(repo_id, r_file.path, r_file.new_path, 0)
-                for r_dir in renamed_dirs:
-                    changer.update_db_records(repo_id, r_dir.path, r_dir.new_path, 1)
-                for m_file in moved_files:
-                    changer.update_db_records(repo_id, m_file.path, m_file.new_path, 0)
-                for m_dir in moved_dirs:
-                    changer.update_db_records(repo_id, m_dir.path, m_dir.new_path, 1)
-                changer.close_session()
+                try:
+                    for r_file in renamed_files:
+                        changer.update_db_records(repo_id, r_file.path, r_file.new_path, 0)
+                    for r_dir in renamed_dirs:
+                        changer.update_db_records(repo_id, r_dir.path, r_dir.new_path, 1)
+                    for m_file in moved_files:
+                        changer.update_db_records(repo_id, m_file.path, m_file.new_path, 0)
+                    for m_dir in moved_dirs:
+                        changer.update_db_records(repo_id, m_dir.path, m_dir.new_path, 1)
+                finally:
+                    changer.close_session()
 
             users = []
             org_id = get_org_id_by_repo_id(repo_id)
@@ -90,7 +97,7 @@ def RepoUpdateEventHandler(session, msg):
                 records = generate_activity_records(added_files, deleted_files,
                         added_dirs, deleted_dirs, modified_files, renamed_files,
                         moved_files, renamed_dirs, moved_dirs, commit, repo_id,
-                        parent, users, time)
+                        parent, users, time, repo)
 
                 save_user_activities(session, records)
 
@@ -128,7 +135,6 @@ def RepoUpdateEventHandler(session, msg):
                     files_count = get_deleted_files_count(repo_id, commit.version, deleted_files, deleted_dirs)
                     save_deleted_files_count(session, repo_id, files_count, deleted_time)
 
-                    repo = seafile_api.get_repo(repo_id)
                     if files_count > appconfig.once_threshold:
                         save_ding_talk_msg(repo_id, repo.name, owner)
 
@@ -188,7 +194,7 @@ def save_user_activities(session, records):
 
 def generate_activity_records(added_files, deleted_files, added_dirs,
         deleted_dirs, modified_files, renamed_files, moved_files, renamed_dirs,
-        moved_dirs, commit, repo_id, parent, related_users, time):
+        moved_dirs, commit, repo_id, parent, related_users, time, repo):
 
     OP_CREATE = 'create'
     OP_DELETE = 'delete'
@@ -200,7 +206,6 @@ def generate_activity_records(added_files, deleted_files, added_dirs,
     OBJ_FILE = 'file'
     OBJ_DIR = 'dir'
 
-    repo = seafile_api.get_repo(repo_id)
     base_record = {
         'commit_id': commit.commit_id,
         'timestamp': time,
