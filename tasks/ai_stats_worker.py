@@ -274,13 +274,19 @@ class AIStatsWorker:
                 except Exception as error:
                     logger.exception(error)
 
-    def cancel(self):
-        self.finished.set()
-
     def start(self):
-        Thread(target=self.receive, daemon=True).start()
-        Thread(target=self.stats, daemon=True).start()
-        Thread(target=self.clean, daemon=True).start()
+        self._receive_thread = Thread(target=self.receive, daemon=True)
+        self._stats_thread = Thread(target=self.stats, daemon=True)
+        self._clean_thread = Thread(target=self.clean, daemon=True)
+        self._receive_thread.start()
+        self._stats_thread.start()
+        self._clean_thread.start()
+
+    def stop(self):
+        self.finished.set()
+        self._receive_thread.join(timeout=5)
+        self._stats_thread.join(timeout=self.stats_interval + 5)
+        self._clean_thread.join(timeout=5)
 
 
 class AIStatsManager:
@@ -292,3 +298,6 @@ class AIStatsManager:
             logger.warning('Can not start ai stats manager: secret key or server url is not set')
             return
         self.worker.start()
+
+    def stop(self):
+        self.worker.stop()
