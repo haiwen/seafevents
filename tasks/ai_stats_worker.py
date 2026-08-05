@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime, timedelta
-from threading import Lock, Thread
+from threading import Event, Lock, Thread
 
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import text
@@ -46,6 +46,7 @@ class AIStatsWorker:
         self._db_session_class = init_db_session_class()
         self._redis_client = RedisClient()
         self.stats_lock = Lock()
+        self.finished = Event()
         self.channel = 'log_ai_model_usage'
         self.keep_months = 6
         self.log_none_message_timeout = 60 * 10
@@ -108,7 +109,7 @@ class AIStatsWorker:
         subscriber = self._redis_client.get_subscriber(self.channel)
         last_message_time = datetime.now()
 
-        while True:
+        while not self.finished.is_set():
             try:
                 message = subscriber.get_message()
                 if message is not None:
@@ -128,7 +129,7 @@ class AIStatsWorker:
                     if (datetime.now() - last_message_time).seconds >= self.log_none_message_timeout:
                         logger.warning('No log_ai_model_usage message received for %s seconds', self.log_none_message_timeout)
                         last_message_time = datetime.now()
-                    time.sleep(0.5)
+                    self.finished.wait(0.5)
             except Exception as error:
                 logger.error('Failed get message from redis: %s', error)
                 subscriber = self._redis_client.get_subscriber(self.channel)
@@ -242,12 +243,13 @@ class AIStatsWorker:
             session.close()
 
     def stats(self):
-        while True:
-            time.sleep(self.stats_interval)
-            try:
-                self.stats_worker()
-            except Exception as error:
-                logger.exception(error)
+        while not self.finished.is_set():
+            self.finished.wait(self.stats_interval)
+            if not self.finished.is_set():
+                try:
+                    self.stats_worker()
+                except Exception as error:
+                    logger.exception(error)
 
     def clean_worker(self):
         session = self._db_session_class()
@@ -262,14 +264,18 @@ class AIStatsWorker:
             session.close()
 
     def clean(self):
-        while True:
+        while not self.finished.is_set():
             now = datetime.now()
             next_run = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-            time.sleep(max((next_run - now).total_seconds(), 1))
-            try:
-                self.clean_worker()
-            except Exception as error:
-                logger.exception(error)
+            self.finished.wait(max((next_run - now).total_seconds(), 1))
+            if not self.finished.is_set():
+                try:
+                    self.clean_worker()
+                except Exception as error:
+                    logger.exception(error)
+
+    def cancel(self):
+        self.finished.set()
 
     def start(self):
         Thread(target=self.receive, daemon=True).start()
