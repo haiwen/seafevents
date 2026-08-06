@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from threading import Event, Lock, Thread
 
 from dateutil.relativedelta import relativedelta
+from seaserv import seafile_api, get_org_id_by_repo_id
 from sqlalchemy import text
 
 from seafevents.app.config import AI_PRICES
@@ -51,10 +52,42 @@ class AIStatsWorker:
         self.keep_months = 6
         self.log_none_message_timeout = 60 * 10
         self.stats_interval = 60
+        self._repo_info_cache = {}
         self.reset_stats()
 
     def reset_stats(self):
         self.ai_usage_stats = defaultdict(lambda: defaultdict(lambda: {'input_tokens': 0, 'output_tokens': 0}))
+
+    def _resolve_repo_info(self, repo_id):
+        if repo_id in self._repo_info_cache:
+            return self._repo_info_cache[repo_id]
+
+        repo_owner = None
+        group_id = None
+        org_id = None
+
+        try:
+            org_id = get_org_id_by_repo_id(repo_id)
+            if org_id and org_id > 0:
+                repo_owner = seafile_api.get_org_repo_owner(repo_id)
+            else:
+                repo_owner = seafile_api.get_repo_owner(repo_id)
+
+            if repo_owner and '@seafile_group' in repo_owner:
+                try:
+                    group_id = int(repo_owner.split('@')[0])
+                except (ValueError, IndexError):
+                    group_id = None
+        except Exception as e:
+            logger.warning('Failed to resolve repo info for repo %s: %s', repo_id, e)
+
+        info = {
+            'repo_owner': repo_owner,
+            'group_id': group_id,
+            'org_id': org_id,
+        }
+        self._repo_info_cache[repo_id] = info
+        return info
 
     def save_to_memory(self, usage_info):
         if not usage_info.get('model'):
@@ -63,9 +96,6 @@ class AIStatsWorker:
         model = usage_info['model']
         usage = usage_info.get('usage') or {}
         repo_id = usage_info.get('repo_id')
-        repo_owner = usage_info.get('repo_owner')
-        group_id = usage_info.get('group_id')
-        org_id = usage_info.get('org_id')
         scenario = usage_info.get('scenario')
 
         if not model or model not in AI_PRICES:
@@ -81,12 +111,17 @@ class AIStatsWorker:
 
         if not isinstance(repo_id, str) or not repo_id.strip():
             repo_id = None
-        if not isinstance(repo_owner, str) or not repo_owner.strip():
-            repo_owner = None
-        if not isinstance(group_id, int):
-            group_id = None
-        if not isinstance(org_id, int) or org_id <= 0:
-            org_id = None
+
+        repo_owner = None
+        group_id = None
+        org_id = None
+        if repo_id:
+            info = self._resolve_repo_info(repo_id)
+            repo_owner = info['repo_owner']
+            group_id = info['group_id']
+            org_id = info['org_id']
+            if not isinstance(org_id, int) or org_id <= 0:
+                org_id = None
 
         if not isinstance(scenario, str):
             scenario = AIScenario.UNKNOWN
@@ -150,6 +185,7 @@ class AIStatsWorker:
         with self.stats_lock:
             usage_stats = deepcopy(self.ai_usage_stats)
             self.reset_stats()
+            self._repo_info_cache.clear()
 
         logger.info('There are %s repo stats', len(usage_stats))
 
