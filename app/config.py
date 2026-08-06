@@ -42,7 +42,6 @@ try:
     FILE_CONVERTER_SERVER_URL = getattr(seahub_settings, 'FILE_CONVERTER_SERVER_URL', '')
     SEADOC_PRIVATE_KEY = getattr(seahub_settings, 'SEADOC_PRIVATE_KEY', '')
     ENABLE_FACE_RECOGNITION = getattr(seahub_settings, 'ENABLE_FACE_RECOGNITION', False)
-    ORG_MEMBER_QUOTA_ENABLED = getattr(seahub_settings, 'ORG_MEMBER_QUOTA_ENABLED', False)
     ORG_MEMBER_QUOTA_DEFAULT = getattr(seahub_settings, 'ORG_MEMBER_QUOTA_DEFAULT', 10)
     LICENSE_PATH = getattr(seahub_settings, 'LICENSE_PATH', '/opt/seafile/seafile-license.txt')
     ENABLE_RISK_CONTROL = getattr(seahub_settings, 'ENABLE_RISK_CONTROL', False)
