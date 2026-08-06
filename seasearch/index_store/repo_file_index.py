@@ -8,6 +8,7 @@ from seafevents.repo_metadata.constants import METADATA_TABLE
 from seafevents.repo_metadata.utils import get_metadata_by_obj_ids
 from seafevents.utils import get_opt_from_conf_or_env, parse_bool
 from seafevents.seasearch.utils.extract import ExtractorFactory
+from seafevents.seasearch.index_store.summary_vector_index import SummaryVectorIndex
 from seafevents.utils import isoformat_timestr_to_timestamp
 
 logger = logging.getLogger('seasearch')
@@ -113,6 +114,7 @@ class RepoFileIndex(object):
         self.index_office_pdf = False
 
         self.config = config
+        self.summary_vector_index = SummaryVectorIndex(seasearch_api, shard_num)
 
         self._parse_config()
 
@@ -545,6 +547,15 @@ class RepoFileIndex(object):
         added_files, deleted_files, modified_files, added_dirs, deleted_dirs, version = \
             get_library_diff_files(repo_id, old_commit_id, new_commit_id)
 
+        summary_index_name = self.summary_vector_index.get_index_name(repo_id)
+        stale_paths = [
+            file_info[0]
+            for file_info in deleted_files + modified_files
+            if not is_sys_dir_or_file(file_info[0])
+        ]
+        self.summary_vector_index.delete_paths(summary_index_name, stale_paths)
+        self.summary_vector_index.delete_directories(summary_index_name, deleted_dirs)
+
         need_deleted_files = deleted_files
         self.delete_files(index_name, need_deleted_files)
 
@@ -586,6 +597,11 @@ class RepoFileIndex(object):
 
     def delete_index_by_index_name(self, index_name):
         self.seasearch_api.delete_index_by_name(index_name)
+
+    def delete_summary_vector_index(self, repo_id):
+        self.summary_vector_index.delete_index(
+            self.summary_vector_index.get_index_name(repo_id)
+        )
 
     def cal_metadata_files(self, index_name, repo_id, metadata_rows, need_added_files, metadata_server_api):
         metadata_files = []
