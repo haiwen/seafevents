@@ -76,4 +76,9 @@ class IndexTaskManager:
     def search_wikis(self, query, wiki_ids, count):
         return self.index_manager.search_wikis(query, wiki_ids, self._wiki_index, count)
 
+    def delete_summary_vector_index(self, repo_id):
+        if not self.enabled:
+            return
+        self._repo_file_index.delete_summary_vector_index(repo_id)
+
 index_task_manager = IndexTaskManager()

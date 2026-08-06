@@ -25,6 +25,7 @@ class AISummaryWorker(object):
 
         self.should_stop = threading.Event()
         self.worker_list = []
+        self.summary_index_enabled = False
 
         self.ai_summary_worker_num = AI_SUMMARY_WORKERS
         self.batch_size = AI_SUMMARY_BATCH_SIZE
@@ -87,6 +88,8 @@ class AISummaryWorker(object):
                 return
             logger.info('%s start ai summary repo %s', self.tname, repo_id)
             self.generate_ai_summary(repo_id, batch_size=self.batch_size)
+            if self.summary_index_enabled:
+                self.mq.lpush('summary_index_task', json.dumps({'repo_id': repo_id}))
             logger.info('%s finish ai summary repo %s', self.tname, repo_id)
         except Exception as e:
             logger.exception('ai summary repo: %s, error: %s', repo_id, e)

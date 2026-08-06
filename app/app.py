@@ -51,7 +51,7 @@ class App(object):
             self._webhooker = Webhooker()
 
             if ENABLE_METADATA_MANAGEMENT:
-                self._metadata_manager = MetadataManager()
+                self._metadata_manager = MetadataManager(config)
                 self._face_cluster_updater = FaceClusterUpdater()
                 self._face_cluster_task_publisher = FaceClusterTaskPublisher()
             self._repo_file_index_updater = RepoFileIndexUpdater(config)

@@ -8,6 +8,7 @@ from copy import deepcopy
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 
 from seafevents.repo_metadata.ai_summary_worker import AISummaryWorker
+from seafevents.seasearch.index_task.summary_index_task_worker import SummaryIndexTaskWorker
 from seafevents.mq import get_mq, NoMessageException
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 ai_summary_logger = logging.getLogger('ai_summary')
 
 class MetadataManager(object):
-    def __init__(self):
+    def __init__(self, config):
         self.metadata_server_api = MetadataServerAPI('seafevents')
         self.face_recognition_manager = FaceRecognitionManager()
 
@@ -34,6 +35,8 @@ class MetadataManager(object):
         self.slow_task_worker_num = 3
         self.worker_list = []
         self.ai_summary_worker = AISummaryWorker(self.mq)
+        self.summary_index_worker = SummaryIndexTaskWorker(self.mq, config)
+        self.ai_summary_worker.summary_index_enabled = self.summary_index_worker.enabled
 
 
     @property
@@ -57,6 +60,8 @@ class MetadataManager(object):
             self.worker_list.append(t)
 
         if ENABLE_SEAFILE_AI:
+            self.summary_index_worker.start()
+            self.ai_summary_worker.summary_index_enabled = self.summary_index_worker.enabled
             self.ai_summary_worker.start()
 
     ########################### metadata update handler thread ########################
