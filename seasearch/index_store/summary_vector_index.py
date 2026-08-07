@@ -1,4 +1,3 @@
-import hashlib
 import os
 
 from seafevents.seasearch.utils.constants import SUMMARY_VECTOR_INDEX_PREFIX
@@ -33,10 +32,6 @@ class SummaryVectorIndex:
     def get_index_name(repo_id):
         return SUMMARY_VECTOR_INDEX_PREFIX + repo_id
 
-    @staticmethod
-    def get_document_id(path):
-        return hashlib.md5(path.encode()).hexdigest()
-
     def create_index_if_missing(self, index_name):
         if not self.seasearch_api.check_index_mapping(index_name).get('is_exist'):
             self.seasearch_api.create_index(index_name, {
@@ -48,10 +43,12 @@ class SummaryVectorIndex:
         if len(rows) != len(embeddings):
             raise ValueError('Embedding response count mismatch')
 
+        self.delete_paths(index_name, [row['path'] for row in rows])
+
         bulk_params = []
         for row, embedding in zip(rows, embeddings):
             path = row['path']
-            bulk_params.append({'index': {'_index': index_name, '_id': self.get_document_id(path)}})
+            bulk_params.append({'index': {'_index': index_name}})
             bulk_params.append({
                 'repo_id': repo_id,
                 'path': path,
@@ -69,10 +66,22 @@ class SummaryVectorIndex:
     def delete_paths(self, index_name, paths):
         if not paths or not self.seasearch_api.check_index_mapping(index_name).get('is_exist'):
             return
-        self._bulk(index_name, [
-            {'delete': {'_id': self.get_document_id(path), '_index': index_name}}
-            for path in paths
-        ])
+        while True:
+            response = self.seasearch_api.normal_search(index_name, {
+                'query': {'terms': {'path': paths}},
+                '_source': False,
+                'size': 200,
+                'from': 0,
+            })
+            hits = response.get('hits', {}).get('hits', [])
+            if not hits:
+                break
+            self._bulk(index_name, [
+                {'delete': {'_id': hit['_id'], '_index': index_name}}
+                for hit in hits
+            ])
+            if len(hits) < 200:
+                break
 
     def delete_directories(self, index_name, directories):
         if not directories or not self.seasearch_api.check_index_mapping(index_name).get('is_exist'):
