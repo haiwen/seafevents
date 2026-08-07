@@ -24,6 +24,9 @@ logger = logging.getLogger('seasearch')
 
 QUEUE_NAME = 'summary_index_task'
 MAX_RETRIES = 3
+WORKER_NUM = 3
+LOCK_TIMEOUT = 1800
+LOCK_REFRESH_INTERVAL = 600
 
 
 class SummaryIndexTaskWorker:
@@ -31,6 +34,7 @@ class SummaryIndexTaskWorker:
         self.mq = mq
         self.enabled = False
         self.should_stop = threading.Event()
+        self.worker_list = []
         self.metadata_server_api = MetadataServerAPI('seafevents')
         self.seafile_ai_api = SeafileAIAPI(SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY)
         self.db_session_class = init_db_session_class()
@@ -60,8 +64,14 @@ class SummaryIndexTaskWorker:
             self.enabled = False
             logger.error('Cannot start summary index worker: %s', error)
             return
-        thread = threading.Thread(target=self._run, name='summary_index_task_worker', daemon=True)
-        thread.start()
+        for i in range(WORKER_NUM):
+            thread = threading.Thread(
+                target=self._run,
+                name='summary_index_task_worker_thread_%d' % i,
+                daemon=True,
+            )
+            thread.start()
+            self.worker_list.append(thread)
 
     def _run(self):
         logger.info('summary index task worker started')
@@ -89,10 +99,23 @@ class SummaryIndexTaskWorker:
             logger.warning('Summary index task has no repo_id: %s', data)
             return
 
-        lock = self.mq.lock('summary_index:%s' % repo_id, timeout=3600, blocking_timeout=1)
+        lock = self.mq.lock(
+            'summary_index:%s' % repo_id,
+            timeout=LOCK_TIMEOUT,
+            blocking_timeout=1,
+            thread_local=False,
+        )
         if not lock.acquire(blocking=True):
             self.mq.lpush(QUEUE_NAME, json.dumps(data))
             return
+        refresh_stop = threading.Event()
+        refresh_thread = threading.Thread(
+            target=self._refresh_lock,
+            args=(lock, refresh_stop),
+            name='summary_index_lock_refresh',
+            daemon=True,
+        )
+        refresh_thread.start()
         try:
             self.update_index(repo_id, rebuild=bool(data.get('rebuild')))
         except Exception as error:
@@ -109,10 +132,19 @@ class SummaryIndexTaskWorker:
                     self.summary_vector_index.get_index_name(repo_id)
                 )
         finally:
+            refresh_stop.set()
+            refresh_thread.join(timeout=1)
             try:
                 lock.release()
             except Exception:
                 pass
+
+    def _refresh_lock(self, lock, refresh_stop):
+        while not refresh_stop.wait(LOCK_REFRESH_INTERVAL):
+            try:
+                lock.reacquire()
+            except Exception as error:
+                logger.exception('Refresh summary index lock failed: %s', error)
 
     def update_index(self, repo_id, rebuild=False):
         state = self.get_repo_state(repo_id)
