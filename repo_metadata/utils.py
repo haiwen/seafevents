@@ -8,6 +8,7 @@ import exiftool
 import tempfile
 import requests
 import logging
+
 from datetime import timedelta, timezone, datetime
 from sqlalchemy.sql import text
 
@@ -371,7 +372,6 @@ def add_ai_summary(repo_id, obj_ids, metadata_server_api, seafile_ai_api):
                      repo_id, len(obj_ids) if obj_ids else 0, bool(seafile_ai_api), is_summary_enabled(repo_id))
         return []
 
-    
     query_result = get_metadata_by_obj_ids(repo_id, obj_ids, metadata_server_api)
     if not query_result:
         logger.debug('No metadata rows found for ai summary repo=%s, obj_count=%d', repo_id, len(obj_ids))
