@@ -32,8 +32,11 @@ class SummaryVectorIndex:
     def get_index_name(repo_id):
         return SUMMARY_VECTOR_INDEX_PREFIX + repo_id
 
+    def index_exists(self, index_name):
+        return bool(self.seasearch_api.check_index_mapping(index_name).get('is_exist'))
+
     def create_index_if_missing(self, index_name):
-        if not self.seasearch_api.check_index_mapping(index_name).get('is_exist'):
+        if not self.index_exists(index_name):
             self.seasearch_api.create_index(index_name, {
                 'shard_num': self.shard_num,
                 'mappings': self.mapping,
