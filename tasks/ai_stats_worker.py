@@ -27,6 +27,7 @@ class AIScenario:
     WRITING_ASSISTANT = 'writing-assistant'
     CHAT = 'chat'
     UNKNOWN = 'unknown'
+    SEARCH_ICONS = 'search-icons'
 
     @classmethod
     def is_valid(cls, value):
@@ -39,6 +40,7 @@ class AIScenario:
             cls.WRITING_ASSISTANT,
             cls.CHAT,
             cls.UNKNOWN,
+            cls.SEARCH_ICONS,
         }
 
 
