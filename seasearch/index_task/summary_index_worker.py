@@ -23,7 +23,6 @@ from seafevents.utils import get_opt_from_conf_or_env, parse_bool, parse_interva
 logger = logging.getLogger('seasearch')
 
 QUEUE_NAME = 'summary_index_task'
-MAX_RETRIES = 3
 WORKER_NUM = 3
 LOCK_TIMEOUT = 1800
 LOCK_REFRESH_INTERVAL = 600
@@ -100,6 +99,7 @@ class SummaryIndexTaskWorker:
         sql = (
             'SELECT repo_id FROM repo_metadata '
             'WHERE enabled=True AND summary_enabled=True '
+            "AND (ai_processing_status IS NULL OR ai_processing_status='') "
             "AND (ai_indexing_status IS NULL OR ai_indexing_status!='indexing') "
         )
         if last_repo_id:
@@ -156,7 +156,7 @@ class SummaryIndexTaskWorker:
             thread_local=False,
         )
         if not lock.acquire(blocking=True):
-            self.mq.lpush(QUEUE_NAME, json.dumps(data))
+            logger.warning('Another summary index task is running, drop task: %s', repo_id)
             return
         refresh_stop = threading.Event()
         refresh_thread = threading.Thread(
@@ -173,10 +173,6 @@ class SummaryIndexTaskWorker:
             state = self.get_repo_state(repo_id)
             if state and state['enabled'] and state['summary_enabled']:
                 self.set_index_state(repo_id, status='failed')
-                retries = int(data.get('retries', 0)) + 1
-                if retries <= MAX_RETRIES:
-                    data['retries'] = retries
-                    self.mq.lpush(QUEUE_NAME, json.dumps(data))
             else:
                 self.summary_vector_index.delete_index(
                     self.summary_vector_index.get_index_name(repo_id)
@@ -199,6 +195,10 @@ class SummaryIndexTaskWorker:
     def update_index(self, repo_id, rebuild=False):
         state = self.get_repo_state(repo_id)
         if not state or not state['enabled'] or not state['summary_enabled']:
+            return
+        if state.get('processing_status'):
+            self.set_index_state(repo_id, status='pending')
+            logger.info('Defer summary vector index while AI summary is running, repo_id=%s', repo_id)
             return
 
         index_name = self.summary_vector_index.get_index_name(repo_id)
@@ -281,6 +281,10 @@ class SummaryIndexTaskWorker:
         if not state or not state['enabled'] or not state['summary_enabled']:
             self.summary_vector_index.delete_index(index_name)
             return
+        if state.get('processing_status'):
+            self.set_index_state(repo_id, status='pending')
+            logger.info('Keep summary vector index pending while AI summary is running, repo_id=%s', repo_id)
+            return
 
         self.set_index_state(repo_id, indexed_at=until, status='completed')
         logger.info(
@@ -291,7 +295,7 @@ class SummaryIndexTaskWorker:
     def get_repo_state(self, repo_id):
         with self.db_session_class() as session:
             row = session.execute(text(
-                'SELECT enabled, summary_enabled, ai_summary_indexed_at '
+                'SELECT enabled, summary_enabled, ai_summary_indexed_at, ai_processing_status '
                 'FROM repo_metadata WHERE repo_id=:repo_id LIMIT 1'
             ), {'repo_id': repo_id}).fetchone()
         if not row:
@@ -300,6 +304,7 @@ class SummaryIndexTaskWorker:
             'enabled': row[0],
             'summary_enabled': row[1],
             'indexed_at': row[2],
+            'processing_status': row[3],
         }
 
     def set_index_state(self, repo_id, indexed_at=_UNSET, status=None):
