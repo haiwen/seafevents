@@ -224,7 +224,7 @@ class SummaryIndexTaskWorker:
         deleted_count = 0
         while True:
             sql = (
-                f'SELECT `{METADATA_TABLE.columns.id.name}`, `{METADATA_TABLE.columns.obj_id.name}`, '
+                f'SELECT `{METADATA_TABLE.columns.id.name}`, '
                 f'`{METADATA_TABLE.columns.parent_dir.name}`, `{METADATA_TABLE.columns.file_name.name}`, '
                 f'`{METADATA_TABLE.columns.file_mtime.name}`, `{METADATA_TABLE.columns.ai_summary.name}`, '
                 f'`{METADATA_TABLE.columns.ai_summary_mtime.name}` FROM `{METADATA_TABLE.name}` '
@@ -254,7 +254,6 @@ class SummaryIndexTaskWorker:
                 file_mtime = parse_iso_datetime(row.get(METADATA_TABLE.columns.file_mtime.name))
                 documents.append({
                     'path': path,
-                    'obj_id': row.get(METADATA_TABLE.columns.obj_id.name),
                     'ai_summary': summary,
                     'ai_summary_mtime': row.get(METADATA_TABLE.columns.ai_summary_mtime.name),
                     'mtime': int(file_mtime.timestamp() * 1000) if file_mtime else None,
