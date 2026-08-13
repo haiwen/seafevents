@@ -349,14 +349,31 @@ class TrafficInfoCounter(object):
                 result = self.edb_session.scalars(stmt).first()
                 if result is not None:
                     size_in_db = result
-                    stmt = update(UserTraffic).where(UserTraffic.timestamp == date,
-                                                     UserTraffic.user == user,
-                                                     UserTraffic.org_id == org_id,
-                                                     UserTraffic.op_type == oper).values(size=size + size_in_db)
-                    self.edb_session.execute(stmt)
+                    self.edb_session.execute(text('''
+                        UPDATE "USERTRAFFIC"
+                        SET "size" = :traffic_size
+                        WHERE "TIMESTAMP" = :timestamp
+                          AND "user" = :traffic_user
+                          AND "ORG_ID" = :org_id
+                          AND "OP_TYPE" = :op_type
+                    '''), {
+                        'traffic_size': size + size_in_db,
+                        'timestamp': date,
+                        'traffic_user': user,
+                        'org_id': org_id,
+                        'op_type': oper,
+                    })
                 else:
-                    new_record = UserTraffic(user, date, oper, size, org_id)
-                    self.edb_session.add(new_record)
+                    self.edb_session.execute(text('''
+                        INSERT INTO "USERTRAFFIC" ("user", "ORG_ID", "TIMESTAMP", "OP_TYPE", "size")
+                        VALUES (:traffic_user, :org_id, :timestamp, :op_type, :traffic_size)
+                    '''), {
+                        'traffic_user': user,
+                        'org_id': org_id,
+                        'timestamp': date,
+                        'op_type': oper,
+                        'traffic_size': size,
+                    })
 
                 # commit every 100 items.
                 if trans_count >= 100:
@@ -395,13 +412,28 @@ class TrafficInfoCounter(object):
 
                 if result is not None:
                     size_in_db = result
-                    stmt = update(SysTraffic).where(SysTraffic.timestamp == date,
-                                                     SysTraffic.org_id == org_id,
-                                                     SysTraffic.op_type == oper).values(size=size + size_in_db)
-                    self.edb_session.execute(stmt)
+                    self.edb_session.execute(text('''
+                        UPDATE "SYSTRAFFIC"
+                        SET "size" = :traffic_size
+                        WHERE "TIMESTAMP" = :timestamp
+                          AND "ORG_ID" = :org_id
+                          AND "OP_TYPE" = :op_type
+                    '''), {
+                        'traffic_size': size + size_in_db,
+                        'timestamp': date,
+                        'org_id': org_id,
+                        'op_type': oper,
+                    })
                 else:
-                    new_record = SysTraffic(date, oper, size, org_id)
-                    self.edb_session.add(new_record)
+                    self.edb_session.execute(text('''
+                        INSERT INTO "SYSTRAFFIC" ("ORG_ID", "TIMESTAMP", "OP_TYPE", "size")
+                        VALUES (:org_id, :timestamp, :op_type, :traffic_size)
+                    '''), {
+                        'org_id': org_id,
+                        'timestamp': date,
+                        'op_type': oper,
+                        'traffic_size': size,
+                    })
 
             except Exception as e:
                 logging.warning('Failed to update traffic info: %s.', e)
@@ -571,17 +603,26 @@ class UserActivityCounter(object):
         if l <= 0:
             return
 
-        cmd = "REPLACE INTO UserActivityStat (name_time_md5, username, timestamp, org_id) values"
-        cmd_extend = ''.join([' (:key' + str(i) +', :name'+ str(i) +', :time'+ str(i) + ', :org' + str(i) + '),'\
-                     for i in range(l)])[:-1]
-        cmd += cmd_extend
-        data = {}
         for key in keys:
             pop_data = login_records.pop(key)
-            i = str(keys.index(key))
-            data['key'+i] = key
-            data['name'+i] = pop_data[0]
-            data['time'+i] = pop_data[1]
-            data['org'+i] = pop_data[2]
-
-        self.edb_session.execute(text(cmd), data)
+            username, timestamp, org_id = pop_data
+            result = self.edb_session.execute(text('''
+                UPDATE "USERACTIVITYSTAT"
+                SET "USERNAME" = :username, "TIMESTAMP" = :timestamp, "ORG_ID" = :org_id
+                WHERE "NAME_TIME_MD5" = :name_time_md5
+            '''), {
+                'name_time_md5': key,
+                'username': username,
+                'timestamp': timestamp,
+                'org_id': org_id,
+            })
+            if result.rowcount == 0:
+                self.edb_session.execute(text('''
+                    INSERT INTO "USERACTIVITYSTAT" ("NAME_TIME_MD5", "USERNAME", "TIMESTAMP", "ORG_ID")
+                    VALUES (:name_time_md5, :username, :timestamp, :org_id)
+                '''), {
+                    'name_time_md5': key,
+                    'username': username,
+                    'timestamp': timestamp,
+                    'org_id': org_id,
+                })
