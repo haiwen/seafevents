@@ -26,6 +26,13 @@ def convert_timezone(dt, from_tz, to_tz):
     return aware_datetime.astimezone(to_tz)
 
 
+def date_from_database(value):
+    """Normalize MySQL DATE and Dameng TO_DATE results to a datetime."""
+    if isinstance(value, datetime):
+        return value
+    return datetime.strptime(str(value)[:10], '%Y-%m-%d')
+
+
 def get_org_id(repo_id):
     global is_org
     if is_org == -1:
@@ -65,7 +72,7 @@ def get_user_activity_stats_by_day(session, start, end, offset='+00:00'):
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row[0]), '%Y-%m-%d'), row[1]))
+        ret.append((date_from_database(row[0]), row[1]))
     return ret
 
 def get_org_user_activity_stats_by_day(session, org_id, start, end):
@@ -209,7 +216,7 @@ def get_org_file_ops_stats_by_day(session, org_id, start, end, offset='+00:00'):
         rows = session.execute(text(sql)).fetchall()
 
         for row in rows:
-            timestamp = datetime.strptime(str(row[0]), '%Y-%m-%d')
+            timestamp = date_from_database(row[0])
             op_type = row[2]
             num = int(row[1])
             ret.append({"timestamp":timestamp, "op_type":op_type, "number":num})
@@ -256,7 +263,7 @@ def get_org_user_traffic_by_day(session, org_id, user, start, end, offset='+00:0
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row[0]), '%Y-%m-%d'), row[2], int(row[1])))
+        ret.append((date_from_database(row[0]), row[2], int(row[1])))
     return ret
 
 def get_user_traffic_by_day(session, user, start, end, offset='+00:00', op_type='all'):
@@ -295,7 +302,7 @@ def get_user_traffic_by_day(session, user, start, end, offset='+00:00', op_type=
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row[0]), '%Y-%m-%d'), row[2], int(row[1])))
+        ret.append((date_from_database(row[0]), row[2], int(row[1])))
     return ret
 
 def get_org_traffic_by_day(session, org_id, start, end, offset='+00:00', op_type='all'):
@@ -335,7 +342,7 @@ def get_org_traffic_by_day(session, org_id, start, end, offset='+00:00', op_type
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row[0]), '%Y-%m-%d'), row[2], int(row[1])))
+        ret.append((date_from_database(row[0]), row[2], int(row[1])))
     return ret
 
 def get_system_traffic_by_day(session, start, end, offset='+00:00', op_type='all'):
@@ -372,7 +379,7 @@ def get_system_traffic_by_day(session, start, end, offset='+00:00', op_type='all
     ret = []
 
     for row in rows:
-        ret.append((datetime.strptime(str(row[0]), '%Y-%m-%d'), row[2], int(row[1])))
+        ret.append((date_from_database(row[0]), row[2], int(row[1])))
     return ret
 
 

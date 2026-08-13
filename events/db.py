@@ -269,8 +269,24 @@ def save_user_activity(session, record):
     activity = Activity(record)
     session.add(activity)
     session.commit()
+
+    # dmPython returns an incorrect generated identity for this table after a
+    # migration with explicit IDs. Fetch the committed row by its commit ID.
+    stmt = select(Activity.id).where(
+        Activity.repo_id == record['repo_id'],
+        Activity.commit_id == record.get('commit_id'),
+        Activity.op_type == record['op_type'],
+        Activity.op_user == record['op_user'],
+        Activity.path == record['path'],
+    ).order_by(desc(Activity.id)).limit(1)
+    activity_id = session.scalars(stmt).first()
+    if activity_id is None:
+        raise RuntimeError(
+            f"Unable to find committed activity for repo {record['repo_id']}"
+        )
+
     for username in record['related_users'][:USER_ACTIVITIES_GENERATE_LIMIT]:
-        user_activity = UserActivity(username, activity.id, record['timestamp'])
+        user_activity = UserActivity(username, activity_id, record['timestamp'])
         session.add(user_activity)
     session.commit()
 
@@ -285,7 +301,7 @@ def save_repo_trash(session, record):
     commit_id = record.get('commit_id', None)
     size = record.get('size', 0)
 
-    sql = f"""INSERT INTO FileTrash ("user", obj_type, obj_id, obj_name, delete_time, repo_id, commit_id, path, "size")
+    sql = f"""INSERT INTO FileTrash ("USERNAME", obj_type, obj_id, obj_name, delete_time, repo_id, commit_id, path, "FILE_SIZE")
      VALUES ('{user}', '{obj_type}', '{obj_id}', '{obj_name}', '{delete_time}', '{repo_id}', '{commit_id}', '{path}', {size})"""
 
     session.execute(text(sql))
