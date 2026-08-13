@@ -1,5 +1,3 @@
-import os
-
 from seafevents.seasearch.utils.constants import SUMMARY_VECTOR_INDEX_PREFIX
 
 
@@ -7,6 +5,7 @@ class SummaryVectorIndex:
     mapping = {
         'properties': {
             'repo_id': {'type': 'keyword'},
+            'row_id': {'type': 'keyword'},
             'path': {'type': 'keyword'},
             'filename': {'type': 'text'},
             'ai_summary': {'type': 'text'},
@@ -45,16 +44,16 @@ class SummaryVectorIndex:
         if len(rows) != len(embeddings):
             raise ValueError('Embedding response count mismatch')
 
-        self.delete_paths(index_name, [row['path'] for row in rows])
+        self.delete_row_ids(index_name, [row['row_id'] for row in rows])
 
         bulk_params = []
         for row, embedding in zip(rows, embeddings):
-            path = row['path']
             bulk_params.append({'index': {'_index': index_name}})
             bulk_params.append({
                 'repo_id': repo_id,
-                'path': path,
-                'filename': os.path.basename(path),
+                'row_id': row['row_id'],
+                'path': row['path'],
+                'filename': row['filename'],
                 'ai_summary': row['ai_summary'],
                 'ai_summary_mtime': row.get('ai_summary_mtime'),
                 'mtime': row.get('mtime'),
@@ -64,12 +63,22 @@ class SummaryVectorIndex:
         if bulk_params:
             self._bulk(index_name, bulk_params)
 
+    def delete_row_ids(self, index_name, row_ids):
+        if not row_ids:
+            return
+        self._delete_query_hits(index_name, {'terms': {'row_id': row_ids}})
+
     def delete_paths(self, index_name, paths):
-        if not paths or not self.seasearch_api.check_index_mapping(index_name).get('is_exist'):
+        if not paths:
+            return
+        self._delete_query_hits(index_name, {'terms': {'path': paths}})
+
+    def _delete_query_hits(self, index_name, query):
+        if not self.seasearch_api.check_index_mapping(index_name).get('is_exist'):
             return
         while True:
             response = self.seasearch_api.normal_search(index_name, {
-                'query': {'terms': {'path': paths}},
+                'query': query,
                 '_source': False,
                 'size': 200,
                 'from': 0,

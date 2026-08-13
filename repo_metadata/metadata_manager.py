@@ -194,10 +194,11 @@ class MetadataManager(object):
         if not repo_id or not self.mq:
             return
 
-        status = self.ai_summary_worker.get_ai_processing_status(repo_id)
-        if status:
+        if self.ai_summary_worker.get_ai_processing_status(repo_id):
             ai_summary_logger.info('repo: %s ai summary is running, skip repo task', repo_id)
             return
+
+        self.ai_summary_worker.set_ai_processing_status(repo_id, 'in_summary')
 
         msg = {
             'repo_id': repo_id,
@@ -205,7 +206,6 @@ class MetadataManager(object):
 
         try:
             self.mq.lpush('ai_summary_task', json.dumps(msg))
-            self.ai_summary_worker.set_ai_processing_status(repo_id, 'in_summary')
         except Exception as e:
             logger.error('Failed to enqueue ai summary task repo=%s: %s', repo_id, e)
             self.ai_summary_worker.set_ai_processing_status(repo_id, '')

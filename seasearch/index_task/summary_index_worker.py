@@ -17,18 +17,13 @@ from seafevents.repo_metadata.utils import parse_iso_datetime
 from seafevents.seasearch.index_store.summary_vector_index import SummaryVectorIndex
 from seafevents.seasearch.utils.constants import SHARD_NUM
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
-from seafevents.utils import get_opt_from_conf_or_env, parse_bool, parse_interval
+from seafevents.utils import get_opt_from_conf_or_env, parse_bool
 
 
 logger = logging.getLogger('seasearch')
 
 QUEUE_NAME = 'summary_index_task'
 WORKER_NUM = 3
-LOCK_TIMEOUT = 1800
-LOCK_REFRESH_INTERVAL = 600
-DEFAULT_INDEX_INTERVAL = 30 * 60
-PUBLISH_PAGE_SIZE = 1000
-_UNSET = object()
 
 
 class SummaryIndexTaskWorker:
@@ -37,8 +32,6 @@ class SummaryIndexTaskWorker:
         self.enabled = False
         self.should_stop = threading.Event()
         self.worker_list = []
-        self.publisher_thread = None
-        self.index_interval = DEFAULT_INDEX_INTERVAL
         self.metadata_server_api = MetadataServerAPI('seafevents')
         self.seafile_ai_api = SeafileAIAPI(SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY)
         self.db_session_class = init_db_session_class()
@@ -52,10 +45,6 @@ class SummaryIndexTaskWorker:
         enabled = get_opt_from_conf_or_env(config, section_name, 'enabled', default=False)
         if not parse_bool(enabled):
             return
-        interval = get_opt_from_conf_or_env(
-            config, section_name, 'interval', default=DEFAULT_INDEX_INTERVAL
-        )
-        self.index_interval = parse_interval(interval, DEFAULT_INDEX_INTERVAL)
         seasearch_api = SeaSearchAPI(
             get_opt_from_conf_or_env(config, section_name, 'seasearch_url'),
             get_opt_from_conf_or_env(config, section_name, 'seasearch_token'),
@@ -66,12 +55,6 @@ class SummaryIndexTaskWorker:
     def start(self):
         if not self.enabled or not self.mq:
             return
-        try:
-            self.reset_indexing_status()
-        except Exception as error:
-            self.enabled = False
-            logger.error('Cannot start summary index worker: %s', error)
-            return
         for i in range(WORKER_NUM):
             thread = threading.Thread(
                 target=self._run,
@@ -80,48 +63,6 @@ class SummaryIndexTaskWorker:
             )
             thread.start()
             self.worker_list.append(thread)
-        self.publisher_thread = threading.Thread(
-            target=self._run_publisher,
-            name='summary_index_task_publisher',
-            daemon=True,
-        )
-        self.publisher_thread.start()
-
-    def _run_publisher(self):
-        while not self.should_stop.wait(self.index_interval):
-            try:
-                self.publish_summary_index_tasks()
-            except Exception as error:
-                logger.exception('Publish summary index tasks failed: %s', error)
-
-    def get_enabled_repo_ids_by_page(self, last_repo_id, limit):
-        values = {'limit': limit}
-        sql = (
-            'SELECT repo_id FROM repo_metadata '
-            'WHERE enabled=True AND summary_enabled=True '
-            "AND (ai_processing_status IS NULL OR ai_processing_status='') "
-            "AND (ai_indexing_status IS NULL OR ai_indexing_status!='indexing') "
-        )
-        if last_repo_id:
-            sql += 'AND repo_id>:last_repo_id '
-            values['last_repo_id'] = last_repo_id
-        sql += 'ORDER BY repo_id LIMIT :limit'
-        with self.db_session_class() as session:
-            rows = session.execute(text(sql), values).fetchall()
-        return [row[0] for row in rows]
-
-    def publish_summary_index_tasks(self):
-        last_repo_id = None
-        published_count = 0
-        while True:
-            repo_ids = self.get_enabled_repo_ids_by_page(last_repo_id, PUBLISH_PAGE_SIZE)
-            for repo_id in repo_ids:
-                self.mq.lpush(QUEUE_NAME, json.dumps({'repo_id': repo_id}))
-            published_count += len(repo_ids)
-            if len(repo_ids) < PUBLISH_PAGE_SIZE:
-                break
-            last_repo_id = repo_ids[-1]
-        logger.info('Published %d summary index compensation tasks', published_count)
 
     def _run(self):
         logger.info('summary index task worker started')
@@ -149,66 +90,28 @@ class SummaryIndexTaskWorker:
             logger.warning('Summary index task has no repo_id: %s', data)
             return
 
-        lock = self.mq.lock(
-            'summary_index:%s' % repo_id,
-            timeout=LOCK_TIMEOUT,
-            blocking_timeout=1,
-            thread_local=False,
-        )
-        if not lock.acquire(blocking=True):
-            logger.warning('Another summary index task is running, drop task: %s', repo_id)
+        state = self.get_repo_state(repo_id)
+        if not state or state.get('processing_status') != 'in_summary':
+            logger.info('Summary index task is stale or repo is locked: %s', repo_id)
             return
-        refresh_stop = threading.Event()
-        refresh_thread = threading.Thread(
-            target=self._refresh_lock,
-            args=(lock, refresh_stop),
-            name='summary_index_lock_refresh',
-            daemon=True,
-        )
-        refresh_thread.start()
+        self.set_ai_processing_status(repo_id, 'indexing')
         try:
-            self.update_index(repo_id, rebuild=bool(data.get('rebuild')))
+            self.update_index(repo_id)
         except Exception as error:
             logger.exception('Summary vector index failed, repo_id=%s, error=%s', repo_id, error)
-            state = self.get_repo_state(repo_id)
-            if state and state['enabled'] and state['summary_enabled']:
-                self.set_index_state(repo_id, status='failed')
-            else:
-                self.summary_vector_index.delete_index(
-                    self.summary_vector_index.get_index_name(repo_id)
-                )
-        finally:
-            refresh_stop.set()
-            refresh_thread.join(timeout=1)
-            try:
-                lock.release()
-            except Exception:
-                pass
+            self.set_ai_processing_status(repo_id, '')
 
-    def _refresh_lock(self, lock, refresh_stop):
-        while not refresh_stop.wait(LOCK_REFRESH_INTERVAL):
-            try:
-                lock.reacquire()
-            except Exception as error:
-                logger.exception('Refresh summary index lock failed: %s', error)
-
-    def update_index(self, repo_id, rebuild=False):
+    def update_index(self, repo_id):
         state = self.get_repo_state(repo_id)
         if not state or not state['enabled'] or not state['summary_enabled']:
-            return
-        if state.get('processing_status'):
-            self.set_index_state(repo_id, status='pending')
-            logger.info('Defer summary vector index while AI summary is running, repo_id=%s', repo_id)
+            self.set_ai_processing_status(repo_id, '')
             return
 
         index_name = self.summary_vector_index.get_index_name(repo_id)
         indexed_at = state.get('indexed_at')
-        rebuild = rebuild or indexed_at is None or not self.summary_vector_index.index_exists(index_name)
+        rebuild = indexed_at is None or not self.summary_vector_index.index_exists(index_name)
         if rebuild:
-            self.set_index_state(repo_id, indexed_at=None, status='indexing')
             self.summary_vector_index.delete_index(index_name)
-        else:
-            self.set_index_state(repo_id, status='indexing')
         self.summary_vector_index.create_index_if_missing(index_name)
 
         since = indexed_at
@@ -241,19 +144,24 @@ class SummaryIndexTaskWorker:
                 break
 
             documents = []
-            empty_paths = []
+            empty_row_ids = []
             for row in rows:
+                row_id = row.get(METADATA_TABLE.columns.id.name)
+                if not row_id:
+                    continue
                 path = os.path.join(
                     row.get(METADATA_TABLE.columns.parent_dir.name) or '/',
                     row.get(METADATA_TABLE.columns.file_name.name) or '',
                 )
                 summary = row.get(METADATA_TABLE.columns.ai_summary.name) or ''
                 if not summary:
-                    empty_paths.append(path)
+                    empty_row_ids.append(row_id)
                     continue
                 file_mtime = parse_iso_datetime(row.get(METADATA_TABLE.columns.file_mtime.name))
                 documents.append({
+                    'row_id': row_id,
                     'path': path,
+                    'filename': row.get(METADATA_TABLE.columns.file_name.name) or '',
                     'ai_summary': summary,
                     'ai_summary_mtime': row.get(METADATA_TABLE.columns.ai_summary_mtime.name),
                     'mtime': int(file_mtime.timestamp() * 1000) if file_mtime else None,
@@ -268,9 +176,9 @@ class SummaryIndexTaskWorker:
                     index_name, repo_id, batch, embeddings, model
                 )
                 indexed_count += len(batch)
-            if empty_paths:
-                self.summary_vector_index.delete_paths(index_name, empty_paths)
-                deleted_count += len(empty_paths)
+            if empty_row_ids:
+                self.summary_vector_index.delete_row_ids(index_name, empty_row_ids)
+                deleted_count += len(empty_row_ids)
 
             offset += page_size
             if len(rows) < page_size:
@@ -279,13 +187,11 @@ class SummaryIndexTaskWorker:
         state = self.get_repo_state(repo_id)
         if not state or not state['enabled'] or not state['summary_enabled']:
             self.summary_vector_index.delete_index(index_name)
-            return
-        if state.get('processing_status'):
-            self.set_index_state(repo_id, status='pending')
-            logger.info('Keep summary vector index pending while AI summary is running, repo_id=%s', repo_id)
+            self.set_ai_processing_status(repo_id, '')
             return
 
-        self.set_index_state(repo_id, indexed_at=until, status='completed')
+        self.set_indexed_at(repo_id, until)
+        self.set_ai_processing_status(repo_id, '')
         logger.info(
             'Summary vector index completed, repo_id=%s, indexed=%d, deleted=%d, since=%s, until=%s',
             repo_id, indexed_count, deleted_count, since.isoformat(), until.isoformat()
@@ -306,27 +212,16 @@ class SummaryIndexTaskWorker:
             'processing_status': row[3],
         }
 
-    def set_index_state(self, repo_id, indexed_at=_UNSET, status=None):
-        values = {'repo_id': repo_id}
-        assignments = []
-        if indexed_at is not _UNSET:
-            assignments.append('ai_summary_indexed_at=:indexed_at')
-            values['indexed_at'] = indexed_at
-        if status is not None:
-            assignments.append('ai_indexing_status=:status')
-            values['status'] = status
-        if not assignments:
-            return
+    def set_indexed_at(self, repo_id, indexed_at):
         with self.db_session_class() as session:
             session.execute(text(
-                'UPDATE repo_metadata SET %s WHERE repo_id=:repo_id' % ', '.join(assignments)
-            ), values)
+                "UPDATE repo_metadata SET ai_summary_indexed_at=:indexed_at WHERE repo_id=:repo_id"
+            ), {'repo_id': repo_id, 'indexed_at': indexed_at})
             session.commit()
 
-    def reset_indexing_status(self):
+    def set_ai_processing_status(self, repo_id, status=''):
         with self.db_session_class() as session:
             session.execute(text(
-                "UPDATE repo_metadata SET ai_indexing_status='pending' "
-                "WHERE ai_indexing_status='indexing'"
-            ))
+                "UPDATE repo_metadata SET ai_processing_status=:status WHERE repo_id=:repo_id"
+            ), {'repo_id': repo_id, 'status': status})
             session.commit()

@@ -257,24 +257,6 @@ def delete_summary_vector_index():
     return {'success': True}, 200
 
 
-@app.route('/rebuild-summary-vector-index', methods=['POST'])
-def rebuild_summary_vector_index():
-    is_valid, error = check_auth_token(request)
-    if not is_valid:
-        return make_response((error, 403))
-    try:
-        data = json.loads(request.data)
-    except Exception as error:
-        logger.exception(error)
-        return {'error_msg': 'Bad request.'}, 400
-
-    repo_id = data.get('repo_id')
-    if not repo_id:
-        return {'error_msg': 'repo_id invalid.'}, 400
-    task_manager.add_summary_index_task(repo_id, rebuild=True)
-    return {'success': True}, 200
-
-
 @app.route('/recognize-faces', methods=['POST'])
 def recognize_faces():
     is_valid = check_auth_token(request)

@@ -121,12 +121,6 @@ class TaskManager:
         else:
             logging.info('No one subscribed to metadata_update channel, event (%s) has not been send' % msg_content)
 
-    def add_summary_index_task(self, repo_id, rebuild=False):
-        self._redis_connection.lpush('summary_index_task', json.dumps({
-            'repo_id': repo_id,
-            'rebuild': rebuild,
-        }))
-
     def query_task(self, task_id):
         return self.tasks_map.get(task_id)
 

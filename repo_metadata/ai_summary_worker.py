@@ -81,19 +81,24 @@ class AISummaryWorker(object):
     def _handle_ai_summary_task(self, repo_id):
         if not repo_id:
             return
+        if self.get_ai_processing_status(repo_id) != 'in_summary':
+            logger.info('Skip stale ai summary task for repo %s', repo_id)
+            return
 
         try:
             if self.should_stop.is_set():
                 logger.info('%s skip ai summary repo %s due to stop signal', self.tname, repo_id)
+                self.set_ai_processing_status(repo_id, '')
                 return
             logger.info('%s start ai summary repo %s', self.tname, repo_id)
             self.generate_ai_summary(repo_id, batch_size=self.batch_size)
             if self.summary_index_enabled:
                 self.mq.lpush('summary_index_task', json.dumps({'repo_id': repo_id}))
+            else:
+                self.set_ai_processing_status(repo_id, '')
             logger.info('%s finish ai summary repo %s', self.tname, repo_id)
         except Exception as e:
             logger.exception('ai summary repo: %s, error: %s', repo_id, e)
-        finally:
             self.set_ai_processing_status(repo_id, '')
 
     def is_summary_enabled(self, repo_id):
@@ -104,8 +109,9 @@ class AISummaryWorker(object):
 
     def get_ai_processing_status(self, repo_id):
         with self._db_session_class() as session:
-            sql = text("SELECT ai_processing_status FROM repo_metadata WHERE repo_id = :repo_id LIMIT 1")
-            record = session.execute(sql, {'repo_id': repo_id}).fetchone()
+            record = session.execute(text(
+                "SELECT ai_processing_status FROM repo_metadata WHERE repo_id = :repo_id LIMIT 1"
+            ), {'repo_id': repo_id}).fetchone()
         return record[0] if record else None
 
     def set_ai_processing_status(self, repo_id, status=''):
