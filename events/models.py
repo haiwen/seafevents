@@ -249,7 +249,7 @@ class FileTrash(Base):
     __tablename__ = 'FILETRASH'
 
     id = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user = mapped_column(String(length=255), nullable=False)
+    user = mapped_column("USERNAME", String(length=255), nullable=False)
     obj_type = mapped_column(String(length=128), nullable=False)
     obj_id = mapped_column(String(length=40), nullable=False)
     obj_name = mapped_column(String(length=255), nullable=False)
@@ -258,7 +258,7 @@ class FileTrash(Base):
     repo_id = mapped_column(String(length=36), nullable=False)
     commit_id = mapped_column(String(length=40))
     path = mapped_column(Text, nullable=False)
-    size = mapped_column(BigInteger, nullable=False)
+    size = mapped_column("FILE_SIZE", BigInteger, nullable=False)
 
     def __init__(self, record):
         super().__init__()
