@@ -114,6 +114,19 @@ class SummaryIndexTaskWorker:
             self.summary_vector_index.delete_index(index_name)
         self.summary_vector_index.create_index_if_missing(index_name)
 
+        deleted_rows = self.metadata_server_api.get_deleted_rows(
+            repo_id, METADATA_TABLE.id
+        ).get('deleted_rows', [])
+        deleted_row_ids = [
+            row.get(METADATA_TABLE.columns.id.name)
+            for row in deleted_rows
+            if row.get(METADATA_TABLE.columns.id.name)
+        ]
+        for start in range(0, len(deleted_row_ids), 100):
+            self.summary_vector_index.delete_row_ids(
+                index_name, deleted_row_ids[start:start + 100]
+            )
+
         since = indexed_at
         if rebuild:
             since = datetime(1970, 1, 1, tzinfo=timezone.utc)
@@ -124,7 +137,7 @@ class SummaryIndexTaskWorker:
         page_size = 1000
         offset = 0
         indexed_count = 0
-        deleted_count = 0
+        deleted_count = len(deleted_row_ids)
         while True:
             sql = (
                 f'SELECT `{METADATA_TABLE.columns.id.name}`, '
