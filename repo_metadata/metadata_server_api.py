@@ -98,7 +98,7 @@ class MetadataServerAPI:
     def get_deleted_rows(self, base_id, table_id):
         headers = self.gen_headers(base_id)
         url = f'{self.server_url}/api/v1/base/{base_id}/deleted-rows'
-        response = requests.post(url, json={'table_id': table_id}, headers=headers, timeout=self.timeout)
+        response = requests.get(url, params={'table_id': table_id}, headers=headers, timeout=self.timeout)
         return parse_response(response)
 
     def query_rows(self, base_id, sql, params=[]):

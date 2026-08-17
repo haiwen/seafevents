@@ -91,8 +91,9 @@ class AISummaryWorker(object):
                 self.set_ai_processing_status(repo_id, '')
                 return
             logger.info('%s start ai summary repo %s', self.tname, repo_id)
-            self.generate_ai_summary(repo_id, batch_size=self.batch_size)
+            updated_rows = self.generate_ai_summary(repo_id, batch_size=self.batch_size)
             if self.summary_index_enabled:
+                self.set_ai_processing_status(repo_id, 'indexing')
                 self.mq.lpush('summary_index_task', json.dumps({'repo_id': repo_id}))
             else:
                 self.set_ai_processing_status(repo_id, '')
@@ -133,7 +134,7 @@ class AISummaryWorker(object):
         if not self.seafile_ai_api or not self.mq or not self.is_summary_enabled(repo_id):
             logger.debug('Skip ai summary repo=%s, ai_server=%s, mq=%s, summary_enabled=%s',
                           repo_id, bool(self.seafile_ai_api), bool(self.mq), self.is_summary_enabled(repo_id))
-            return
+            return []
 
         logger.info('Generating ai summary for repo %s', repo_id)
         base_sql = (
@@ -148,6 +149,7 @@ class AISummaryWorker(object):
 
         support_suffixes = set(SUMMARY_SUPPORTED_FILE_EXTENSIONS)
         start = 0
+        all_updated_rows = []
 
         while True:
             query_sql = f'{base_sql} LIMIT {start}, {self.query_page_size}'
@@ -175,14 +177,15 @@ class AISummaryWorker(object):
 
                 obj_ids.append(obj_id)
                 if len(obj_ids) >= batch_size:
-                    add_ai_summary(repo_id, obj_ids, self.metadata_server_api, self.seafile_ai_api)
+                    all_updated_rows.extend(add_ai_summary(repo_id, obj_ids, self.metadata_server_api, self.seafile_ai_api))
                     obj_ids = []
 
             if obj_ids:
-                add_ai_summary(repo_id, obj_ids, self.metadata_server_api, self.seafile_ai_api)
+                all_updated_rows.extend(add_ai_summary(repo_id, obj_ids, self.metadata_server_api, self.seafile_ai_api))
 
             if len(rows) < self.query_page_size:
                 break
             start += self.query_page_size
 
         logger.info('Finish generating ai summary for repo %s', repo_id)
+        return all_updated_rows

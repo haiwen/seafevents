@@ -194,7 +194,8 @@ class MetadataManager(object):
         if not repo_id or not self.mq:
             return
 
-        if self.ai_summary_worker.get_ai_processing_status(repo_id):
+        processing_status = self.ai_summary_worker.get_ai_processing_status(repo_id)
+        if processing_status:
             ai_summary_logger.info('repo: %s ai summary is running, skip repo task', repo_id)
             return
 

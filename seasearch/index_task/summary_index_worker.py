@@ -91,10 +91,12 @@ class SummaryIndexTaskWorker:
             return
 
         state = self.get_repo_state(repo_id)
-        if not state or state.get('processing_status') != 'in_summary':
-            logger.info('Summary index task is stale or repo is locked: %s', repo_id)
+        if not state or state.get('processing_status') != 'indexing':
+            logger.info(
+                'Skip summary index task, repo_id=%s, processing_status=%s',
+                repo_id, state.get('processing_status') if state else 'missing'
+            )
             return
-        self.set_ai_processing_status(repo_id, 'indexing')
         try:
             self.update_index(repo_id)
         except Exception as error:
