@@ -120,6 +120,9 @@ class SummaryVectorIndex:
         if self.seasearch_api.check_index_mapping(index_name).get('is_exist'):
             self.seasearch_api.delete_index_by_name(index_name)
 
+    def delete_summary_vector_index(self, repo_id):
+        self.delete_index(self.get_index_name(repo_id))
+
     def _bulk(self, index_name, params):
         response = self.seasearch_api.bulk(index_name, params) or {}
         if response.get('error') or response.get('errors'):

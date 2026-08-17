@@ -586,11 +586,6 @@ class RepoFileIndex(object):
     def delete_index_by_index_name(self, index_name):
         self.seasearch_api.delete_index_by_name(index_name)
 
-    def delete_summary_vector_index(self, repo_id):
-        from seafevents.seasearch.index_store.summary_vector_index import SummaryVectorIndex
-        summary_vector_index = SummaryVectorIndex(self.seasearch_api, self.shard_num)
-        summary_vector_index.delete_index(summary_vector_index.get_index_name(repo_id))
-
     def cal_metadata_files(self, index_name, repo_id, metadata_rows, need_added_files, metadata_server_api):
         metadata_files = []
         path_to_metadata_row = {}

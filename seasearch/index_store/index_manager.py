@@ -76,7 +76,6 @@ class IndexManager(object):
         # first delete repo_file_index
         repo_file_index_name = REPO_FILE_INDEX_PREFIX + repo_id
         repo_file_index.delete_index_by_index_name(repo_file_index_name)
-        repo_file_index.delete_summary_vector_index(repo_id)
         repo_status_file_index.delete_documents_by_repo(repo_id)
 
     def file_search(self, query, repos, repo_file_index, count, suffixes, search_path, obj_type, time_range, size_range, search_filename_only):

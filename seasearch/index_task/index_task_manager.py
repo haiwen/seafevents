@@ -2,6 +2,7 @@ import logging
 
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.index_store.repo_file_index import RepoFileIndex
+from seafevents.seasearch.index_store.summary_vector_index import SummaryVectorIndex
 from seafevents.seasearch.index_store.wiki_index import WikiIndex
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.seasearch.utils.constants import SHARD_NUM
@@ -20,6 +21,7 @@ class IndexTaskManager:
         self._repo_data = None
         self.index_manager = None
         self._repo_file_index = None
+        self._summary_vector_index = None
         self._wiki_index = None
 
     def init(self, config):
@@ -61,6 +63,7 @@ class IndexTaskManager:
             int(SHARD_NUM),
             config
         )
+        self._summary_vector_index = SummaryVectorIndex(self.seasearch_api, int(SHARD_NUM))
         self._wiki_index = WikiIndex(
             self.seasearch_api,
             self._repo_data,
@@ -79,6 +82,6 @@ class IndexTaskManager:
     def delete_summary_vector_index(self, repo_id):
         if not self.enabled:
             return
-        self._repo_file_index.delete_summary_vector_index(repo_id)
+        self._summary_vector_index.delete_summary_vector_index(repo_id)
 
 index_task_manager = IndexTaskManager()
