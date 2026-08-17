@@ -1,3 +1,4 @@
+from seafevents.app.config import EMBEDDING_DIMENSIONS
 from seafevents.seasearch.utils.constants import SUMMARY_VECTOR_INDEX_PREFIX
 
 
@@ -14,7 +15,7 @@ class SummaryVectorIndex:
             'embedding_model': {'type': 'keyword'},
             'vec': {
                 'type': 'vector',
-                'dims': 1536,
+                'dims': EMBEDDING_DIMENSIONS,
                 'm': 64,
                 'nbits': 8,
                 'vec_index_type': 'flat',
