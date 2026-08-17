@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 from sqlalchemy.sql import text
 
-from seafevents.app.config import SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
+from seafevents.app.config import AI_SUMMARY_WORKERS, SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
 from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.constants import METADATA_TABLE
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
@@ -23,7 +23,6 @@ from seafevents.utils import get_opt_from_conf_or_env, parse_bool
 logger = logging.getLogger('seasearch')
 
 QUEUE_NAME = 'summary_index_task'
-WORKER_NUM = 3
 
 
 class SummaryIndexTaskWorker:
@@ -36,6 +35,7 @@ class SummaryIndexTaskWorker:
         self.seafile_ai_api = SeafileAIAPI(SEAFILE_AI_SERVER_URL, SEAFILE_AI_SECRET_KEY)
         self.db_session_class = init_db_session_class()
         self.summary_vector_index = None
+        self.worker_num = AI_SUMMARY_WORKERS
         self._parse_config(config)
 
     def _parse_config(self, config):
@@ -55,7 +55,7 @@ class SummaryIndexTaskWorker:
     def start(self):
         if not self.enabled or not self.mq:
             return
-        for i in range(WORKER_NUM):
+        for i in range(self.worker_num):
             thread = threading.Thread(
                 target=self._run,
                 name='summary_index_task_worker_thread_%d' % i,
