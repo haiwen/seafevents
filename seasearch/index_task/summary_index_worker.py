@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 from sqlalchemy.sql import text
 
-from seafevents.app.config import AI_SUMMARY_WORKERS, SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
+from seafevents.app.config import AI_SUMMARY_WORKERS, EMBEDDING_DIMENSIONS, SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
 from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.constants import METADATA_TABLE
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
@@ -20,7 +20,7 @@ from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.utils import get_opt_from_conf_or_env, parse_bool
 
 
-logger = logging.getLogger('seasearch')
+logger = logging.getLogger('ai_summary')
 
 QUEUE_NAME = 'summary_index_task'
 
@@ -97,6 +97,10 @@ class SummaryIndexTaskWorker:
                 repo_id, state.get('processing_status') if state else 'missing'
             )
             return
+        logger.info(
+            'Start summary vector index, repo_id=%s, embedding_dimensions=%d',
+            repo_id, EMBEDDING_DIMENSIONS
+        )
         try:
             self.update_index(repo_id)
         except Exception as error:
@@ -128,6 +132,8 @@ class SummaryIndexTaskWorker:
             self.summary_vector_index.delete_row_ids(
                 index_name, deleted_row_ids[start:start + 100]
             )
+        if deleted_row_ids:
+            logger.info('Deleted summary vectors for metadata rows, repo_id=%s, row_count=%d', repo_id, len(deleted_row_ids))
 
         since = indexed_at
         if rebuild:
@@ -182,6 +188,10 @@ class SummaryIndexTaskWorker:
                     'mtime': int(file_mtime.timestamp() * 1000) if file_mtime else None,
                 })
 
+            logger.info(
+                'Summary vector index candidates, repo_id=%s, row_count=%d, index_count=%d, delete_count=%d',
+                repo_id, len(rows), len(documents), len(empty_row_ids)
+            )
             for start in range(0, len(documents), 50):
                 batch = documents[start:start + 50]
                 model, embeddings = self.seafile_ai_api.batch_generate_embeddings([
@@ -191,6 +201,7 @@ class SummaryIndexTaskWorker:
                     index_name, repo_id, batch, embeddings, model
                 )
                 indexed_count += len(batch)
+                logger.info('Indexed summary vector batch, repo_id=%s, row_count=%d', repo_id, len(batch))
             if empty_row_ids:
                 self.summary_vector_index.delete_row_ids(index_name, empty_row_ids)
                 deleted_count += len(empty_row_ids)
