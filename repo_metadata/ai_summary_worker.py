@@ -121,6 +121,16 @@ class AISummaryWorker(object):
             session.execute(sql, {'repo_id': repo_id, 'status': status})
             session.commit()
 
+    def set_ai_processing_status_if_empty(self, repo_id, status):
+        with self._db_session_class() as session:
+            result = session.execute(text(
+                "UPDATE repo_metadata SET ai_processing_status = :status "
+                "WHERE repo_id = :repo_id "
+                "AND (ai_processing_status IS NULL OR ai_processing_status = '')"
+            ), {'repo_id': repo_id, 'status': status})
+            session.commit()
+        return result.rowcount == 1
+
     def reset_ai_processing_status(self):
         with self._db_session_class() as session:
             sql = text("UPDATE repo_metadata SET ai_processing_status = '' WHERE ai_processing_status != ''")
