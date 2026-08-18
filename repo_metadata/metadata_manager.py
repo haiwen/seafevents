@@ -8,6 +8,7 @@ from copy import deepcopy
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 
 from seafevents.repo_metadata.ai_summary_worker import AISummaryWorker
+from seafevents.seasearch.index_task.summary_index_worker import SummaryIndexTaskWorker
 from seafevents.mq import get_mq, NoMessageException
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 ai_summary_logger = logging.getLogger('ai_summary')
 
 class MetadataManager(object):
-    def __init__(self):
+    def __init__(self, config):
         self.metadata_server_api = MetadataServerAPI('seafevents')
         self.face_recognition_manager = FaceRecognitionManager()
 
@@ -34,6 +35,8 @@ class MetadataManager(object):
         self.slow_task_worker_num = 3
         self.worker_list = []
         self.ai_summary_worker = AISummaryWorker(self.mq)
+        self.summary_index_worker = SummaryIndexTaskWorker(self.mq, config)
+        self.ai_summary_worker.summary_index_enabled = self.summary_index_worker.enabled
 
 
     @property
@@ -57,6 +60,8 @@ class MetadataManager(object):
             self.worker_list.append(t)
 
         if ENABLE_SEAFILE_AI:
+            self.summary_index_worker.start()
+            self.ai_summary_worker.summary_index_enabled = self.summary_index_worker.enabled
             self.ai_summary_worker.start()
 
     ########################### metadata update handler thread ########################
@@ -189,10 +194,11 @@ class MetadataManager(object):
         if not repo_id or not self.mq:
             return
 
-        status = self.ai_summary_worker.get_ai_processing_status(repo_id)
-        if status:
-            ai_summary_logger.info('repo: %s ai summary is running, skip repo task', repo_id)
+        if not self.ai_summary_worker.set_ai_processing_status_if_empty(repo_id, 'in_summary'):
+            ai_summary_logger.info('Skip AI summary task because repo is already processing, repo_id=%s', repo_id)
             return
+
+        ai_summary_logger.info('Claimed AI summary task, repo_id=%s', repo_id)
 
         msg = {
             'repo_id': repo_id,
@@ -200,10 +206,11 @@ class MetadataManager(object):
 
         try:
             self.mq.lpush('ai_summary_task', json.dumps(msg))
-            self.ai_summary_worker.set_ai_processing_status(repo_id, 'in_summary')
+            ai_summary_logger.info('Enqueued AI summary task, repo_id=%s', repo_id)
         except Exception as e:
             logger.error('Failed to enqueue ai summary task repo=%s: %s', repo_id, e)
             self.ai_summary_worker.set_ai_processing_status(repo_id, '')
+            ai_summary_logger.info('Released AI summary task after enqueue failure, repo_id=%s', repo_id)
             return
 
         logger.debug('Enqueued ai summary repo task repo=%s, queue=%s', repo_id, 'ai_summary_task')

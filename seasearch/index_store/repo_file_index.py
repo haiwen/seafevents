@@ -113,7 +113,6 @@ class RepoFileIndex(object):
         self.index_office_pdf = False
 
         self.config = config
-
         self._parse_config()
 
     def _parse_config(self):

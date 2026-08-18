@@ -86,3 +86,19 @@ class SeafileAIAPI:
         }
         response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response).get('summary', '')
+
+    def batch_generate_embeddings(self, contents, username='system', org_id=None):
+        headers = self.gen_headers()
+        url = f'{self.server_url}/api/v1/embeddings/batch'
+        data = {
+            'contents': contents,
+            'username': username,
+            'org_id': org_id,
+            'scenario': 'summary_index',
+        }
+        response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
+        result = parse_response(response)
+        embeddings = result.get('embeddings')
+        if not isinstance(embeddings, list) or len(embeddings) != len(contents):
+            raise ValueError('Embedding response count mismatch')
+        return result.get('model'), embeddings

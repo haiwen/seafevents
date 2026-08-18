@@ -235,6 +235,28 @@ def add_init_ai_summary_task():
     return make_response(({'task_id': task_id}, 200))
 
 
+@app.route('/delete-summary-vector-index', methods=['POST'])
+def delete_summary_vector_index():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+    try:
+        data = json.loads(request.data)
+    except Exception as error:
+        logger.exception(error)
+        return {'error_msg': 'Bad request.'}, 400
+
+    repo_id = data.get('repo_id')
+    if not repo_id:
+        return {'error_msg': 'repo_id invalid.'}, 400
+    try:
+        index_task_manager.delete_summary_vector_index(repo_id)
+    except Exception as error:
+        logger.exception(error)
+        return {'error_msg': 'Internal Server Error'}, 500
+    return {'success': True}, 200
+
+
 @app.route('/recognize-faces', methods=['POST'])
 def recognize_faces():
     is_valid = check_auth_token(request)
