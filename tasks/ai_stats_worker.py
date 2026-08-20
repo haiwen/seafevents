@@ -28,6 +28,7 @@ class AIScenario:
     CHAT = 'chat'
     UNKNOWN = 'unknown'
     SEARCH_ICONS = 'search-icons'
+    RERANK = 'rerank'
 
     @classmethod
     def is_valid(cls, value):
@@ -41,6 +42,7 @@ class AIScenario:
             cls.CHAT,
             cls.UNKNOWN,
             cls.SEARCH_ICONS,
+            cls.RERANK,
         }
 
 
