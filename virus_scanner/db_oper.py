@@ -74,14 +74,40 @@ class DBOper(object):
         session = self.edb_session()
         try:
             session.add_all(
-                VirusFile(repo_id, commit_id, file_path, 0, 0, virus_signature)
-                for repo_id, commit_id, file_path, virus_signature in records
+                VirusFile(
+                    repo_id=repo_id,
+                    commit_id=commit_id,
+                    file_path=file_path,
+                    file_id=file_id,
+                    has_deleted=False,
+                    has_ignored=False,
+                    virus_signature=virus_signature,
+                )
+                for repo_id, commit_id, file_path, file_id, virus_signature in records
             )
             session.commit()
             return 0
         except Exception as e:
             logger.warning('Failed to add virus records to db: %s.', e)
             return -1
+        finally:
+            session.close()
+
+    def get_deleted_virus_files(self, repo_id):
+        session = self.edb_session()
+        try:
+            stmt = select(VirusFile.file_path, VirusFile.file_id).where(
+                VirusFile.repo_id == repo_id,
+                VirusFile.has_deleted == 1,
+                VirusFile.file_id.is_not(None),
+            ).distinct()
+            return {
+                (file_path, file_id)
+                for file_path, file_id in session.execute(stmt)
+            }
+        except Exception as e:
+            logger.warning('Failed to get deleted virus files from db: %s.', e)
+            return None
         finally:
             session.close()
 

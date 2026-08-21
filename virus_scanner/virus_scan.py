@@ -58,7 +58,9 @@ class VirusScan(object):
                 hroot_id = commit_mgr.get_commit_root_id(scan_task.repo_id, 1,
                                                          scan_task.head_commit_id)
 
-            differ = CommitDiffer(scan_task.repo_id, 1, sroot_id, hroot_id)
+            virus_files = self.db_oper.get_deleted_virus_files(scan_task.repo_id)
+            differ = CommitDiffer(scan_task.repo_id, 1, sroot_id, hroot_id,
+                                  virus_files=virus_files)
             scan_files = differ.diff()
 
             if len(scan_files) == 0:
@@ -86,7 +88,8 @@ class VirusScan(object):
                 elif status_code == 1:
                     logger.info('File %s virus scan by %s: Found virus.', fpath, self.settings.scan_cmd)
                     vnum += 1
-                    vrecords.append((scan_task.repo_id, scan_task.head_commit_id, fpath, virus_signature))
+                    vrecords.append((scan_task.repo_id, scan_task.head_commit_id,
+                                     fpath, fid, virus_signature))
                 else:
                     logger.debug('File %s virus scan by %s: Failed.', fpath, self.settings.scan_cmd)
                     nfailed += 1

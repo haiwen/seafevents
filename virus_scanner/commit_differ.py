@@ -1,15 +1,30 @@
 #coding: UTF-8
 
+import posixpath
+
 from seafobj import fs_mgr
 
 ZERO_OBJ_ID = '0000000000000000000000000000000000000000'
 
 class CommitDiffer(object):
-    def __init__(self, repo_id, version, root1, root2):
+    def __init__(self, repo_id, version, root1, root2, virus_files=None):
         self.repo_id = repo_id
         self.version = version
         self.root1 = root1
         self.root2 = root2
+        self.virus_files = {
+            (normalize_path(file_path), file_id)
+            for file_path, file_id in (virus_files or ())
+        }
+        # Precompute ancestor directories for constant-time subtree checks.
+        self.virus_dirs = set()
+        for file_path, _ in self.virus_files:
+            dirname = posixpath.dirname(file_path)
+            while dirname:
+                self.virus_dirs.add(dirname)
+                if dirname == '/':
+                    break
+                dirname = posixpath.dirname(dirname)
 
     def diff(self):
         scan_files = []
@@ -22,7 +37,14 @@ class CommitDiffer(object):
             self.root2 = None
 
         if self.root1 == self.root2:
-            return scan_files
+
+            # empty repo or no deleted virus
+            if not self.root1 or not self.virus_files:
+                return scan_files
+
+            # The directory trees are identical, but deleted virus files
+            # re-uploaded unchanged still need to be detected.
+            queued_dirs.append(('/', self.root1, self.root2))
         elif not self.root1:
             new_dirs.append(('/', self.root2))
         elif self.root2:
@@ -42,9 +64,11 @@ class CommitDiffer(object):
                 new_dent = dir2.lookup_dent(dent.name)
                 if new_dent and new_dent.type == dent.type:
                     dir2.remove_entry(dent.name)
-                    if new_dent.id != dent.id:
-                        scan_files.append((make_path(path, dent.name), new_dent.id,
-                                           new_dent.size))
+                    file_path = make_path(path, dent.name)
+                    is_deleted_virus = (new_dent.id == dent.id and
+                                        (file_path, new_dent.id) in self.virus_files)
+                    if new_dent.id != dent.id or is_deleted_virus:
+                        scan_files.append((file_path, new_dent.id, new_dent.size))
 
             scan_files.extend([(make_path(path, dent.name), dent.id, dent.size)
                                for dent in dir2.get_files_list()])
@@ -53,8 +77,9 @@ class CommitDiffer(object):
                 new_dent = dir2.lookup_dent(dent.name)
                 if new_dent and new_dent.type == dent.type:
                     dir2.remove_entry(dent.name)
-                    if new_dent.id != dent.id:
-                        queued_dirs.append((make_path(path, dent.name), dent.id, new_dent.id))
+                    dir_path = make_path(path, dent.name)
+                    if new_dent.id != dent.id or dir_path in self.virus_dirs:
+                        queued_dirs.append((dir_path, dent.id, new_dent.id))
 
             new_dirs.extend([(make_path(path, dent.name), dent.id)
                              for dent in dir2.get_subdirs_list()])
@@ -81,3 +106,6 @@ def make_path(dirname, filename):
         return dirname + filename
     else:
         return '/'.join((dirname, filename))
+
+def normalize_path(path):
+    return posixpath.normpath('/' + path.lstrip('/'))
