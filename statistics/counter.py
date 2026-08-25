@@ -30,7 +30,6 @@ traffic_info = {}
 download_rate_limit_users = {}
 upload_rate_limit_users = {}
 
-download_rate_limit_orgs = {}
 upload_rate_limit_orgs = {}
 
 reset_rate_limit_dates = []
@@ -519,7 +518,6 @@ class TrafficInfoCounter(object):
                 if (
                     org_id > 0
                     and oper in self.download_type_list
-                    and not download_rate_limit_orgs.get(org_id)
                 ):
 
                     stmt2 = select(func.sum(SysTraffic.size).label("size")).where(
@@ -540,7 +538,6 @@ class TrafficInfoCounter(object):
 
                         download_limit_format = get_quota_from_string(DOWNLOAD_LIMIT_WHEN_THROTTLE)
                         seafile_api.org_set_download_rate_limit(org_id, download_limit_format)
-                        download_rate_limit_orgs[org_id] = True
 
                 # Check org upload traffic for current month.
                 if (
@@ -614,7 +611,6 @@ class MonthlyTrafficCounter(object):
             with SeafileDB() as seafile_db:
 
                 seafile_db.reset_download_rate_limit()
-                download_rate_limit_orgs.clear()
                 download_rate_limit_users.clear()
 
                 seafile_db.reset_upload_rate_limit()
