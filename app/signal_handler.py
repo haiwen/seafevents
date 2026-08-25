@@ -1,7 +1,7 @@
 import os
 import signal
 
-from seafevents.utils import do_exit, run
+from seafevents.utils import do_exit
 
 
 def sigint_handler(*args):
@@ -17,15 +17,16 @@ def sigchild_handler(*args):
         pass
 
 
-def kill_face_cluster():
-    cmd = [
-        'pkill', '-f', 'seafevents.face_recognition.face_cluster'
-    ]
-    run(cmd)
+# Face recognition is no longer available.
+# def kill_face_cluster():
+#     cmd = [
+#         'pkill', '-f', 'seafevents.face_recognition.face_cluster'
+#     ]
+#     run(cmd)
 
 
 def signal_term_handler(signal, frame):
-    kill_face_cluster()
+    # kill_face_cluster()
     os._exit(0)
 
 

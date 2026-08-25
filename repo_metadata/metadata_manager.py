@@ -11,7 +11,6 @@ from seafevents.repo_metadata.ai_summary_worker import AISummaryWorker
 from seafevents.seasearch.index_task.summary_index_worker import SummaryIndexTaskWorker
 from seafevents.mq import get_mq, NoMessageException
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
-from seafevents.face_recognition.face_recognition_manager import FaceRecognitionManager
 
 from seafevents.repo_metadata.utils import add_file_details
 from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, ENABLE_SEAFILE_AI
@@ -23,7 +22,8 @@ ai_summary_logger = logging.getLogger('ai_summary')
 class MetadataManager(object):
     def __init__(self, config):
         self.metadata_server_api = MetadataServerAPI('seafevents')
-        self.face_recognition_manager = FaceRecognitionManager()
+        # Face recognition is no longer available.
+        # self.face_recognition_manager = FaceRecognitionManager()
 
         self.should_stop = threading.Event()
         self.mq_server = REDIS_HOST
@@ -125,11 +125,12 @@ class MetadataManager(object):
             logger.debug('init metadata: %s has been add to metadata task queue' % message['data'])
         elif op_type == 'repo-update':
             self.pending_tasks[repo_id] = commit_id
-        elif op_type == 'update_face_recognition':
-            username = data.get('username', '')
-            data = op_type + '\t' + repo_id + '\t' + username
-            self.mq.lpush('face_cluster_task', data)
-            logger.debug('update face_recognition: %s has been add to metadata task queue' % message['data'])
+        # Face recognition is no longer available.
+        # elif op_type == 'update_face_recognition':
+        #     username = data.get('username', '')
+        #     data = op_type + '\t' + repo_id + '\t' + username
+        #     self.mq.lpush('face_cluster_task', data)
+        #     logger.debug('update face_recognition: %s has been add to metadata task queue' % message['data'])
         elif op_type == 'init_ai_summary':
             self.add_ai_summary_task(repo_id)
             ai_summary_logger.debug('init ai_summary: %s has been add to metadata task queue' % message['data'])
@@ -176,7 +177,7 @@ class MetadataManager(object):
         obj_ids = data.get('obj_ids')
         logger.debug('Extract file info task repo=%s, obj_count=%d', repo_id, len(obj_ids) if isinstance(obj_ids, list) else 0)
         try:
-            add_file_details(repo_id, obj_ids, self.metadata_server_api, self.face_recognition_manager)
+            add_file_details(repo_id, obj_ids, self.metadata_server_api)
         except Exception as e:
             logger.exception('repo: %s, update metadata file info error: %s', repo_id, e)
 
