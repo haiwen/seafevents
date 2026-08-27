@@ -22,6 +22,7 @@ APPLY_RESULT_QUEUE_NAME = 'sdoc_review_apply_result'
 TOTAL_TIMEOUT_SECONDS = 180
 MODEL_CALL_TIMEOUT_SECONDS = 30
 RECOVERY_INTERVAL_SECONDS = 30
+CLAIM_RESPONSE_RETRY_DELAYS = (0, 1, 3)
 REVISION_BRIEF_REQUIRED_STRING_FIELDS = (
     'goal', 'tone', 'length', 'heading_strategy', 'do_not_modify',
 )
@@ -200,14 +201,40 @@ class SdocReviewWorker(object):
         payload.update(extra)
         return payload
 
+    def _wait_or_stop(self, delay):
+        stop_event = getattr(self, 'should_stop', None)
+        if stop_event is not None:
+            return stop_event.wait(delay)
+        time.sleep(delay)
+        return False
+
+    def _claim_task(self, task_id, attempt_id, deadline):
+        """Retry an ambiguous claim with the same idempotency key.
+
+        Seahub accepts a repeated claim for the same ``attempt_id``. Retrying
+        with that value recovers the common case where Seahub claimed the task
+        but the HTTP response was lost before this worker received its context.
+        """
+        for delay in CLAIM_RESPONSE_RETRY_DELAYS:
+            if delay and self._wait_or_stop(delay):
+                return None
+            if self._remaining(deadline) <= 1:
+                return None
+            try:
+                return self.seahub_api.claim(task_id, attempt_id)
+            except InternalAPIError as error:
+                if error.status_code == 409:
+                    return None
+                logger.warning('Failed to claim SDoc review task %s: %s', task_id, error)
+            except Exception as error:
+                logger.warning('Failed to claim SDoc review task %s: %s', task_id, error)
+        return None
+
     def _process_task(self, task_id):
         attempt_id = uuid.uuid4()
         deadline = time.monotonic() + TOTAL_TIMEOUT_SECONDS
-        try:
-            claimed = self.seahub_api.claim(task_id, attempt_id)
-        except InternalAPIError as error:
-            if error.status_code != 409:
-                logger.warning('Failed to claim SDoc review task %s: %s', task_id, error)
+        claimed = self._claim_task(task_id, attempt_id, deadline)
+        if claimed is None:
             return
 
         task = claimed.get('task') or {}
@@ -332,6 +359,9 @@ class SdocReviewWorker(object):
                     self._fail(task_id, attempt_id, 'event_delivery_failed')
                     return
 
+            if self._remaining(deadline) <= 1:
+                self._fail(task_id, attempt_id, 'generation_timeout')
+                return
             self.seahub_api.event(
                 task_id, attempt_id, 'finish',
                 document_context=document_context,

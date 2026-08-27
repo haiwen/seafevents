@@ -123,6 +123,32 @@ def test_worker_persists_progressive_review_events():
     assert worker.seahub_api.events[-1][1]['truncated'] is False
 
 
+def test_worker_recovers_when_the_first_claim_response_is_lost():
+    class LostClaimResponseSeahubAPI(FakeSeahubAPI):
+        def __init__(self):
+            super(LostClaimResponseSeahubAPI, self).__init__()
+            self.claim_attempt_ids = []
+
+        def claim(self, task_id, attempt_id):
+            self.claim_attempt_ids.append(attempt_id)
+            if len(self.claim_attempt_ids) == 1:
+                raise RuntimeError('claim response lost')
+            return super(LostClaimResponseSeahubAPI, self).claim(task_id, attempt_id)
+
+    worker = SdocReviewWorker.__new__(SdocReviewWorker)
+    worker.seahub_api = LostClaimResponseSeahubAPI()
+    worker.seafile_ai_api = FakeSeafileAIAPI()
+    worker.should_stop = type('StopEvent', (), {'wait': lambda self, delay: False})()
+
+    worker._process_task('00000000-0000-4000-8000-000000000001')
+
+    assert len(worker.seahub_api.claim_attempt_ids) == 2
+    assert worker.seahub_api.claim_attempt_ids[0] == worker.seahub_api.claim_attempt_ids[1]
+    assert [event_type for event_type, _payload in worker.seahub_api.events] == [
+        'begin', 'chunk', 'chunk', 'finish',
+    ]
+
+
 def test_worker_passes_the_plan_brief_to_every_chunk():
     brief = {
         'goal': 'Improve clarity', 'tone': 'concise', 'length': 'preserve length',
@@ -244,12 +270,35 @@ def test_worker_fails_when_total_generation_budget_is_exhausted():
     worker = SdocReviewWorker.__new__(SdocReviewWorker)
     worker.seahub_api = FakeSeahubAPI()
     worker.seafile_ai_api = FakeSeafileAIAPI()
-    remaining = iter((180, 180, 0))
+    # _claim_task checks the deadline before the first chunk is considered.
+    remaining = iter((180, 0))
     worker._remaining = lambda _deadline: next(remaining)
 
     worker._process_task('00000000-0000-4000-8000-000000000001')
 
     assert [event_type for event_type, _payload in worker.seahub_api.events] == [
         'begin', 'failed',
+    ]
+    assert worker.seahub_api.events[-1][1]['error_code'] == 'generation_timeout'
+
+
+def test_worker_fails_when_the_final_chunk_exhausts_the_total_budget():
+    worker = SdocReviewWorker.__new__(SdocReviewWorker)
+    worker.seahub_api = FakeSeahubAPI()
+    worker.seafile_ai_api = FakeSeafileAIAPI()
+    calls = {'count': 0}
+
+    def remaining(_deadline):
+        calls['count'] += 1
+        # The instance deadline checks occur for claim, each chunk, and once
+        # immediately before finish. Exhaust the budget at that final check.
+        return 0 if calls['count'] == 4 else 180
+
+    worker._remaining = remaining
+
+    worker._process_task('00000000-0000-4000-8000-000000000001')
+
+    assert [event_type for event_type, _payload in worker.seahub_api.events] == [
+        'begin', 'chunk', 'chunk', 'failed',
     ]
     assert worker.seahub_api.events[-1][1]['error_code'] == 'generation_timeout'
