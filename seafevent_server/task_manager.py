@@ -121,6 +121,21 @@ class TaskManager:
         else:
             logging.info('No one subscribed to metadata_update channel, event (%s) has not been send' % msg_content)
 
+    def add_sdoc_review_task(self, task_id):
+        if not self._redis_connection:
+            raise RuntimeError('Redis is not configured')
+        self._redis_connection.lpush(
+            'sdoc_review_task', json.dumps({'task_id': str(task_id)}))
+        return str(task_id)
+
+    def add_sdoc_review_apply_attempt(self, apply_attempt_id):
+        if not self._redis_connection:
+            raise RuntimeError('Redis is not configured')
+        self._redis_connection.lpush(
+            'sdoc_review_apply_result',
+            json.dumps({'apply_attempt_id': str(apply_attempt_id)}))
+        return str(apply_attempt_id)
+
     def query_task(self, task_id):
         return self.tasks_map.get(task_id)
 

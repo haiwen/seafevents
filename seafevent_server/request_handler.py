@@ -257,6 +257,41 @@ def delete_summary_vector_index():
     return {'success': True}, 200
 
 
+@app.route('/add-sdoc-review-task', methods=['POST'])
+def add_sdoc_review_task():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+    data = request.get_json(silent=True) or {}
+    task_id = data.get('task_id')
+    if not task_id:
+        return make_response(('task_id invalid.', 400))
+    try:
+        task_manager.add_sdoc_review_task(task_id)
+    except Exception as error:
+        logger.exception('Failed to enqueue SDoc review task %s.', task_id)
+        return make_response((str(error), 500))
+    return make_response(({'task_id': str(task_id)}, 200))
+
+
+@app.route('/add-sdoc-review-apply-attempt', methods=['POST'])
+def add_sdoc_review_apply_attempt():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+    data = request.get_json(silent=True) or {}
+    apply_attempt_id = data.get('apply_attempt_id')
+    if not apply_attempt_id:
+        return make_response(('apply_attempt_id invalid.', 400))
+    try:
+        task_manager.add_sdoc_review_apply_attempt(apply_attempt_id)
+    except Exception as error:
+        logger.exception(
+            'Failed to enqueue SDoc review apply attempt %s.', apply_attempt_id)
+        return make_response((str(error), 500))
+    return make_response(({'apply_attempt_id': str(apply_attempt_id)}, 200))
+
+
 @app.route('/recognize-faces', methods=['POST'])
 def recognize_faces():
     is_valid = check_auth_token(request)
