@@ -90,7 +90,12 @@ class FakeSeafileAIAPI(object):
         assert payload['request_timeout_seconds'] <= 28
         assert payload['repo_id'] == 'repo-id'
         return {
-            'brief': None,
+            'brief': {
+                'goal': 'Improve clarity', 'tone': 'concise', 'length': 'preserve length',
+                'terminology': [], 'heading_strategy': 'preserve headings',
+                'do_not_modify': 'facts',
+            },
+            'plan_token': 'frozen-plan-token',
             'chunks': [
                 {'chunk_index': 0, 'block_ids': ['block-1']},
                 {'chunk_index': 1, 'block_ids': ['block-2']},
@@ -116,6 +121,59 @@ def test_worker_persists_progressive_review_events():
     assert event_types == ['begin', 'chunk', 'chunk', 'finish']
     assert worker.seahub_api.events[0][1]['total_chunks'] == 2
     assert worker.seahub_api.events[-1][1]['truncated'] is False
+
+
+def test_worker_passes_the_plan_brief_to_every_chunk():
+    brief = {
+        'goal': 'Improve clarity', 'tone': 'concise', 'length': 'preserve length',
+        'terminology': ['SDoc'], 'heading_strategy': 'preserve headings',
+        'do_not_modify': 'facts',
+    }
+
+    class BriefSeafileAIAPI(FakeSeafileAIAPI):
+        def __init__(self):
+            super(BriefSeafileAIAPI, self).__init__()
+            self.chunk_briefs = []
+
+        def plan(self, payload, timeout):
+            plan = super(BriefSeafileAIAPI, self).plan(payload, timeout)
+            plan['brief'] = brief
+            return plan
+
+        def chunk(self, payload, timeout):
+            self.chunk_briefs.append(payload['brief'])
+            assert payload['plan_token'] == 'frozen-plan-token'
+            return super(BriefSeafileAIAPI, self).chunk(payload, timeout)
+
+    worker = SdocReviewWorker.__new__(SdocReviewWorker)
+    worker.seahub_api = FakeSeahubAPI()
+    worker.seafile_ai_api = BriefSeafileAIAPI()
+
+    worker._process_task('00000000-0000-4000-8000-000000000001')
+
+    assert worker.seafile_ai_api.chunk_briefs == [brief, brief]
+
+
+def test_worker_fails_when_any_multi_chunk_plan_has_an_invalid_brief():
+    class InvalidBriefSeafileAIAPI(FakeSeafileAIAPI):
+        def plan(self, payload, timeout):
+            return {
+                'brief': {},
+                'plan_token': 'frozen-plan-token',
+                'chunks': [
+                    {'chunk_index': 0, 'block_ids': ['block-1']},
+                    {'chunk_index': 1, 'block_ids': ['block-2']},
+                ],
+            }
+
+    worker = SdocReviewWorker.__new__(SdocReviewWorker)
+    worker.seahub_api = FakeSeahubAPI()
+    worker.seafile_ai_api = InvalidBriefSeafileAIAPI()
+
+    worker._process_task('00000000-0000-4000-8000-000000000001')
+
+    assert [event_type for event_type, _payload in worker.seahub_api.events] == ['failed']
+    assert worker.seahub_api.events[-1][1]['error_code'] == 'invalid_revision_brief'
 
 
 def test_worker_reconciles_apply_outside_generation_thread():
@@ -146,3 +204,52 @@ def test_worker_stops_after_seahub_rejects_cancelled_task():
     assert [event_type for event_type, _payload in worker.seahub_api.events] == [
         'begin', 'chunk',
     ]
+
+
+def test_worker_fails_instead_of_finishing_after_seafile_ai_error():
+    class FailingSeafileAIAPI(FakeSeafileAIAPI):
+        def chunk(self, payload, timeout):
+            raise InternalAPIError(503, 'Model unavailable.')
+
+    worker = SdocReviewWorker.__new__(SdocReviewWorker)
+    worker.seahub_api = FakeSeahubAPI()
+    worker.seafile_ai_api = FailingSeafileAIAPI()
+
+    worker._process_task('00000000-0000-4000-8000-000000000001')
+
+    assert [event_type for event_type, _payload in worker.seahub_api.events] == [
+        'begin', 'failed',
+    ]
+    assert worker.seahub_api.events[-1][1]['error_code'] == 'seafile_ai_error'
+
+
+def test_worker_fails_after_seafile_ai_conflict_instead_of_treating_it_as_stale():
+    class FailingSeafileAIAPI(FakeSeafileAIAPI):
+        def chunk(self, payload, timeout):
+            raise InternalAPIError(409, 'Model request was rejected.')
+
+    worker = SdocReviewWorker.__new__(SdocReviewWorker)
+    worker.seahub_api = FakeSeahubAPI()
+    worker.seafile_ai_api = FailingSeafileAIAPI()
+
+    worker._process_task('00000000-0000-4000-8000-000000000001')
+
+    assert [event_type for event_type, _payload in worker.seahub_api.events] == [
+        'begin', 'failed',
+    ]
+    assert worker.seahub_api.events[-1][1]['error_code'] == 'seafile_ai_error'
+
+
+def test_worker_fails_when_total_generation_budget_is_exhausted():
+    worker = SdocReviewWorker.__new__(SdocReviewWorker)
+    worker.seahub_api = FakeSeahubAPI()
+    worker.seafile_ai_api = FakeSeafileAIAPI()
+    remaining = iter((180, 180, 0))
+    worker._remaining = lambda _deadline: next(remaining)
+
+    worker._process_task('00000000-0000-4000-8000-000000000001')
+
+    assert [event_type for event_type, _payload in worker.seahub_api.events] == [
+        'begin', 'failed',
+    ]
+    assert worker.seahub_api.events[-1][1]['error_code'] == 'generation_timeout'
