@@ -22,6 +22,9 @@ APPLY_RESULT_QUEUE_NAME = 'sdoc_review_apply_result'
 TOTAL_TIMEOUT_SECONDS = 180
 MODEL_CALL_TIMEOUT_SECONDS = 30
 RECOVERY_INTERVAL_SECONDS = 30
+REVISION_BRIEF_REQUIRED_STRING_FIELDS = (
+    'goal', 'tone', 'length', 'heading_strategy', 'do_not_modify',
+)
 
 
 class SdocReviewWorker(object):
@@ -165,6 +168,23 @@ class SdocReviewWorker(object):
             raise TimeoutError('SDoc review total time budget exhausted')
         return max(1, min(MODEL_CALL_TIMEOUT_SECONDS, remaining))
 
+    @staticmethod
+    def _generation_error_code(error):
+        if isinstance(error, TimeoutError):
+            return 'generation_timeout'
+        return 'seafile_ai_error'
+
+    @staticmethod
+    def _is_valid_revision_brief(brief):
+        if not isinstance(brief, dict):
+            return False
+        if any(not isinstance(brief.get(field), str) or not brief[field].strip()
+               for field in REVISION_BRIEF_REQUIRED_STRING_FIELDS):
+            return False
+        terminology = brief.get('terminology')
+        return isinstance(terminology, list) and all(
+            isinstance(term, str) and term.strip() for term in terminology)
+
     @classmethod
     def _model_payload(cls, task, document_context, deadline, **extra):
         remaining = cls._remaining(deadline)
@@ -203,30 +223,48 @@ class SdocReviewWorker(object):
                         self._model_payload(task, document_context, deadline),
                         self._model_timeout(deadline),
                     )
+                except Exception as error:
+                    logger.warning(
+                        'Failed to generate analysis for SDoc review task %s; continuing: %s',
+                        task_id, error)
+                else:
                     if analysis:
-                        self.seahub_api.event(
-                            task_id, attempt_id, 'analysis', content=analysis)
-                except InternalAPIError as error:
-                    if error.status_code == 409:
-                        return
-                    logger.exception(
-                        'Failed to persist analysis for SDoc review task %s; continuing.', task_id)
-                except Exception:
-                    logger.exception(
-                        'Failed to generate analysis for SDoc review task %s; continuing.', task_id)
+                        try:
+                            self.seahub_api.event(
+                                task_id, attempt_id, 'analysis', content=analysis)
+                        except InternalAPIError as error:
+                            if error.status_code == 409:
+                                return
+                            logger.warning(
+                                'Failed to persist analysis for SDoc review task %s; continuing: %s',
+                                task_id, error)
+                        except Exception as error:
+                            logger.warning(
+                                'Failed to persist analysis for SDoc review task %s; continuing: %s',
+                                task_id, error)
 
-            plan = self.seafile_ai_api.plan(
-                self._model_payload(task, document_context, deadline),
-                self._model_timeout(deadline),
-            )
+            try:
+                plan = self.seafile_ai_api.plan(
+                    self._model_payload(task, document_context, deadline),
+                    self._model_timeout(deadline),
+                )
+            except Exception as error:
+                logger.warning('SDoc review task %s plan generation failed: %s', task_id, error)
+                self._fail(task_id, attempt_id, self._generation_error_code(error))
+                return
             chunks = plan.get('chunks') if isinstance(plan, dict) else None
             brief = plan.get('brief') if isinstance(plan, dict) else None
-            if not isinstance(chunks, list) or not chunks:
-                raise ValueError('SDoc review plan contains no chunks')
+            plan_token = plan.get('plan_token') if isinstance(plan, dict) else None
+            if not isinstance(chunks, list) or not chunks or not isinstance(plan_token, str) or not plan_token:
+                self._fail(task_id, attempt_id, 'invalid_chunk_plan')
+                return
             total_blocks = sum(
                 len(chunk.get('block_ids') or [])
                 for chunk in chunks if isinstance(chunk, dict)
             )
+            if len(chunks) > 1 and not self._is_valid_revision_brief(brief):
+                self._fail(task_id, attempt_id, 'invalid_revision_brief')
+                return
             self.seahub_api.event(
                 task_id, attempt_id, 'begin',
                 document_context=document_context,
@@ -239,24 +277,33 @@ class SdocReviewWorker(object):
             stop_reason = None
             for chunk in chunks:
                 if self._remaining(deadline) <= 1:
-                    truncated = True
-                    stop_reason = 'time_budget_exhausted'
-                    break
+                    self._fail(task_id, attempt_id, 'generation_timeout')
+                    return
                 chunk_index = chunk.get('chunk_index') if isinstance(chunk, dict) else None
                 if not isinstance(chunk_index, int):
-                    truncated = True
-                    stop_reason = stop_reason or 'invalid_chunk_plan'
-                    continue
+                    self._fail(task_id, attempt_id, 'invalid_chunk_plan')
+                    return
                 try:
                     suggestions = self.seafile_ai_api.chunk(
                         self._model_payload(
                             task, document_context, deadline,
-                            brief=brief, chunk_index=chunk_index,
+                            brief=brief, chunk_index=chunk_index, plan_token=plan_token,
                         ),
                         self._model_timeout(deadline),
                     )
-                    if not isinstance(suggestions, list):
-                        raise ValueError('Invalid SDoc review chunk result')
+                except Exception as error:
+                    logger.warning(
+                        'SDoc review task %s chunk %s generation failed: %s',
+                        task_id, chunk_index, error,
+                    )
+                    self._fail(task_id, attempt_id, self._generation_error_code(error))
+                    return
+
+                if not isinstance(suggestions, list):
+                    self._fail(task_id, attempt_id, 'invalid_chunk_response')
+                    return
+
+                try:
                     result = self.seahub_api.event(
                         task_id, attempt_id, 'chunk',
                         document_context=document_context,
@@ -272,18 +319,18 @@ class SdocReviewWorker(object):
                     if error.status_code == 409:
                         return
                     logger.warning(
-                        'SDoc review task %s chunk %s failed: %s',
+                        'SDoc review task %s chunk %s persistence failed: %s',
                         task_id, chunk_index, error,
                     )
-                    truncated = True
-                    stop_reason = stop_reason or 'chunk_generation_failed'
+                    self._fail(task_id, attempt_id, 'event_delivery_failed')
+                    return
                 except Exception as error:
                     logger.warning(
-                        'SDoc review task %s chunk %s failed: %s',
+                        'SDoc review task %s chunk %s persistence failed: %s',
                         task_id, chunk_index, error,
                     )
-                    truncated = True
-                    stop_reason = stop_reason or 'chunk_generation_failed'
+                    self._fail(task_id, attempt_id, 'event_delivery_failed')
+                    return
 
             self.seahub_api.event(
                 task_id, attempt_id, 'finish',
