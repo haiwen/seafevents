@@ -37,8 +37,8 @@ reset_rate_limit_dates = []
 DEFAULT_USER = 'default'
 GUEST_USER = 'guest'
 
-MONTHLY_DOWNLOAD_TRAFFIC_LIMIT = 'monthly_rate_limit'
-MONTHLY_DOWNLOAD_TRAFFIC_LIMIT_PER_USER = 'monthly_rate_limit_per_user'
+MONTHLY_DOWNLOAD_TRAFFIC_LIMIT = 'monthly_download_traffic_limit'
+MONTHLY_DOWNLOAD_TRAFFIC_LIMIT_PER_USER = 'monthly_download_traffic_limit_per_user'
 
 MONTHLY_UPLOAD_TRAFFIC_LIMIT = 'monthly_upload_traffic_limit'
 MONTHLY_UPLOAD_TRAFFIC_LIMIT_PER_USER = 'monthly_upload_traffic_limit_per_user'
