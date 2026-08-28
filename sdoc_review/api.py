@@ -61,6 +61,9 @@ class SeahubReviewAPI(_JSONAPI):
             '/api/v2.1/ai/internal/sdoc-reviews/%s/events/' % task_id,
             body, self._headers(), timeout=30)
 
+    def heartbeat(self, task_id, attempt_id):
+        return self.event(task_id, attempt_id, 'heartbeat')
+
     def reconcile_apply(self, apply_attempt_id):
         return self._post(
             '/api/v2.1/ai/internal/sdoc-review-applies/%s/reconcile/' % apply_attempt_id,

@@ -51,6 +51,7 @@ def test_seafile_ai_review_api_extracts_chunk_items(monkeypatch):
 class FakeSeahubAPI(object):
     def __init__(self):
         self.events = []
+        self.heartbeats = []
 
     def claim(self, task_id, attempt_id):
         return {
@@ -69,8 +70,14 @@ class FakeSeahubAPI(object):
         }
 
     def event(self, task_id, attempt_id, event_type, **payload):
-        self.events.append((event_type, payload))
+        if event_type == 'heartbeat':
+            self.heartbeats.append((task_id, attempt_id))
+        else:
+            self.events.append((event_type, payload))
         return {'accepted': True, 'limit_reached': False}
+
+    def heartbeat(self, task_id, attempt_id):
+        return self.event(task_id, attempt_id, 'heartbeat')
 
 
 class FakeApplySeahubAPI(object):
@@ -87,7 +94,7 @@ class FakeSeafileAIAPI(object):
         self.chunk_calls = 0
 
     def plan(self, payload, timeout):
-        assert payload['request_timeout_seconds'] <= 28
+        assert payload['request_timeout_seconds'] <= 88
         assert payload['repo_id'] == 'repo-id'
         return {
             'brief': {
@@ -121,6 +128,7 @@ def test_worker_persists_progressive_review_events():
     assert event_types == ['begin', 'chunk', 'chunk', 'finish']
     assert worker.seahub_api.events[0][1]['total_chunks'] == 2
     assert worker.seahub_api.events[-1][1]['truncated'] is False
+    assert len(worker.seahub_api.heartbeats) == 3
 
 
 def test_worker_recovers_when_the_first_claim_response_is_lost():
@@ -215,6 +223,9 @@ def test_worker_reconciles_apply_outside_generation_thread():
 def test_worker_stops_after_seahub_rejects_cancelled_task():
     class CancelledSeahubAPI(FakeSeahubAPI):
         def event(self, task_id, attempt_id, event_type, **payload):
+            if event_type == 'heartbeat':
+                return super(CancelledSeahubAPI, self).event(
+                    task_id, attempt_id, event_type, **payload)
             self.events.append((event_type, payload))
             if event_type == 'chunk':
                 raise InternalAPIError(409, 'Review attempt is stale.')
@@ -249,6 +260,67 @@ def test_worker_fails_instead_of_finishing_after_seafile_ai_error():
     assert worker.seahub_api.events[-1][1]['error_code'] == 'seafile_ai_error'
 
 
+def test_worker_retries_one_transient_chunk_failure():
+    class TransientFailureSeafileAIAPI(FakeSeafileAIAPI):
+        def chunk(self, payload, timeout):
+            self.chunk_calls += 1
+            if self.chunk_calls == 1:
+                raise InternalAPIError(500, 'Temporary model timeout.')
+            return [{
+                'kind': 'replace_block_text',
+                'block_id': 'block-%s' % payload['chunk_index'],
+            }]
+
+    worker = SdocReviewWorker.__new__(SdocReviewWorker)
+    worker.seahub_api = FakeSeahubAPI()
+    worker.seafile_ai_api = TransientFailureSeafileAIAPI()
+    worker.should_stop = type('StopEvent', (), {'wait': lambda self, delay: False})()
+
+    worker._process_task('00000000-0000-4000-8000-000000000001')
+
+    assert worker.seafile_ai_api.chunk_calls == 3
+    assert [event_type for event_type, _payload in worker.seahub_api.events] == [
+        'begin', 'chunk', 'chunk', 'finish',
+    ]
+
+
+def test_worker_does_not_retry_non_transient_chunk_error():
+    class InvalidResponseSeafileAIAPI(FakeSeafileAIAPI):
+        def chunk(self, payload, timeout):
+            self.chunk_calls += 1
+            raise InternalAPIError(400, 'Invalid chunk request.')
+
+    worker = SdocReviewWorker.__new__(SdocReviewWorker)
+    worker.seahub_api = FakeSeahubAPI()
+    worker.seafile_ai_api = InvalidResponseSeafileAIAPI()
+
+    worker._process_task('00000000-0000-4000-8000-000000000001')
+
+    assert worker.seafile_ai_api.chunk_calls == 1
+    assert [event_type for event_type, _payload in worker.seahub_api.events] == [
+        'begin', 'failed',
+    ]
+
+
+def test_worker_does_not_retry_invalid_model_response():
+    class InvalidResponseSeafileAIAPI(FakeSeafileAIAPI):
+        def chunk(self, payload, timeout):
+            self.chunk_calls += 1
+            raise InternalAPIError(
+                502, '{"error_code":"invalid_model_response"}')
+
+    worker = SdocReviewWorker.__new__(SdocReviewWorker)
+    worker.seahub_api = FakeSeahubAPI()
+    worker.seafile_ai_api = InvalidResponseSeafileAIAPI()
+
+    worker._process_task('00000000-0000-4000-8000-000000000001')
+
+    assert worker.seafile_ai_api.chunk_calls == 1
+    assert [event_type for event_type, _payload in worker.seahub_api.events] == [
+        'begin', 'failed',
+    ]
+
+
 def test_worker_fails_after_seafile_ai_conflict_instead_of_treating_it_as_stale():
     class FailingSeafileAIAPI(FakeSeafileAIAPI):
         def chunk(self, payload, timeout):
@@ -266,39 +338,16 @@ def test_worker_fails_after_seafile_ai_conflict_instead_of_treating_it_as_stale(
     assert worker.seahub_api.events[-1][1]['error_code'] == 'seafile_ai_error'
 
 
-def test_worker_fails_when_total_generation_budget_is_exhausted():
+def test_worker_stops_without_generating_when_lease_is_rejected():
+    class CancelledSeahubAPI(FakeSeahubAPI):
+        def heartbeat(self, task_id, attempt_id):
+            raise InternalAPIError(409, 'Review task is no longer running.')
+
     worker = SdocReviewWorker.__new__(SdocReviewWorker)
-    worker.seahub_api = FakeSeahubAPI()
+    worker.seahub_api = CancelledSeahubAPI()
     worker.seafile_ai_api = FakeSeafileAIAPI()
-    # _claim_task checks the deadline before the first chunk is considered.
-    remaining = iter((180, 0))
-    worker._remaining = lambda _deadline: next(remaining)
 
     worker._process_task('00000000-0000-4000-8000-000000000001')
 
-    assert [event_type for event_type, _payload in worker.seahub_api.events] == [
-        'begin', 'failed',
-    ]
-    assert worker.seahub_api.events[-1][1]['error_code'] == 'generation_timeout'
-
-
-def test_worker_fails_when_the_final_chunk_exhausts_the_total_budget():
-    worker = SdocReviewWorker.__new__(SdocReviewWorker)
-    worker.seahub_api = FakeSeahubAPI()
-    worker.seafile_ai_api = FakeSeafileAIAPI()
-    calls = {'count': 0}
-
-    def remaining(_deadline):
-        calls['count'] += 1
-        # The instance deadline checks occur for claim, each chunk, and once
-        # immediately before finish. Exhaust the budget at that final check.
-        return 0 if calls['count'] == 4 else 180
-
-    worker._remaining = remaining
-
-    worker._process_task('00000000-0000-4000-8000-000000000001')
-
-    assert [event_type for event_type, _payload in worker.seahub_api.events] == [
-        'begin', 'chunk', 'chunk', 'failed',
-    ]
-    assert worker.seahub_api.events[-1][1]['error_code'] == 'generation_timeout'
+    assert worker.seafile_ai_api.chunk_calls == 0
+    assert worker.seahub_api.events == []
