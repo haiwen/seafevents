@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 from sqlalchemy.sql import text
 
-from seafevents.app.config import AI_SUMMARY_WORKERS, EMBEDDING_DIMENSIONS, SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
+from seafevents.app.config import AI_SUMMARY_WORKERS, EMBEDDING_DIMENSIONS, EMBEDDING_MODEL_CONFIGURED, SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
 from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.constants import METADATA_TABLE
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
@@ -44,6 +44,10 @@ class SummaryIndexTaskWorker:
             return
         enabled = get_opt_from_conf_or_env(config, section_name, 'enabled', default=False)
         if not parse_bool(enabled):
+            logger.warning('Summary vector index worker disabled because SeaSearch is not enabled')
+            return
+        if not EMBEDDING_MODEL_CONFIGURED:
+            logger.warning('Summary vector index worker disabled because embedding model is not configured or invalid')
             return
         seasearch_api = SeaSearchAPI(
             get_opt_from_conf_or_env(config, section_name, 'seasearch_url'),
@@ -51,6 +55,7 @@ class SummaryIndexTaskWorker:
         )
         self.summary_vector_index = SummaryVectorIndex(seasearch_api, int(SHARD_NUM))
         self.enabled = True
+        logger.info('Summary vector index worker enabled')
 
     def start(self):
         if not self.enabled or not self.mq:
