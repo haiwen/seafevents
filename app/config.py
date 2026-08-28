@@ -35,6 +35,7 @@ try:
     SEAFILE_AI_SECRET_KEY = getattr(seahub_settings, 'SEAFILE_AI_SECRET_KEY', '')
     SEAFILE_AI_SERVER_URL = getattr(seahub_settings, 'SEAFILE_AI_SERVER_URL', '')
     EMBEDDING_DIMENSIONS = getattr(seahub_settings, 'EMBEDDING_DIMENSIONS', 1024)
+    SEAHUB_SERVER_URL = os.environ.get('SEAHUB_SERVER_URL', '') or 'http://127.0.0.1:8000'
     ENABLE_QUOTA_ALERT = getattr(seahub_settings, 'ENABLE_QUOTA_ALERT', False)
     AI_PRICES = getattr(seahub_settings, 'AI_PRICES', {})
     INNER_FILE_SERVER_ROOT = getattr(seahub_settings, 'INNER_FILE_SERVER_ROOT', '')
@@ -87,6 +88,10 @@ ENABLE_MULTI_STORAGE = os.environ.get('SEAF_SERVER_STORAGE_TYPE', '') == 'multip
 # config for ai summary worker
 AI_SUMMARY_BATCH_SIZE = int(os.environ.get('AI_SUMMARY_BATCH_SIZE', 10))
 AI_SUMMARY_WORKERS = int(os.environ.get('AI_SUMMARY_WORKERS', 3))
+
+# SDoc review generation runs inside the existing SeafEvents background task
+# process. One worker preserves the current single-consumer ordering contract.
+SDOC_REVIEW_WORKERS = int(os.environ.get('SDOC_REVIEW_WORKERS', 1))
 
 ################## config from env ################################
 
