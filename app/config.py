@@ -35,6 +35,7 @@ try:
     SEAFILE_AI_SECRET_KEY = getattr(seahub_settings, 'SEAFILE_AI_SECRET_KEY', '')
     SEAFILE_AI_SERVER_URL = getattr(seahub_settings, 'SEAFILE_AI_SERVER_URL', '')
     EMBEDDING_MODEL = getattr(seahub_settings, 'EMBEDDING_MODEL', {})
+    EMBEDDING_MODEL_CONFIGURED = getattr(seahub_settings, 'EMBEDDING_MODEL_CONFIGURED', False)
     EMBEDDING_DIMENSIONS = getattr(seahub_settings, 'EMBEDDING_DIMENSIONS', 1024)
     ENABLE_QUOTA_ALERT = getattr(seahub_settings, 'ENABLE_QUOTA_ALERT', False)
     AI_PRICES = getattr(seahub_settings, 'AI_PRICES', {})
