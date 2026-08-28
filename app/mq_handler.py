@@ -58,7 +58,8 @@ class MessageHandler(object):
                 else:
                     func(config, session, msg)
             except Exception as e:
-                logger.exception("error when handle msg: %s", e)
+                logger.exception('error in handler %s for message type %s: %s',
+                                 func.__name__, msg_type, e)
 
     def get_channels(self):
         channels = set()

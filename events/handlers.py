@@ -39,6 +39,7 @@ def _check_ignored_path(path):
 
 
 def RepoUpdateEventHandler(config, session, msg):
+    logging.info('[RepoUpdate] received repo-update event: %s', msg)
     try:
         elements = json.loads(msg['content'])
     except:
@@ -47,14 +48,19 @@ def RepoUpdateEventHandler(config, session, msg):
 
     repo_id = elements.get('repo_id')
     commit_id = elements.get('commit_id')
+    logging.info('[RepoUpdate] processing repo_id=%s, commit_id=%s', repo_id, commit_id)
 
     if not repo_id or not commit_id:
         logging.warning("repo_id: %s, or commit_id: %s invalid.", repo_id, commit_id)
         return
 
     commit = commit_mgr.load_commit(repo_id, 1, commit_id)
+    logging.info('[RepoUpdate] load_commit version=1 returned %s for repo_id=%s, commit_id=%s',
+                 'a commit' if commit else 'None', repo_id, commit_id)
     if commit is None:
         commit = commit_mgr.load_commit(repo_id, 0, commit_id)
+        logging.info('[RepoUpdate] load_commit version=0 returned %s for repo_id=%s, commit_id=%s',
+                     'a commit' if commit else 'None', repo_id, commit_id)
 
     # TODO: maybe handle merge commit.
     if commit is not None and commit.parent_id and not commit.second_parent_id:
@@ -69,6 +75,12 @@ def RepoUpdateEventHandler(config, session, msg):
                 differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id, True, True)
             added_files, deleted_files, added_dirs, deleted_dirs, modified_files, \
             renamed_files, moved_files, renamed_dirs, moved_dirs = differ.diff()
+            logging.info('[RepoUpdate] diff repo_id=%s, commit_id=%s: added_files=%d, '
+                         'deleted_files=%d, added_dirs=%d, deleted_dirs=%d, modified_files=%d, '
+                         'renamed_files=%d, moved_files=%d, renamed_dirs=%d, moved_dirs=%d',
+                         repo_id, commit_id, len(added_files), len(deleted_files),
+                         len(added_dirs), len(deleted_dirs), len(modified_files),
+                         len(renamed_files), len(moved_files), len(renamed_dirs), len(moved_dirs))
 
             if renamed_files or renamed_dirs or moved_files or moved_dirs:
                 changer = ChangeFilePathHandler(session)
@@ -100,7 +112,11 @@ def RepoUpdateEventHandler(config, session, msg):
             if owner not in users:
                 users = users + [owner]
             if not users:
+                logging.info('[RepoUpdate] skipped activity and file history because no users were found '
+                             'for repo_id=%s, commit_id=%s', repo_id, commit_id)
                 return
+            logging.info('[RepoUpdate] resolved org_id=%s, owner=%s, user_count=%d for repo_id=%s, '
+                         'commit_id=%s', org_id, owner, len(users), repo_id, commit_id)
 
             time = datetime.datetime.utcfromtimestamp(msg['ctime'])
             if added_files or deleted_files or added_dirs or deleted_dirs or \
@@ -114,15 +130,27 @@ def RepoUpdateEventHandler(config, session, msg):
                                     added_dirs, deleted_dirs, modified_files, renamed_files,
                                     moved_files, renamed_dirs, moved_dirs, commit, repo_id,
                                     parent, time)
+                    logging.info('[RepoUpdate] generated %d file history records for repo_id=%s, '
+                                 'commit_id=%s', len(records), repo_id, commit_id)
                     save_file_histories(config, session, records)
+                    logging.info('[RepoUpdate] saved file history records for repo_id=%s, commit_id=%s',
+                                 repo_id, commit_id)
+                else:
+                    logging.info('[RepoUpdate] skipped file history because it is disabled for repo_id=%s, '
+                                 'commit_id=%s', repo_id, commit_id)
 
                 records, trash_records = generate_activity_records(added_files, deleted_files,
                         added_dirs, deleted_dirs, modified_files, renamed_files,
                         moved_files, renamed_dirs, moved_dirs, commit, repo_id,
                         parent, users, time)
 
+                logging.info('[RepoUpdate] generated %d activity records and %d trash records for '
+                             'repo_id=%s, commit_id=%s', len(records), len(trash_records),
+                             repo_id, commit_id)
                 save_user_activities(session, records)
                 save_repo_trashs(session, trash_records)
+                logging.info('[RepoUpdate] saved activity and trash records for repo_id=%s, commit_id=%s',
+                             repo_id, commit_id)
                 # save repo monitor recodes
                 records = generate_repo_monitor_records(repo_id, commit,
                                                         added_files, deleted_files,
@@ -131,6 +159,10 @@ def RepoUpdateEventHandler(config, session, msg):
                                                         moved_files, moved_dirs,
                                                         modified_files)
                 save_message_to_user_notification(session, records)
+
+            else:
+                logging.info('[RepoUpdate] skipped activity and file history because diff is empty for '
+                             'repo_id=%s, commit_id=%s', repo_id, commit_id)
 
 
             enable_collab_server = False
@@ -188,6 +220,12 @@ def RepoUpdateEventHandler(config, session, msg):
                     total_count = get_deleted_files_total_count(session, repo_id, deleted_time)
                     if total_count > total_threshold:
                         save_deleted_files_msg(session, owner, repo_id, timestamp)
+        else:
+            logging.info('[RepoUpdate] skipped because parent commit could not be loaded for repo_id=%s, '
+                         'commit_id=%s, parent_id=%s', repo_id, commit_id, commit.parent_id)
+    else:
+        logging.info('[RepoUpdate] skipped because commit is missing, has no parent, or is a merge commit '
+                     'for repo_id=%s, commit_id=%s', repo_id, commit_id)
 
 
 def send_message_to_collab_server(config, repo_id):
@@ -936,6 +974,7 @@ def should_record(config, record):
 
 
 def FileUpdateEventHandler(config, session, msg):
+    logging.info('[FileUpdate] received repo-update event: %s', msg)
     try:
         elements = json.loads(msg['content'])
     except:
@@ -944,17 +983,26 @@ def FileUpdateEventHandler(config, session, msg):
 
     repo_id = elements.get('repo_id')
     commit_id = elements.get('commit_id')
+    logging.info('[FileUpdate] processing repo_id=%s, commit_id=%s', repo_id, commit_id)
     if not repo_id or not commit_id:
-        logging.debug("repo_id: %s, or commit_id: %s invalid.", repo_id, commit_id)
+        logging.info('[FileUpdate] skipped invalid repo_id=%s, commit_id=%s', repo_id, commit_id)
         return
 
     org_id = get_org_id_by_repo_id(repo_id)
+    logging.info('[FileUpdate] resolved org_id=%s for repo_id=%s', org_id, repo_id)
 
     commit = get_commit(repo_id, 1, commit_id)
+    logging.info('[FileUpdate] get_commit version=1 returned %s for repo_id=%s, commit_id=%s',
+                 'a commit' if commit else 'None', repo_id, commit_id)
     if commit is None:
         commit = get_commit(repo_id, 0, commit_id)
         if commit is None:
+            logging.info('[FileUpdate] skipped because get_commit returned None for both versions, '
+                         'repo_id=%s, commit_id=%s', repo_id, commit_id)
             return
+
+        logging.info('[FileUpdate] get_commit version=0 returned a commit for repo_id=%s, commit_id=%s',
+                     repo_id, commit_id)
 
     time = datetime.datetime.utcfromtimestamp(msg['ctime'])
     creator_name = getattr(commit, 'creator_name', '')
@@ -962,6 +1010,8 @@ def FileUpdateEventHandler(config, session, msg):
         creator_name = ''
     save_file_update_event(session, time, creator_name, org_id,
                            repo_id, commit_id, commit.desc)
+    logging.info('[FileUpdate] saved FileUpdate record for repo_id=%s, commit_id=%s',
+                 repo_id, commit_id)
 
 def FileAuditEventHandler(config, session, msg):
     try:
