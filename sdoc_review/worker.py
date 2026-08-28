@@ -6,6 +6,8 @@ import uuid
 
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import ResponseError, TimeoutError as RedisTimeoutError
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import Timeout as RequestsTimeout
 
 from seafevents.app.config import (
     JWT_PRIVATE_KEY, SDOC_REVIEW_WORKERS, SEAFILE_AI_SECRET_KEY,
@@ -19,13 +21,20 @@ logger = logging.getLogger('sdoc_review')
 
 QUEUE_NAME = 'sdoc_review_task'
 APPLY_RESULT_QUEUE_NAME = 'sdoc_review_apply_result'
-TOTAL_TIMEOUT_SECONDS = 180
-MODEL_CALL_TIMEOUT_SECONDS = 30
+# A Review may span many chunks. Its lifetime is controlled by the renewable
+# Seahub lease, while each individual provider request remains bounded.
+MODEL_CALL_TIMEOUT_SECONDS = 90
+MODEL_REQUEST_TIMEOUT_SECONDS = MODEL_CALL_TIMEOUT_SECONDS - 2
 RECOVERY_INTERVAL_SECONDS = 30
 CLAIM_RESPONSE_RETRY_DELAYS = (0, 1, 3)
+CHUNK_TRANSIENT_RETRY_DELAYS = (0, 1)
 REVISION_BRIEF_REQUIRED_STRING_FIELDS = (
     'goal', 'tone', 'length', 'heading_strategy', 'do_not_modify',
 )
+
+
+class ReviewTaskNoLongerRunning(Exception):
+    pass
 
 
 class SdocReviewWorker(object):
@@ -159,15 +168,8 @@ class SdocReviewWorker(object):
                     apply_attempt_id, error)
 
     @staticmethod
-    def _remaining(deadline):
-        return max(0, deadline - time.monotonic())
-
-    @classmethod
-    def _model_timeout(cls, deadline):
-        remaining = cls._remaining(deadline)
-        if remaining <= 1:
-            raise TimeoutError('SDoc review total time budget exhausted')
-        return max(1, min(MODEL_CALL_TIMEOUT_SECONDS, remaining))
+    def _model_timeout():
+        return MODEL_CALL_TIMEOUT_SECONDS
 
     @staticmethod
     def _generation_error_code(error):
@@ -187,8 +189,7 @@ class SdocReviewWorker(object):
             isinstance(term, str) and term.strip() for term in terminology)
 
     @classmethod
-    def _model_payload(cls, task, document_context, deadline, **extra):
-        remaining = cls._remaining(deadline)
+    def _model_payload(cls, task, document_context, **extra):
         payload = {
             'prompt': task['prompt'],
             'document_context': document_context,
@@ -196,7 +197,9 @@ class SdocReviewWorker(object):
             'org_id': task.get('org_id'),
             'repo_id': task['repo_id'],
             'scenario': 'chat',
-            'request_timeout_seconds': max(1, min(28, int(remaining) - 1)),
+            # Let Seafile AI return a typed failure before the worker's own
+            # HTTP client reaches its timeout.
+            'request_timeout_seconds': MODEL_REQUEST_TIMEOUT_SECONDS,
         }
         payload.update(extra)
         return payload
@@ -208,7 +211,7 @@ class SdocReviewWorker(object):
         time.sleep(delay)
         return False
 
-    def _claim_task(self, task_id, attempt_id, deadline):
+    def _claim_task(self, task_id, attempt_id):
         """Retry an ambiguous claim with the same idempotency key.
 
         Seahub accepts a repeated claim for the same ``attempt_id``. Retrying
@@ -217,8 +220,6 @@ class SdocReviewWorker(object):
         """
         for delay in CLAIM_RESPONSE_RETRY_DELAYS:
             if delay and self._wait_or_stop(delay):
-                return None
-            if self._remaining(deadline) <= 1:
                 return None
             try:
                 return self.seahub_api.claim(task_id, attempt_id)
@@ -230,10 +231,69 @@ class SdocReviewWorker(object):
                 logger.warning('Failed to claim SDoc review task %s: %s', task_id, error)
         return None
 
+    def _renew_lease(self, task_id, attempt_id):
+        """Keep the durable task lease alive before bounded model calls.
+
+        A cancelled or stale task is deliberately not resumed. A transient
+        heartbeat delivery error is logged; normal progress callbacks still
+        renew the existing lease when delivery recovers.
+        """
+        try:
+            self.seahub_api.heartbeat(task_id, attempt_id)
+            return True
+        except InternalAPIError as error:
+            if error.status_code == 409:
+                return False
+            logger.warning('Failed to renew SDoc review lease for task %s: %s', task_id, error)
+        except Exception as error:
+            logger.warning('Failed to renew SDoc review lease for task %s: %s', task_id, error)
+        return True
+
+    @staticmethod
+    def _is_transient_chunk_error(error):
+        if isinstance(error, InternalAPIError):
+            try:
+                error_code = json.loads(str(error)).get('error_code')
+            except (TypeError, ValueError, AttributeError):
+                error_code = None
+            if error_code in ('invalid_model_response', 'model_output_truncated'):
+                return False
+            return error.status_code >= 500
+        return isinstance(error, (
+            TimeoutError, ConnectionError, RequestsTimeout, RequestsConnectionError,
+        ))
+
+    def _generate_chunk(self, task_id, attempt_id, task, document_context,
+                        brief, chunk_index, plan_token):
+        last_error = None
+        for attempt, delay in enumerate(CHUNK_TRANSIENT_RETRY_DELAYS):
+            if delay and self._wait_or_stop(delay):
+                raise TimeoutError('SDoc review worker is stopping')
+            if not self._renew_lease(task_id, attempt_id):
+                raise ReviewTaskNoLongerRunning()
+            try:
+                return self.seafile_ai_api.chunk(
+                    self._model_payload(
+                        task, document_context,
+                        brief=brief, chunk_index=chunk_index, plan_token=plan_token,
+                    ),
+                    self._model_timeout(),
+                )
+            except Exception as error:
+                last_error = error
+                if not self._is_transient_chunk_error(error):
+                    raise
+                if attempt + 1 >= len(CHUNK_TRANSIENT_RETRY_DELAYS):
+                    raise
+                logger.warning(
+                    'SDoc review task %s chunk %s transient generation failure; retrying: %s',
+                    task_id, chunk_index, error,
+                )
+        raise last_error
+
     def _process_task(self, task_id):
         attempt_id = uuid.uuid4()
-        deadline = time.monotonic() + TOTAL_TIMEOUT_SECONDS
-        claimed = self._claim_task(task_id, attempt_id, deadline)
+        claimed = self._claim_task(task_id, attempt_id)
         if claimed is None:
             return
 
@@ -246,9 +306,11 @@ class SdocReviewWorker(object):
         try:
             if task.get('route') == 'answer_then_review':
                 try:
+                    if not self._renew_lease(task_id, attempt_id):
+                        return
                     analysis = self.seafile_ai_api.analyze(
-                        self._model_payload(task, document_context, deadline),
-                        self._model_timeout(deadline),
+                        self._model_payload(task, document_context),
+                        self._model_timeout(),
                     )
                 except Exception as error:
                     logger.warning(
@@ -271,9 +333,11 @@ class SdocReviewWorker(object):
                                 task_id, error)
 
             try:
+                if not self._renew_lease(task_id, attempt_id):
+                    return
                 plan = self.seafile_ai_api.plan(
-                    self._model_payload(task, document_context, deadline),
-                    self._model_timeout(deadline),
+                    self._model_payload(task, document_context),
+                    self._model_timeout(),
                 )
             except Exception as error:
                 logger.warning('SDoc review task %s plan generation failed: %s', task_id, error)
@@ -303,21 +367,16 @@ class SdocReviewWorker(object):
             truncated = False
             stop_reason = None
             for chunk in chunks:
-                if self._remaining(deadline) <= 1:
-                    self._fail(task_id, attempt_id, 'generation_timeout')
-                    return
                 chunk_index = chunk.get('chunk_index') if isinstance(chunk, dict) else None
                 if not isinstance(chunk_index, int):
                     self._fail(task_id, attempt_id, 'invalid_chunk_plan')
                     return
                 try:
-                    suggestions = self.seafile_ai_api.chunk(
-                        self._model_payload(
-                            task, document_context, deadline,
-                            brief=brief, chunk_index=chunk_index, plan_token=plan_token,
-                        ),
-                        self._model_timeout(deadline),
-                    )
+                    suggestions = self._generate_chunk(
+                        task_id, attempt_id, task, document_context,
+                        brief, chunk_index, plan_token)
+                except ReviewTaskNoLongerRunning:
+                    return
                 except Exception as error:
                     logger.warning(
                         'SDoc review task %s chunk %s generation failed: %s',
@@ -359,9 +418,6 @@ class SdocReviewWorker(object):
                     self._fail(task_id, attempt_id, 'event_delivery_failed')
                     return
 
-            if self._remaining(deadline) <= 1:
-                self._fail(task_id, attempt_id, 'generation_timeout')
-                return
             self.seahub_api.event(
                 task_id, attempt_id, 'finish',
                 document_context=document_context,
