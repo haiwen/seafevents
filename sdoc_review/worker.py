@@ -28,6 +28,7 @@ MODEL_REQUEST_TIMEOUT_SECONDS = MODEL_CALL_TIMEOUT_SECONDS - 2
 RECOVERY_INTERVAL_SECONDS = 30
 CLAIM_RESPONSE_RETRY_DELAYS = (0, 1, 3)
 CHUNK_TRANSIENT_RETRY_DELAYS = (0, 1)
+FAILURE_EVENT_RETRY_DELAYS = (0, 1, 3)
 REVISION_BRIEF_REQUIRED_STRING_FIELDS = (
     'goal', 'tone', 'length', 'heading_strategy', 'do_not_modify',
 )
@@ -193,6 +194,8 @@ class SdocReviewWorker(object):
         payload = {
             'prompt': task['prompt'],
             'document_context': document_context,
+            'review_task_id': str(task['id']),
+            'generation_attempt_id': str(task['generation_attempt_id']),
             'username': task['username'],
             'org_id': task.get('org_id'),
             'repo_id': task['repo_id'],
@@ -302,6 +305,7 @@ class SdocReviewWorker(object):
         if not task or not isinstance(document_context, dict):
             self._fail(task_id, attempt_id, 'invalid_claim_result')
             return
+        task['generation_attempt_id'] = str(attempt_id)
 
         try:
             if task.get('route') == 'answer_then_review':
@@ -312,25 +316,41 @@ class SdocReviewWorker(object):
                         self._model_payload(task, document_context),
                         self._model_timeout(),
                     )
+                except InternalAPIError as error:
+                    if error.status_code == 409:
+                        return
+                    logger.warning(
+                        'Failed to generate analysis for SDoc review task %s: %s',
+                        task_id, error)
+                    self._fail(task_id, attempt_id, 'analysis_failed')
+                    return
                 except Exception as error:
                     logger.warning(
-                        'Failed to generate analysis for SDoc review task %s; continuing: %s',
+                        'Failed to generate analysis for SDoc review task %s: %s',
                         task_id, error)
+                    self._fail(task_id, attempt_id, 'analysis_failed')
+                    return
                 else:
-                    if analysis:
-                        try:
-                            self.seahub_api.event(
-                                task_id, attempt_id, 'analysis', content=analysis)
-                        except InternalAPIError as error:
-                            if error.status_code == 409:
-                                return
-                            logger.warning(
-                                'Failed to persist analysis for SDoc review task %s; continuing: %s',
-                                task_id, error)
-                        except Exception as error:
-                            logger.warning(
-                                'Failed to persist analysis for SDoc review task %s; continuing: %s',
-                                task_id, error)
+                    if not analysis:
+                        self._fail(task_id, attempt_id, 'analysis_failed')
+                        return
+                    try:
+                        self.seahub_api.event(
+                            task_id, attempt_id, 'analysis', content=analysis)
+                    except InternalAPIError as error:
+                        if error.status_code == 409:
+                            return
+                        logger.warning(
+                            'Failed to persist analysis for SDoc review task %s: %s',
+                            task_id, error)
+                        self._fail(task_id, attempt_id, 'analysis_failed')
+                        return
+                    except Exception as error:
+                        logger.warning(
+                            'Failed to persist analysis for SDoc review task %s: %s',
+                            task_id, error)
+                        self._fail(task_id, attempt_id, 'analysis_failed')
+                        return
 
             try:
                 if not self._renew_lease(task_id, attempt_id):
@@ -434,8 +454,23 @@ class SdocReviewWorker(object):
             self._fail(task_id, attempt_id, 'generation_failed')
 
     def _fail(self, task_id, attempt_id, error_code):
-        try:
-            self.seahub_api.event(
-                task_id, attempt_id, 'failed', error_code=error_code)
-        except Exception:
-            logger.exception('Failed to persist failure for SDoc review task %s.', task_id)
+        for delay in FAILURE_EVENT_RETRY_DELAYS:
+            if delay and self._wait_or_stop(delay):
+                return
+            try:
+                self.seahub_api.event(
+                    task_id, attempt_id, 'failed', error_code=error_code)
+                return
+            except InternalAPIError as error:
+                if error.status_code == 409:
+                    return
+                logger.warning(
+                    'Failed to persist failure for SDoc review task %s: %s',
+                    task_id, error)
+            except Exception as error:
+                logger.warning(
+                    'Failed to persist failure for SDoc review task %s: %s',
+                    task_id, error)
+        logger.error(
+            'Exhausted failure-event delivery retries for SDoc review task %s.',
+            task_id)

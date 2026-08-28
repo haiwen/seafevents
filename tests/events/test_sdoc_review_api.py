@@ -96,6 +96,8 @@ class FakeSeafileAIAPI(object):
     def plan(self, payload, timeout):
         assert payload['request_timeout_seconds'] <= 88
         assert payload['repo_id'] == 'repo-id'
+        assert payload['review_task_id'] == '00000000-0000-4000-8000-000000000001'
+        assert payload['generation_attempt_id']
         return {
             'brief': {
                 'goal': 'Improve clarity', 'tone': 'concise', 'length': 'preserve length',
@@ -351,3 +353,68 @@ def test_worker_stops_without_generating_when_lease_is_rejected():
 
     assert worker.seafile_ai_api.chunk_calls == 0
     assert worker.seahub_api.events == []
+
+
+def test_answer_then_review_fails_when_analysis_generation_fails():
+    class AnalysisTaskSeahubAPI(FakeSeahubAPI):
+        def claim(self, task_id, attempt_id):
+            result = super(AnalysisTaskSeahubAPI, self).claim(task_id, attempt_id)
+            result['task']['route'] = 'answer_then_review'
+            return result
+
+    class FailingAnalysisSeafileAIAPI(FakeSeafileAIAPI):
+        def analyze(self, payload, timeout):
+            raise InternalAPIError(503, 'Analysis unavailable.')
+
+    worker = SdocReviewWorker.__new__(SdocReviewWorker)
+    worker.seahub_api = AnalysisTaskSeahubAPI()
+    worker.seafile_ai_api = FailingAnalysisSeafileAIAPI()
+
+    worker._process_task('00000000-0000-4000-8000-000000000001')
+
+    assert [event_type for event_type, _payload in worker.seahub_api.events] == ['failed']
+    assert worker.seahub_api.events[0][1]['error_code'] == 'analysis_failed'
+
+
+def test_worker_retries_failure_event_delivery():
+    class TransientFailureSeahubAPI(FakeSeahubAPI):
+        def __init__(self):
+            super(TransientFailureSeahubAPI, self).__init__()
+            self.failure_calls = 0
+
+        def event(self, task_id, attempt_id, event_type, **payload):
+            if event_type == 'failed':
+                self.failure_calls += 1
+                if self.failure_calls == 1:
+                    raise InternalAPIError(503, 'Seahub unavailable.')
+            return super(TransientFailureSeahubAPI, self).event(
+                task_id, attempt_id, event_type, **payload)
+
+    worker = SdocReviewWorker.__new__(SdocReviewWorker)
+    worker.seahub_api = TransientFailureSeahubAPI()
+    worker.should_stop = type('StopEvent', (), {'wait': lambda self, delay: False})()
+
+    worker._fail('task-id', 'attempt-id', 'generation_failed')
+
+    assert worker.seahub_api.failure_calls == 2
+    assert worker.seahub_api.events == [
+        ('failed', {'error_code': 'generation_failed'}),
+    ]
+
+
+def test_worker_stops_failure_delivery_after_stale_attempt_response():
+    class StaleSeahubAPI(FakeSeahubAPI):
+        def __init__(self):
+            super(StaleSeahubAPI, self).__init__()
+            self.failure_calls = 0
+
+        def event(self, task_id, attempt_id, event_type, **payload):
+            self.failure_calls += 1
+            raise InternalAPIError(409, 'Review attempt is stale.')
+
+    worker = SdocReviewWorker.__new__(SdocReviewWorker)
+    worker.seahub_api = StaleSeahubAPI()
+
+    worker._fail('task-id', 'attempt-id', 'generation_failed')
+
+    assert worker.seahub_api.failure_calls == 1
