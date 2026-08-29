@@ -1,4 +1,6 @@
 # coding: utf-8
+from datetime import datetime, timezone
+
 from sqlalchemy import or_, and_, select, update
 
 from .models import VirusScanRecord, VirusFile
@@ -74,14 +76,43 @@ class DBOper(object):
         session = self.edb_session()
         try:
             session.add_all(
-                VirusFile(repo_id, commit_id, file_path, 0, 0, virus_signature)
-                for repo_id, commit_id, file_path, virus_signature in records
+                VirusFile(
+                    repo_id=repo_id,
+                    commit_id=commit_id,
+                    file_path=file_path,
+                    file_id=file_id,
+                    has_deleted=False,
+                    has_ignored=False,
+                    virus_signature=virus_signature,
+                )
+                for repo_id, commit_id, file_path, file_id, virus_signature in records
             )
             session.commit()
             return 0
         except Exception as e:
             logger.warning('Failed to add virus records to db: %s.', e)
             return -1
+        finally:
+            session.close()
+
+    def get_deleted_virus_files(self, repo_id, start_time, end_time):
+        session = self.edb_session()
+        try:
+            stmt = select(
+                VirusFile.file_path,
+                VirusFile.file_id,
+                VirusFile.virus_signature,
+            ).where(
+                VirusFile.repo_id == repo_id,
+                VirusFile.has_deleted == 1,
+                VirusFile.file_id.is_not(None),
+                VirusFile.deleted_at.is_not(None),
+                VirusFile.deleted_at.between(start_time, end_time),
+            ).order_by(VirusFile.deleted_at.desc())
+            return list(session.execute(stmt).all())
+        except Exception as e:
+            logger.warning('Failed to get deleted virus files from db: %s.', e)
+            return None
         finally:
             session.close()
 
@@ -117,7 +148,11 @@ def get_virus_files(session, repo_id, has_handled, start, limit):
 
 def delete_virus_file(session, vid):
     try:
-        stmt = update(VirusFile).where(VirusFile.vid == vid).values(has_deleted=1)
+        stmt = update(VirusFile).where(VirusFile.vid == vid).values(
+            has_deleted=1,
+            deleted_at=datetime.now(timezone.utc).replace(
+                tzinfo=None, microsecond=0),
+        )
         session.execute(stmt)
         session.commit()
         return 0
