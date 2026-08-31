@@ -100,16 +100,17 @@ class TaskManager:
         else:
             logging.info('No one subscribed to metadata_update channel, event (%s) has not been send' % msg_content)
 
-    def add_init_face_recognition_task(self, username, repo_id):
-        msg_content = {
-            'msg_type': 'update_face_recognition',
-            'repo_id': repo_id,
-            'username': username
-        }
-        if self._redis_connection.publish('metadata_update', json.dumps(msg_content)) > 0:
-            logging.debug('Publish event: %s' % msg_content)
-        else:
-            logging.info('No one subscribed to metadata_update channel, event (%s) has not been send' % msg_content)
+    # Face recognition is no longer available.
+    # def add_init_face_recognition_task(self, username, repo_id):
+    #     msg_content = {
+    #         'msg_type': 'update_face_recognition',
+    #         'repo_id': repo_id,
+    #         'username': username
+    #     }
+    #     if self._redis_connection.publish('metadata_update', json.dumps(msg_content)) > 0:
+    #         logging.debug('Publish event: %s' % msg_content)
+    #     else:
+    #         logging.info('No one subscribed to metadata_update channel, event (%s) has not been send' % msg_content)
 
     def add_init_ai_summary_task(self, username, repo_id):
         msg_content = {

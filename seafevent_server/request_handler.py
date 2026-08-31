@@ -14,7 +14,6 @@ from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
 from seafevents.app.cache_provider import cache
 from seafevents.app.event_redis import redis_cache, REDIS_METRIC_KEY
-from seafevents.face_recognition.utils import recognize_faces_by_obj_ids
 
 
 app = Flask(__name__)
@@ -190,7 +189,8 @@ def search():
     return {'results': results}, 200
 
 
-@app.route('/add-init-face-recognition-task', methods=['GET'])
+# Face recognition is no longer available.
+# @app.route('/add-init-face-recognition-task', methods=['GET'])
 def add_init_face_recognition_task():
     is_valid, error = check_auth_token(request)
     if not is_valid:
@@ -257,7 +257,8 @@ def delete_summary_vector_index():
     return {'success': True}, 200
 
 
-@app.route('/recognize-faces', methods=['POST'])
+# Face recognition is no longer available.
+# @app.route('/recognize-faces', methods=['POST'])
 def recognize_faces():
     is_valid = check_auth_token(request)
     if not is_valid:
@@ -379,7 +380,8 @@ def add_convert_wiki_task():
     return {'task_id': task_id}, 200
 
 
-@app.route('/update-people-cover-photo', methods=['POST'])
+# Face recognition is no longer available.
+# @app.route('/update-people-cover-photo', methods=['POST'])
 def update_cover_photo():
     is_valid, error = check_auth_token(request)
     if not is_valid:
