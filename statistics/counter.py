@@ -377,9 +377,7 @@ class TrafficInfoCounter(object):
 
                     try:
                         with SeahubDB() as seahub_db:
-                            monthly_download_traffic_limit = (
-                                seahub_db.get_org_monthly_download_traffic_limit(org_id)
-                            )
+                            monthly_download_traffic_limit = seahub_db.get_org_monthly_download_traffic_limit(org_id)
                             if monthly_download_traffic_limit > 0:
                                 download_traffic_threshold = monthly_download_traffic_limit
                     except Exception as e:
