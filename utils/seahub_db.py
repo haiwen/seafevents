@@ -19,7 +19,7 @@ class SeahubDB(object):
         if self.session:
             self.session.close()
 
-    def get_org_monthly_traffic_limit(self, org_id):
+    def get_org_monthly_download_traffic_limit(self, org_id):
         sql = """
                 SELECT monthly_traffic_limit
                 FROM organizations_orgsettings
