@@ -37,8 +37,8 @@ reset_rate_limit_dates = []
 DEFAULT_USER = 'default'
 GUEST_USER = 'guest'
 
-MONTHLY_DOWNLOAD_TRAFFIC_LIMIT = 'monthly_rate_limit'
-MONTHLY_DOWNLOAD_TRAFFIC_LIMIT_PER_USER = 'monthly_rate_limit_per_user'
+MONTHLY_DOWNLOAD_TRAFFIC_LIMIT = 'monthly_download_traffic_limit'
+MONTHLY_DOWNLOAD_TRAFFIC_LIMIT_PER_USER = 'monthly_download_traffic_limit_per_user'
 
 MONTHLY_UPLOAD_TRAFFIC_LIMIT = 'monthly_upload_traffic_limit'
 MONTHLY_UPLOAD_TRAFFIC_LIMIT_PER_USER = 'monthly_upload_traffic_limit_per_user'
@@ -377,9 +377,9 @@ class TrafficInfoCounter(object):
 
                     try:
                         with SeahubDB() as seahub_db:
-                            monthly_traffic_limit = seahub_db.get_org_monthly_traffic_limit(org_id)
-                            if monthly_traffic_limit > 0:
-                                download_traffic_threshold = monthly_traffic_limit
+                            monthly_download_traffic_limit = seahub_db.get_org_monthly_download_traffic_limit(org_id)
+                            if monthly_download_traffic_limit > 0:
+                                download_traffic_threshold = monthly_download_traffic_limit
                     except Exception as e:
                         logging.warning('Failed to get org %s monthly download traffic limit: %s.', org_id, e)
 
