@@ -110,7 +110,7 @@ class SummaryIndexTaskWorker:
             self.update_index(repo_id)
         except Exception as error:
             logger.exception('Summary vector index failed, repo_id=%s, error=%s', repo_id, error)
-            self.set_ai_processing_status(repo_id, '')
+            self.set_ai_processing_status(repo_id, 'index_failed')
 
     def update_index(self, repo_id):
         state = self.get_repo_state(repo_id)
