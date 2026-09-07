@@ -10,7 +10,7 @@ from seafevents.seafevent_server.seafevent_server import SeafEventServer
 from seafevents.seasearch.index_task.file_index_updater import RepoFileIndexUpdater
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_QUOTA_ALERT, \
-    ENABLE_SEAFILE_AI, ENABLE_MULTI_STORAGE, ENABLE_RISK_CONTROL
+    ENABLE_SEAFILE_AI, ENABLE_MULTI_STORAGE, ENABLE_RISK_CONTROL, ENABLE_SEARCH, SEARCH_ENGINE
 from seafevents.seasearch.index_task.wiki_index_updater import SeasearchWikiIndexUpdater
 from seafevents.events.metrics import MetricsManager
 from seafevents.statistics.quota_usage_manager import QuotaUsageManager
@@ -29,12 +29,13 @@ class App(object):
             self._events_handler = EventsHandler(config)
             self._count_traffic_task = CountTrafficInfo(config)
             self._update_login_record_task = CountUserActivity(config)
-            index_task_manager.init(config)
+            if ENABLE_SEARCH and SEARCH_ENGINE == 'seasearch':
+                index_task_manager.init(config)
             self._seafevent_server = SeafEventServer(self)
             
 
         if self._bg_tasks_enabled:
-            self._index_updater = IndexUpdater(config)
+            self._index_updater = None
             self._seahub_email_sender = SeahubEmailSender(config)
             self._ldap_syncer = LdapSyncer()
             self._virus_scanner = VirusScanner(config, seafile_config)
@@ -55,9 +56,15 @@ class App(object):
                 # Face recognition is no longer available.
                 # self._face_cluster_updater = FaceClusterUpdater()
                 # self._face_cluster_task_publisher = FaceClusterTaskPublisher()
-            self._repo_file_index_updater = RepoFileIndexUpdater(config)
-            self._es_wiki_index_updater = ESWikiIndexUpdater(config)
-            self._seasearch_wiki_index_updater = SeasearchWikiIndexUpdater(config)
+            self._repo_file_index_updater = None
+            self._es_wiki_index_updater = None
+            self._seasearch_wiki_index_updater = None
+            if ENABLE_SEARCH and SEARCH_ENGINE == 'elasticsearch':
+                self._index_updater = IndexUpdater(config)
+                self._es_wiki_index_updater = ESWikiIndexUpdater(config)
+            elif ENABLE_SEARCH and SEARCH_ENGINE == 'seasearch':
+                self._repo_file_index_updater = RepoFileIndexUpdater(config)
+                self._seasearch_wiki_index_updater = SeasearchWikiIndexUpdater(config)
             if ENABLE_QUOTA_ALERT:
                 self._quota_alert_email_sender = QuotaAlertEmailSender()
             if ENABLE_SEAFILE_AI:
@@ -78,7 +85,8 @@ class App(object):
         if self._bg_tasks_enabled:
             self._file_updates_sender.start()
             self._work_weixin_notice_sender.start()
-            self._index_updater.start()
+            if self._index_updater:
+                self._index_updater.start()
             self._seahub_email_sender.start()
             self._ldap_syncer.start()
             self._virus_scanner.start()
@@ -95,9 +103,12 @@ class App(object):
             self._webhooker.start()
 
             self._metrics_manager.start()
-            self._repo_file_index_updater.start()
-            self._seasearch_wiki_index_updater.start()
-            self._es_wiki_index_updater.start()
+            if self._repo_file_index_updater:
+                self._repo_file_index_updater.start()
+            if self._seasearch_wiki_index_updater:
+                self._seasearch_wiki_index_updater.start()
+            if self._es_wiki_index_updater:
+                self._es_wiki_index_updater.start()
             self._quota_usage_manager.start()
             if ENABLE_QUOTA_ALERT:
                 self._quota_alert_email_sender.start()

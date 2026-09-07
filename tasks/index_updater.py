@@ -5,8 +5,8 @@ import logging
 import configparser
 from threading import Thread, Event
 
-from seafevents.utils import get_python_executable, run, parse_bool, parse_interval, get_opt_from_conf_or_env
-from seafevents.app.config import IS_PRO_VERSION
+from seafevents.utils import get_python_executable, run, parse_interval, get_opt_from_conf_or_env
+from seafevents.app.config import ENABLE_SEARCH, IS_PRO_VERSION, SEARCH_ENGINE
 
 __all__ = [
     'IndexUpdater',
@@ -32,7 +32,6 @@ class IndexUpdater(object):
     def _parse_config(self, config):
         """Parse index update related parts of events.conf"""
         section_name = 'INDEX FILES'
-        key_enabled = 'enabled'
         key_seafesdir = 'seafesdir'
         key_logfile = 'logfile'
         key_loglevel = 'loglevel'
@@ -46,10 +45,8 @@ class IndexUpdater(object):
         if not config.has_section(section_name):
             return
 
-        # [ enabled ]
-        enabled = get_opt_from_conf_or_env(config, section_name, key_enabled, default=False)
-        enabled = parse_bool(enabled)
         is_pro_version = IS_PRO_VERSION
+        enabled = ENABLE_SEARCH and SEARCH_ENGINE == 'elasticsearch'
         logging.debug('seafes enabled: %s', enabled)
 
         if not enabled or not is_pro_version:
@@ -94,19 +91,16 @@ class IndexUpdater(object):
             if index_office_pdf == 'true' or index_office_pdf == '1':
                 index_office_pdf = True
 
-        # [ es host/port  ]
-        es_host = None
-        es_port = None
-        if config.has_option(section_name, key_es_host) and config.has_option(section_name, key_es_port):
-            host = config.get(section_name, key_es_host).lower()
-            port = config.get(section_name, key_es_port).lower()
+        # [ es host/port ]
+        es_host = get_opt_from_conf_or_env(config, section_name, key_es_host, 'ELASTICSEARCH_HOST')
+        es_port = get_opt_from_conf_or_env(config, section_name, key_es_port, 'ELASTICSEARCH_PORT')
+        if es_port:
             try:
-                port = int(port.lower())
+                es_port = int(es_port)
             except ValueError:
-                logging.warning('invalid es_port "%s"' % port)
-            else:
-                es_host = host
-                es_port = port
+                logging.warning('invalid es_port "%s"' % es_port)
+                es_host = None
+                es_port = None
 
         logging.debug('seafes dir: %s', seafesdir)
         logging.debug('seafes logfile: %s', logfile)

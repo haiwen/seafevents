@@ -86,6 +86,11 @@ IS_PRO_VERSION = os.environ.get('IS_PRO_VERSION', 'false') == 'true'
 # config for multiple storage
 ENABLE_MULTI_STORAGE = os.environ.get('SEAF_SERVER_STORAGE_TYPE', '') == 'multiple'
 
+# config for search
+ENABLE_SEARCH = os.environ.get('ENABLE_SEARCH', 'false').lower() == 'true'
+SEARCH_ENGINE = os.environ.get('SEARCH_ENGINE', 'seasearch').lower()
+assert SEARCH_ENGINE in ('seasearch', 'elasticsearch'), 'Invalid SEARCH_ENGINE: %s' % SEARCH_ENGINE
+
 # config for ai summary worker
 AI_SUMMARY_BATCH_SIZE = int(os.environ.get('AI_SUMMARY_BATCH_SIZE', 10))
 AI_SUMMARY_WORKERS = int(os.environ.get('AI_SUMMARY_WORKERS', 3))
@@ -132,20 +137,10 @@ def is_repo_auto_del_enabled(config):
 
 
 def is_search_enabled(config):
-    if config.has_option('INDEX FILES', 'enabled'):
-        try:
-            return config.getboolean('INDEX FILES', 'enabled')
-        except ValueError:
-            return False
-    return False
+    return ENABLE_SEARCH and SEARCH_ENGINE == 'elasticsearch'
 
 def is_seasearch_enabled(config):
-    if config.has_option('SEASEARCH', 'enabled'):
-        try:
-            return config.getboolean('SEASEARCH', 'enabled')
-        except ValueError:
-            return False
-    return False
+    return ENABLE_SEARCH and SEARCH_ENGINE == 'seasearch'
 
 def is_audit_enabled(config):
     if config.has_option('Audit', 'enabled'):
