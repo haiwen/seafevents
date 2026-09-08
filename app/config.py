@@ -137,10 +137,10 @@ def is_repo_auto_del_enabled(config):
 
 
 def is_search_enabled(config):
-    return ENABLE_SEARCH and SEARCH_ENGINE == 'elasticsearch'
+    return IS_PRO_VERSION and ENABLE_SEARCH and SEARCH_ENGINE == 'elasticsearch'
 
 def is_seasearch_enabled(config):
-    return ENABLE_SEARCH and SEARCH_ENGINE == 'seasearch'
+    return IS_PRO_VERSION and ENABLE_SEARCH and SEARCH_ENGINE == 'seasearch'
 
 def is_audit_enabled(config):
     if config.has_option('Audit', 'enabled'):

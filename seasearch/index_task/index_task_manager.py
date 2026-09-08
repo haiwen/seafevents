@@ -8,7 +8,7 @@ from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.seasearch.utils.constants import SHARD_NUM
 from seafevents.repo_data import repo_data
 from seafevents.utils import get_opt_from_conf_or_env
-from seafevents.app.config import ENABLE_SEARCH, SEARCH_ENGINE
+from seafevents.app.config import ENABLE_SEARCH, IS_PRO_VERSION, SEARCH_ENGINE
 
 
 logger = logging.getLogger('seasearch')
@@ -31,7 +31,7 @@ class IndexTaskManager:
     def _parse_config(self, config):
         """Parse file index update related parts of events.conf"""
         section_name = 'SEASEARCH'
-        if not ENABLE_SEARCH or SEARCH_ENGINE != 'seasearch':
+        if not IS_PRO_VERSION or not ENABLE_SEARCH or SEARCH_ENGINE != 'seasearch':
             return
 
         self.enabled = True

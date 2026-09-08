@@ -18,7 +18,7 @@ from seafevents.seasearch.index_store.summary_vector_index import SummaryVectorI
 from seafevents.seasearch.utils.constants import SHARD_NUM
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.utils import get_opt_from_conf_or_env
-from seafevents.app.config import ENABLE_SEARCH, SEARCH_ENGINE
+from seafevents.app.config import ENABLE_SEARCH, IS_PRO_VERSION, SEARCH_ENGINE
 
 
 logger = logging.getLogger('ai_summary')
@@ -41,7 +41,7 @@ class SummaryIndexTaskWorker:
 
     def _parse_config(self, config):
         section_name = 'SEASEARCH'
-        if not ENABLE_SEARCH or SEARCH_ENGINE != 'seasearch':
+        if not IS_PRO_VERSION or not ENABLE_SEARCH or SEARCH_ENGINE != 'seasearch':
             logger.warning('Summary vector index worker disabled because SeaSearch is not enabled')
             return
         if not EMBEDDING_MODEL_CONFIGURED:

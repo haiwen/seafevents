@@ -9,7 +9,7 @@ from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.repo_data import repo_data
 from seafevents.utils import get_opt_from_conf_or_env, parse_interval
 from seafevents.events.metrics import handle_metric_timing
-from seafevents.app.config import ENABLE_SEARCH, SEARCH_ENGINE
+from seafevents.app.config import ENABLE_SEARCH, IS_PRO_VERSION, SEARCH_ENGINE
 
 
 logger = logging.getLogger('seasearch')
@@ -35,7 +35,7 @@ class RepoFileIndexUpdater(object):
 
         default_index_interval = 30 * 60 # 30 min
 
-        if not ENABLE_SEARCH or SEARCH_ENGINE != 'seasearch':
+        if not IS_PRO_VERSION or not ENABLE_SEARCH or SEARCH_ENGINE != 'seasearch':
             return
 
         self._enabled = True
