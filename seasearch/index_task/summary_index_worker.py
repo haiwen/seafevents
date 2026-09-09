@@ -17,7 +17,8 @@ from seafevents.repo_metadata.utils import parse_iso_datetime
 from seafevents.seasearch.index_store.summary_vector_index import SummaryVectorIndex
 from seafevents.seasearch.utils.constants import SHARD_NUM
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
-from seafevents.utils import get_opt_from_conf_or_env, parse_bool
+from seafevents.utils import get_opt_from_conf_or_env
+from seafevents.app.config import ENABLE_SEARCH, IS_PRO_VERSION, SEARCH_ENGINE
 
 
 logger = logging.getLogger('ai_summary')
@@ -40,18 +41,15 @@ class SummaryIndexTaskWorker:
 
     def _parse_config(self, config):
         section_name = 'SEASEARCH'
-        if not config.has_section(section_name):
-            return
-        enabled = get_opt_from_conf_or_env(config, section_name, 'enabled', default=False)
-        if not parse_bool(enabled):
+        if not IS_PRO_VERSION or not ENABLE_SEARCH or SEARCH_ENGINE != 'seasearch':
             logger.warning('Summary vector index worker disabled because SeaSearch is not enabled')
             return
         if not EMBEDDING_MODEL_CONFIGURED:
             logger.warning('Summary vector index worker disabled because embedding model is not configured or invalid')
             return
         seasearch_api = SeaSearchAPI(
-            get_opt_from_conf_or_env(config, section_name, 'seasearch_url'),
-            get_opt_from_conf_or_env(config, section_name, 'seasearch_token'),
+            get_opt_from_conf_or_env(config, section_name, 'seasearch_url', 'SEASEARCH_URL'),
+            get_opt_from_conf_or_env(config, section_name, 'seasearch_token', 'SEASEARCH_TOKEN'),
         )
         self.summary_vector_index = SummaryVectorIndex(seasearch_api, int(SHARD_NUM))
         self.enabled = True

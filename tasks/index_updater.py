@@ -2,11 +2,10 @@
 
 import os
 import logging
-import configparser
 from threading import Thread, Event
 
 from seafevents.utils import get_python_executable, run, parse_bool, parse_interval, get_opt_from_conf_or_env
-from seafevents.app.config import IS_PRO_VERSION
+from seafevents.app.config import ENABLE_SEARCH, IS_PRO_VERSION, SEARCH_ENGINE
 
 __all__ = [
     'IndexUpdater',
@@ -19,7 +18,7 @@ class IndexUpdater(object):
 
         self._seafesdir = None
         self._interval = None
-        self._index_office_pdf = None
+        self._enable_full_text_search = None
         self._logfile = None
         self._loglevel = None
         self._es_host = None
@@ -32,12 +31,11 @@ class IndexUpdater(object):
     def _parse_config(self, config):
         """Parse index update related parts of events.conf"""
         section_name = 'INDEX FILES'
-        key_enabled = 'enabled'
         key_seafesdir = 'seafesdir'
         key_logfile = 'logfile'
         key_loglevel = 'loglevel'
         key_index_interval = 'interval'
-        key_index_office_pdf = 'index_office_pdf'
+        key_enable_full_text_search = 'enable_full_text_search'
         key_es_host = 'es_host'
         key_es_port = 'es_port'
 
@@ -46,10 +44,8 @@ class IndexUpdater(object):
         if not config.has_section(section_name):
             return
 
-        # [ enabled ]
-        enabled = get_opt_from_conf_or_env(config, section_name, key_enabled, default=False)
-        enabled = parse_bool(enabled)
         is_pro_version = IS_PRO_VERSION
+        enabled = ENABLE_SEARCH and SEARCH_ENGINE == 'elasticsearch'
         logging.debug('seafes enabled: %s', enabled)
 
         if not enabled or not is_pro_version:
@@ -84,34 +80,27 @@ class IndexUpdater(object):
         interval = parse_interval(interval, default_index_interval)
 
         # [ index office/pdf files  ]
-        index_office_pdf = False
-        try:
-            index_office_pdf = config.get(section_name, key_index_office_pdf)
-        except (configparser.NoOptionError, configparser.NoSectionError):
-            pass
-        else:
-            index_office_pdf = index_office_pdf.lower()
-            if index_office_pdf == 'true' or index_office_pdf == '1':
-                index_office_pdf = True
+        enable_full_text_search = parse_bool(
+            get_opt_from_conf_or_env(
+                config, section_name, key_enable_full_text_search, 'ENABLE_FULL_TEXT_SEARCH', default=True
+            )
+        )
 
-        # [ es host/port  ]
-        es_host = None
-        es_port = None
-        if config.has_option(section_name, key_es_host) and config.has_option(section_name, key_es_port):
-            host = config.get(section_name, key_es_host).lower()
-            port = config.get(section_name, key_es_port).lower()
+        # [ es host/port ]
+        es_host = get_opt_from_conf_or_env(config, section_name, key_es_host, 'ELASTICSEARCH_HOST')
+        es_port = get_opt_from_conf_or_env(config, section_name, key_es_port, 'ELASTICSEARCH_PORT')
+        if es_port:
             try:
-                port = int(port.lower())
+                es_port = int(es_port)
             except ValueError:
-                logging.warning('invalid es_port "%s"' % port)
-            else:
-                es_host = host
-                es_port = port
+                logging.warning('invalid es_port "%s"' % es_port)
+                es_host = None
+                es_port = None
 
         logging.debug('seafes dir: %s', seafesdir)
         logging.debug('seafes logfile: %s', logfile)
         logging.debug('seafes index interval: %s sec', interval)
-        logging.debug('seafes index office/pdf: %s', index_office_pdf)
+        logging.debug('seafes full-text searching: %s', enable_full_text_search)
 
         if es_host:
             logging.debug('elasticsearch host: %s', es_host)
@@ -119,7 +108,7 @@ class IndexUpdater(object):
 
         self._seafesdir = seafesdir
         self._interval = interval
-        self._index_office_pdf = index_office_pdf
+        self._enable_full_text_search = enable_full_text_search
         self._logfile = os.path.abspath(logfile)
         self._loglevel = loglevel
         self._es_host = es_host
@@ -132,7 +121,7 @@ class IndexUpdater(object):
 
         logging.info('search indexer is started, interval = %s sec', self._interval)
         IndexUpdateTimer(
-            self._interval, self._seafesdir, self._index_office_pdf,
+            self._interval, self._seafesdir, self._enable_full_text_search,
             self._logfile, self._loglevel, self._es_host, self._es_port
         ).start()
 
@@ -142,11 +131,11 @@ class IndexUpdater(object):
 
 class IndexUpdateTimer(Thread):
 
-    def __init__(self, interval, seafesdir, index_office_pdf, logfile, loglevel, es_host, es_port):
+    def __init__(self, interval, seafesdir, enable_full_text_search, logfile, loglevel, es_host, es_port):
         Thread.__init__(self)
         self._interval = interval
         self._seafesdir = seafesdir
-        self._index_office_pdf = index_office_pdf
+        self._enable_full_text_search = enable_full_text_search
         self._logfile = logfile
         self._loglevel = loglevel
         self._es_host = es_host
@@ -169,13 +158,6 @@ class IndexUpdateTimer(Thread):
                     ]
 
                     env = dict(os.environ)
-                    if self._index_office_pdf:
-                        env['SEAFES_INDEX_OFFICE_PDF'] = 'true'
-
-                    if self._es_host:
-                        env['SEAFES_ES_HOST'] = self._es_host
-                        env['SEAFES_ES_PORT'] = str(self._es_port)
-
                     run(cmd, cwd=self._seafesdir, env=env)
                 except Exception as e:
                     logging.exception('error when index files: %s', e)

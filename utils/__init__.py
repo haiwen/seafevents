@@ -154,13 +154,15 @@ def parse_max_pages(val, default):
 def get_opt_from_conf_or_env(config, section, key, env_key=None, default=None):
     """Get option value from events.conf. If not specified in events.conf, check the environment variable.
     """
-    try:
-        return config.get(section, key)
-    except configparser.Error:
-        if env_key is None:
-            return default
-        else:
-            return os.environ.get(env_key.upper(), default)
+    if env_key is not None:
+        var = os.environ.get(env_key.upper())
+    
+    if var is None:
+        try:
+            var = config.get(section, key)
+        except configparser.Error:
+            var = default
+    return var
 
 
 def parse_bool(v):

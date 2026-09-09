@@ -110,7 +110,7 @@ class RepoFileIndex(object):
         self.shard_num = shard_num
         self.text_size_limit = 1 * 1024 * 1024  # 1M
         self.office_file_size_limit = 10 * 1024 * 1024  # 10M
-        self.index_office_pdf = False
+        self.enable_full_text_search = True
 
         self.config = config
         self._parse_config()
@@ -121,8 +121,10 @@ class RepoFileIndex(object):
             self.config, section_name, 'office_file_size_limit', default=int(10)
         ) * 1024 * 1024
 
-        index_office_pdf = get_opt_from_conf_or_env(self.config, section_name, 'index_office_pdf', default=False)
-        self.index_office_pdf = parse_bool(index_office_pdf)
+        enable_full_text_search = get_opt_from_conf_or_env(
+            self.config, section_name, 'enable_full_text_search', 'ENABLE_FULL_TEXT_SEARCH', default=True
+        )
+        self.enable_full_text_search = parse_bool(enable_full_text_search)
 
     def create_index_if_missing(self, index_name):
         if not self.seasearch_api.check_index_mapping(index_name).get('is_exist'):
@@ -386,7 +388,7 @@ class RepoFileIndex(object):
             return False
 
     def parse_content(self, repo_id, path, size, obj_id, version):
-        if not self.index_office_pdf:
+        if not self.enable_full_text_search:
             return None
         if not self.check_file_size_limit(path, size):
             logger.warning("repo_id: %s, file %s size exceeds limit", repo_id, path)
