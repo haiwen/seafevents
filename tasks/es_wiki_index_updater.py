@@ -144,10 +144,6 @@ class WikiIndexUpdateTimer(Thread):
                     ]
 
                     env = dict(os.environ)
-                    if self._es_host:
-                        env['SEAFES_ES_HOST'] = self._es_host
-                        env['SEAFES_ES_PORT'] = str(self._es_port)
-
                     run(cmd, cwd=self._seafesdir, env=env)
                 except Exception as e:
                     logging.exception('error when index wiki files: %s', e)
