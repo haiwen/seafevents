@@ -93,6 +93,7 @@ assert SEARCH_ENGINE in ('seasearch', 'elasticsearch'), 'Invalid SEARCH_ENGINE: 
 
 # config for ai summary worker
 AI_SUMMARY_BATCH_SIZE = int(os.environ.get('AI_SUMMARY_BATCH_SIZE', 10))
+AI_SUMMARY_EMBEDDING_BATCH_SIZE = max(1, min(int(os.environ.get('AI_SUMMARY_EMBEDDING_BATCH_SIZE', 10)), 50))
 AI_SUMMARY_WORKERS = int(os.environ.get('AI_SUMMARY_WORKERS', 3))
 
 ################## config from env ################################

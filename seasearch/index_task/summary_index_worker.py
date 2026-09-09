@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from redis.exceptions import ConnectionError as NoMQAvailable, ResponseError, TimeoutError
 from sqlalchemy.sql import text
 
-from seafevents.app.config import AI_SUMMARY_WORKERS, EMBEDDING_DIMENSIONS, EMBEDDING_MODEL_CONFIGURED, SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
+from seafevents.app.config import AI_SUMMARY_EMBEDDING_BATCH_SIZE, AI_SUMMARY_WORKERS, EMBEDDING_DIMENSIONS, EMBEDDING_MODEL_CONFIGURED, SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
 from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.constants import METADATA_TABLE
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
@@ -195,8 +195,8 @@ class SummaryIndexTaskWorker:
                 'Summary vector index candidates, repo_id=%s, row_count=%d, index_count=%d, delete_count=%d',
                 repo_id, len(rows), len(documents), len(empty_row_ids)
             )
-            for start in range(0, len(documents), 50):
-                batch = documents[start:start + 50]
+            for start in range(0, len(documents), AI_SUMMARY_EMBEDDING_BATCH_SIZE):
+                batch = documents[start:start + AI_SUMMARY_EMBEDDING_BATCH_SIZE]
                 model, embeddings = self.seafile_ai_api.batch_generate_embeddings([
                     document['ai_summary'] for document in batch
                 ])

@@ -1,12 +1,4 @@
-import logging
-import os
-import time
-
-import jwt
-import requests
-
-
-logger = logging.getLogger('ai_summary')
+import requests, jwt, time
 
 
 def parse_response(response):
@@ -23,7 +15,7 @@ class SeafileAIAPI:
     def __init__(self, server_url, secret_key, timeout=90):
         self.timeout = timeout
         self.secret_key = secret_key
-        self.server_url = server_url
+        self.server_url = server_url.lstrip('/')
 
     def gen_headers(self):
         payload = {'exp': int(time.time()) + 300, }
@@ -104,18 +96,7 @@ class SeafileAIAPI:
             'org_id': org_id,
             'scenario': 'summary_index',
         }
-        proxy_variables = ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY')
-        logger.info(
-            'Sending embedding batch request: url=%s, content_count=%d, total_characters=%d, '
-            'environment_proxy_configured=%s, no_proxy_configured=%s',
-            url, len(contents), sum(len(content) for content in contents),
-            any(os.environ.get(name) for name in proxy_variables), bool(os.environ.get('NO_PROXY')),
-        )
         response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
-        logger.info(
-            'Received embedding batch response: url=%s, status_code=%d, server=%s, via=%s',
-            url, response.status_code, response.headers.get('Server', ''), response.headers.get('Via', ''),
-        )
         result = parse_response(response)
         embeddings = result.get('embeddings')
         if not isinstance(embeddings, list) or len(embeddings) != len(contents):
