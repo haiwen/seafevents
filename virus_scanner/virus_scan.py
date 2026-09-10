@@ -3,8 +3,10 @@ import os
 import tempfile
 import subprocess
 import shlex
+from datetime import datetime, timezone
 
 from seafobj import commit_mgr, fs_mgr, block_mgr
+from seaserv import seafile_api
 
 from .db_oper import DBOper
 from .commit_differ import CommitDiffer
@@ -61,17 +63,58 @@ class VirusScan(object):
             differ = CommitDiffer(scan_task.repo_id, 1, sroot_id, hroot_id)
             scan_files = differ.diff()
 
-            if len(scan_files) == 0:
+            repo = seafile_api.get_repo(scan_task.repo_id)
+            scan_commit = None
+            head_commit = None
+            if scan_task.scan_commit_id:
+                scan_commit = seafile_api.get_commit(
+                    repo.id, repo.version, scan_task.scan_commit_id)
+            if scan_task.head_commit_id:
+                head_commit = seafile_api.get_commit(
+                    repo.id, repo.version, scan_task.head_commit_id)
+
+            scan_file_keys = {(fpath, fid) for fpath, fid, _ in scan_files}
+
+            known_virus_records = []
+            known_virus_keys = set()
+            if scan_commit and head_commit:
+                start_time = datetime.fromtimestamp(
+                    scan_commit.ctime, timezone.utc).replace(tzinfo=None)
+                end_time = datetime.fromtimestamp(
+                    head_commit.ctime, timezone.utc).replace(tzinfo=None)
+                deleted_virus_files = self.db_oper.get_deleted_virus_files(
+                    scan_task.repo_id, start_time, end_time) or []
+
+                for fpath, fid, virus_signature in deleted_virus_files:
+                    key = (fpath, fid)
+                    if key in scan_file_keys or key in known_virus_keys:
+                        continue
+
+                    current_file_id = seafile_api.get_file_id_by_commit_and_path(
+                        repo.id, scan_task.head_commit_id, fpath)
+                    if current_file_id != fid:
+                        continue
+
+                    known_virus_keys.add(key)
+                    known_virus_records.append((
+                        scan_task.repo_id,
+                        scan_task.head_commit_id,
+                        fpath,
+                        fid,
+                        virus_signature,
+                    ))
+
+            if not scan_files and not known_virus_records:
                 logger.debug('No change occur for repo %.8s, skip virus scan.', scan_task.repo_id)
                 self.db_oper.update_vscan_record(scan_task.repo_id, scan_task.head_commit_id)
                 return
-            else:
-                logger.info('Start to scan virus for repo %.8s.', scan_task.repo_id)
 
-            vnum = 0
+            logger.info('Start to scan virus for repo %.8s.', scan_task.repo_id)
+
+            vnum = len(known_virus_records)
             nvnum = 0
             nfailed = 0
-            vrecords = []
+            vrecords = list(known_virus_records)
 
             for scan_file in scan_files:
                 fpath, fid, fsize = scan_file
@@ -86,7 +129,8 @@ class VirusScan(object):
                 elif status_code == 1:
                     logger.info('File %s virus scan by %s: Found virus.', fpath, self.settings.scan_cmd)
                     vnum += 1
-                    vrecords.append((scan_task.repo_id, scan_task.head_commit_id, fpath, virus_signature))
+                    vrecords.append((scan_task.repo_id, scan_task.head_commit_id,
+                                     fpath, fid, virus_signature))
                 else:
                     logger.debug('File %s virus scan by %s: Failed.', fpath, self.settings.scan_cmd)
                     nfailed += 1
