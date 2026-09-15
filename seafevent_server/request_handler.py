@@ -3,12 +3,13 @@ import logging
 import json
 import datetime
 
-from flask import Flask, request, make_response
+from flask import Flask, request, make_response, send_file
 from seafevents.app.config import SEAHUB_SECRET_KEY
 from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seafevents.seafevent_server.import_task_manager import event_import_task_manager
 from seafevents.seafevent_server.repo_archive_task_manager import repo_archive_task_manager
+from seafevents.seafevent_server.metadata_backup_task_manager import metadata_backup_task_manager
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
 from seafevents.repo_metadata.utils import add_file_details
@@ -149,6 +150,88 @@ def query_import_status():
     if error:
         return make_response((error, 500))
     return make_response(({'is_finished': is_finished}, 200))
+
+
+@app.route('/metadata-backup/export', methods=['POST'])
+def add_metadata_backup_export_task():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+    data = request.get_json(silent=True) or {}
+    repo_id = data.get('repo_id')
+    repo_name = data.get('repo_name')
+    username = data.get('username')
+    if not repo_id or not repo_name or not username:
+        return {'error_msg': 'Invalid metadata backup parameters'}, 400
+    if metadata_backup_task_manager.tasks_queue.full():
+        return {'error_msg': 'Seafevents server is busy'}, 400
+    task_id = metadata_backup_task_manager.add_export_task(repo_id, repo_name, username)
+    return {'task_id': task_id}, 200
+
+
+@app.route('/metadata-backup/import', methods=['POST'])
+def add_metadata_backup_import_task():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+    repo_id = request.form.get('repo_id')
+    username = request.form.get('username')
+    source = request.files.get('file')
+    if not repo_id or not username or not source:
+        return {'error_msg': 'Invalid metadata backup parameters'}, 400
+    if request.content_length and request.content_length > 100 * 1024 * 1024:
+        return {'error_msg': 'Metadata backup file is too large'}, 400
+    if metadata_backup_task_manager.tasks_queue.full():
+        return {'error_msg': 'Seafevents server is busy'}, 400
+    task_id = metadata_backup_task_manager.add_import_task(repo_id, username, source)
+    return {'task_id': task_id}, 200
+
+
+@app.route('/metadata-backup/status', methods=['GET'])
+def query_metadata_backup_status():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+    task = metadata_backup_task_manager.get_task(
+        request.args.get('task_id'), request.args.get('repo_id'), request.args.get('username')
+    )
+    if not task:
+        return {'error_msg': 'Metadata backup task not found'}, 404
+    return task, 200
+
+
+@app.route('/metadata-backup/restore', methods=['POST'])
+def add_metadata_restore_task():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+    data = request.get_json(silent=True) or {}
+    added = metadata_backup_task_manager.add_restore_task(
+        data.get('task_id'), data.get('repo_id'), data.get('username')
+    )
+    if not added:
+        return {'error_msg': 'Metadata backup task is not ready'}, 409
+    return {'success': True}, 200
+
+
+@app.route('/metadata-backup/download', methods=['GET'])
+def download_metadata_backup():
+    is_valid, error = check_auth_token(request)
+    if not is_valid:
+        return make_response((error, 403))
+    task_id = request.args.get('task_id')
+    download = metadata_backup_task_manager.get_download(
+        task_id, request.args.get('repo_id'), request.args.get('username')
+    )
+    if not download:
+        return {'error_msg': 'Metadata backup file not found'}, 404
+    path, filename = download
+    response = send_file(
+        path, as_attachment=True, download_name=filename,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response.call_on_close(lambda: metadata_backup_task_manager.remove_task(task_id))
+    return response
 
 
 @app.route('/search', methods=['POST'])
