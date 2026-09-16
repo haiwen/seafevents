@@ -13,6 +13,7 @@ from sqlalchemy import text
 from seafevents.db import init_db_session_class
 from seafevents.repo_metadata.backup import IGNORED_COLUMN_KEYS, export_metadata_backup, import_metadata_backup
 from seafevents.repo_metadata.metadata_server_api import MetadataServerAPI
+from seafevents.repo_metadata.restore import restore_metadata_backup
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 
 
@@ -172,7 +173,7 @@ class MetadataBackupTaskManager:
         if not parsed:
             raise RuntimeError('Metadata backup preview not found')
         metadata_server_api = MetadataServerAPI(task['username'], timeout=300)
-        metadata_server_api.restore_metadata(task['repo_id'], parsed['payload'])
+        restore_metadata_backup(metadata_server_api, task['repo_id'], parsed['payload'])
         self._restore_settings(task['repo_id'], parsed['settings'])
         index_task_manager.delete_summary_vector_index(task['repo_id'])
         with self.lock:
