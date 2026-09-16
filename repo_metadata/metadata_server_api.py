@@ -64,6 +64,15 @@ class MetadataServerAPI:
         response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response)
 
+    def delete_table(self, base_id, table_id, permanently=False):
+        headers = self.gen_headers(base_id)
+        url = f'{self.server_url}/api/v1/base/{base_id}/tables/{table_id}'
+        data = {
+            'permanently': permanently
+        }
+        response = requests.delete(url, json=data, headers=headers, timeout=self.timeout)
+        return parse_response(response)
+
     # row
     def insert_rows(self, base_id, table_id, rows):
         headers = self.gen_headers(base_id)
@@ -93,12 +102,6 @@ class MetadataServerAPI:
                 'row_ids': row_ids
             }
         response = requests.delete(url, json=data, headers=headers, timeout=self.timeout)
-        return parse_response(response)
-
-    def restore_metadata(self, base_id, data):
-        headers = self.gen_headers(base_id)
-        url = f'{self.server_url}/api/v1/base/{base_id}/restore'
-        response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
         return parse_response(response)
 
     def get_deleted_rows(self, base_id, table_id):
@@ -171,6 +174,20 @@ class MetadataServerAPI:
         return parse_response(response)
 
     # link
+    def add_link_column(self, base_id, link_id, table_id, other_table_id,
+                        table_column, other_table_column):
+        headers = self.gen_headers(base_id)
+        url = f'{self.server_url}/api/v1/base/{base_id}/link-columns'
+        data = {
+            'link_id': link_id,
+            'table_id': table_id,
+            'other_table_id': other_table_id,
+            'table_column': table_column,
+            'other_table_column': other_table_column,
+        }
+        response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
+        return parse_response(response)
+
     def insert_link(self, base_id, link_id, table_id, row_id_map):
         headers = self.gen_headers(base_id)
         url = f'{METADATA_SERVER_URL}/api/v1/base/{base_id}/links'
