@@ -1,5 +1,6 @@
 import logging
 from threading import Thread, Event
+from requests.exceptions import RequestException
 
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.index_store.wiki_index import WikiIndex
@@ -146,6 +147,8 @@ class WikiIndexUpdaterTimer(Thread):
                 logger.info('Start to update wiki index...')
                 try:
                     update_wiki_indexes(self.wiki_status_index, self.wiki_index, self.index_manager, self.repo_data)
+                except RequestException as e:
+                    logger.error('SeaSearch request failed; aborting this wiki-index update pass: %s', e)
                 except Exception as e:
                     logger.exception('periodical update wiki index error: %s', e)
 

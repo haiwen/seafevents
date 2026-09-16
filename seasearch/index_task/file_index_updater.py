@@ -1,6 +1,7 @@
 import logging
 import time
 from threading import Thread, Event
+from requests.exceptions import RequestException
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.index_store.repo_file_index import RepoFileIndex
 from seafevents.seasearch.index_store.repo_status_index import RepoStatusIndex
@@ -156,6 +157,8 @@ class RepoFileIndexUpdaterTimer(Thread):
                 logger.info('starts to update seasearch file index...')
                 try:
                     update_repo_file_indexes(self.repo_status_file_index, self.repo_file_index, self.index_manager, self.repo_data)
+                except RequestException as e:
+                    logger.error('SeaSearch request failed; aborting this file-index update pass: %s', e)
                 except Exception as e:
                     logger.exception('periodical update seasearch file index error: %s', e)
 
