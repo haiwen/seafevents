@@ -42,6 +42,7 @@ LINK_DEFINITION_HEADERS = [
 ]
 LINK_RELATION_HEADERS = ['row_id', 'other_row_id']
 LINK_HEADERS = LINK_DEFINITION_HEADERS + LINK_RELATION_HEADERS
+FILE_IDENTITY_COLUMN_KEYS = ('_parent_dir', '_name', '_is_dir')
 
 
 class MetadataBackupError(Exception):
@@ -153,7 +154,10 @@ def import_metadata_backup(source_path, repo_id):
         restore_keys = {column['key'] for column in restore_columns}
         payload_rows = []
         for row in main_rows:
-            payload_row = {'_id': row['_id'], '_obj_id': row.get('_obj_id')}
+            payload_row = {
+                key: row.get(key)
+                for key in ('_id', '_obj_id', *FILE_IDENTITY_COLUMN_KEYS)
+            }
             payload_row.update({key: value for key, value in row.items() if key in restore_keys})
             payload_rows.append(payload_row)
 
@@ -164,7 +168,6 @@ def import_metadata_backup(source_path, repo_id):
                 'preserved_column_keys': [
                     column['key'] for column in main_columns if column['mode'] == 'preserve'
                 ],
-                'match_column_key': '_obj_id',
                 'conditional_column_keys': [
                     column['key'] for column in restore_columns if column['mode'] == 'conditional'
                 ],
