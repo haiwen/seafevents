@@ -1,4 +1,5 @@
 from seafevents.repo_metadata.backup import (
+    FILE_IDENTITY_COLUMN_KEYS,
     MAIN_TABLE_ID,
     PAGE_SIZE,
     SYSTEM_COLUMN_KEYS,
@@ -91,12 +92,19 @@ def _replace_main_rows(metadata_server_api, repo_id, main, columns, backup_rows,
                        conditional_keys):
     current_rows = _query_main_rows(metadata_server_api, repo_id, main['name'])
     backup_by_id = {row['_id']: row for row in backup_rows}
+    backup_by_identity = {}
+    for row in backup_rows:
+        identity = _file_identity(row)
+        if identity is not None:
+            backup_by_identity[identity] = row
     conditional_keys = set(conditional_keys)
     row_ids = {}
     updates = []
     for current in current_rows:
         row_id = current['_id']
         backup = backup_by_id.get(row_id)
+        if backup is None:
+            backup = backup_by_identity.get(_file_identity(current))
         if backup:
             row_ids[backup['_id']] = row_id
         if not columns:
@@ -121,11 +129,17 @@ def _query_main_rows(metadata_server_api, repo_id, table_name):
     while True:
         result = metadata_server_api.query_rows(
             repo_id,
-            f'SELECT `_id`, `_obj_id` FROM `{escaped_name}` LIMIT {len(rows)}, {PAGE_SIZE}'
+            f'SELECT `_id`, `_obj_id`, `_parent_dir`, `_name`, `_is_dir` '
+            f'FROM `{escaped_name}` LIMIT {len(rows)}, {PAGE_SIZE}'
         ).get('results') or []
         rows.extend(result)
         if len(result) < PAGE_SIZE:
             return rows
+
+
+def _file_identity(row):
+    identity = tuple(row.get(key) for key in FILE_IDENTITY_COLUMN_KEYS)
+    return identity if all(value is not None for value in identity) else None
 
 
 def _insert_rows(metadata_server_api, repo_id, table_id, columns, rows):
