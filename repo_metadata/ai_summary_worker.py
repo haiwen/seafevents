@@ -81,12 +81,12 @@ class AISummaryWorker(object):
     def _handle_ai_summary_task(self, repo_id):
         if not repo_id:
             return
-        if self.get_ai_processing_status(repo_id) != 'in_summary':
-            logger.info('Skip stale ai summary task for repo %s', repo_id)
-            return
 
         failed_status = 'summary_failed'
         try:
+            if self.get_ai_processing_status(repo_id) != 'in_summary':
+                logger.info('Skip stale ai summary task for repo %s', repo_id)
+                return
             if self.should_stop.is_set():
                 logger.info('%s skip ai summary repo %s due to stop signal', self.tname, repo_id)
                 self.set_ai_processing_status(repo_id, 'summary_failed')
