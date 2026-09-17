@@ -427,12 +427,18 @@ def add_ai_summary(repo_id, obj_ids, metadata_server_api, seafile_ai_api):
         })
 
         if len(updated_rows) >= METADATA_OP_LIMIT:
+            if not is_summary_enabled(repo_id):
+                logger.info('Stop writing ai summaries because they were disabled, repo_id=%s', repo_id)
+                return all_updated_rows
             metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
             logger.debug('Flushed ai summary rows repo=%s, flushed_count=%d', repo_id, len(updated_rows))
             all_updated_rows.extend(updated_rows)
             updated_rows = []
 
     if updated_rows:
+        if not is_summary_enabled(repo_id):
+            logger.info('Stop writing ai summaries because they were disabled, repo_id=%s', repo_id)
+            return all_updated_rows
         metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
         logger.debug('Flushed ai summary rows repo=%s, flushed_count=%d', repo_id, len(updated_rows))
         all_updated_rows.extend(updated_rows)

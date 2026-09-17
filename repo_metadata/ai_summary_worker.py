@@ -93,7 +93,7 @@ class AISummaryWorker(object):
                 return
             logger.info('%s start ai summary repo %s', self.tname, repo_id)
             updated_rows = self.generate_ai_summary(repo_id, batch_size=self.batch_size)
-            if self.summary_index_enabled:
+            if self.summary_index_enabled and self.is_summary_enabled(repo_id):
                 failed_status = 'index_failed'
                 self.set_ai_processing_status(repo_id, 'indexing')
                 self.mq.lpush('summary_index_task', json.dumps({'repo_id': repo_id}))
@@ -119,7 +119,10 @@ class AISummaryWorker(object):
 
     def set_ai_processing_status(self, repo_id, status=''):
         with self._db_session_class() as session:
-            sql = text("UPDATE repo_metadata SET ai_processing_status = :status WHERE repo_id = :repo_id")
+            sql = text(
+                "UPDATE repo_metadata SET ai_processing_status = :status "
+                "WHERE repo_id = :repo_id AND summary_enabled = true"
+            )
             session.execute(sql, {'repo_id': repo_id, 'status': status})
             session.commit()
 
@@ -170,6 +173,9 @@ class AISummaryWorker(object):
         all_updated_rows = []
 
         while True:
+            if not self.is_summary_enabled(repo_id):
+                logger.info('Stop generating ai summary because it was disabled, repo_id=%s', repo_id)
+                break
             query_sql = f'{base_sql} LIMIT {start}, {self.query_page_size}'
             rows = self.metadata_server_api.query_rows(repo_id, query_sql, []).get('results', [])
             if not rows:
@@ -195,10 +201,16 @@ class AISummaryWorker(object):
 
                 obj_ids.append(obj_id)
                 if len(obj_ids) >= batch_size:
+                    if not self.is_summary_enabled(repo_id):
+                        logger.info('Stop generating ai summary because it was disabled, repo_id=%s', repo_id)
+                        return all_updated_rows
                     all_updated_rows.extend(add_ai_summary(repo_id, obj_ids, self.metadata_server_api, self.seafile_ai_api))
                     obj_ids = []
 
             if obj_ids:
+                if not self.is_summary_enabled(repo_id):
+                    logger.info('Stop generating ai summary because it was disabled, repo_id=%s', repo_id)
+                    return all_updated_rows
                 all_updated_rows.extend(add_ai_summary(repo_id, obj_ids, self.metadata_server_api, self.seafile_ai_api))
 
             if len(rows) < self.query_page_size:
