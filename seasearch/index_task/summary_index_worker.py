@@ -93,22 +93,22 @@ class SummaryIndexTaskWorker:
             logger.warning('Summary index task has no repo_id: %s', data)
             return
 
-        state = self.get_repo_state(repo_id)
-        if not state or state.get('processing_status') != 'indexing':
-            logger.info(
-                'Skip summary index task, repo_id=%s, processing_status=%s',
-                repo_id, state.get('processing_status') if state else 'missing'
-            )
-            return
-        logger.info(
-            'Start summary vector index, repo_id=%s, embedding_dimensions=%d',
-            repo_id, EMBEDDING_DIMENSIONS
-        )
         try:
+            state = self.get_repo_state(repo_id)
+            if not state or state.get('processing_status') != 'indexing':
+                logger.info(
+                    'Skip summary index task, repo_id=%s, processing_status=%s',
+                    repo_id, state.get('processing_status') if state else 'missing'
+                )
+                return
+            logger.info(
+                'Start summary vector index, repo_id=%s, embedding_dimensions=%d',
+                repo_id, EMBEDDING_DIMENSIONS
+            )
             self.update_index(repo_id)
         except Exception as error:
             logger.exception('Summary vector index failed, repo_id=%s, error=%s', repo_id, error)
-            self.set_ai_processing_status(repo_id, '')
+            self.set_ai_processing_status(repo_id, 'index_failed')
 
     def update_index(self, repo_id):
         state = self.get_repo_state(repo_id)

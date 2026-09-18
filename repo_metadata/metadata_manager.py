@@ -210,8 +210,8 @@ class MetadataManager(object):
             ai_summary_logger.info('Enqueued AI summary task, repo_id=%s', repo_id)
         except Exception as e:
             logger.error('Failed to enqueue ai summary task repo=%s: %s', repo_id, e)
-            self.ai_summary_worker.set_ai_processing_status(repo_id, '')
-            ai_summary_logger.info('Released AI summary task after enqueue failure, repo_id=%s', repo_id)
+            self.ai_summary_worker.set_ai_processing_status(repo_id, 'summary_failed')
+            ai_summary_logger.info('Marked AI summary task as failed after enqueue failure, repo_id=%s', repo_id)
             return
 
         logger.debug('Enqueued ai summary repo task repo=%s, queue=%s', repo_id, 'ai_summary_task')

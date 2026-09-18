@@ -412,10 +412,7 @@ def add_ai_summary(repo_id, obj_ids, metadata_server_api, seafile_ai_api):
             summary = seafile_ai_api.generate_ai_summary(repo_id, obj_id, file_path)
         except Exception as e:
             logger.warning('repo_id: %s, generate ai summary failed, obj_id: %s, path: %s, error: %s.', repo_id, obj_id, file_path, e)
-            if file_path.lower().endswith('.pdf'):
-                summary = ''
-            else:
-                continue
+            summary = ''
 
         logger.debug('Generated ai summary repo=%s, obj_id=%s, file_path=%s, summary_length=%d',
                      repo_id, obj_id, file_path, len(summary or ''))
@@ -427,12 +424,18 @@ def add_ai_summary(repo_id, obj_ids, metadata_server_api, seafile_ai_api):
         })
 
         if len(updated_rows) >= METADATA_OP_LIMIT:
+            if not is_summary_enabled(repo_id):
+                logger.info('Stop writing ai summaries because they were disabled, repo_id=%s', repo_id)
+                return all_updated_rows
             metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
             logger.debug('Flushed ai summary rows repo=%s, flushed_count=%d', repo_id, len(updated_rows))
             all_updated_rows.extend(updated_rows)
             updated_rows = []
 
     if updated_rows:
+        if not is_summary_enabled(repo_id):
+            logger.info('Stop writing ai summaries because they were disabled, repo_id=%s', repo_id)
+            return all_updated_rows
         metadata_server_api.update_rows(repo_id, METADATA_TABLE.id, updated_rows)
         logger.debug('Flushed ai summary rows repo=%s, flushed_count=%d', repo_id, len(updated_rows))
         all_updated_rows.extend(updated_rows)
