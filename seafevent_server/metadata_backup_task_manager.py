@@ -7,6 +7,7 @@ import tempfile
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 
 from sqlalchemy import text
 
@@ -26,6 +27,8 @@ class MetadataBackupTaskManager:
         self.tasks = {}
         self.tasks_queue = queue.Queue(10)
         self.lock = threading.Lock()
+        self._active_repos = set()
+        self._repo_condition = threading.Condition(self.lock)
         self.session_class = None
         self.workers = 1
         self.expire_time = 30 * 60
@@ -127,25 +130,41 @@ class MetadataBackupTaskManager:
                 task = self.tasks.get(task_id)
                 if not task:
                     continue
-                task['status'] = 'running'
-                task['updated_at'] = time.time()
             try:
-                if task['operation'] == 'export':
-                    self._export(task)
-                elif task['operation'] == 'import':
-                    self._preview(task)
-                elif task['operation'] == 'restore':
-                    self._restore(task)
-                else:
-                    raise RuntimeError('Invalid metadata backup operation')
-            except Exception as error:
-                logger.exception('Metadata backup task %s failed', task_id)
-                with self.lock:
-                    task['status'] = 'error'
-                    task['error'] = str(error)
-                    task['updated_at'] = time.time()
+                with self._repo_task(task['repo_id']):
+                    with self.lock:
+                        task['status'] = 'running'
+                        task['updated_at'] = time.time()
+                    try:
+                        if task['operation'] == 'export':
+                            self._export(task)
+                        elif task['operation'] == 'import':
+                            self._preview(task)
+                        elif task['operation'] == 'restore':
+                            self._restore(task)
+                        else:
+                            raise RuntimeError('Invalid metadata backup operation')
+                    except Exception as error:
+                        logger.exception('Metadata backup task %s failed', task_id)
+                        with self.lock:
+                            task['status'] = 'error'
+                            task['error'] = str(error)
+                            task['updated_at'] = time.time()
             finally:
                 self.tasks_queue.task_done()
+
+    @contextmanager
+    def _repo_task(self, repo_id):
+        with self._repo_condition:
+            while repo_id in self._active_repos:
+                self._repo_condition.wait()
+            self._active_repos.add(repo_id)
+        try:
+            yield
+        finally:
+            with self._repo_condition:
+                self._active_repos.remove(repo_id)
+                self._repo_condition.notify_all()
 
     def _export(self, task):
         settings = self._get_settings(task['repo_id'])
