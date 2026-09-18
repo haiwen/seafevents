@@ -329,13 +329,12 @@ def _write_key_values(sheet, values):
 
 def _read_key_values(sheet):
     chunks = {}
-    for key_cell, part_cell, value_cell, *_ in sheet.iter_rows(min_row=2):
-        key = key_cell.value
+    rows = _iter_values(sheet)
+    next(rows, None)
+    for key, part, value, *_ in rows:
         if not key:
             continue
-        if value_cell.data_type == 'f':
-            raise MetadataBackupError(f'Formula not allowed for {key}')
-        chunks.setdefault(key, {})[part_cell.value] = value_cell.value
+        chunks.setdefault(key, {})[part] = value
     values = {}
     for key, parts in chunks.items():
         try:
@@ -348,7 +347,9 @@ def _read_key_values(sheet):
 def _read_schema(sheet):
     raw_columns = {}
     allowed_modes = {'identity', 'preserve', 'conditional', 'restore'}
-    for values in sheet.iter_rows(min_row=2, values_only=True):
+    rows = _iter_values(sheet)
+    next(rows, None)
+    for values in rows:
         if not any(value is not None for value in values):
             continue
         if len(values) < len(SCHEMA_HEADERS):
@@ -404,26 +405,25 @@ def _validate_schema(schema):
 
 
 def _read_data_sheet(sheet, columns, long_values):
-    headers = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True))
+    rows = _iter_values(sheet, max_col=len(columns))
+    headers = next(rows, ())
     if list(headers[:len(columns)]) != [column['name'] for column in columns]:
         raise MetadataBackupError(f'Invalid headers in {sheet.title}')
-    rows = []
-    for cells in sheet.iter_rows(min_row=2, max_col=len(columns)):
-        if not any(cell.value is not None for cell in cells):
+    parsed_rows = []
+    for values in rows:
+        if not any(value is not None for value in values):
             continue
         row = {}
-        for column, cell in zip(columns, cells):
-            if cell.data_type == 'f':
-                raise MetadataBackupError(f'Formulas are not allowed in {sheet.title}')
-            row[column['key']] = _decode_value(column, cell.value)
+        for column, value in zip(columns, values):
+            row[column['key']] = _decode_value(column, value)
         if not row.get('_id'):
             raise MetadataBackupError(f'Row id missing in {sheet.title}')
         for column in columns:
             long_value = long_values.get((column['table_id'], row['_id'], column['key']))
             if long_value is not None:
                 row[column['key']] = _decode_value(column, long_value)
-        rows.append(row)
-    return rows
+        parsed_rows.append(row)
+    return parsed_rows
 
 
 def _decode_value(column, value):
@@ -464,7 +464,9 @@ def _api_column(column):
 def _read_links(sheet):
     definitions = {}
     relations = {}
-    for values in sheet.iter_rows(min_row=2, values_only=True):
+    rows = _iter_values(sheet)
+    next(rows, None)
+    for values in rows:
         if not any(value is not None for value in values):
             continue
         if len(values) < len(LINK_DEFINITION_HEADERS):
@@ -496,18 +498,26 @@ def _read_links(sheet):
 
 def _read_long_values(sheet):
     chunks = {}
-    for cells in sheet.iter_rows(min_row=2, max_col=len(VALUE_HEADERS)):
-        if not any(cell.value is not None for cell in cells):
+    rows = _iter_values(sheet, max_col=len(VALUE_HEADERS))
+    next(rows, None)
+    for values in rows:
+        if not any(value is not None for value in values):
             continue
-        table_id, row_id, column_key, part = [cell.value for cell in cells[:4]]
-        value_cell = cells[4]
-        if not table_id or not row_id or not column_key or not part or value_cell.data_type == 'f':
+        table_id, row_id, column_key, part, value = values
+        if not table_id or not row_id or not column_key or not part:
             raise MetadataBackupError('Invalid long metadata value')
         identity = (table_id, row_id, column_key)
         if part in chunks.setdefault(identity, {}):
             raise MetadataBackupError('Duplicate long metadata value part')
-        chunks[identity][part] = value_cell.value
+        chunks[identity][part] = value
     return {identity: _join_chunks(parts) for identity, parts in chunks.items()}
+
+
+def _iter_values(sheet, max_col=None):
+    for cells in sheet.iter_rows(max_col=max_col):
+        if any(cell.data_type == 'f' for cell in cells):
+            raise MetadataBackupError(f'Formulas are not allowed in {sheet.title}')
+        yield tuple(cell.value for cell in cells)
 
 
 def _chunks(value):
