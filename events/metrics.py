@@ -4,6 +4,9 @@ import time
 import datetime
 import logging
 from threading import Thread, Event
+
+from seaserv import ccnet_api, seafile_api
+
 from seafevents.app.event_redis import redis_cache, RedisClient, REDIS_METRIC_KEY
 
 
@@ -109,9 +112,51 @@ class MetricSaver(Thread):
         self.finished.set()
 
 
+class GeneralMetricPublisher(Thread):
+
+    def __init__(self):
+        Thread.__init__(self)
+        self._interval = 60 * 60
+        self.finished = Event()
+
+    def publish_metrics(self):
+        total_users = ccnet_api.count_emailusers('DB') + ccnet_api.count_inactive_emailusers('DB')
+        metrics = (
+            ('total_storage', seafile_api.get_total_storage(),
+             'Current total logical storage used in Seafile, in bytes'),
+            ('repos_count', seafile_api.count_repos(), 'Total library count in Seafile'),
+            ('files_count', seafile_api.get_total_file_number(), 'Total file count in Seafile'),
+            ('users_count', total_users, 'Total user count in Seafile, including active and inactive users'),
+        )
+
+        for metric_name, metric_value, metric_help in metrics:
+            metric = {
+                'metric_name': metric_name,
+                'metric_type': 'gauge',
+                'metric_help': metric_help,
+                'component_name': 'general',
+                'node_name': NODE_NAME,
+                'metric_value': metric_value,
+                'details': {},
+            }
+            redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(metric))
+
+    def run(self):
+        while not self.finished.is_set():
+            try:
+                self.publish_metrics()
+            except Exception as e:
+                logging.exception('Failed to publish general metrics: %s', e)
+            self.finished.wait(self._interval)
+
+    def cancel(self):
+        self.finished.set()
+
+
 class MetricsManager(object):
     def __init__(self):
         self._interval = 15
+        self._general_metric_publisher = GeneralMetricPublisher()
         
     def start(self):
         logging.info('Start metric collect, interval = %s sec', self._interval)
@@ -121,3 +166,7 @@ class MetricsManager(object):
         logging.info('Starting metric handler')
         self._metric_task = MetricReceiver()
         self._metric_task.start()
+
+        logging.info('Start general metric publisher, interval = %s sec',
+                     self._general_metric_publisher._interval)
+        self._general_metric_publisher.start()
