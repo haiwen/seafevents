@@ -24,11 +24,10 @@ from seafevents.repo_metadata.constants import ZERO_OBJ_ID
 from seafevents.repo_data import repo_data
 from seafevents.utils.md2sdoc import md2sdoc
 from seafevents.utils.constants import WIKI_PAGES_DIR, WIKI_CONFIG_PATH, \
-    WIKI_CONFIG_FILE_NAME
+    WIKI_CONFIG_FILE_NAME, REPO_STATUS_READ_ONLY, REPO_STATUS_NORMAL
 from seafevents.utils.migration_repo import migrate_repo, remove_repo_objs
 
-from seaserv import get_org_id_by_repo_id, seafile_api, get_commit, \
-    REPO_STATUS_READ_ONLY, REPO_STATUS_NORMAL
+from seaserv import get_org_id_by_repo_id, seafile_api, get_commit
 from seafobj import CommitDiffer, commit_mgr, fs_mgr
 from seafobj.exceptions import GetObjectError
 from seafevents.wiki.utils import gen_file_upload_url

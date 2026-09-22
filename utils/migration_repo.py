@@ -13,9 +13,9 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from seafobj.objstore_factory import SeafObjStoreFactory, objstore_factory
 from seaserv import seafile_api as api
-from seaserv import REPO_STATUS_READ_ONLY, REPO_STATUS_NORMAL
 from seafobj import fs_mgr, commit_mgr
 from seafobj.fs import SeafDir, SeafFile
+from seafevents.utils.constants import REPO_STATUS_READ_ONLY, REPO_STATUS_NORMAL
 
 ZERO_OBJ_ID = '0000000000000000000000000000000000000000'
 
