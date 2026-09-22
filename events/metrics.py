@@ -3,7 +3,8 @@ import json
 import time
 import datetime
 import logging
-from threading import Thread, Event
+from copy import deepcopy
+from threading import Thread, Event, Lock
 
 from seaserv import ccnet_api, seafile_api
 
@@ -11,6 +12,7 @@ from seafevents.app.event_redis import redis_cache, RedisClient, REDIS_METRIC_KE
 
 
 local_metric = {'metrics': {}}
+local_metric_lock = Lock()
 
 NODE_NAME = os.environ.get('NODE_NAME', 'default')
 METRIC_CHANNEL_NAME = "metric_channel"
@@ -70,7 +72,8 @@ class MetricReceiver(Thread):
                         metric_details['metric_type'] = metric_data.get('metric_type')
                         metric_details['metric_help'] = metric_data.get('metric_help')
                         # global
-                        local_metric['metrics'][key_name] = metric_details
+                        with local_metric_lock:
+                            local_metric['metrics'][key_name] = metric_details
                     except Exception as e:
                         logging.error('Handle metrics failed: %s' % e)
                 else:
@@ -99,12 +102,14 @@ class MetricSaver(Thread):
             self.finished.wait(self._interval)
             if not self.finished.is_set():
                 try:
-                    if local_metric.get('metrics'):
-                        # add collected_at
-                        for key, metric_detail in local_metric.get('metrics').items():
-                            metric_detail['collected_at'] = datetime.datetime.now().isoformat()
-                        redis_cache.create_or_update(REDIS_METRIC_KEY, local_metric.get('metrics'))
+                    with local_metric_lock:
+                        metrics_to_save = deepcopy(local_metric['metrics'])
                         local_metric['metrics'].clear()
+                    if metrics_to_save:
+                        # add collected_at
+                        for key, metric_detail in metrics_to_save.items():
+                            metric_detail['collected_at'] = datetime.datetime.now().isoformat()
+                        redis_cache.create_or_update(REDIS_METRIC_KEY, metrics_to_save)
                 except Exception as e:
                     logging.exception('metric collect error: %s', e)
 
@@ -121,12 +126,10 @@ class GeneralMetricPublisher(Thread):
 
     def publish_metrics(self):
         metrics = (
-            ('total_storage', seafile_api.get_total_storage,
-             'Current total logical storage used in Seafile, in bytes'),
-            ('repos_count', seafile_api.count_repos, 'Total library count in Seafile'),
-            ('files_count', seafile_api.get_total_file_number, 'Total file count in Seafile'),
-            ('users_count', self._get_total_users,
-             'Total user count in Seafile, including active and inactive users'),
+            ('total_storage', seafile_api.get_total_storage,'Current total logical storage used in Seafile, in bytes'),
+            ('total_repos', seafile_api.count_repos, 'Total library count in Seafile'),
+            ('total_files', seafile_api.get_total_file_number, 'Total file count in Seafile'),
+            ('total_users', self._get_total_users,'Total user count in Seafile, including active and inactive users'),
         )
 
         for metric_name, getter, metric_help in metrics:
@@ -149,12 +152,11 @@ class GeneralMetricPublisher(Thread):
 
     def run(self):
         while not self.finished.is_set():
+            try:
+                self.publish_metrics()
+            except Exception as e:
+                logging.exception('Failed to publish general metrics: %s', e)
             self.finished.wait(self._interval)
-            if not self.finished.is_set():
-                try:
-                    self.publish_metrics()
-                except Exception as e:
-                    logging.exception('Failed to publish general metrics: %s', e)
     def cancel(self):
         self.finished.set()
 
