@@ -114,41 +114,47 @@ class MetricSaver(Thread):
 
 class GeneralMetricPublisher(Thread):
 
-    def __init__(self):
+    def __init__(self, interval):
         Thread.__init__(self)
-        self._interval = 60 * 60
+        self._interval = interval
         self.finished = Event()
 
     def publish_metrics(self):
-        total_users = ccnet_api.count_emailusers('DB') + ccnet_api.count_inactive_emailusers('DB')
         metrics = (
-            ('total_storage', seafile_api.get_total_storage(),
+            ('total_storage', seafile_api.get_total_storage,
              'Current total logical storage used in Seafile, in bytes'),
-            ('repos_count', seafile_api.count_repos(), 'Total library count in Seafile'),
-            ('files_count', seafile_api.get_total_file_number(), 'Total file count in Seafile'),
-            ('users_count', total_users, 'Total user count in Seafile, including active and inactive users'),
+            ('repos_count', seafile_api.count_repos, 'Total library count in Seafile'),
+            ('files_count', seafile_api.get_total_file_number, 'Total file count in Seafile'),
+            ('users_count', self._get_total_users,
+             'Total user count in Seafile, including active and inactive users'),
         )
 
-        for metric_name, metric_value, metric_help in metrics:
-            metric = {
-                'metric_name': metric_name,
-                'metric_type': 'gauge',
-                'metric_help': metric_help,
-                'component_name': 'general',
-                'node_name': NODE_NAME,
-                'metric_value': metric_value,
-                'details': {},
-            }
-            redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(metric))
+        for metric_name, getter, metric_help in metrics:
+            try:
+                metric = {
+                    'metric_name': metric_name,
+                    'metric_type': 'gauge',
+                    'metric_help': metric_help,
+                    'component_name': 'general',
+                    'node_name': NODE_NAME,
+                    'metric_value': getter(),
+                    'details': {},
+                }
+                redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps(metric))
+            except Exception as e:
+                logging.exception('Failed to publish general metric %s: %s', metric_name, e)
+
+    def _get_total_users(self):
+        return ccnet_api.count_emailusers('DB') + ccnet_api.count_inactive_emailusers('DB')
 
     def run(self):
         while not self.finished.is_set():
-            try:
-                self.publish_metrics()
-            except Exception as e:
-                logging.exception('Failed to publish general metrics: %s', e)
             self.finished.wait(self._interval)
-
+            if not self.finished.is_set():
+                try:
+                    self.publish_metrics()
+                except Exception as e:
+                    logging.exception('Failed to publish general metrics: %s', e)
     def cancel(self):
         self.finished.set()
 
@@ -156,7 +162,7 @@ class GeneralMetricPublisher(Thread):
 class MetricsManager(object):
     def __init__(self):
         self._interval = 15
-        self._general_metric_publisher = GeneralMetricPublisher()
+        self._general_metric_internal = 60 * 60
         
     def start(self):
         logging.info('Start metric collect, interval = %s sec', self._interval)
@@ -167,6 +173,6 @@ class MetricsManager(object):
         self._metric_task = MetricReceiver()
         self._metric_task.start()
 
-        logging.info('Start general metric publisher, interval = %s sec',
-                     self._general_metric_publisher._interval)
+        logging.info('Start general metric publisher, interval = %s sec', self._general_metric_internal)
+        self._general_metric_publisher = GeneralMetricPublisher(self._general_metric_internal)
         self._general_metric_publisher.start()
