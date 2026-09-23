@@ -14,6 +14,7 @@ from seafevents.app.config import AI_PRICES
 from seafevents.app.config import SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
 from seafevents.app.event_redis import RedisClient
 from seafevents.db import init_db_session_class
+from seafevents.services.ai_credit import AdditionalAICreditService
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,7 @@ class AIStatsWorker:
         self.log_none_message_timeout = 60 * 10
         self.stats_interval = 60
         self._repo_info_cache = {}
+        self._additional_ai_credit_service = AdditionalAICreditService()
         self.reset_stats()
 
     def reset_stats(self):
@@ -221,6 +223,7 @@ class AIStatsWorker:
         '''
 
         records = []
+        org_cost_delta = defaultdict(float)
         for repo_id, stats_dict in usage_stats.items():
             for (repo_owner, group_id, org_id, model, scenario), usage in stats_dict.items():
                 input_tokens = usage.get('input_tokens') or 0
@@ -252,6 +255,8 @@ class AIStatsWorker:
                     'created_at': now,
                     'updated_at': now,
                 })
+                if org_id and org_id > 0:
+                    org_cost_delta[org_id] += cost
 
         session = self._db_session_class()
         try:
@@ -276,6 +281,20 @@ class AIStatsWorker:
                     })
                 else:
                     session.execute(text(insert_sql), data)
+
+            for org_id, cost_delta in org_cost_delta.items():
+                deducted_credit = self._additional_ai_credit_service.deduct_overflow_credits(
+                    session,
+                    org_id,
+                    cost_delta,
+                    today,
+                )
+                if deducted_credit:
+                    logger.info(
+                        'Deduct additional AI credits for org_id=%s credits=%s',
+                        org_id,
+                        deducted_credit,
+                    )
             session.commit()
         except Exception as error:
             logger.exception(error)
