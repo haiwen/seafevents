@@ -9,14 +9,15 @@ logger = logging.getLogger('seafevents')
 
 class SeahubDB(object):
 
-    def __init__(self):
-        self.session = init_db_session_class(db='seahub')()
+    def __init__(self, session=None):
+        self._owns_session = session is None
+        self.session = session if session is not None else init_db_session_class(db='seahub')()
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.session:
+        if self._owns_session and self.session:
             self.session.close()
 
     def get_org_monthly_download_traffic_limit(self, org_id):
