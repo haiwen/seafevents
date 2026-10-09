@@ -8,6 +8,7 @@ import threading
 import time
 import uuid
 from contextlib import contextmanager
+from datetime import datetime, timezone
 
 from sqlalchemy import text
 
@@ -47,15 +48,19 @@ class MetadataBackupTaskManager:
             )
             thread.start()
 
-    def add_export_task(self, repo_id, repo_name, username):
+    def add_export_task(self, repo_id, repo_name, username, max_file_size):
         task = self._new_task('export', repo_id, username)
         task['repo_name'] = repo_name
+        task['max_file_size'] = max_file_size
         self.tasks_queue.put(task['id'])
         return task['id']
 
-    def add_import_task(self, repo_id, username, source):
+    def add_import_task(self, repo_id, username, source, max_file_size):
         task = self._new_task('import', repo_id, username)
         source.save(task['source_path'])
+        if os.path.getsize(task['source_path']) > max_file_size:
+            self.remove_task(task['id'])
+            raise ValueError('Metadata backup file is too large')
         self.tasks_queue.put(task['id'])
         return task['id']
 
@@ -172,9 +177,12 @@ class MetadataBackupTaskManager:
         export_metadata_backup(
             metadata_server_api, task['repo_id'], task['repo_name'], settings, task['output_path']
         )
+        if os.path.getsize(task['output_path']) > task['max_file_size']:
+            raise RuntimeError('Metadata backup file is too large')
         safe_name = task['repo_name'].replace('/', '_').replace('\\', '_')
+        timestamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
         with self.lock:
-            task['filename'] = f'{safe_name}-metadata-backup.xlsx'
+            task['filename'] = f'{safe_name}_metadata_backup_{timestamp}.xlsx'
             task['status'] = 'success'
             task['result'] = {'filename': task['filename']}
             task['updated_at'] = time.time()

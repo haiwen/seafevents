@@ -161,11 +161,12 @@ def add_metadata_backup_export_task():
     repo_id = data.get('repo_id')
     repo_name = data.get('repo_name')
     username = data.get('username')
-    if not repo_id or not repo_name or not username:
+    max_file_size = data.get('max_file_size')
+    if not repo_id or not repo_name or not username or not isinstance(max_file_size, int) or max_file_size <= 0:
         return {'error_msg': 'Invalid metadata backup parameters'}, 400
     if metadata_backup_task_manager.tasks_queue.full():
         return {'error_msg': 'Seafevents server is busy'}, 400
-    task_id = metadata_backup_task_manager.add_export_task(repo_id, repo_name, username)
+    task_id = metadata_backup_task_manager.add_export_task(repo_id, repo_name, username, max_file_size)
     return {'task_id': task_id}, 200
 
 
@@ -177,13 +178,18 @@ def add_metadata_backup_import_task():
     repo_id = request.form.get('repo_id')
     username = request.form.get('username')
     source = request.files.get('file')
-    if not repo_id or not username or not source:
+    try:
+        max_file_size = int(request.form.get('max_file_size', ''))
+    except (TypeError, ValueError):
+        max_file_size = 0
+    if not repo_id or not username or not source or max_file_size <= 0:
         return {'error_msg': 'Invalid metadata backup parameters'}, 400
-    if request.content_length and request.content_length > 100 * 1024 * 1024:
-        return {'error_msg': 'Metadata backup file is too large'}, 400
     if metadata_backup_task_manager.tasks_queue.full():
         return {'error_msg': 'Seafevents server is busy'}, 400
-    task_id = metadata_backup_task_manager.add_import_task(repo_id, username, source)
+    try:
+        task_id = metadata_backup_task_manager.add_import_task(repo_id, username, source, max_file_size)
+    except ValueError as error:
+        return {'error_msg': str(error)}, 400
     return {'task_id': task_id}, 200
 
 
