@@ -68,7 +68,7 @@ MEMCACHED_HOST = os.environ.get('MEMCACHED_HOST', '')
 MEMCACHED_PORT = os.environ.get('MEMCACHED_PORT', '')
 
 # config for cache provider, choices: redis or memcached
-CACHE_PROVIDER = os.environ.get('CACHE_PROVIDER', 'memcached')
+CACHE_PROVIDER = os.environ.get('CACHE_PROVIDER', 'redis')
 
 
 # config for mysql
