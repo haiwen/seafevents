@@ -45,7 +45,7 @@ class WorkWinxinNoticeSender(object):
         # notice send interval
         if config.has_section(section_name):
             interval = get_opt_from_conf_or_env(config, section_name, key_interval,
-                                                default=default_interval).lower()
+                                                default=default_interval)
             interval = parse_interval(interval, default_interval)
         else:
             interval = default_interval

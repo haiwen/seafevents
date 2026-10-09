@@ -41,7 +41,7 @@ class SeahubEmailSender(object):
         self._enabled = True
 
         # [ send email interval ]
-        interval = get_opt_from_conf_or_env(config, section_name, key_interval, default=default_interval).lower()
+        interval = get_opt_from_conf_or_env(config, section_name, key_interval, default=default_interval)
         interval = parse_interval(interval, default_interval)
 
         logging.debug('send seahub email interval: %s sec', interval)
