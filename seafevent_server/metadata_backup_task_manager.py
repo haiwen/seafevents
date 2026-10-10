@@ -8,7 +8,7 @@ import threading
 import time
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import text
 
@@ -180,7 +180,7 @@ class MetadataBackupTaskManager:
         if os.path.getsize(task['output_path']) > task['max_file_size']:
             raise RuntimeError('Metadata backup file is too large')
         safe_name = task['repo_name'].replace('/', '_').replace('\\', '_')
-        timestamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+        timestamp = datetime.now().strftime('%Y%m%dT%H%M%S')
         with self.lock:
             task['filename'] = f'{safe_name}_metadata_backup_{timestamp}.xlsx'
             task['status'] = 'success'
