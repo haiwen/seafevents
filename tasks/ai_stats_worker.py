@@ -303,12 +303,6 @@ class AIStatsWorker:
                     shortfalls.append((org_id, balance, debit, shortfall))
             session.commit()
         except Exception as error:
-            with self.stats_lock:
-                for repo_id, stats_dict in usage_stats.items():
-                    for key, usage in stats_dict.items():
-                        stats = self.ai_usage_stats[repo_id][key]
-                        stats['input_tokens'] += usage['input_tokens']
-                        stats['output_tokens'] += usage['output_tokens']
             if session is not None:
                 session.rollback()
             logger.exception(error)
