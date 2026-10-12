@@ -1,7 +1,7 @@
 import time
 import logging
 import json
-from threading import Thread
+from threading import Thread, current_thread
 
 from seaserv import seafile_api
 
@@ -100,29 +100,50 @@ class EventsHandler(object):
         self._redis_connection = RedisClient().connection
 
     def handle_event(self, channel):
+        thread_name = current_thread().name
+        logger.info('Event handler thread started: name=%s channel=%s', thread_name, channel)
+        while 1:
+            try:
+                self._consume_events(channel)
+            except Exception:
+                logger.exception('Event handler thread recovering: name=%s channel=%s; retry in 3 seconds',
+                                 thread_name, channel)
+                time.sleep(3)
+            except BaseException:
+                logger.exception('Event handler thread stopped unexpectedly: name=%s channel=%s', thread_name, channel)
+                raise
+
+    def _consume_events(self, channel):
         config = self._config
         session = self._db_session_class()
         redis_connection = self._redis_connection
-        while 1:
-            try:
-                msg = seafile_api.pop_event(channel)
-            except Exception as e:
-                logger.error('Failed to get event: %s' % e)
-                time.sleep(3)
-                continue
-            if msg:
+        try:
+            while 1:
                 try:
-                    message_handler.handle_message(config, session, redis_connection, channel, msg)
-                except Exception as e:
-                    logger.error(e)
-                finally:
-                    session.close()
-            else:
-                time.sleep(0.5)
+                    msg = seafile_api.pop_event(channel)
+                except Exception:
+                    logger.exception('Failed to get event: channel=%s', channel)
+                    time.sleep(3)
+                    continue
+                if msg:
+                    try:
+                        message_handler.handle_message(config, session, redis_connection, channel, msg)
+                    except Exception:
+                        logger.exception('Failed to handle event: channel=%s', channel)
+                    finally:
+                        session.close()
+                else:
+                    time.sleep(0.5)
+        finally:
+            try:
+                session.close()
+            except Exception:
+                logger.exception('Failed to close event handler session: channel=%s', channel)
 
     def start(self):
         channels = message_handler.get_channels()
         logger.info('Subscribe to channels: %s', channels)
         for channel in channels:
-            event_handler = Thread(target=self.handle_event, args=(channel, ))
+            event_handler = Thread(target=self.handle_event, args=(channel, ),
+                                   name='event-handler:%s' % channel)
             event_handler.start()
