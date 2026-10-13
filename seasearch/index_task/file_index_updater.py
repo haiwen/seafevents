@@ -1,10 +1,11 @@
 import logging
 import time
-from threading import Thread, Event
+from threading import Thread, Event, Lock
 from requests.exceptions import RequestException
 from seafevents.seasearch.index_store.index_manager import IndexManager
 from seafevents.seasearch.index_store.repo_file_index import RepoFileIndex
 from seafevents.seasearch.index_store.repo_status_index import RepoStatusIndex
+from seafevents.seasearch.index_task.file_index_worker import RepoFileIndexWorker
 from seafevents.seasearch.utils.constants import REPO_STATUS_FILE_INDEX_NAME, SHARD_NUM, REPO_TYPE_WIKI
 from seafevents.seasearch.utils.seasearch_api import SeaSearchAPI
 from seafevents.repo_data import repo_data
@@ -83,12 +84,20 @@ class RepoFileIndexUpdater(object):
             return
 
         logging.info('Start to update seasearch file index, interval = %s sec', self._interval)
+        lock = Lock()
+        RepoFileIndexWorker(
+            self._index_manager,
+            self._repo_file_index,
+            self._repo_status_file_index,
+            lock
+        ).start()
         RepoFileIndexUpdaterTimer(
             self._repo_status_file_index,
             self._repo_file_index,
             self._index_manager,
             self._repo_data,
-            self._interval
+            self._interval,
+            lock
         ).start()
 
 
@@ -141,13 +150,14 @@ def update_repo_file_indexes(repo_status_file_index, repo_file_index, index_mana
 
 
 class RepoFileIndexUpdaterTimer(Thread):
-    def __init__(self, repo_status_file_index, repo_file_index, index_manager, repo_data, interval):
+    def __init__(self, repo_status_file_index, repo_file_index, index_manager, repo_data, interval, lock):
         super(RepoFileIndexUpdaterTimer, self).__init__()
         self.repo_status_file_index = repo_status_file_index
         self.repo_file_index = repo_file_index
         self.index_manager = index_manager
         self.repo_data = repo_data
         self.interval = interval
+        self.lock = lock
         self.finished = Event()
 
     def run(self):
@@ -156,7 +166,8 @@ class RepoFileIndexUpdaterTimer(Thread):
             if not self.finished.is_set():
                 logger.info('starts to update seasearch file index...')
                 try:
-                    update_repo_file_indexes(self.repo_status_file_index, self.repo_file_index, self.index_manager, self.repo_data)
+                    with self.lock:
+                        update_repo_file_indexes(self.repo_status_file_index, self.repo_file_index, self.index_manager, self.repo_data)
                 except RequestException as e:
                     logger.error('SeaSearch request failed; aborting this file-index update pass: %s', e)
                 except Exception as e:
