@@ -1,6 +1,5 @@
 import json
 import logging
-import time
 from threading import Thread, Event
 
 from seaserv import seafile_api
@@ -61,5 +60,5 @@ class RepoFileIndexWorker(object):
                 return
             self.index_manager.update_library_file_index(
                 repo_id, repo.head_cmmt_id, self.repo_file_index,
-                self.repo_status_file_index, time.time()
+                self.repo_status_file_index, None, update_metadata=False
             )
