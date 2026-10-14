@@ -23,7 +23,7 @@ class IndexManager(object):
         self.session = init_db_session_class()
         self.metadata_server_api = MetadataServerAPI('seafevents')
 
-    def update_library_file_index(self, repo_id, commit_id, repo_file_index, repo_status_file_index, metadata_query_time):
+    def update_library_file_index(self, repo_id, commit_id, repo_file_index, repo_status_file_index, metadata_query_time, update_metadata=True):
         try:
             new_commit_id = commit_id
             index_name = REPO_FILE_INDEX_PREFIX + repo_id
@@ -42,12 +42,15 @@ class IndexManager(object):
 
             rows = []
             need_index_metadata = need_index_metadata_info(repo_id, self.session)
-            if need_index_metadata:
+            if need_index_metadata and update_metadata:
                 if not metadata_last_updated_time:
                     metadata_last_updated_time = datetime(1970, 1, 1).timestamp()
                 last_update_time = timestamp_to_isoformat_timestr(float(metadata_last_updated_time))
                 sql = f"SELECT `_id`, `_mtime`, `_description`, `_parent_dir`, `_name`, `_obj_id`, `_file_mtime`, `_size` FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False AND `_mtime` >= '{last_update_time}'"
                 rows = query_metadata_rows(repo_id, self.metadata_server_api, sql)
+            elif need_index_metadata:
+                # Realtime updates leave metadata progress to the periodic updater.
+                metadata_query_time = metadata_last_updated_time
             else:
                 metadata_query_time = None
 
