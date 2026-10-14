@@ -55,7 +55,7 @@ class IndexManager(object):
                 metadata_query_time = None
 
             if not rows and new_commit_id == commit_id:
-                return
+                return True
 
             if repo_status.need_recovery():
                 logger.warning('%s: repo file index inrecovery', repo_id)
@@ -73,12 +73,14 @@ class IndexManager(object):
             repo_status_file_index.finish_update_repo(repo_id, new_commit_id, metadata_query_time)
 
             logger.info('repo: %s, update repo file index success', repo_id)
+            return True
 
         except RequestException:
             # Let the periodic updater stop this pass when SeaSearch is unavailable.
             raise
         except Exception as e:
             logger.exception('repo_id: %s, update repo file index error: %s.', repo_id, e)
+            return False
 
     def delete_repo_file_index(self, repo_id, repo_file_index, repo_status_file_index):
         # first delete repo_file_index
