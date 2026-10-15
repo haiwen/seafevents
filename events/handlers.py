@@ -64,7 +64,8 @@ def RepoUpdateEventHandler(config, session, msg):
         if parent is not None:
             description = commit.description
             if description.startswith('Deleted') and 'more' in description:
-                differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id, False, False)
+                # Keep every deleted file, but do not expand deleted directories.
+                differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id, False, True)
             else:
                 differ = CommitDiffer(repo_id, commit.version, parent.root_id, commit.root_id, True, True)
             added_files, deleted_files, added_dirs, deleted_dirs, modified_files, \
