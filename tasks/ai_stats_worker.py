@@ -14,6 +14,9 @@ from seafevents.app.config import AI_PRICES
 from seafevents.app.config import SEAFILE_AI_SECRET_KEY, SEAFILE_AI_SERVER_URL
 from seafevents.app.event_redis import RedisClient
 from seafevents.db import init_db_session_class
+from seafevents.events.metrics import METRIC_CHANNEL_NAME, NODE_NAME
+from seafevents.app.event_redis import redis_cache
+from seafevents.services.ai_credit import AdditionalAICreditService
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +60,8 @@ class AIStatsWorker:
         self.log_none_message_timeout = 60 * 10
         self.stats_interval = 60
         self._repo_info_cache = {}
+        self._additional_ai_credit_service = AdditionalAICreditService()
+        self._credit_shortfall = 0
         self.reset_stats()
 
     def reset_stats(self):
@@ -221,6 +226,7 @@ class AIStatsWorker:
         '''
 
         records = []
+        org_cost_delta = defaultdict(float)
         for repo_id, stats_dict in usage_stats.items():
             for (repo_owner, group_id, org_id, model, scenario), usage in stats_dict.items():
                 input_tokens = usage.get('input_tokens') or 0
@@ -252,9 +258,20 @@ class AIStatsWorker:
                     'created_at': now,
                     'updated_at': now,
                 })
+                if org_id and org_id > 0:
+                    org_cost_delta[org_id] += cost
 
-        session = self._db_session_class()
+        session = None
         try:
+            session = self._db_session_class()
+            # Read committed avoids a stale usage snapshot after waiting for a balance lock.
+            session.connection(execution_options={'isolation_level': 'READ COMMITTED'})
+            org_debits = {}
+            for org_id in sorted(org_cost_delta):
+                org_debits[org_id] = self._additional_ai_credit_service.prepare_debit(
+                    session, org_id, org_cost_delta[org_id], today,
+                )
+
             for data in records:
                 result = session.execute(text(select_sql), {
                     'date': data['date'],
@@ -276,11 +293,42 @@ class AIStatsWorker:
                     })
                 else:
                     session.execute(text(insert_sql), data)
+
+            shortfalls = []
+            for org_id, (balance, debit) in org_debits.items():
+                shortfall = self._additional_ai_credit_service.apply_debit(
+                    session, org_id, balance, debit,
+                )
+                if shortfall:
+                    shortfalls.append((org_id, balance, debit, shortfall))
             session.commit()
         except Exception as error:
+            if session is not None:
+                session.rollback()
             logger.exception(error)
+            return
         finally:
-            session.close()
+            if session is not None:
+                session.close()
+
+        for org_id, balance, debit, shortfall in shortfalls:
+            logger.error(
+                'Insufficient AI credits: org_id=%s cost_delta=%s balance=%s debit=%s shortfall=%s',
+                org_id, org_cost_delta[org_id], balance, debit, shortfall,
+            )
+            self._credit_shortfall += shortfall
+        try:
+            redis_cache.publish(METRIC_CHANNEL_NAME, json.dumps({
+                'metric_name': 'ai_credit_shortfall_total',
+                'metric_type': 'counter',
+                'metric_help': 'AI credits not deducted due to insufficient organization balance',
+                'component_name': 'seafevents',
+                'node_name': NODE_NAME,
+                'metric_value': self._credit_shortfall,
+                'details': {},
+            }))
+        except Exception as error:
+            logger.exception('Failed to publish AI credit shortfall metric: %s', error)
 
     def stats(self):
         while not self.finished.is_set():
