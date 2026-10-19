@@ -2,6 +2,7 @@ import json
 import os
 import logging
 
+from seafevents.app.config import INDEX_CONTENT_LENGTH_LIMIT
 from seafevents.seasearch.utils import get_library_diff_files, md5, is_sys_dir_or_file
 from seafevents.seasearch.utils.constants import REPO_FILE_INDEX_PREFIX
 from seafevents.repo_metadata.constants import METADATA_TABLE
@@ -13,7 +14,6 @@ from seafevents.utils import isoformat_timestr_to_timestamp
 logger = logging.getLogger('seasearch')
 
 SEASEARCH_BULK_OPETATE_LIMIT = 100
-INDEX_CONTENT_LENGTH_LIMIT = 10000
 
 
 class RepoFileIndex(object):
