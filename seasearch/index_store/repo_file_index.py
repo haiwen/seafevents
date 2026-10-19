@@ -117,9 +117,10 @@ class RepoFileIndex(object):
 
     def _parse_config(self):
         section_name = 'SEASEARCH'
-        self.office_file_size_limit = get_opt_from_conf_or_env(
-            self.config, section_name, 'office_file_size_limit', default=int(10)
-        ) * 1024 * 1024
+        office_file_size_limit = get_opt_from_conf_or_env(
+            self.config, section_name, 'office_file_size_limit', 'SEASEARCH_OFFICE_FILE_SIZE_LIMIT', default=10
+        )
+        self.office_file_size_limit = int(office_file_size_limit) * 1024 * 1024
 
         enable_full_text_search = get_opt_from_conf_or_env(
             self.config, section_name, 'enable_full_text_search', 'ENABLE_FULL_TEXT_SEARCH', default=True
