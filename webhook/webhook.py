@@ -5,13 +5,13 @@ from threading import Event, Thread
 from queue import Queue
 import time
 
-import requests
 from requests.exceptions import ReadTimeout
 from sqlalchemy import select, text
 
 from seafevents.app.event_redis import RedisClient
 from seafevents.db import init_db_session_class
 from seafevents.webhook.models import Webhooks, WebhookJobs, PENDING, FAILURE
+from seafevents.webhook.http import post_webhook
 from seafevents.app.cache_provider import cache
 from seafevents.app.config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 
@@ -107,7 +107,7 @@ class Webhooker(object):
                 try:
                     body = job.get('request_body')
                     headers = job.get('request_headers')
-                    response = requests.post(job['url'], json=body, headers=headers, timeout=30)
+                    response = post_webhook(job['url'], body, headers, timeout=30)
                 except ReadTimeout:
                     logging.warning('request webhook url: %s timeout', job['url'])
 
