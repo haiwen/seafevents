@@ -7,6 +7,8 @@ from urllib.parse import urlsplit
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool
+from urllib3.connection import HTTPConnection, HTTPSConnection
+from urllib3.exceptions import ConnectTimeoutError
 
 
 class InvalidWebhookURL(ValueError):
@@ -57,22 +59,60 @@ def resolve_webhook_url(url):
                         ip in ipaddress.ip_network('64:ff9b::/96') or
                         ip in ipaddress.ip_network('64:ff9b:1::/48')):
                     raise ValueError()
-        return prepared.url, parts, addresses[0][4][0], port
+        return prepared.url, parts, tuple(dict.fromkeys(a[4][0] for a in addresses)), port
     except (ValueError, OSError, requests.RequestException) as e:
         raise InvalidWebhookURL('Webhook URL must resolve only to public IP addresses.') from e
 
 
+class _PinnedConnectionMixin:
+    def __init__(self, *args, pinned_addresses, **kwargs):
+        self.pinned_addresses = pinned_addresses
+        super().__init__(*args, **kwargs)
+
+    def _new_conn(self):
+        # Fall back only while opening the TCP socket, before sending any POST
+        # bytes. Retrying a whole request could duplicate webhook delivery.
+        original_host = self._dns_host
+        try:
+            for index, address in enumerate(self.pinned_addresses):
+                self._dns_host = address
+                try:
+                    return super()._new_conn()
+                except ConnectTimeoutError:
+                    # Includes NewConnectionError (e.g. connection refused).
+                    if index == len(self.pinned_addresses) - 1:
+                        raise
+        finally:
+            self._dns_host = original_host
+
+
+class _PinnedHTTPConnection(_PinnedConnectionMixin, HTTPConnection):
+    pass
+
+
+class _PinnedHTTPSConnection(_PinnedConnectionMixin, HTTPSConnection):
+    pass
+
+
+class _PinnedHTTPPool(HTTPConnectionPool):
+    ConnectionCls = _PinnedHTTPConnection
+
+
+class _PinnedHTTPSPool(HTTPSConnectionPool):
+    ConnectionCls = _PinnedHTTPSConnection
+
+
 class _PinnedAdapter(HTTPAdapter):
-    def __init__(self, parts, address, port):
+    def __init__(self, parts, addresses, port):
         super().__init__()
         if parts.scheme == 'https':
             # Connect to the checked IP, retaining the original TLS SNI and
             # certificate hostname verification. The request URL retains Host.
-            self.pool = HTTPSConnectionPool(
-                address, port, server_hostname=parts.hostname,
+            self.pool = _PinnedHTTPSPool(
+                addresses[0], port, pinned_addresses=addresses, server_hostname=parts.hostname,
                 assert_hostname=parts.hostname)
         else:
-            self.pool = HTTPConnectionPool(address, port)
+            self.pool = _PinnedHTTPPool(addresses[0], port, pinned_addresses=addresses)
 
     def get_connection(self, url, proxies=None):
         return self.pool
@@ -86,12 +126,12 @@ class _PinnedAdapter(HTTPAdapter):
 
 
 def post_webhook(url, body, headers, timeout=30):
-    url, parts, address, port = resolve_webhook_url(url)
+    url, parts, addresses, port = resolve_webhook_url(url)
     with requests.Session() as session:
         # Environment proxies could resolve the hostname again or bypass the
         # checked destination. Webhook delivery always uses a direct connection.
         session.trust_env = False
-        session.mount(parts.scheme + '://', _PinnedAdapter(parts, address, port))
+        session.mount(parts.scheme + '://', _PinnedAdapter(parts, addresses, port))
         # Explicit Host is needed because the connection pool uses the pinned IP.
         headers = dict(headers or {})
         headers['Host'] = parts.netloc

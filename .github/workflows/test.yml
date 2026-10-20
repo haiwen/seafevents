@@ -51,4 +51,4 @@ jobs:
           export CCNET_CONF_DIR=/tmp/ccnet SEAFILE_CONF_DIR=/tmp/seafile-data
           export SEAHUB_DIR=/tmp/seahub
           export SEAFILE_CENTRAL_CONF_DIR=/tmp/seafile-data
-          cd tests && pytest -sv events
+          cd tests && pytest -sv events webhook
