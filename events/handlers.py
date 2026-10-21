@@ -996,8 +996,13 @@ def FileAuditEventHandler(config, session, msg):
 
     org_id = get_org_id_by_repo_id(repo_id)
 
-    save_file_audit_event(session, timestamp, msg_type, user_name, ip,
-                          user_agent, org_id, repo_id, file_path)
+    try:
+        save_file_audit_event(session, timestamp, msg_type, user_name, ip,
+                              user_agent, org_id, repo_id, file_path)
+    except Exception:
+        logging.exception("file audit failed: msg_type=%s repo_id=%s file_path=%s",
+                          msg_type, repo_id, file_path)
+        raise
 
 def PermAuditEventHandler(config, session, msg):
     try:
