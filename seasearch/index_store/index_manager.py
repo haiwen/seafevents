@@ -28,15 +28,17 @@ class IndexManager(object):
             index_name = REPO_FILE_INDEX_PREFIX + repo_id
 
             index_exists = repo_file_index.check_index(index_name)
-            repo_file_index.create_index_if_missing(index_name)
-
             repo_status = repo_status_file_index.get_repo_status_by_id(repo_id)
             from_commit = repo_status.from_commit
             to_commit = repo_status.to_commit
             metadata_last_updated_time = repo_status.metadata_updated_time
             if not index_exists:
-                from_commit, to_commit = None, None
+                # Persist rebuild intent before creating an empty index. A crash after
+                # creation must not make the old completed commit look trustworthy.
+                repo_status_file_index.begin_update_repo(repo_id, ZERO_OBJ_ID, new_commit_id, None)
+                from_commit, to_commit = ZERO_OBJ_ID, new_commit_id
                 metadata_last_updated_time = None
+            repo_file_index.create_index_if_missing(index_name)
 
             if not from_commit:
                 commit_id = ZERO_OBJ_ID
@@ -141,13 +143,13 @@ class IndexManager(object):
             index_name = WIKI_INDEX_PREFIX + wiki_id
 
             index_exists = wiki_index.check_index(index_name)
-            wiki_index.create_index_if_missing(index_name)
-
             wiki_status = wiki_status_index.get_repo_status_by_id(wiki_id)
             from_commit = wiki_status.from_commit
             to_commit = wiki_status.to_commit
             if not index_exists:
-                from_commit, to_commit = None, None
+                wiki_status_index.begin_update_repo(wiki_id, ZERO_OBJ_ID, new_commit_id)
+                from_commit, to_commit = ZERO_OBJ_ID, new_commit_id
+            wiki_index.create_index_if_missing(index_name)
 
             recovering = index_exists and wiki_status.need_recovery()
             if new_commit_id == from_commit and not recovering:
