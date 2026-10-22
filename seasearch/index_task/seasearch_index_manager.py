@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import time
-from threading import Event, Thread, Lock, local
+from threading import Event, Thread, Lock, local, current_thread
 from urllib.parse import urlsplit
 
 from seafevents.app.config import ENABLE_SEARCH, IS_PRO_VERSION, SEARCH_ENGINE, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
@@ -196,6 +196,7 @@ class SeasearchIndexManger(object):
             index = RepoFileIndex(api, repo_data, int(SHARD_NUM), self.config)
         self.status_indexes[kind] = status
         self.indexes[kind] = index
+        logger.info('SeaSearch worker initialized: worker=%s kind=%s', current_thread().name, kind)
 
     def run_worker(self):
         while not self.finished.is_set():
@@ -203,13 +204,25 @@ class SeasearchIndexManger(object):
             if item is None:
                 return
             repo_id, task = item
+            started = time.monotonic()
+            outcome = 'failed'
+            logger.info('SeaSearch task started: repo=%s worker=%s realtime=%s content=%s '
+                        'metadata=%s rows=%s cleanup=%s attempt=%s queued_seconds=%.3f',
+                        repo_id, current_thread().name, task.realtime, task.content, task.metadata,
+                        len(task.row_ids), sorted(task.cleanup), task.failures + 1,
+                        max(0, started - task.first_seen))
             try:
                 self.process_task(repo_id, task)
+                outcome = 'completed'
             except Exception:
                 logger.exception('SeaSearch task failed for repo %s; scheduling retry', repo_id)
                 self.scheduler.retry(repo_id, task)
+                logger.info('SeaSearch retry scheduled: repo=%s attempt=%s retry_in_seconds=%.3f',
+                            repo_id, task.failures + 1, max(0, task.due - time.monotonic()))
             finally:
                 self.scheduler.finish(repo_id, task)
+                logger.info('SeaSearch task ended: repo=%s worker=%s outcome=%s duration_seconds=%.3f',
+                            repo_id, current_thread().name, outcome, time.monotonic() - started)
 
     def process_task(self, repo_id, task):
         repo = repo_data.get_repo_index_info(repo_id)
@@ -224,23 +237,29 @@ class SeasearchIndexManger(object):
                     self.index_manager.delete_wiki_index(repo_id, self.indexes[kind], self.status_indexes[kind])
                 else:
                     self.index_manager.delete_repo_file_index(repo_id, self.indexes[kind], self.status_indexes[kind])
+                logger.info('SeaSearch deleted repo index: repo=%s kind=%s', repo_id, kind)
             return
         commit_id, repo_type, is_virtual = repo
         if is_virtual:
+            logger.info('SeaSearch task skipped: repo=%s reason=virtual', repo_id)
             return
         if not (task.content or task.metadata or task.row_ids):
+            logger.info('SeaSearch task skipped: repo=%s reason=cleanup_repo_still_exists', repo_id)
             return
         if not commit_id:
             logger.warning('Skipping SeaSearch indexing for repo %s: no master head', repo_id)
             return
         kind = 'wiki' if repo_type == REPO_TYPE_WIKI else 'file'
         if kind in self.disabled_kinds or (kind == 'wiki' and not task.content):
+            logger.info('SeaSearch task skipped: repo=%s kind=%s reason=disabled_or_unsupported_task', repo_id, kind)
             return
         if self.index_manager is None:
             self.index_manager = IndexManager()
         self.ensure_indexes(kind)
         index, status = self.indexes[kind], self.status_indexes[kind]
         if task.content:
+            started = time.monotonic()
+            logger.info('SeaSearch content check started: repo=%s kind=%s head=%s', repo_id, kind, commit_id)
             if kind == 'wiki':
                 updated = self.index_manager.update_wiki_index(repo_id, commit_id, index, status)
             else:
@@ -248,14 +267,25 @@ class SeasearchIndexManger(object):
                     repo_id, commit_id, index, status, None, update_metadata=False)
             if not updated:
                 raise RuntimeError('Content indexing failed')
+            logger.info('SeaSearch content check completed: repo=%s kind=%s head=%s duration_seconds=%.3f',
+                        repo_id, kind, commit_id, time.monotonic() - started)
         if kind == 'file':
             if task.row_ids:
+                started = time.monotonic()
                 self.index_manager.update_library_file_descriptions(repo_id, task.row_ids, index)
+                logger.info('SeaSearch description event completed: repo=%s requested_rows=%s duration_seconds=%.3f',
+                            repo_id, len(task.row_ids), time.monotonic() - started)
             if task.metadata:
+                started = time.monotonic()
                 self.index_manager.compensate_library_descriptions(repo_id, index, status)
+                logger.info('SeaSearch description compensation completed: repo=%s duration_seconds=%.3f',
+                            repo_id, time.monotonic() - started)
 
     def scan_repositories(self):
         # Snapshots are read-only hints. The worker rechecks current head/status/existence.
+        started = time.monotonic()
+        submitted = content_count = metadata_count = cleanup_count = errors = 0
+        logger.info('SeaSearch compensation scan started')
         api = SeaSearchAPI(self.url, self.token)
         snapshots = {}
         for kind, name, cls in [('file', REPO_STATUS_FILE_INDEX_NAME, RepoStatusIndex),
@@ -266,7 +296,9 @@ class SeasearchIndexManger(object):
                 status = cls(api, name, create=False)
                 rows = status.get_all_repos_from_index() if api.check_index_mapping(name).get('is_exist') else []
                 snapshots[kind] = {row['repo_id']: row for row in rows}
+                logger.info('SeaSearch compensation snapshot: kind=%s repos=%s', kind, len(rows))
             except Exception:
+                errors += 1
                 # Failure is not an empty snapshot: avoid scheduling every repo as unindexed.
                 logger.exception('Failed to read %s compensation status snapshot', kind)
         metadata_probe = IndexManager()
@@ -294,9 +326,15 @@ class SeasearchIndexManger(object):
                     if content or metadata:
                         self.scheduler.submit(repo_id, content=content, metadata=metadata,
                                               immediate=True, background=True)
+                        submitted += 1
+                        content_count += bool(content)
+                        metadata_count += bool(metadata)
                 except Exception:
+                    errors += 1
                     logger.exception('Failed to check compensation changes for repo %s', repo_id)
             start += count
+            logger.info('SeaSearch compensation progress: scanned=%s submitted=%s errors=%s '
+                        'duration_seconds=%.3f', len(existing), submitted, errors, time.monotonic() - started)
         # Only collect cleanup candidates after a complete successful enumeration.
         if self.finished.is_set():
             return
@@ -304,6 +342,11 @@ class SeasearchIndexManger(object):
             for repo_id in statuses.keys() - existing:
                 # Final shared-DB existence check is still required before deletion.
                 self.scheduler.submit(repo_id, cleanup=(kind,), immediate=True, background=True)
+                cleanup_count += 1
+        logger.info('SeaSearch compensation scan completed: scanned=%s submitted=%s content=%s '
+                    'metadata=%s cleanup=%s errors=%s duration_seconds=%.3f',
+                    len(existing), submitted, content_count, metadata_count, cleanup_count, errors,
+                    time.monotonic() - started)
 
     def run_compensation(self):
         # Initial scan also repairs events missed while the backend was stopped.

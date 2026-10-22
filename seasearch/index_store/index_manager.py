@@ -51,10 +51,14 @@ class IndexManager(object):
                 commit_id = to_commit
 
             if recovering or new_commit_id != commit_id:
+                logger.info('SeaSearch file index updating: repo=%s from_commit=%s to_commit=%s recovery=%s rebuild=%s',
+                            repo_id, commit_id, new_commit_id, recovering, not index_exists)
                 repo_file_index.update_repo_name(index_name, repo_id)
                 repo_status_file_index.begin_update_repo(repo_id, commit_id, new_commit_id, metadata_last_updated_time)
                 repo_file_index.update(index_name, repo_id, commit_id, new_commit_id, [], self.metadata_server_api, need_index_metadata)
                 repo_status_file_index.finish_update_repo(repo_id, new_commit_id, metadata_last_updated_time)
+            else:
+                logger.info('SeaSearch file content unchanged: repo=%s commit=%s', repo_id, new_commit_id)
 
             # Preserve the manual indexing API, but never rebuild content from metadata rows.
             if update_metadata:
@@ -76,9 +80,12 @@ class IndexManager(object):
         if not repo_file_index.check_index(index_name):
             return
         row_ids = list(row_ids)
+        found = 0
         for start in range(0, len(row_ids), 100):
             rows = get_metadata_by_row_ids(repo_id, row_ids[start:start + 100], self.metadata_server_api)
+            found += len(rows)
             repo_file_index.update_descriptions(index_name, rows)
+        logger.info('SeaSearch description rows queried: repo=%s requested=%s found=%s', repo_id, len(row_ids), found)
 
     def compensate_library_descriptions(self, repo_id, repo_file_index, repo_status_file_index):
         if not need_index_metadata_info(repo_id, self.session):
@@ -92,10 +99,13 @@ class IndexManager(object):
                f"FROM `{METADATA_TABLE.name}` WHERE `_is_dir` = False "
                f"AND `_mtime` >= '{last_update}' ORDER BY `_id`")
         rows = query_metadata_rows(repo_id, self.metadata_server_api, sql)
+        logger.info('SeaSearch description compensation queried: repo=%s since=%s rows=%s', repo_id, since, len(rows))
         if not repo_file_index.update_descriptions(REPO_FILE_INDEX_PREFIX + repo_id, rows):
             raise RuntimeError('Description documents not yet indexed')
         repo_status_file_index.add_repo_status(
             repo_id, status.from_commit, status.to_commit, query_time)
+        logger.info('SeaSearch description watermark advanced: repo=%s from_time=%s to_time=%s',
+                    repo_id, status.metadata_updated_time, query_time)
 
     def has_description_changes(self, repo_id, metadata_updated_time):
         """Read-only probe; only the writing worker may advance the watermark."""
@@ -141,6 +151,7 @@ class IndexManager(object):
 
             recovering = index_exists and wiki_status.need_recovery()
             if new_commit_id == from_commit and not recovering:
+                logger.info('SeaSearch wiki content unchanged: repo=%s commit=%s', wiki_id, new_commit_id)
                 return True
 
             if not from_commit:
@@ -153,6 +164,8 @@ class IndexManager(object):
                 wiki_index.update(index_name, wiki_id, commit_id, to_commit)
                 commit_id = to_commit
             wiki_status_index.begin_update_repo(wiki_id, commit_id, new_commit_id)
+            logger.info('SeaSearch wiki index updating: repo=%s from_commit=%s to_commit=%s recovery=%s rebuild=%s',
+                        wiki_id, commit_id, new_commit_id, recovering, not index_exists)
             wiki_index.update(index_name, wiki_id, commit_id, new_commit_id)
             wiki_status_index.finish_update_repo(wiki_id, new_commit_id)
 
