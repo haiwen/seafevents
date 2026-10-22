@@ -37,10 +37,11 @@ class WikiStatusIndex(object):
         },
     }
 
-    def __init__(self, seasearch_api, index_name):
+    def __init__(self, seasearch_api, index_name, create=True):
         self.index_name = index_name
         self.seasearch_api = seasearch_api
-        self.create_index_if_missing()
+        if create:
+            self.create_index_if_missing()
 
     def create_index_if_missing(self):
         if not self.seasearch_api.check_index_mapping(self.index_name).get('is_exist'):

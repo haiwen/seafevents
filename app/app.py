@@ -7,11 +7,10 @@ from seafevents.tasks import IndexUpdater, SeahubEmailSender, LdapSyncer,\
 
 from seafevents.repo_metadata.metadata_manager import MetadataManager
 from seafevents.seafevent_server.seafevent_server import SeafEventServer
-from seafevents.seasearch.index_task.file_index_updater import RepoFileIndexUpdater
+from seafevents.seasearch.index_task.seasearch_index_manager import SeasearchIndexManger
 from seafevents.seasearch.index_task.index_task_manager import index_task_manager
 from seafevents.app.config import ENABLE_METADATA_MANAGEMENT, ENABLE_QUOTA_ALERT, \
     ENABLE_SEAFILE_AI, ENABLE_MULTI_STORAGE, ENABLE_RISK_CONTROL, ENABLE_SEARCH, IS_PRO_VERSION, SEARCH_ENGINE
-from seafevents.seasearch.index_task.wiki_index_updater import SeasearchWikiIndexUpdater
 from seafevents.events.metrics import MetricsManager
 from seafevents.statistics.quota_usage_manager import QuotaUsageManager
 from seafevents.webhook.webhook import Webhooker
@@ -56,15 +55,13 @@ class App(object):
                 # Face recognition is no longer available.
                 # self._face_cluster_updater = FaceClusterUpdater()
                 # self._face_cluster_task_publisher = FaceClusterTaskPublisher()
-            self._repo_file_index_updater = None
+            self._seasearch_index_manager = None
             self._es_wiki_index_updater = None
-            self._seasearch_wiki_index_updater = None
             if IS_PRO_VERSION and ENABLE_SEARCH and SEARCH_ENGINE == 'elasticsearch':
                 self._index_updater = IndexUpdater(config)
                 self._es_wiki_index_updater = ESWikiIndexUpdater(config)
             elif IS_PRO_VERSION and ENABLE_SEARCH and SEARCH_ENGINE == 'seasearch':
-                self._repo_file_index_updater = RepoFileIndexUpdater(config)
-                self._seasearch_wiki_index_updater = SeasearchWikiIndexUpdater(config)
+                self._seasearch_index_manager = SeasearchIndexManger(config)
             if ENABLE_QUOTA_ALERT:
                 self._quota_alert_email_sender = QuotaAlertEmailSender()
             if ENABLE_SEAFILE_AI:
@@ -103,10 +100,8 @@ class App(object):
             self._webhooker.start()
 
             self._metrics_manager.start()
-            if self._repo_file_index_updater:
-                self._repo_file_index_updater.start()
-            if self._seasearch_wiki_index_updater:
-                self._seasearch_wiki_index_updater.start()
+            if self._seasearch_index_manager:
+                self._seasearch_index_manager.start()
             if self._es_wiki_index_updater:
                 self._es_wiki_index_updater.start()
             self._quota_usage_manager.start()

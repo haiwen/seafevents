@@ -377,6 +377,32 @@ class RepoFileIndex(object):
         if bulk_add_params:
             self.seasearch_api.bulk(index_name, bulk_add_params)
 
+    def update_descriptions(self, index_name, metadata_rows):
+        complete = True
+        for row in metadata_rows:
+            if row.get('_is_dir'):
+                continue
+            path = os.path.join(row['_parent_dir'], row['_name'])
+            if is_sys_dir_or_file(path):
+                continue
+            doc_id = md5(path)
+            document = self.seasearch_api.get_document_by_id(index_name, doc_id)
+            if document.get('error') or document.get('found') is False:
+                complete = False
+                continue
+            source = document.get('_source')
+            if not source or source.get('path') != path or source.get('is_dir'):
+                complete = False
+                continue
+            description = row.get('_description') or ''
+            if (source.get('description') or '') == description:
+                continue
+            # PUT replaces the source; background writes for this repo are serialized.
+            source = dict(source)
+            source['description'] = description
+            self.seasearch_api.update_document_by_id(index_name, doc_id, source)
+        return complete
+
     def check_file_size_limit(self, path, size):
         from seafevents.seasearch.utils.extract import is_text_file, is_office_pdf
 

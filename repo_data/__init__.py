@@ -24,8 +24,9 @@ class RepoData(object):
             cmd = """SELECT RepoInfo.repo_id, Branch.commit_id, RepoInfo.type
                      FROM RepoInfo
                      INNER JOIN Branch ON RepoInfo.repo_id = Branch.repo_id
-                     WHERE Branch.name = :name
-                     limit :start, :count;"""
+                      WHERE Branch.name = :name
+                      ORDER BY RepoInfo.repo_id
+                      limit :start, :count;"""
             res = session.execute(text(cmd), {'name': 'master',
                                               'start': start,
                                               'count': count}).fetchall()
@@ -88,6 +89,18 @@ class RepoData(object):
             raise e
         finally:
             session.close()
+
+    def get_repo_index_info(self, repo_id):
+        """Read current shared-DB state; None means deleted, DB failures propagate."""
+        with self._db_session_class() as session:
+            cmd = """SELECT b.commit_id, i.type, v.repo_id
+                     FROM Repo r
+                     LEFT JOIN Branch b ON r.repo_id=b.repo_id AND b.name='master'
+                     LEFT JOIN RepoInfo i ON r.repo_id=i.repo_id
+                     LEFT JOIN VirtualRepo v ON r.repo_id=v.repo_id
+                     WHERE r.repo_id=:repo_id"""
+            row = session.execute(text(cmd), {'repo_id': repo_id}).fetchone()
+            return (row[0], row[1], row[2] is not None) if row else None
 
     def _get_repo_name_mtime_size(self, repo_id):
         session = self._db_session_class()
