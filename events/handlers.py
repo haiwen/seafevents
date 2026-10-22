@@ -937,34 +937,47 @@ def should_record(config, record):
 
 
 def FileUpdateEventHandler(config, session, msg):
+    logging.debug('[## DEBUG FILE UPDATE EVENT], msg: %s', msg)
     try:
         elements = json.loads(msg['content'])
     except:
-        logging.warning("got bad message: %s", msg)
+        logging.warning("file update audit skipped: invalid message: %s", msg)
         return
 
     repo_id = elements.get('repo_id')
     commit_id = elements.get('commit_id')
     if not repo_id or not commit_id:
-        logging.debug("repo_id: %s, or commit_id: %s invalid.", repo_id, commit_id)
+        logging.warning("file update audit skipped: invalid repo_id=%s commit_id=%s", repo_id, commit_id)
         return
+
+    logging.debug('[## DEBUG FILE UPDATE EVENT], repo_id: %s, commit_id: %s', repo_id, commit_id)
 
     org_id = get_org_id_by_repo_id(repo_id)
 
     commit = get_commit(repo_id, 1, commit_id)
+    logging.debug('[## DEBUG FILE UPDATE EVENT], commit: %s', commit)
     if commit is None:
         commit = get_commit(repo_id, 0, commit_id)
+        logging.debug('[## DEBUG FILE UPDATE EVENT], commit2: %s', commit)
         if commit is None:
+            logging.warning("file update audit skipped: commit not found: repo_id=%s commit_id=%s", repo_id, commit_id)
             return
 
     time = datetime.datetime.utcfromtimestamp(msg['ctime'])
     creator_name = getattr(commit, 'creator_name', '')
     if creator_name is None:
         creator_name = ''
-    save_file_update_event(session, time, creator_name, org_id,
-                           repo_id, commit_id, commit.desc)
+    try:
+        save_file_update_event(session, time, creator_name, org_id,
+                               repo_id, commit_id, commit.desc)
+    except Exception:
+        logging.exception("file update audit failed: repo_id=%s commit_id=%s", repo_id, commit_id)
+        raise
+
+    logging.debug("file update audit saved: repo_id=%s commit_id=%s", repo_id, commit_id)
 
 def FileAuditEventHandler(config, session, msg):
+    logging.debug('[## DEBUG FILE AUDIT EVENT], msg: %s', msg)
     try:
         elements = json.loads(msg['content'])
     except:
@@ -983,8 +996,13 @@ def FileAuditEventHandler(config, session, msg):
 
     org_id = get_org_id_by_repo_id(repo_id)
 
-    save_file_audit_event(session, timestamp, msg_type, user_name, ip,
-                          user_agent, org_id, repo_id, file_path)
+    try:
+        save_file_audit_event(session, timestamp, msg_type, user_name, ip,
+                              user_agent, org_id, repo_id, file_path)
+    except Exception:
+        logging.exception("file audit failed: msg_type=%s repo_id=%s file_path=%s",
+                          msg_type, repo_id, file_path)
+        raise
 
 def PermAuditEventHandler(config, session, msg):
     try:
