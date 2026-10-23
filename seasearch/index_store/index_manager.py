@@ -76,18 +76,35 @@ class IndexManager(object):
             return False
 
     def update_library_file_descriptions(self, repo_id, row_ids, repo_file_index):
+        started = time.monotonic()
         if not need_index_metadata_info(repo_id, self.session):
+            logger.info('SeaSearch description update skipped: repo=%s reason=metadata_disabled', repo_id)
             return
         index_name = REPO_FILE_INDEX_PREFIX + repo_id
         if not repo_file_index.check_index(index_name):
-            return
+            logger.info('SeaSearch description update incomplete: repo=%s index=%s reason=index_missing retry=True',
+                        repo_id, index_name)
+            raise RuntimeError('File index not yet available for description update')
         row_ids = list(row_ids)
         found = 0
         for start in range(0, len(row_ids), 100):
+            batch_started = time.monotonic()
+            logger.info('SeaSearch description batch query started: repo=%s batch=%s requested=%s',
+                        repo_id, start // 100 + 1, len(row_ids[start:start + 100]))
             rows = get_metadata_by_row_ids(repo_id, row_ids[start:start + 100], self.metadata_server_api)
             found += len(rows)
-            repo_file_index.update_descriptions(index_name, rows)
+            logger.info('SeaSearch description batch queried: repo=%s batch=%s found=%s '
+                        'not_returned=%s query_seconds=%.3f', repo_id, start // 100 + 1,
+                        len(rows), len(row_ids[start:start + 100]) - len(rows), time.monotonic() - batch_started)
+            if not repo_file_index.update_descriptions(index_name, rows):
+                logger.info('SeaSearch description batch incomplete: repo=%s batch=%s retry=True duration_seconds=%.3f',
+                            repo_id, start // 100 + 1, time.monotonic() - batch_started)
+                raise RuntimeError('Description documents not yet indexed')
+            logger.info('SeaSearch description batch completed: repo=%s batch=%s duration_seconds=%.3f',
+                        repo_id, start // 100 + 1, time.monotonic() - batch_started)
         logger.info('SeaSearch description rows queried: repo=%s requested=%s found=%s', repo_id, len(row_ids), found)
+        logger.info('SeaSearch description update completed: repo=%s duration_seconds=%.3f',
+                    repo_id, time.monotonic() - started)
 
     def compensate_library_descriptions(self, repo_id, repo_file_index, repo_status_file_index):
         if not need_index_metadata_info(repo_id, self.session):

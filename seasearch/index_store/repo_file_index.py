@@ -383,31 +383,47 @@ class RepoFileIndex(object):
         for row in metadata_rows:
             if row.get('_is_dir'):
                 skipped += 1
+                logger.info('SeaSearch description row skipped: index=%s row=%s reason=directory',
+                            index_name, row.get('_id'))
                 continue
             path = os.path.join(row['_parent_dir'], row['_name'])
             if is_sys_dir_or_file(path):
                 skipped += 1
+                logger.info('SeaSearch description row skipped: index=%s row=%s reason=system_path',
+                            index_name, row.get('_id'))
                 continue
             doc_id = md5(path)
+            logger.info('SeaSearch description document checking: index=%s row=%s doc=%s',
+                        index_name, row.get('_id'), doc_id)
             document = self.seasearch_api.get_document_by_id(index_name, doc_id)
             if document.get('error') or document.get('found') is False:
                 missing += 1
                 complete = False
+                logger.info('SeaSearch description document unavailable: index=%s row=%s doc=%s '
+                            'reason=error_or_not_found', index_name, row.get('_id'), doc_id)
                 continue
             source = document.get('_source')
             if not source or source.get('path') != path or source.get('is_dir'):
                 missing += 1
                 complete = False
+                logger.info('SeaSearch description document unavailable: index=%s row=%s doc=%s '
+                            'reason=invalid_source_or_path', index_name, row.get('_id'), doc_id)
                 continue
             description = row.get('_description') or ''
             if (source.get('description') or '') == description:
                 unchanged += 1
+                logger.info('SeaSearch description document unchanged: index=%s row=%s doc=%s',
+                            index_name, row.get('_id'), doc_id)
                 continue
             # PUT replaces the source; background writes for this repo are serialized.
             source = dict(source)
             source['description'] = description
+            logger.info('SeaSearch description document writing: index=%s row=%s doc=%s clear=%s',
+                        index_name, row.get('_id'), doc_id, not bool(description))
             self.seasearch_api.update_document_by_id(index_name, doc_id, source)
             updated += 1
+            logger.info('SeaSearch description document written: index=%s row=%s doc=%s',
+                        index_name, row.get('_id'), doc_id)
         logger.info('SeaSearch descriptions applied: index=%s updated=%s unchanged=%s missing=%s skipped=%s',
                     index_name, updated, unchanged, missing, skipped)
         return complete

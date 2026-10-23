@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def load_class(path, name, namespace):
     namespace.setdefault('logger', Mock())
+    namespace.setdefault('time', time)
     tree = ast.parse((ROOT / path).read_text())
     node = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == name)
     exec(compile(ast.Module(body=[node], type_ignores=[]), path, 'exec'), namespace)
@@ -754,6 +755,65 @@ class RebuildRecoveryTests(unittest.TestCase):
 
 
 class DescriptionTests(unittest.TestCase):
+    def test_realtime_description_missing_then_visible_retries_with_row_ids(self):
+        rows = [{'_id': 'row', '_parent_dir': '/', '_name': 'a.txt', '_description': 'new'}]
+        manager_cls = load_class('seasearch/index_store/index_manager.py', 'IndexManager', {
+            'need_index_metadata_info': lambda *args: True,
+            'REPO_FILE_INDEX_PREFIX': 'file_', 'get_metadata_by_row_ids': Mock(return_value=rows),
+        })
+        index_cls = load_class('seasearch/index_store/repo_file_index.py', 'RepoFileIndex', {
+            'os': os, 'md5': lambda path: path, 'is_sys_dir_or_file': lambda path: False,
+        })
+        manager = manager_cls.__new__(manager_cls)
+        manager.session, manager.metadata_server_api = Mock(), Mock()
+        index = index_cls.__new__(index_cls)
+        index.seasearch_api = Mock()
+        index.check_index = Mock(return_value=True)
+        index.seasearch_api.get_document_by_id.side_effect = [
+            {'error': 'not found'},
+            {'_source': {'path': '/a.txt', 'content': 'body', 'description': 'old'}},
+        ]
+        scheduler = IndexScheduler(debounce=0, throttle=0)
+        with patch.object(scheduler_module.time, 'monotonic', return_value=100) as clock:
+            scheduler.submit('repo', row_ids=['row'])
+            repo_id, task = scheduler.take()
+            with self.assertRaisesRegex(RuntimeError, 'not yet indexed'):
+                manager.update_library_file_descriptions(repo_id, task.row_ids, index)
+            scheduler.retry(repo_id, task)
+            scheduler.finish(repo_id, task)
+            self.assertEqual(scheduler.pending['repo'].row_ids, {'row'})
+            self.assertEqual(scheduler.pending['repo'].failures, 1)
+            index.seasearch_api.update_document_by_id.assert_not_called()
+            clock.return_value = 101
+            repo_id, task = scheduler.take()
+            manager.update_library_file_descriptions(repo_id, task.row_ids, index)
+            scheduler.finish(repo_id, task)
+        index.seasearch_api.update_document_by_id.assert_called_once_with(
+            'file_repo', '/a.txt', {'path': '/a.txt', 'content': 'body', 'description': 'new'})
+        self.assertFalse(scheduler.pending or scheduler.running)
+
+    def test_description_index_missing_raises_but_deleted_rows_are_skipped(self):
+        enabled, query = Mock(return_value=True), Mock(return_value=[])
+        cls = load_class('seasearch/index_store/index_manager.py', 'IndexManager', {
+            'need_index_metadata_info': enabled, 'get_metadata_by_row_ids': query,
+            'REPO_FILE_INDEX_PREFIX': 'file_',
+        })
+        manager = cls.__new__(cls)
+        manager.session, manager.metadata_server_api = Mock(), Mock()
+        index = Mock()
+        index.check_index.return_value = False
+        with self.assertRaisesRegex(RuntimeError, 'File index not yet available'):
+            manager.update_library_file_descriptions('repo', ['row'], index)
+        query.assert_not_called()
+        index.check_index.return_value = True
+        index.update_descriptions.return_value = True
+        manager.update_library_file_descriptions('repo', ['deleted-row'], index)
+        index.update_descriptions.assert_called_once_with('file_repo', [])
+        enabled.return_value = False
+        index.reset_mock()
+        manager.update_library_file_descriptions('repo', ['row'], index)
+        index.check_index.assert_not_called()
+
     def test_description_probe_is_read_only_and_limits_results(self):
         enabled = Mock(return_value=True)
         cls = load_class('seasearch/index_store/index_manager.py', 'IndexManager', {

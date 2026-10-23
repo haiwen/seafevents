@@ -174,6 +174,8 @@ class SeasearchIndexManger(object):
                         and isinstance(row_id, str) and row_id):
                     row_ids.add(row_id)
             if row_ids:
+                logger.info('SeaSearch description event queued: repo=%s event_rows=%s description_rows=%s',
+                            repo_id, len(rows), len(row_ids))
                 self.scheduler.submit(repo_id, row_ids=row_ids)
 
     def ensure_indexes(self, kind):
@@ -272,6 +274,8 @@ class SeasearchIndexManger(object):
         if kind == 'file':
             if task.row_ids:
                 started = time.monotonic()
+                logger.info('SeaSearch description event started: repo=%s requested_rows=%s',
+                            repo_id, len(task.row_ids))
                 self.index_manager.update_library_file_descriptions(repo_id, task.row_ids, index)
                 logger.info('SeaSearch description event completed: repo=%s requested_rows=%s duration_seconds=%.3f',
                             repo_id, len(task.row_ids), time.monotonic() - started)
