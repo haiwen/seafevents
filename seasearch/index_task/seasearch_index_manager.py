@@ -133,7 +133,7 @@ class SeasearchIndexManger(object):
                         self.finished.wait(1)
                         continue
                 with self.mq.pubsub(ignore_subscribe_messages=True) as subscriber:
-                    subscriber.subscribe('repo_update', 'metadata_rows_updated')
+                    subscriber.subscribe('repo_update', 'metadata_update_channel')
                     last_message_time = time.monotonic()
                     while not self.finished.is_set():
                         message = subscriber.get_message(timeout=0.5)
