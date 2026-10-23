@@ -519,8 +519,8 @@ class ManagerTests(unittest.TestCase):
         self.manager.handle_message = Mock()
         self.manager.handle_events()
         self.ns['get_mq'].assert_not_called()
-        first.subscribe.assert_called_once_with('repo_update', 'metadata_rows_updated')
-        second.subscribe.assert_called_once_with('repo_update', 'metadata_rows_updated')
+        first.subscribe.assert_called_once_with('repo_update', 'metadata_update_channel')
+        second.subscribe.assert_called_once_with('repo_update', 'metadata_update_channel')
         self.assertEqual(first.get_message.call_count, 4)
         first.__exit__.assert_called_once()
         second.__exit__.assert_called_once()
@@ -543,7 +543,7 @@ class ManagerTests(unittest.TestCase):
         self.manager.handle_events()
         self.assertEqual(self.ns['get_mq'].call_count, 2)
         self.manager.finished.wait.assert_called_once_with(1)
-        subscriber.subscribe.assert_called_once_with('repo_update', 'metadata_rows_updated')
+        subscriber.subscribe.assert_called_once_with('repo_update', 'metadata_update_channel')
 
     def test_subscription_exception_closes_and_retries(self):
         first, second, mq = MagicMock(), MagicMock(), Mock()
@@ -561,7 +561,7 @@ class ManagerTests(unittest.TestCase):
         self.manager.finished.wait = Mock()
         self.manager.handle_events()
         first.__exit__.assert_called_once()
-        second.subscribe.assert_called_once_with('repo_update', 'metadata_rows_updated')
+        second.subscribe.assert_called_once_with('repo_update', 'metadata_update_channel')
         self.manager.finished.wait.assert_called_once_with(1)
         self.ns['logger'].exception.assert_called_once()
 
