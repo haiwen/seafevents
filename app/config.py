@@ -90,6 +90,7 @@ ENABLE_MULTI_STORAGE = os.environ.get('SEAF_SERVER_STORAGE_TYPE', '') == 'multip
 ENABLE_SEARCH = os.environ.get('ENABLE_SEARCH', 'false').lower() == 'true'
 SEARCH_ENGINE = os.environ.get('SEARCH_ENGINE', 'seasearch').lower()
 assert SEARCH_ENGINE in ('seasearch', 'elasticsearch'), 'Invalid SEARCH_ENGINE: %s' % SEARCH_ENGINE
+INDEX_CONTENT_LENGTH_LIMIT = int(os.environ.get('INDEX_CONTENT_LENGTH_LIMIT', 10000))
 
 # config for ai summary worker
 AI_SUMMARY_BATCH_SIZE = int(os.environ.get('AI_SUMMARY_BATCH_SIZE', 10))
