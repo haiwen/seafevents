@@ -291,6 +291,9 @@ class WikiIndex(object):
         # Clean trash equivalent to remove corresponding dirs
         added_files, _, modified_files, _, deleted_dirs, version = \
             get_library_diff_files(wiki_id, old_commit_id, new_commit_id)
+        logger.info('SeaSearch wiki diff: repo=%s from_commit=%s to_commit=%s '
+                    'added_files=%s modified_files=%s deleted_dirs=%s',
+                    wiki_id, old_commit_id, new_commit_id, len(added_files), len(modified_files), len(deleted_dirs))
 
         # When the file is placed in the recycle bin, the index_json file is modified
         if not (added_files or deleted_dirs or modified_files):

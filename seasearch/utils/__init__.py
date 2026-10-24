@@ -34,7 +34,7 @@ def get_library_diff_files(repo_id, old_commit_id, new_commit_id):
     except GetObjectError as e:
         # new commit should exists in the obj store
         logger.warning(e)
-        return [], [], [], [], [], version
+        raise
 
     new_root = new_commit.root_id
     version = new_commit.get_version()
@@ -45,7 +45,7 @@ def get_library_diff_files(repo_id, old_commit_id, new_commit_id):
     except Exception as e:
         logger.warning('repo: %s, version: %s, old_commit_id:%s, nea_commit_id: %s, old_root:%s, new_root: %s, differ error: %s',
                         repo_id, version, old_commit_id, new_commit_id, old_root, new_root, e)
-        return [], [], [], [], [], version
+        raise
 
     return added_files, deleted_files, modified_files, added_dirs, deleted_dirs, version
 

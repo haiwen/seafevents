@@ -21,11 +21,12 @@ class seahub_settings():
         }
     }
 sys.modules['seahub_settings'] = seahub_settings
-changer = ChangeFilePathHandler()
 
 @pytest.mark.usefixtures("test_db")
 class ChangeFilePathTest(EventTest):
     def setUp(self):
+        self.changer = ChangeFilePathHandler()
+        self.addCleanup(self.changer.close_session)
         sql = "insert into share_uploadlinkshare(username, repo_id, path, token, ctime, view_cnt) values" +  \
               "('admin@admin.com', 'c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures/', '6933639a376f42afa7ab', '2017-11-08 05:28:50.554830', 0)," + \
               "('admin@admin.com', 'c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures/test/', 'ab045b07dca5449d8752', '2017-11-08 05:28:50.554830', 0)," + \
@@ -70,7 +71,7 @@ class ChangeFilePathTest(EventTest):
         res = self.query('TESTDB', sql, param, True)
         self.assertEqual(res[0], 0)
 
-        changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures', changed_word, 1)
+        self.changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures', changed_word, 1)
         sql = "select count(*) from share_uploadlinkshare where path like :path"
         param = {'path': changed_word + '%'}
         res = self.query('TESTDB', sql, param, True)
@@ -83,7 +84,7 @@ class ChangeFilePathTest(EventTest):
         res = self.query('TESTDB', sql, param, True)
         self.assertEqual(res[0], 0)
 
-        changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures', changed_word, 1)
+        self.changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures', changed_word, 1)
         sql = "select count(*) from share_uploadlinkshare where path like :path"
         param = {'path': changed_word + '%'}
         res = self.query('TESTDB', sql, param, True)
@@ -96,7 +97,7 @@ class ChangeFilePathTest(EventTest):
         res = self.query('TESTDB', sql, param, True)
         self.assertEqual(res[0], 0)
 
-        changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures', changed_word, 1)
+        self.changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures', changed_word, 1)
         sql = "select count(*) from share_fileshare where path like :path"
         param = {'path': changed_word + '%'}
         res = self.query('TESTDB', sql, param, True)
@@ -109,7 +110,7 @@ class ChangeFilePathTest(EventTest):
         res = self.query('TESTDB', sql, param, True)
         self.assertEqual(res[0], 0)
 
-        changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures', changed_word, 1)
+        self.changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures', changed_word, 1)
         sql = "select count(*) from share_fileshare where path like :path"
         param = {'path': changed_word + '%'}
         res = self.query('TESTDB', sql, param, True)
@@ -122,7 +123,7 @@ class ChangeFilePathTest(EventTest):
         res = self.query('TESTDB', sql, param, True)
         self.assertEqual(res[0], 0)
 
-        changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/files/girl.jpg', changed_word, 1)
+        self.changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/files/girl.jpg', changed_word, 1)
         sql = "select count(*) from share_fileshare where path like :path"
         param = {'path': changed_word + '%'}
         res = self.query('TESTDB', sql, param, True)
@@ -135,7 +136,7 @@ class ChangeFilePathTest(EventTest):
         res = self.query('TESTDB', sql, param, True)
         self.assertEqual(res[0], 0)
 
-        changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures', changed_word, 1)
+        self.changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures', changed_word, 1)
         sql = "select count(*) from tags_fileuuidmap where parent_path like :path"
         param = {'path': changed_word + '%'}
         res = self.query('TESTDB', sql, param, True)
@@ -148,7 +149,7 @@ class ChangeFilePathTest(EventTest):
         res = self.query('TESTDB', sql, param, True)
         self.assertEqual(res[0], 0)
 
-        changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures', changed_word, 1)
+        self.changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures', changed_word, 1)
         sql = "select count(*) from tags_fileuuidmap where parent_path like :path"
         param = {'path': changed_word + '%'}
         res = self.query('TESTDB', sql, param, True)
@@ -162,7 +163,7 @@ class ChangeFilePathTest(EventTest):
         res = self.query('TESTDB', sql, param, True)
         self.assertEqual(res[0], 0)
 
-        changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures/格莱美.jpg', changed_word, 0)
+        self.changer.update_db_records('c89409c5-b52c-4469-91ba-b222a5d3efff', '/Pictures/格莱美.jpg', changed_word, 0)
         sql = "select count(*) from tags_fileuuidmap where parent_path = :dir and filename = :filename"
         param = {'dir': d, 'filename': fn }
         res = self.query('TESTDB', sql, param, True)
