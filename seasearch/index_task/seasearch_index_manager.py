@@ -34,19 +34,19 @@ class SeasearchIndexManger(object):
         self._initialization_lock = Lock()
         self.disabled_kinds = set()
         try:
-            self.interval = int(os.environ.get('SEASEARCH_INDEX_INTERVAL', '1800'))
+            self.interval = int(os.environ.get('SEASEARCH_INDEX_INTERVAL', '86400'))
             if self.interval <= 0:
                 raise ValueError()
         except ValueError:
-            logger.warning('Invalid SEASEARCH_INDEX_INTERVAL; using 1800 seconds')
-            self.interval = 1800
+            logger.warning('Invalid SEASEARCH_INDEX_INTERVAL; using 86400 seconds')
+            self.interval = 86400
         try:
-            self.worker_count = int(os.environ.get('SEASEARCH_INDEX_WORKERS', '1'))
+            self.worker_count = int(os.environ.get('SEASEARCH_INDEX_WORKERS', '2'))
             if self.worker_count <= 0:
                 raise ValueError()
         except ValueError:
-            logger.warning('Invalid SEASEARCH_INDEX_WORKERS; using 1 worker')
-            self.worker_count = 1
+            logger.warning('Invalid SEASEARCH_INDEX_WORKERS; using 2 workers')
+            self.worker_count = 2
         if self.enabled:
             self._parse_config()
         self.mq = get_mq(REDIS_HOST, REDIS_PORT, REDIS_PASSWORD)
@@ -353,10 +353,9 @@ class SeasearchIndexManger(object):
                     time.monotonic() - started)
 
     def run_compensation(self):
-        # Initial scan also repairs events missed while the backend was stopped.
-        while not self.finished.is_set():
+        # Wait a full interval after startup and between scans.
+        while not self.finished.wait(self.interval):
             try:
                 self.scan_repositories()
             except Exception:
                 logger.exception('SeaSearch compensation scan failed')
-            self.finished.wait(self.interval)

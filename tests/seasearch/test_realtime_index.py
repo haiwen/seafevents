@@ -268,9 +268,9 @@ class ManagerTests(unittest.TestCase):
         cls = self.ns['SeasearchIndexManger']
         for value in ['invalid', '0', '-10']:
             with patch.dict(os.environ, {'SEASEARCH_INDEX_INTERVAL': value}):
-                self.assertEqual(cls(Mock()).interval, 1800)
+                self.assertEqual(cls(Mock()).interval, 86400)
         with patch.dict(os.environ, {}, clear=True):
-            self.assertEqual(cls(Mock()).interval, 1800)
+            self.assertEqual(cls(Mock()).interval, 86400)
 
     def test_mq_is_initialized_as_instance_attribute(self):
         self.ns['get_mq'].assert_called_once_with('redis', 6379, 'password')
@@ -357,7 +357,7 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(end[-2:], ('completed', 3))
         self.assertFalse(self.manager.scheduler.running)
 
-    def test_restart_scan_recreates_background_tasks_without_new_events(self):
+    def test_periodic_scan_recreates_background_tasks_without_new_events(self):
         # Fresh scheduler has none of the old process's events, throttle or retry state.
         self.manager.scheduler = IndexScheduler(debounce=0)
         self.repo_data.get_repo_id_commit_id.side_effect = [
@@ -368,14 +368,22 @@ class ManagerTests(unittest.TestCase):
             'RepoStatusIndex': Mock(), 'WikiStatusIndex': Mock(), 'SeaSearchAPI': Mock(),
         })
         self.ns['SeaSearchAPI'].return_value.check_index_mapping.return_value = {'is_exist': False}
-        self.manager.finished.wait = Mock(side_effect=lambda interval: self.manager.finished.set())
+        self.manager.finished.wait = Mock(side_effect=[False, True])
         self.manager.run_compensation()
         self.assertEqual(set(self.manager.scheduler.pending), {'file', 'wiki'})
         file_task, wiki_task = (self.manager.scheduler.pending[key] for key in ('file', 'wiki'))
         self.assertTrue(file_task.content and file_task.metadata)
         self.assertTrue(wiki_task.content)
         self.assertFalse(wiki_task.metadata or file_task.realtime or wiki_task.realtime)
-        self.manager.finished.wait.assert_called_once_with(60)
+        self.assertEqual(self.manager.finished.wait.call_count, 2)
+        self.manager.finished.wait.assert_called_with(60)
+
+    def test_compensation_waits_before_first_scan_and_stop_cancels_it(self):
+        self.manager.scan_repositories = Mock()
+        self.manager.finished.wait = Mock(return_value=True)
+        self.manager.run_compensation()
+        self.manager.finished.wait.assert_called_once_with(self.manager.interval)
+        self.manager.scan_repositories.assert_not_called()
 
     def test_scan_only_submits_actual_changes_and_deleted_candidates(self):
         statuses = [
