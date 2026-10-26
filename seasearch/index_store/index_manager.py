@@ -22,7 +22,7 @@ class IndexManager(object):
         self.session = init_db_session_class()
         self.metadata_server_api = MetadataServerAPI('seafevents')
 
-    def update_library_file_index(self, repo_id, commit_id, repo_file_index, repo_status_file_index, metadata_query_time, update_metadata=True):
+    def update_library_file_index(self, repo_id, commit_id, repo_file_index, repo_status_file_index, metadata_query_time, update_metadata=True, raise_errors=False):
         try:
             new_commit_id = commit_id
             index_name = REPO_FILE_INDEX_PREFIX + repo_id
@@ -72,6 +72,8 @@ class IndexManager(object):
         except RequestException:
             raise
         except Exception as e:
+            if raise_errors:
+                raise
             logger.exception('repo_id: %s, update repo file index error: %s.', repo_id, e)
             return False
 
@@ -154,7 +156,7 @@ class IndexManager(object):
     def search_wikis(self, query, wiki_ids, wiki_index, count):
         return wiki_index.search_wikis(wiki_ids, query, 0, count)
 
-    def update_wiki_index(self, wiki_id, commit_id, wiki_index, wiki_status_index):
+    def update_wiki_index(self, wiki_id, commit_id, wiki_index, wiki_status_index, raise_errors=False):
         try:
             new_commit_id = commit_id
             index_name = WIKI_INDEX_PREFIX + wiki_id
@@ -194,5 +196,7 @@ class IndexManager(object):
         except RequestException:
             raise
         except Exception as e:
+            if raise_errors:
+                raise
             logger.exception('wiki_id: %s, update wiki index error: %s.', wiki_id, e)
             return False
