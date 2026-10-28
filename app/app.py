@@ -16,6 +16,7 @@ from seafevents.events.metrics import MetricsManager
 from seafevents.statistics.quota_usage_manager import QuotaUsageManager
 from seafevents.webhook.webhook import Webhooker
 from seafevents.tasks.repo_storage_task import RepoStorageTask
+from seafevents.sdoc_review.worker import SdocReviewWorker
 
 class App(object):
     def __init__(self, config, seafile_config,
@@ -69,6 +70,7 @@ class App(object):
                 self._quota_alert_email_sender = QuotaAlertEmailSender()
             if ENABLE_SEAFILE_AI:
                 self.ai_stats_manager = AIStatsManager()
+                self._sdoc_review_worker = SdocReviewWorker()
             if ENABLE_MULTI_STORAGE:
                 self._repo_storage_task = RepoStorageTask()
             if ENABLE_RISK_CONTROL:
@@ -113,7 +115,8 @@ class App(object):
             if ENABLE_QUOTA_ALERT:
                 self._quota_alert_email_sender.start()
             if ENABLE_SEAFILE_AI:
-                self.ai_stats_manager.start() 
+                self.ai_stats_manager.start()
+                self._sdoc_review_worker.start()
             if ENABLE_MULTI_STORAGE:
                 self._repo_storage_task.start()
             if ENABLE_RISK_CONTROL:
