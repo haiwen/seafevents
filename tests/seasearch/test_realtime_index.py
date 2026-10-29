@@ -279,10 +279,10 @@ class ManagerTests(unittest.TestCase):
     def test_worker_count_environment_and_start(self):
         cls = self.ns['SeasearchIndexManger']
         with patch.dict(os.environ, {}, clear=True):
-            self.assertEqual(cls(Mock()).worker_count, 1)
+            self.assertEqual(cls(Mock()).worker_count, 2)
         for value in ['0', '-2', 'bad']:
             with patch.dict(os.environ, {'SEASEARCH_INDEX_WORKERS': value}):
-                self.assertEqual(cls(Mock()).worker_count, 1)
+                self.assertEqual(cls(Mock()).worker_count, 2)
         with patch.dict(os.environ, {'SEASEARCH_INDEX_WORKERS': '3'}):
             manager = cls(Mock())
         self.ns['Thread'] = Mock()
@@ -581,7 +581,8 @@ class ManagerTests(unittest.TestCase):
         self.repo_data.get_repo_index_info.return_value = ('latest', 'wiki', False)
         self.manager.process_task('repo', task)
         self.manager.index_manager.update_wiki_index.assert_called_once_with(
-            'repo', 'latest', self.manager.indexes['wiki'], self.manager.status_indexes['wiki'])
+            'repo', 'latest', self.manager.indexes['wiki'], self.manager.status_indexes['wiki'],
+            raise_errors=True)
         self.manager.index_manager.update_library_file_index.assert_not_called()
 
     def test_content_before_description_and_compensation(self):
