@@ -4,9 +4,6 @@ import os
 import time
 from threading import Event, Thread, Lock, local, current_thread
 from urllib.parse import urlsplit
-from requests.exceptions import RequestException
-from sqlalchemy.exc import OperationalError, InterfaceError, DisconnectionError, TimeoutError as DBTimeoutError
-from seafobj.exceptions import GetObjectError
 
 from seafevents.app.config import ENABLE_SEARCH, IS_PRO_VERSION, SEARCH_ENGINE, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 from seafevents.mq import get_mq
@@ -26,9 +23,7 @@ logger = logging.getLogger('seasearch')
 
 class SeasearchIndexManger(object):
     SUBSCRIPTION_IDLE_TIMEOUT = 5 * 60
-    NON_TRANSIENT_MAX_ATTEMPTS = 5
-    RETRYABLE_ERRORS = (RequestException, ConnectionError, TimeoutError,
-                        OperationalError, InterfaceError, DisconnectionError, DBTimeoutError, GetObjectError)
+    MAX_ATTEMPTS = 5
 
     def __init__(self, config):
         self.enabled = IS_PRO_VERSION and ENABLE_SEARCH and SEARCH_ENGINE == 'seasearch'
@@ -223,13 +218,12 @@ class SeasearchIndexManger(object):
                 self.process_task(repo_id, task)
                 outcome = 'completed'
             except Exception as error:
-                retryable = isinstance(error, self.RETRYABLE_ERRORS)
-                if retryable or task.failures + 1 < self.NON_TRANSIENT_MAX_ATTEMPTS:
-                    logger.exception('SeaSearch task failed: repo=%s error_type=%s transient=%s; scheduling retry',
-                                     repo_id, type(error).__name__, retryable)
+                if task.failures + 1 < self.MAX_ATTEMPTS:
+                    logger.exception('SeaSearch task failed: repo=%s error_type=%s; scheduling retry',
+                                     repo_id, type(error).__name__)
                     self.scheduler.retry(repo_id, task)
-                    logger.info('SeaSearch retry scheduled: repo=%s attempt=%s transient=%s retry_in_seconds=%.3f',
-                                repo_id, task.failures + 1, retryable, max(0, task.due - time.monotonic()))
+                    logger.info('SeaSearch retry scheduled: repo=%s attempt=%s retry_in_seconds=%.3f',
+                                repo_id, task.failures + 1, max(0, task.due - time.monotonic()))
                 else:
                     outcome = 'retry_exhausted'
                     logger.exception('SeaSearch task retry limit reached: repo=%s error_type=%s attempts=%s '
