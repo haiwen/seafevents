@@ -142,6 +142,7 @@ class WebhookTransportTest(unittest.TestCase):
                 '-addext', 'subjectAltName=DNS:hooks.example',
             ], check=True, capture_output=True)
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
             context.load_cert_chain(cert, key)
             names = []
             context.set_servername_callback(lambda sock, name, ctx: names.append(name))

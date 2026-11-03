@@ -546,7 +546,9 @@ def is_sys_path(path):
 
 def md5_repo_id_parent_path(repo_id, parent_path):
     parent_path = parent_path.rstrip('/') if parent_path != '/' else '/'
-    return hashlib.md5((repo_id + parent_path).encode('utf-8')).hexdigest()
+    # Non-cryptographic lookup key; must match Seahub and existing database values.
+    return hashlib.md5(
+        (repo_id + parent_path).encode('utf-8'), usedforsecurity=False).hexdigest()
 
 
 def normalize_path(path):
