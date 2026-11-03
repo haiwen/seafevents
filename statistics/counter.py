@@ -58,7 +58,9 @@ def get_org_user_quota(local_traffic_info, date_str):
 def update_hash_record(session, login_name, login_time, org_id):
     time_str = login_time.strftime('%Y-%m-%d 00:00:00')
     time_by_day = datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S')
-    md5_key = hashlib.md5((login_name + time_str).encode('utf-8')).hexdigest()
+    # Non-cryptographic deduplication key; preserve existing database values.
+    md5_key = hashlib.md5(
+        (login_name + time_str).encode('utf-8'), usedforsecurity=False).hexdigest()
     login_records[md5_key] = (login_name, time_by_day, org_id)
 
 def save_traffic_info(session, timestamp, user_name, repo_id, oper, size):

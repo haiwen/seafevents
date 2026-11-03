@@ -32,8 +32,8 @@ def check_auth_token(req):
     private_key = SEAHUB_SECRET_KEY
     try:
         jwt.decode(token, private_key, algorithms=['HS256'])
-    except (jwt.ExpiredSignatureError, jwt.InvalidSignatureError) as e:
-        return False, e
+    except jwt.InvalidTokenError:
+        return False, 'Token invalid.'
 
     return True, None
 
@@ -56,7 +56,7 @@ def add_init_metadata_task():
             username, repo_id)
     except Exception as e:
         logger.error(e)
-        return make_response((e, 500))
+        return make_response(('Internal Server Error', 500))
 
     return make_response(({'task_id': task_id}, 200))
 
@@ -80,7 +80,7 @@ def get_sys_logs_task():
         task_id = event_export_task_manager.add_export_logs_task(start_time, end_time, log_type)
     except Exception as e:
         logger.error(e)
-        return make_response((e, 500))
+        return make_response(('Internal Server Error', 500))
 
     return make_response(({'task_id': task_id}, 200))
 
@@ -105,7 +105,7 @@ def get_org_logs_task():
         task_id = event_export_task_manager.add_org_export_logs_task(start_time, end_time, log_type, org_id)
     except Exception as e:
         logger.error(e)
-        return make_response((e, 500))
+        return make_response(('Internal Server Error', 500))
 
     return make_response(({'task_id': task_id}, 200))
 
@@ -124,10 +124,11 @@ def query_status():
         is_finished, error = event_export_task_manager.query_status(task_id)
     except Exception as e:
         logger.debug(e)
-        return make_response((e, 500))
+        return make_response(('Internal Server Error', 500))
 
     if error:
-        return make_response((error, 500))
+        logger.error('Export task %s failed: %s', task_id, error)
+        return make_response(('Internal Server Error', 500))
     return make_response(({'is_finished': is_finished}, 200))
 
 
@@ -144,16 +145,17 @@ def query_import_status():
         is_finished, error = event_import_task_manager.query_status(task_id)
     except Exception as e:
         logger.debug(e)
-        return make_response((e, 500))
+        return make_response(('Internal Server Error', 500))
 
     if error:
-        return make_response((error, 500))
+        logger.error('Import task %s failed: %s', task_id, error)
+        return make_response(('Internal Server Error', 500))
     return make_response(({'is_finished': is_finished}, 200))
 
 
 @app.route('/search', methods=['POST'])
 def search():
-    is_valid = check_auth_token(request)
+    is_valid, error = check_auth_token(request)
     if not is_valid:
         return {'error_msg': 'Permission denied'}, 403
 
@@ -208,7 +210,7 @@ def add_init_face_recognition_task():
             username, repo_id)
     except Exception as e:
         logger.error(e)
-        return make_response((e, 500))
+        return make_response(('Internal Server Error', 500))
 
     return make_response(({'task_id': task_id}, 200))
 
@@ -230,7 +232,7 @@ def add_init_ai_summary_task():
         task_id = task_manager.add_init_ai_summary_task(username, repo_id)
     except Exception as e:
         logger.error(e)
-        return make_response((e, 500))
+        return make_response(('Internal Server Error', 500))
 
     return make_response(({'task_id': task_id}, 200))
 
@@ -260,7 +262,7 @@ def delete_summary_vector_index():
 # Face recognition is no longer available.
 # @app.route('/recognize-faces', methods=['POST'])
 def recognize_faces():
-    is_valid = check_auth_token(request)
+    is_valid, error = check_auth_token(request)
     if not is_valid:
         return {'error_msg': 'Permission denied'}, 403
 
@@ -289,7 +291,7 @@ def recognize_faces():
 
 @app.route('/extract-file-details', methods=['POST'])
 def extract_file_details():
-    is_valid = check_auth_token(request)
+    is_valid, error = check_auth_token(request)
     if not is_valid:
         return {'error_msg': 'Permission denied'}, 403
 
@@ -314,7 +316,7 @@ def extract_file_details():
 
 @app.route('/search-wikis', methods=['POST'])
 def search_wikis():
-    is_valid = check_auth_token(request)
+    is_valid, error = check_auth_token(request)
     if not is_valid:
         return {'error_msg': 'Permission denied'}, 403
 
@@ -354,7 +356,7 @@ def search_wikis():
 
 @app.route('/add-convert-wiki-task', methods=['GET'])
 def add_convert_wiki_task():
-    is_valid = check_auth_token(request)
+    is_valid, error = check_auth_token(request)
     if not is_valid:
         return {'error_msg': 'Permission denied'}, 403
 
@@ -375,7 +377,7 @@ def add_convert_wiki_task():
         task_id = event_export_task_manager.add_convert_wiki_task(old_repo_id, new_repo_id, username)
     except Exception as e:
         logger.error(e)
-        return make_response((e, 500))
+        return make_response(('Internal Server Error', 500))
 
     return {'task_id': task_id}, 200
 
@@ -410,7 +412,7 @@ def update_cover_photo():
         app.face_recognition_manager.update_people_cover_photo(repo_id, people_id, obj_id)
     except Exception as e:
         logger.error(e)
-        return make_response((e, 500))
+        return make_response(('Internal Server Error', 500))
 
     return {'success': True}, 200
 
@@ -435,7 +437,7 @@ def delete_repo_monitored_user_cache():
         cache.delete(cache_key)
     except Exception as e:
         logger.error(e)
-        return make_response((e, 500))
+        return make_response(('Internal Server Error', 500))
 
     return {'success': True}, 200
 
@@ -445,9 +447,6 @@ def get_metrics():
     is_valid, error = check_auth_token(request)
     if not is_valid:
         return make_response((error, 403))
-
-    if error:
-        return make_response((error, 500))
 
     metrics = redis_cache.get(REDIS_METRIC_KEY)
     if not metrics:
@@ -475,7 +474,7 @@ def get_metrics():
 
 @app.route('/import-confluence-to-wiki', methods=['POST'])
 def import_confluence_to_wiki():
-    is_valid = check_auth_token(request)
+    is_valid, error = check_auth_token(request)
     if not is_valid:
         return {'error_msg': 'Permission denied'}, 403
 
@@ -505,13 +504,13 @@ def import_confluence_to_wiki():
         task_id = event_import_task_manager.add_import_confluence_to_wiki(repo_id, space_key, file_path, username, seafile_server_url)
     except Exception as e:
         logger.error(e)
-        return make_response((e, 500))
+        return make_response(('Internal Server Error', 500))
 
     return {'task_id': task_id}, 200
 
 @app.route('/import-wiki-page', methods=['POST'])
 def import_wiki_page():
-    is_valid = check_auth_token(request)
+    is_valid, error = check_auth_token(request)
     if not is_valid:
         return {'error_msg': 'Permission denied'}, 403
 
@@ -545,7 +544,7 @@ def import_wiki_page():
         task_id = event_import_task_manager.add_import_wiki_page(repo_id, file_path, username, page_id, page_name, sdoc_uuid_str, from_page_id)
     except Exception as e:
         logger.error(e)
-        return make_response((e, 500))
+        return make_response(('Internal Server Error', 500))
 
     return {'task_id': task_id}, 200
     
@@ -582,7 +581,7 @@ def add_repo_archive_task():
         task_id = repo_archive_task_manager.add_repo_archive_task(repo_id, orig_storage_id, dest_storage_id, op_type, username)
     except Exception as e:
         logger.error(e)
-        return make_response((e, 500))
+        return make_response(('Internal Server Error', 500))
 
     return {'task_id': task_id}, 200
 
@@ -600,8 +599,9 @@ def query_archive_status():
         is_finished, error = repo_archive_task_manager.query_status(task_id)
     except Exception as e:
         logger.debug(e)
-        return make_response((e, 500))
+        return make_response(('Internal Server Error', 500))
 
     if error:
-        return make_response((error, 500))
+        logger.error('Archive task %s failed: %s', task_id, error)
+        return make_response(('Internal Server Error', 500))
     return make_response(({'is_finished': is_finished}, 200))
