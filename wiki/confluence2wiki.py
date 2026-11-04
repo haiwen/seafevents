@@ -15,7 +15,7 @@ from seaserv import seafile_api
 from seafevents.seafevent_server.utils import save_wiki_config, gen_new_page_nav_by_id, gen_unique_id, \
     md5_repo_id_parent_path
 from seafevents.wiki.utils import gen_file_get_url, gen_inner_file_get_url, get_wiki_config, gen_file_upload_url, \
-    get_all_wiki_ids, convert_confluence_to_wiki
+    get_all_wiki_ids, convert_confluence_to_wiki, convert_file_token
 from seafevents.utils.constants import PREVIEW_FILEEXT, WIKI_PAGES_DIR
 
 
@@ -29,13 +29,13 @@ def import_confluence_to_wiki_main(session, repo_id, space_key, file_path, usern
         if not os.path.exists(extract_dir):
             os.mkdir(extract_dir)
         space_dir, zip_file_path = extract_html_zip(file_path, extract_dir, space_key)
-        download_url, upload_url = upload_zip_file(repo_id, zip_file_path, username)
+        file_token = upload_zip_file(repo_id, zip_file_path, username)
     except Exception as e:
         raise e
 
     try:
         filename = os.path.basename(file_path)
-        result = json.loads(convert_confluence_to_wiki(filename, download_url, upload_url, username, seafile_server_url))
+        result = json.loads(convert_confluence_to_wiki(filename, file_token, username, seafile_server_url))
         if result.get('error_msg'):
             return False
         cf_id_to_cf_title_map = result.get('cf_id_to_cf_title_map')
@@ -79,9 +79,8 @@ def upload_zip_file(repo_id, zip_file_path, username):
             raise Exception(resp.text)
 
         file_id = seafile_api.get_file_id_by_path(repo_id, new_file_path)
-        download_token = seafile_api.get_fileserver_access_token(repo_id, file_id, 'download', username)
-        download_url = gen_file_get_url(download_token, zip_file_name)
-        return download_url, upload_link
+        return convert_file_token(repo_id, file_id, zip_file_name, username,
+                                  output_path='/tmp/sdoc_archive.zip')
 
 def extract_html_zip(zip_file_path, extract_dir, space_key):
     space_dir = os.path.normpath(os.path.join(extract_dir, space_key))
