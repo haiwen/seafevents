@@ -7,7 +7,7 @@ from pathlib import Path
 
 from sqlalchemy.sql import text
 from seafevents.wiki.utils import gen_file_get_url, get_wiki_config, gen_file_upload_url, \
-    convert_file, gen_new_page_nav_by_id, delete_wiki_page_dir
+    convert_file, convert_file_token, gen_new_page_nav_by_id, delete_wiki_page_dir
 from seaserv import seafile_api
 from seafevents.seafevent_server.utils import save_wiki_config, md5_repo_id_parent_path
 from seafevents.utils.constants import WIKI_PAGES_DIR
@@ -69,10 +69,11 @@ def import_wiki_page(session, repo_id, local_file_path, username, page_id, page_
         if not resp.ok:
             raise BaseException('Save file: %s failed: %s' % (filename, resp.text))
         file_id = seafile_api.get_file_id_by_path(repo_id, file_path)
-        download_token = seafile_api.get_fileserver_access_token(repo_id, file_id, 'download', username)
-        download_url = gen_file_get_url(download_token, filename)
+        file_token = convert_file_token(
+            repo_id, file_id, filename, username, sdoc_uuid_str,
+            os.path.join(parent_dir, sdoc_filename))
 
-        resp = convert_file(file_path, username, sdoc_uuid_str, download_url, upload_link, src_type, 'sdoc')
+        resp = convert_file(file_path, username, sdoc_uuid_str, file_token, src_type, 'sdoc')
         status_code = resp.status_code
         if status_code != 200:
             delete_wiki_page_dir(repo_id, parent_dir, username)

@@ -60,32 +60,41 @@ def convert_file_gen_headers():
     return {"Authorization": "Token %s" % token}
 
 
-def convert_confluence_to_wiki(filename, download_url, upload_url, username, seafile_server_url):
-    headers = convert_file_gen_headers()
+def convert_file_token(repo_id, file_id, filename, username, doc_uuid='', output_path=None):
+    payload = {
+        'aud': 'seadoc-converter-file', 'exp': int(time.time()) + 300,
+        'repo_id': repo_id, 'file_id': file_id, 'filename': filename,
+        'username': username, 'doc_uuid': str(doc_uuid),
+    }
+    if output_path:
+        payload['output_path'] = output_path
+    return jwt.encode(payload, SEADOC_PRIVATE_KEY, algorithm='HS256')
+
+
+def convert_confluence_to_wiki(filename, file_token, username, seafile_server_url):
     params = {
         'filename': filename,
-        'download_url': download_url,
-        'upload_url': upload_url,
+        'file_token': file_token,
         'username': username,
         'seafile_server_url': seafile_server_url
     }
     url = FILE_CONVERTER_SERVER_URL.rstrip('/') + '/api/v1/confluence-to-wiki/'
+    headers = convert_file_gen_headers()
     resp = requests.post(url, json=params, headers=headers, timeout=30)
     return resp.content
 
 
-def convert_file(path, username, doc_uuid, download_url, upload_url, src_type, dst_type):
-    headers = convert_file_gen_headers()
+def convert_file(path, username, doc_uuid, file_token, src_type, dst_type):
     params = {
         'path': path,
         'username': username,
         'doc_uuid': doc_uuid,
-        'download_url': download_url,
-        'upload_url': upload_url,
+        'file_token': file_token,
         'src_type': src_type,
         'dst_type': dst_type,
     }
     url = FILE_CONVERTER_SERVER_URL.rstrip('/') + '/api/v1/file-convert/'
+    headers = convert_file_gen_headers()
     resp = requests.post(url, json=params, headers=headers, timeout=30)
     return resp
 
