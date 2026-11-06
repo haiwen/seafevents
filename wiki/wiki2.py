@@ -73,11 +73,15 @@ def import_wiki_page(session, repo_id, local_file_path, username, page_id, page_
             repo_id, file_id, filename, username, sdoc_uuid_str,
             os.path.join(parent_dir, sdoc_filename))
 
-        resp = convert_file(file_path, username, sdoc_uuid_str, file_token, src_type, 'sdoc')
-        status_code = resp.status_code
-        if status_code != 200:
+        try:
+            resp = convert_file(file_path, username, sdoc_uuid_str, file_token, src_type, 'sdoc')
+            if resp.status_code != 200:
+                raise Exception('File conversion failed')
+        except Exception:
             delete_wiki_page_dir(repo_id, parent_dir, username)
-            raise BaseException('File conversion failed')
+            if os.path.exists(local_file_path):
+                os.remove(local_file_path)
+            raise
 
     wiki_config = get_wiki_config(repo_id, username)
     new_page = {
