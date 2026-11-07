@@ -78,9 +78,16 @@ def import_wiki_page(session, repo_id, local_file_path, username, page_id, page_
             if resp.status_code != 200:
                 raise Exception('File conversion failed')
         except Exception:
-            delete_wiki_page_dir(repo_id, parent_dir, username)
-            if os.path.exists(local_file_path):
-                os.remove(local_file_path)
+            try:
+                delete_wiki_page_dir(repo_id, parent_dir, username)
+            except Exception as e:
+                logger.warning('Failed to delete wiki page directory %s: %s', parent_dir, e)
+            finally:
+                try:
+                    if os.path.exists(local_file_path):
+                        os.remove(local_file_path)
+                except Exception as e:
+                    logger.warning('Failed to remove local import file %s: %s', local_file_path, e)
             raise
 
     wiki_config = get_wiki_config(repo_id, username)
