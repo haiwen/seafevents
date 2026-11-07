@@ -1,6 +1,6 @@
 SQLAlchemy==2.0.*
 redis==5.0.*
-pyjwt==2.9.*
+pyjwt==2.15.*
 pymysql==1.1.*
 gevent==24.2.*
 Flask==3.0.*
