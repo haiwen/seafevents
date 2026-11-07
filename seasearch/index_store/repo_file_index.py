@@ -2,6 +2,7 @@ import json
 import os
 import logging
 
+from seafevents.app.config import INDEX_CONTENT_LENGTH_LIMIT
 from seafevents.seasearch.utils import get_library_diff_files, md5, is_sys_dir_or_file
 from seafevents.seasearch.utils.constants import REPO_FILE_INDEX_PREFIX
 from seafevents.repo_metadata.constants import METADATA_TABLE
@@ -13,7 +14,6 @@ from seafevents.utils import isoformat_timestr_to_timestamp
 logger = logging.getLogger('seasearch')
 
 SEASEARCH_BULK_OPETATE_LIMIT = 100
-INDEX_CONTENT_LENGTH_LIMIT = 10000
 
 
 class RepoFileIndex(object):
@@ -117,9 +117,10 @@ class RepoFileIndex(object):
 
     def _parse_config(self):
         section_name = 'SEASEARCH'
-        self.office_file_size_limit = get_opt_from_conf_or_env(
-            self.config, section_name, 'office_file_size_limit', default=int(10)
-        ) * 1024 * 1024
+        office_file_size_limit = get_opt_from_conf_or_env(
+            self.config, section_name, 'office_file_size_limit', 'SEASEARCH_OFFICE_FILE_SIZE_LIMIT', default=10
+        )
+        self.office_file_size_limit = int(office_file_size_limit) * 1024 * 1024
 
         enable_full_text_search = get_opt_from_conf_or_env(
             self.config, section_name, 'enable_full_text_search', 'ENABLE_FULL_TEXT_SEARCH', default=True
