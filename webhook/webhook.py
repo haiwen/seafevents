@@ -31,6 +31,8 @@ class Webhooker(object):
     2. query webhooks and generate jobs, then put them to queue.
     3. trigger jobs one by one.
     """
+    SUBSCRIPTION_IDLE_TIMEOUT = 5 * 60
+
     def __init__(self):
         self._db_session_class = init_db_session_class()
         self.job_queue = Queue()
@@ -61,10 +63,12 @@ class Webhooker(object):
 
     def add_jobs(self):
         subscriber = self._subscribe_repo_updates()
+        last_message_time = time.monotonic()
         while not self._finished.is_set():
             try:
                 msg = subscriber.get_message()
                 if msg:
+                    last_message_time = time.monotonic()
                     try:
                         data = json.loads(msg.get('data'))
                     except Exception as e:
@@ -91,12 +95,20 @@ class Webhooker(object):
                     finally:
                         session.close()
                 else:
+                    if time.monotonic() - last_message_time >= self.SUBSCRIPTION_IDLE_TIMEOUT:
+                        logging.info('Webhook subscription idle for %s seconds; recreating subscription: '
+                                     'channel=repo_update thread=%s',
+                                     self.SUBSCRIPTION_IDLE_TIMEOUT, current_thread().name)
+                        subscriber.close()
+                        subscriber = self._subscribe_repo_updates()
+                        last_message_time = time.monotonic()
                     time.sleep(1)
             except Exception as e:
                 logging.error('Failed to msg: %s' % e)
                 logging.info('Webhook resubscribing after event handling failure: channel=repo_update thread=%s',
                              current_thread().name)
                 subscriber = self._subscribe_repo_updates()
+                last_message_time = time.monotonic()
 
     def invalidate_webhook(self, webhook_id, db_session):
         sql = "UPDATE webhooks SET is_valid=0 WHERE id=:webhook_id"
