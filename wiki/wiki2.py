@@ -76,6 +76,13 @@ def import_wiki_page(session, repo_id, local_file_path, username, page_id, page_
         try:
             resp = convert_file(file_path, username, sdoc_uuid_str, file_token, src_type, 'sdoc')
             if resp.status_code != 200:
+                if resp.status_code == 400:
+                    try:
+                        message = resp.json().get('error_msg')
+                    except (ValueError, AttributeError):
+                        message = None
+                    if message == 'DOCX uncompressed content is too large to convert.':
+                        raise ValueError(message)
                 raise Exception('File conversion failed')
         except Exception:
             try:

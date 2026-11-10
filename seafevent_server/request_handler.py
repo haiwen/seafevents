@@ -149,6 +149,9 @@ def query_import_status():
 
     if error:
         logger.error('Import task %s failed: %s', task_id, error)
+        # Only explicitly public errors may leave the task service.
+        if error == 'DOCX uncompressed content is too large to convert.':
+            return {'error_msg': error, 'error_code': 'docx_content_too_large'}, 400
         return make_response(('Internal Server Error', 500))
     return make_response(({'is_finished': is_finished}, 200))
 
