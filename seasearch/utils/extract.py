@@ -16,6 +16,10 @@ from seafobj import fs_mgr
 
 logger = logging.getLogger('seasearch')
 
+# Limit decompressed DOCX content, not just the uploaded ZIP size.
+DOCX_MAX_MEMBER_SIZE = 32 * 1024 * 1024
+DOCX_MAX_UNCOMPRESSED_SIZE = 128 * 1024 * 1024
+
 class ZipString(ZipFile):
     def __init__(self, content):
         ZipFile.__init__(self, BytesIO(content))
@@ -46,9 +50,19 @@ def extract_pdf_text(content):
         temp_txt.close()
 
 def extract_docx_text(content):
-    doc = ZipString(content)
-    content = doc.read('word/document.xml')
-    cleaned = re.sub('<(.|\n)*?>', ' ', content.decode())
+    with ZipString(content) as doc:
+        total = 0
+        for member in doc.infolist():
+            total += member.file_size
+            if (member.file_size > DOCX_MAX_MEMBER_SIZE
+                    or total > DOCX_MAX_UNCOMPRESSED_SIZE):
+                raise ValueError('DOCX uncompressed content exceeds the indexing size limit.')
+        with doc.open('word/document.xml') as source:
+            content = source.read(DOCX_MAX_MEMBER_SIZE + 1)
+        if len(content) > DOCX_MAX_MEMBER_SIZE:
+            raise ValueError('DOCX document XML exceeds the indexing size limit.')
+    # Avoid a capture group/backtracking stack proportional to every XML tag.
+    cleaned = re.sub('<[^>]*>', ' ', content.decode())
     return cleaned.encode()
 
 def extract_pptx_text(content):
