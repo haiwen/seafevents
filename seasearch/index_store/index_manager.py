@@ -99,9 +99,10 @@ class IndexManager(object):
                         'not_returned=%s query_seconds=%.3f', repo_id, start // 100 + 1,
                         len(rows), len(row_ids[start:start + 100]) - len(rows), time.monotonic() - batch_started)
             if not repo_file_index.update_descriptions(index_name, rows):
-                logger.info('SeaSearch description batch incomplete: repo=%s batch=%s retry=True duration_seconds=%.3f',
-                            repo_id, start // 100 + 1, time.monotonic() - batch_started)
-                raise RuntimeError('Description documents not yet indexed')
+                logger.warning('SeaSearch description batch incomplete: repo=%s batch=%s '
+                               'reason=documents_unavailable duration_seconds=%.3f',
+                               repo_id, start // 100 + 1, time.monotonic() - batch_started)
+                continue
             logger.info('SeaSearch description batch completed: repo=%s batch=%s duration_seconds=%.3f',
                         repo_id, start // 100 + 1, time.monotonic() - batch_started)
         logger.info('SeaSearch description rows queried: repo=%s requested=%s found=%s', repo_id, len(row_ids), found)
@@ -122,7 +123,10 @@ class IndexManager(object):
         rows = query_metadata_rows(repo_id, self.metadata_server_api, sql)
         logger.info('SeaSearch description compensation queried: repo=%s since=%s rows=%s', repo_id, since, len(rows))
         if not repo_file_index.update_descriptions(REPO_FILE_INDEX_PREFIX + repo_id, rows):
-            raise RuntimeError('Description documents not yet indexed')
+            logger.warning('SeaSearch description compensation incomplete: repo=%s '
+                           'reason=documents_unavailable; metadata watermark unchanged, '
+                           'waiting for periodic compensation', repo_id)
+            return
         repo_status_file_index.add_repo_status(
             repo_id, status.from_commit, status.to_commit, query_time)
         logger.info('SeaSearch description watermark advanced: repo=%s from_time=%s to_time=%s',
