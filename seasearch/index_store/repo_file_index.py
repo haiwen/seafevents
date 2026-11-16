@@ -519,6 +519,8 @@ class RepoFileIndex(object):
             self.seasearch_api.bulk(index_name, delete_params)
 
     def query_data_by_dir(self, index_name, directory, start, size):
+        # Match the directory boundary, not siblings such as /Customer Inc.
+        directory = directory.rstrip('/') + '/'
         dsl = {
             "query": {
                 "bool": {
