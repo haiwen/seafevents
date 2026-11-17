@@ -764,7 +764,7 @@ class RebuildRecoveryTests(unittest.TestCase):
 
 
 class DescriptionTests(unittest.TestCase):
-    def test_realtime_description_missing_then_visible_retries_with_row_ids(self):
+    def test_realtime_description_missing_is_skipped_then_updated_on_new_event(self):
         rows = [{'_id': 'row', '_parent_dir': '/', '_name': 'a.txt', '_description': 'new'}]
         manager_cls = load_class('seasearch/index_store/index_manager.py', 'IndexManager', {
             'need_index_metadata_info': lambda *args: True,
@@ -786,14 +786,12 @@ class DescriptionTests(unittest.TestCase):
         with patch.object(scheduler_module.time, 'monotonic', return_value=100) as clock:
             scheduler.submit('repo', row_ids=['row'])
             repo_id, task = scheduler.take()
-            with self.assertRaisesRegex(RuntimeError, 'not yet indexed'):
-                manager.update_library_file_descriptions(repo_id, task.row_ids, index)
-            scheduler.retry(repo_id, task)
+            manager.update_library_file_descriptions(repo_id, task.row_ids, index)
             scheduler.finish(repo_id, task)
-            self.assertEqual(scheduler.pending['repo'].row_ids, {'row'})
-            self.assertEqual(scheduler.pending['repo'].failures, 1)
+            self.assertFalse(scheduler.pending or scheduler.running)
             index.seasearch_api.update_document_by_id.assert_not_called()
             clock.return_value = 101
+            scheduler.submit('repo', row_ids=['row'])
             repo_id, task = scheduler.take()
             manager.update_library_file_descriptions(repo_id, task.row_ids, index)
             scheduler.finish(repo_id, task)
@@ -1011,12 +1009,12 @@ class DescriptionTests(unittest.TestCase):
         statuses.get_repo_status_by_id.return_value = SimpleNamespace(
             metadata_updated_time=100, from_commit='head', to_commit=None)
         index.update_descriptions.return_value = False
-        with self.assertRaises(RuntimeError):
-            manager.compensate_library_descriptions('repo', index, statuses)
+        manager.compensate_library_descriptions('repo', index, statuses)
         statuses.add_repo_status.assert_not_called()
         index.update_descriptions.return_value = True
         manager.compensate_library_descriptions('repo', index, statuses)
         statuses.add_repo_status.assert_called_once_with('repo', 'head', None, 200)
+        self.assertEqual(query.call_args_list[0].args[2], query.call_args_list[1].args[2])
         self.assertIn("_mtime` >= '99.0'", query.call_args.args[2])
 
 
