@@ -6,6 +6,7 @@ from seafevents.seafevent_server.task_manager import task_manager
 from seafevents.seafevent_server.export_task_manager import event_export_task_manager
 from seafevents.seafevent_server.import_task_manager import event_import_task_manager
 from seafevents.seafevent_server.repo_archive_task_manager import repo_archive_task_manager
+from seafevents.seafevent_server.metadata_backup_task_manager import metadata_backup_task_manager
 
 
 class SeafEventServer(Thread):
@@ -21,10 +22,12 @@ class SeafEventServer(Thread):
         event_export_task_manager.init(self.app, self._workers, self._task_expire_time)
         event_import_task_manager.init(self.app, self._workers, self._task_expire_time)
         repo_archive_task_manager.init(self.app, self._workers, self._task_expire_time)
+        metadata_backup_task_manager.init(self.app, self._workers, self._task_expire_time)
         task_manager.run()
         event_export_task_manager.run()
         event_import_task_manager.run()
         repo_archive_task_manager.run()
+        metadata_backup_task_manager.run()
         # Face recognition is no longer available.
         # application.face_recognition_manager = FaceRecognitionManager()
 
